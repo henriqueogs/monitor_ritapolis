@@ -1,0 +1,42 @@
+{
+  "name": "monitor-ritapolis",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MVP de coleta e visualizacao de dados publicos de Ritapolis",
+  "main": "src/api/server.js",
+  "scripts": {
+    "setup-db": "node scripts/setup-db.js",
+    "coletar": "node scripts/coletar-agora.js",
+    "coletar:prefeitura": "node scripts/coletar-prefeitura.js",
+    "coletar:camara": "node scripts/coletar-camara.js",
+    "saneamento:pdf": "node scripts/saneamento-pdf.js",
+    "ai:test": "node scripts/ai-test.js",
+    "ai:status": "node scripts/ai-status.js",
+    "ai:limpar-mock": "node scripts/limpar-resumos-mock.js",
+    "ai:resumir": "node scripts/resumir-documento.js",
+    "ai:resumir-pendentes": "node scripts/resumir-pendentes.js",
+    "ai:worker": "node scripts/ai-worker.js",
+    "api": "node scripts/api.js",
+    "dev": "concurrently \"npm run api\" \"npm run dev --prefix frontend\"",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "start": "concurrently \"npm run api\" \"npm run dev --prefix frontend\""
+  },
+  "dependencies": {
+    "axios": "^1.9.0",
+    "cheerio": "^1.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^4.21.2",
+    "mammoth": "^1.12.0",
+    "openai": "^6.37.0",
+    "p-limit": "^7.3.0",
+    "pdf-parse": "^1.1.1",
+    "pdfjs-dist": "^5.7.284",
+    "winston": "^3.17.0",
+    "word-extractor": "^1.0.4",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

@@ -1,0 +1,146 @@
+/* ============================================================
+   Monitor Ritapolis — Redesign UX/UI v1
+   Design tokens (paleta, tipografia, espaco, motion, sombras)
+   Inspirado em Gov.br DS + GOV.UK Design System + USWDS
+   ============================================================ */
+
+:root {
+  /* Cor — superficies (light) */
+  --color-bg:           #f5f7fa;
+  --color-surface:      #ffffff;
+  --color-surface-alt:  #f1f4f8;
+  --color-surface-mute: #e9eef4;
+
+  /* Cor — texto */
+  --color-text:         #0f172a;
+  --color-text-soft:    #475569;
+  --color-text-mute:    #6b7280;
+  --color-text-on-brand:#ffffff;
+
+  /* Cor — bordas */
+  --color-line:         #dde3ec;
+  --color-line-strong:  #c2cad6;
+
+  /* Cor — marca (azul Gov.br + verde acento) */
+  --color-brand-50:     #e7f0fb;
+  --color-brand-100:    #cfe1f7;
+  --color-brand-300:    #6fa8e0;
+  --color-brand-500:    #1351b4;
+  --color-brand-600:    #0c4291;
+  --color-brand-700:    #093577;
+
+  --color-accent-500:   #168821;
+  --color-accent-600:   #0e6e1a;
+
+  /* Semantico */
+  --color-info-50:      #e6f4fa;
+  --color-info-500:     #155bcb;
+  --color-success-50:   #e8f5ea;
+  --color-success-500:  #168821;
+  --color-warn-50:      #fdf3d8;
+  --color-warn-500:     #b7791f;
+  --color-danger-50:    #fde2e2;
+  --color-danger-500:   #c92a2a;
+
+  /* Tipos de documento */
+  --tipo-licitacao-bg:  #fff4e0;
+  --tipo-licitacao-fg:  #8a4b00;
+  --tipo-lei-bg:        #e6f0fb;
+  --tipo-lei-fg:        #0c4291;
+  --tipo-decreto-bg:    #efe5fb;
+  --tipo-decreto-fg:    #4a1e91;
+  --tipo-portaria-bg:   #e2f4ec;
+  --tipo-portaria-fg:   #0e6e1a;
+  --tipo-publico-bg:    #f1f4f8;
+  --tipo-publico-fg:    #334155;
+
+  /* Tipografia */
+  --font-sans: 'Rawline', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+
+  --fs-12: 0.75rem;
+  --fs-14: 0.875rem;
+  --fs-16: 1rem;
+  --fs-18: 1.125rem;
+  --fs-20: 1.25rem;
+  --fs-24: 1.5rem;
+  --fs-30: 1.875rem;
+  --fs-36: 2.25rem;
+  --fs-48: 3rem;
+
+  --lh-tight:   1.15;
+  --lh-snug:    1.3;
+  --lh-normal:  1.55;
+  --lh-loose:   1.75;
+
+  --fw-regular: 400;
+  --fw-medium:  500;
+  --fw-semibold:600;
+  --fw-bold:    700;
+
+  /* Espaco (4px) */
+  --sp-1:  4px;  --sp-2:  8px;  --sp-3:  12px; --sp-4:  16px;
+  --sp-5:  20px; --sp-6:  24px; --sp-8:  32px; --sp-10: 40px;
+  --sp-12: 48px; --sp-16: 64px; --sp-20: 80px;
+
+  /* Raios */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-pill: 999px;
+
+  /* Sombras */
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08), 0 2px 4px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.12), 0 4px 8px rgba(15, 23, 42, 0.06);
+  --shadow-focus: 0 0 0 3px rgba(19, 81, 180, 0.25);
+
+  /* Motion */
+  --motion-fast:  120ms;
+  --motion-base:  200ms;
+  --motion-slow:  320ms;
+  --ease-out:     cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out:  cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* Layout */
+  --container-max: 1200px;
+  --container-narrow: 880px;
+  --topbar-h: 64px;
+
+  --focus-ring: 0 0 0 3px rgba(19, 81, 180, 0.25);
+}
+
+[data-theme="dark"] {
+  --color-bg:           #0b1220;
+  --color-surface:      #111a2c;
+  --color-surface-alt:  #0e1626;
+  --color-surface-mute: #182238;
+  --color-text:         #f1f5f9;
+  --color-text-soft:    #cbd5e1;
+  --color-text-mute:    #94a3b8;
+  --color-line:         #1f2a44;
+  --color-line-strong:  #2c3a5a;
+  --color-brand-500:    #4d8be0;
+  --color-brand-600:    #6fa8e0;
+  --tipo-publico-bg:    #182238;
+  --tipo-publico-fg:    #cbd5e1;
+  --tipo-lei-bg:        #112a4a;
+  --tipo-lei-fg:        #a8c5ea;
+  --tipo-licitacao-bg:  #3a2a10;
+  --tipo-licitacao-fg:  #f5c98b;
+  --tipo-decreto-bg:    #2a1a4a;
+  --tipo-decreto-fg:    #c8b3f3;
+  --tipo-portaria-bg:   #122a1d;
+  --tipo-portaria-fg:   #8fd4a8;
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
