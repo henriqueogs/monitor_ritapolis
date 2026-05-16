@@ -27,6 +27,38 @@ async function fetchJson(path) {
   return response.json();
 }
 
+async function postJson(path, body = {}) {
+  let response;
+
+  try {
+    response = await fetch(`${apiUrl}${path}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body),
+      cache: 'no-store'
+    });
+  } catch (error) {
+    throw new Error(`Falha ao conectar na API ${apiUrl}${path}: ${error.message}`);
+  }
+
+  if (!response.ok) {
+    let detail = '';
+
+    try {
+      const responseBody = await response.json();
+      detail = responseBody?.error ? `: ${responseBody.error}` : '';
+    } catch {
+      detail = '';
+    }
+
+    throw new Error(`Falha ao enviar ${path} (${response.status})${detail}`);
+  }
+
+  return response.json();
+}
+
 function emptyList(params = {}) {
   return {
     total: 0,
@@ -172,7 +204,7 @@ export function fetchPainelCidadao() {
   return fetchJson('/painel-cidadao').catch(async () => {
     const [estatisticas, recentes, licitacoes, coletas] = await Promise.all([
       fetchEstatisticas().catch(() => emptyEstatisticas()),
-      fetchDocumentos({ limite: 6 }).catch(() => emptyList({ limite: 6 })),
+      fetchDocumentos({ limite: 8 }).catch(() => emptyList({ limite: 8 })),
       fetchLicitacoes({ limite: 5 }).catch(() => emptyList({ limite: 5 })),
       fetchColetas({ limite: 5 }).catch(() => ({ dados: [] }))
     ]);
@@ -223,6 +255,18 @@ export function fetchColetas(params = {}) {
 
 export function fetchColetaAtualizacaoStatus() {
   return fetchJson('/coletas/atualizacao/status');
+}
+
+export function syncPrefeituraOnPortalOpen() {
+  return postJson('/coletas/sincronizar-prefeitura').catch(() => ({
+    status: 'indisponivel',
+    coleta: {
+      started: false,
+      motivo: 'verificacao_indisponivel'
+    },
+    areas: [],
+    erros: []
+  }));
 }
 
 export function fetchCoberturaPrefeitura(params = {}) {

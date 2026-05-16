@@ -2,8 +2,8 @@ import './globals.css';
 import TopNav from './components/TopNav';
 
 export const metadata = {
-  title: 'Monitor Ritapolis',
-  description: 'Plataforma de inteligencia publica verificavel sobre dados da Prefeitura e da Camara de Ritapolis'
+  title: 'Monitor Ritápolis — Inteligência Pública com IA',
+  description: 'Entenda documentos públicos em segundos. O Monitor Ritápolis usa IA para transformar editais, decretos e licitações em informações compreensíveis.'
 };
 
 export default function RootLayout({ children }) {
@@ -15,8 +15,8 @@ export default function RootLayout({ children }) {
           {children}
           <footer className="site-footer">
             <div className="site-footer-inner">
-              <span>Monitor Ritapolis</span>
-              <span>Dados publicos coletados de fontes oficiais · <a href="/admin">Operacao</a></span>
+              <span>Monitor Ritápolis</span>
+              <span>Dados públicos coletados de fontes oficiais — <a href="/admin">Operação</a></span>
             </div>
           </footer>
         </div>

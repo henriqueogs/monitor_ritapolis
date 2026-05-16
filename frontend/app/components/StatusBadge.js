@@ -1,3 +1,4 @@
+import { CheckCircle2, AlertCircle, XCircle, CircleDashed } from 'lucide-react';
 import { labelStatus } from '../lib/format';
 
 export default function StatusBadge({ value }) {
@@ -12,5 +13,16 @@ export default function StatusBadge({ value }) {
           ? 'is-warn'
           : '';
 
-  return <span className={`status-badge ${tone}`.trim()}>{labelStatus(value)}</span>;
+  const icon =
+    tone === 'is-good' ? <CheckCircle2 size={13} /> :
+      tone === 'is-bad' ? <XCircle size={13} /> :
+        tone === 'is-warn' ? <AlertCircle size={13} /> :
+          <CircleDashed size={13} />;
+
+  return (
+    <span className={`status-badge ${tone}`.trim()}>
+      {icon}
+      {labelStatus(value)}
+    </span>
+  );
 }

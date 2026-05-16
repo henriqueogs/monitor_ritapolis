@@ -1,33 +1,49 @@
 import Link from 'next/link';
+import { Sparkles, ArrowRight, FileText } from 'lucide-react';
 import DataAvailabilityBadge from './DataAvailabilityBadge';
 import { bestResumo, formatDate, formatMoney, labelFonte, labelTipo } from '../lib/format';
 
 export default function IntelligenceBrief({ resumoAi, publicacao, licitacao }) {
   const main = resumoAi || publicacao || licitacao;
   const sourceLabel = main?.fonte_nome || labelFonte(main?.fonte);
-  const dateLabel = formatDate(main?.data_publicacao || main?.atualizado_em || main?.data_abertura, 'Data nao identificada');
+  const dateLabel = formatDate(
+    main?.data_publicacao || main?.atualizado_em || main?.data_abertura,
+    'Data não identificada'
+  );
 
   return (
     <section className="brief-shell">
       <div className="brief-copy">
         <div className="brief-kicker">
           <DataAvailabilityBadge status={resumoAi ? 'real' : 'parcial'} />
-          <span>Observatorio publico</span>
+          <span>Leitura pública verificável</span>
         </div>
-        <h1>O que esta acontecendo agora em Ritapolis</h1>
+        <h1>Entenda o que está acontecendo em Ritápolis</h1>
         <p>
-          Acompanhe atos, licitacoes e leituras de IA com caminho direto para a fonte. O foco aqui e entendimento:
-          primeiro o significado, depois o documento.
+          A plataforma organiza atos, licitações e leituras de IA em linguagem direta, sempre com caminho para a
+          fonte oficial.
         </p>
         <form action="/documentos" className="brief-search">
-          <input name="q" placeholder="Buscar por merenda, obra, transporte, lei, edital..." />
-          <button type="submit">Explorar evidencias</button>
+          <input name="q" placeholder="Buscar por merenda, obra, transporte, lei, edital…" />
+          <button type="submit">Explorar evidências</button>
         </form>
       </div>
 
       <Link href={main?.id ? `/documento/${main.id}` : '/analises'} className="brief-card">
-        <span className="brief-card-label">{resumoAi ? 'Leitura de IA' : 'Publicacao recente'}</span>
-        <h2>{main?.titulo_curto || main?.titulo || 'Analises ainda em preparacao'}</h2>
+        <span className="brief-card-label">
+          {resumoAi ? (
+            <>
+              <Sparkles size={14} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'text-bottom' }} />
+              Análise em destaque
+            </>
+          ) : (
+            <>
+              <FileText size={14} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'text-bottom' }} />
+              Publicação recente
+            </>
+          )}
+        </span>
+        <h2>{main?.titulo_curto || main?.titulo || 'Análises ainda em preparação'}</h2>
         <p>{main ? bestResumo(main) : 'Conforme os resumos reais forem gerados, as leituras aparecem aqui.'}</p>
         <div className="brief-card-meta">
           <span>{main?.tipo_nome || labelTipo(main?.tipo)}</span>

@@ -14,7 +14,7 @@ export default function QualitySignals({ documento, compact = false }) {
   const items = [
     {
       key: 'pdf',
-      label: indicadores.tem_pdf ? 'Arquivo oficial' : 'Sem arquivo',
+      label: indicadores.tem_pdf ? 'Fonte oficial' : 'Sem arquivo',
       tone: indicadores.tem_pdf ? 'ok' : 'warn'
     },
     {
@@ -37,9 +37,13 @@ export default function QualitySignals({ documento, compact = false }) {
     });
   }
 
+  const visibleItems = compact
+    ? items.filter((item) => item.key === 'pdf' || item.key === 'ia' || item.key === 'alertas').slice(0, 2)
+    : items;
+
   return (
     <div className={compact ? 'quality-signals quality-signals-compact' : 'quality-signals'}>
-      {items.map((item) => (
+      {visibleItems.map((item) => (
         <span key={item.key} className={`quality-signal is-${item.tone}`}>
           {item.label}
         </span>
