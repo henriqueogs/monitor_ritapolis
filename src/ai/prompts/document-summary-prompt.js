@@ -1,9 +1,9 @@
 function buildContractJsonSnippet() {
   return `{
   "tipo_documento": "edital | decreto | portaria | lei | contrato | despesa | ata | outro",
-  "titulo_curto": "string",
-  "resumo_cidadao": "string",
-  "resumo_tecnico": "string",
+  "titulo_curto": "string nao vazia",
+  "resumo_cidadao": "string nao vazia",
+  "resumo_tecnico": "string nao vazia",
   "pontos_principais": ["string"],
   "datas_relevantes": [
     {
@@ -55,6 +55,9 @@ Regras obrigatorias:
 - Nao invente informacoes.
 - Nao deduza datas, valores, nomes ou status sem evidencia explicita no texto.
 - Quando uma informacao importante nao aparecer, registre em campos_nao_encontrados.
+- Nao retorne o schema vazio ou exemplos genericos; preencha o JSON com informacoes do texto.
+- titulo_curto, resumo_cidadao e resumo_tecnico nunca podem ser strings vazias.
+- Se o trecho nao tiver informacao suficiente, explique isso nesses campos obrigatorios em linguagem simples.
 - Retorne somente JSON valido.
 - Nao use markdown.
 - Nao inclua comentarios fora do JSON.

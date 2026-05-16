@@ -141,16 +141,36 @@ function normalizeSummaryBeforeValidation(summary) {
 
   const hasSourceExcerpt = (item) => Boolean(normalizeOptionalText(item?.trecho_fonte));
   const hasRequiredText = (value) => Boolean(normalizeOptionalText(value));
+  const pontosPrincipais = Array.isArray(summary.pontos_principais)
+    ? summary.pontos_principais.map(normalizeOptionalText).filter(Boolean)
+    : summary.pontos_principais;
+  const normalizedObject =
+    summary.objeto && typeof summary.objeto === 'object'
+      ? {
+          ...summary.objeto,
+          descricao: normalizeOptionalText(summary.objeto.descricao),
+          trecho_fonte: hasSourceExcerpt(summary.objeto) ? normalizeRequiredText(summary.objeto.trecho_fonte) : null
+        }
+      : { descricao: null, trecho_fonte: null };
+  const firstMainPoint = Array.isArray(pontosPrincipais) ? pontosPrincipais[0] : null;
+  const title = normalizeRequiredText(summary.titulo_curto);
+  const citizenSummary = normalizeRequiredText(summary.resumo_cidadao);
+  const technicalSummary = normalizeRequiredText(summary.resumo_tecnico);
+  const fallbackText =
+    normalizeOptionalText(normalizedObject.descricao) ||
+    firstMainPoint ||
+    'Trecho de documento publico municipal sem informacoes suficientes para resumo detalhado.';
+  const usedFallback = !title || !citizenSummary || !technicalSummary;
+  const rawConfidence = Number(summary.confianca);
+  const confidence = Number.isFinite(rawConfidence) ? Math.min(1, Math.max(0, rawConfidence)) : 0.35;
 
   return {
     ...summary,
     tipo_documento: normalizeEnumValue(summary.tipo_documento, enumValues.tipo_documento),
-    titulo_curto: normalizeRequiredText(summary.titulo_curto),
-    resumo_cidadao: normalizeRequiredText(summary.resumo_cidadao),
-    resumo_tecnico: normalizeRequiredText(summary.resumo_tecnico),
-    pontos_principais: Array.isArray(summary.pontos_principais)
-      ? summary.pontos_principais.map(normalizeOptionalText).filter(Boolean)
-      : summary.pontos_principais,
+    titulo_curto: title || fallbackText.slice(0, 120),
+    resumo_cidadao: citizenSummary || fallbackText,
+    resumo_tecnico: technicalSummary || fallbackText,
+    pontos_principais: pontosPrincipais,
     datas_relevantes: Array.isArray(summary.datas_relevantes)
       ? summary.datas_relevantes
           .filter((item) => hasSourceExcerpt(item) && hasRequiredText(item?.descricao))
@@ -184,14 +204,7 @@ function normalizeSummaryBeforeValidation(summary) {
             trecho_fonte: normalizeRequiredText(item?.trecho_fonte)
           }))
       : summary.partes_envolvidas,
-    objeto:
-      summary.objeto && typeof summary.objeto === 'object'
-        ? {
-            ...summary.objeto,
-            descricao: normalizeOptionalText(summary.objeto.descricao),
-            trecho_fonte: hasSourceExcerpt(summary.objeto) ? normalizeRequiredText(summary.objeto.trecho_fonte) : null
-          }
-        : summary.objeto,
+    objeto: normalizedObject,
     riscos_ou_alertas: Array.isArray(summary.riscos_ou_alertas)
       ? summary.riscos_ou_alertas
           .filter((item) => hasRequiredText(item?.descricao) && hasRequiredText(item?.motivo))
@@ -204,7 +217,8 @@ function normalizeSummaryBeforeValidation(summary) {
       : summary.riscos_ou_alertas,
     campos_nao_encontrados: Array.isArray(summary.campos_nao_encontrados)
       ? summary.campos_nao_encontrados.map(normalizeOptionalText).filter(Boolean)
-      : summary.campos_nao_encontrados
+      : summary.campos_nao_encontrados,
+    confianca: usedFallback ? Math.min(confidence, 0.35) : confidence
   };
 }
 

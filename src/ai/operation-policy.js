@@ -53,6 +53,7 @@ function getAiOperationPlan({ texto = '', caracteres = null } = {}) {
       modo: 'chunking',
       chunks_previstos: Math.ceil(totalChars / config.aiChunkSizeChars),
       limite_direto_chars: directLimit,
+      chunk_min_chars: config.aiMinChunkSizeChars,
       recomendado_frontend: false
     };
   }
@@ -71,6 +72,7 @@ function getAiOperationPlan({ texto = '', caracteres = null } = {}) {
       chunks_previstos: chunks.length,
       limite_direto_chars: directLimit,
       chunk_size_chars: config.aiChunkSizeChars,
+      chunk_min_chars: config.aiMinChunkSizeChars,
       chunk_overlap_chars: config.aiChunkOverlapChars,
       recomendado_frontend: true
     };
@@ -83,6 +85,7 @@ function getAiOperationPlan({ texto = '', caracteres = null } = {}) {
       chunks_previstos: null,
       limite_direto_chars: directLimit,
       chunk_size_chars: config.aiChunkSizeChars,
+      chunk_min_chars: config.aiMinChunkSizeChars,
       chunk_overlap_chars: config.aiChunkOverlapChars,
       recomendado_frontend: false
     };

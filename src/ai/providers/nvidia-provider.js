@@ -25,7 +25,8 @@ class NvidiaProvider extends BaseProvider {
     this.client = new OpenAI({
       apiKey: config.apiKey,
       baseURL: config.baseURL || 'https://integrate.api.nvidia.com/v1',
-      timeout: config.timeoutMs || 60000
+      timeout: config.timeoutMs || 60000,
+      maxRetries: 0
     });
   }
 
