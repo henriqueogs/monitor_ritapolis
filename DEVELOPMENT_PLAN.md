@@ -26,6 +26,7 @@ Documentos de referencia:
 
 - `README.md`: guia operacional atual.
 - `DEVELOPMENT_PLAN.md`: documento mestre e roadmap vivo.
+- `ARCHITECTURE_REFACTOR_PLAN.md`: plano central de arquitetura e refatoracao.
 - `SPEC_monitor_ritapolis.md`: especificacao historica do MVP original.
 - `ACOMPANHAMENTO_RESUMOS_IA_PDFS.md`: log operacional detalhado da camada de IA.
 - `IMPLEMENTACAO_RESUMOS_IA_PDFS.md`: desenho e historico de implementacao dos resumos.
