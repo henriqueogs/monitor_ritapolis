@@ -1,1 +1,3 @@
-export { default } from '../../ia/page';
+import AdminIaPage from './index';
+
+export default AdminIaPage;

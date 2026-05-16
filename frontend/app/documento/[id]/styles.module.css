@@ -1,0 +1,237 @@
+.pageScope {
+  min-width: 0;
+}
+
+.proofGrid,
+.contentGrid {
+  display: grid;
+  gap: 24px;
+  align-items: start;
+}
+
+.proofGrid {
+  grid-template-columns: minmax(0, 1.12fr) minmax(300px, 0.88fr);
+}
+
+.contentGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.aiCard {
+  border: 1px solid var(--border-ai);
+  border-radius: var(--radius-lg);
+  background: var(--surface-ai);
+  box-shadow: var(--shadow-ai);
+  padding: 28px;
+  transition: box-shadow var(--motion-base) var(--ease-out),
+    transform var(--motion-base) var(--ease-out);
+}
+
+.aiCard:hover {
+  box-shadow: var(--shadow-ai), var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.aiHeader,
+.aiHeaderMain {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.aiHeader {
+  margin-bottom: 16px;
+}
+
+.aiHeaderSpread {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.aiTitle {
+  margin: 0;
+  color: var(--ai-accent);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.aiTitleLarge {
+  margin: 0;
+  color: var(--ai-accent);
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.aiMeta {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.aiNotice,
+.aiNoticeError,
+.aiNoticeWarn {
+  margin-bottom: 16px;
+  border: 1px solid var(--border-ai);
+  border-radius: var(--radius-md);
+  background: var(--surface-ai);
+  color: var(--ai-accent);
+  padding: 16px;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.aiNoticeCompact {
+  padding: 14px 18px;
+  font-size: 0.88rem;
+}
+
+.aiNoticeError {
+  border-color: rgba(180, 35, 24, 0.25);
+  background: rgba(180, 35, 24, 0.08);
+  color: #B42318;
+}
+
+.aiNoticeWarn {
+  border-color: rgba(183, 121, 31, 0.25);
+  background: rgba(183, 121, 31, 0.08);
+  color: #B7791F;
+}
+
+.aiLargeDoc {
+  margin-top: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+  padding: 16px;
+}
+
+.aiLargeDoc p,
+.statusRow p,
+.sourceRow p,
+.qualityAlert p {
+  margin: 8px 0 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.aiSummaryLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.8fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.aiSummaryMain h3,
+.aiSummaryGroup h4 {
+  margin: 0 0 10px;
+  line-height: 1.25;
+}
+
+.aiSummaryMain h3 {
+  color: var(--ai-accent);
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.aiSummaryMain p,
+.aiSummaryGroup p,
+.aiEvidenceRow p {
+  margin: 0;
+}
+
+.aiSummaryGroup,
+.aiEvidenceRow {
+  margin-top: 20px;
+}
+
+.aiEvidenceRow {
+  padding-top: 16px;
+  border-top: 1px solid var(--border-ai);
+}
+
+.aiEvidenceRow span {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+}
+
+.qualityAlertStack,
+.sourceList,
+.statusList {
+  display: grid;
+  gap: 12px;
+}
+
+.qualityAlert,
+.sourceRow,
+.statusRow {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+  transition: box-shadow var(--motion-base) var(--ease-out),
+    border-color var(--motion-base) var(--ease-out),
+    transform var(--motion-base) var(--ease-out);
+}
+
+.qualityAlert {
+  border-color: rgba(183, 121, 31, 0.25);
+  background: var(--warning-soft);
+  color: var(--warning);
+  padding: 16px;
+}
+
+.sourceRow,
+.statusRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px;
+  color: var(--text);
+}
+
+.sourceRow > div {
+  min-width: 0;
+}
+
+.documentText {
+  margin-top: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+  padding: 16px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+@media (max-width: 960px) {
+  .proofGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .contentGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .contentGrid,
+  .aiSummaryLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .sourceRow,
+  .statusRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

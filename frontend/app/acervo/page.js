@@ -1,5 +1,3 @@
-import { redirect } from 'next/navigation';
+import AcervoPage from './index';
 
-export default function AcervoPage() {
-  redirect('/documentos');
-}
+export default AcervoPage;

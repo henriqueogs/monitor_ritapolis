@@ -1,0 +1,136 @@
+.pageScope {
+  min-width: 0;
+}
+
+.contentGrid,
+.statsGrid {
+  display: grid;
+  gap: 24px;
+  align-items: start;
+}
+
+.contentGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.statsGrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.statBox {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+  padding: 20px;
+  transition: box-shadow var(--motion-base) var(--ease-out),
+    border-color var(--motion-base) var(--ease-out),
+    transform var(--motion-base) var(--ease-out);
+}
+
+.statBox span {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 0.86rem;
+  font-weight: 500;
+}
+
+.statBox strong {
+  display: block;
+  margin-top: 10px;
+  color: var(--text);
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid rgba(183, 121, 31, 0.25);
+  border-radius: var(--radius-md);
+  background: var(--warning-soft);
+  color: var(--warning);
+  padding: 16px;
+}
+
+.notice p {
+  margin: 8px 0 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.areaList {
+  display: grid;
+  gap: 12px;
+}
+
+.areaRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+  padding: 18px;
+  color: var(--text);
+}
+
+.areaRow > div {
+  min-width: 0;
+}
+
+.areaRow p {
+  margin: 8px 0 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.areaError {
+  color: var(--warning) !important;
+}
+
+.areaSide {
+  display: flex;
+  min-width: 180px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 960px) {
+  .contentGrid,
+  .statsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .contentGrid,
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .notice {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .areaRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .areaSide {
+    min-width: 0;
+    align-items: flex-start;
+  }
+}

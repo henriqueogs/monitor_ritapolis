@@ -1,1 +1,3 @@
-export { default } from '../../cobertura/page';
+import AdminCoberturaPage from './index';
+
+export default AdminCoberturaPage;
