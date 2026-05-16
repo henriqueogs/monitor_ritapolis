@@ -1,6 +1,21 @@
 const ColetorSitePrefeitura = require('../coletores/site-prefeitura');
 const { db } = require('../db');
 
+const CACHE_TTL_MS = 5 * 60 * 1000;
+const cache = new Map();
+
+function getPrefeituraAreas() {
+  return ColetorSitePrefeitura.AREAS.map((area) => ({ ...area }));
+}
+
+function getCoberturaPrefeituraSourceLinks() {
+  return getPrefeituraAreas().map((area) => ({
+    id: area.id,
+    titulo: area.titulo,
+    url: area.publicUrl
+  }));
+}
+
 function getKnownPdfUrls() {
   return new Set(
     db
@@ -8,6 +23,25 @@ function getKnownPdfUrls() {
       .all()
       .map((row) => row.url_pdf)
   );
+}
+
+function getKnownAreaSourceCounts() {
+  const counts = new Map();
+
+  for (const area of getPrefeituraAreas()) {
+    const total = db
+      .prepare(
+        `SELECT COUNT(*) AS total
+         FROM documentos
+         WHERE fonte = 'site_prefeitura'
+           AND url_origem IN (?, ?)`
+      )
+      .get(area.publicUrl, area.technicalUrl)?.total || 0;
+
+    counts.set(area.id, total);
+  }
+
+  return counts;
 }
 
 function inferAnoFromRecord(record) {
@@ -20,36 +54,26 @@ function inferAnoFromRecord(record) {
   return match ? Number(match[1]) : null;
 }
 
-async function compararCoberturaPrefeitura({ limite = 500 } = {}) {
-  const coletor = new ColetorSitePrefeitura();
-  const conhecidos = getKnownPdfUrls();
-  const registros = [];
+function toCoverageItem(record, area, conhecidos) {
+  const pdfUrl = record.attachments.find((attachment) => attachment.url)?.url || null;
+  const presente = pdfUrl ? conhecidos.has(pdfUrl) : false;
 
-  for (const target of ColetorSitePrefeitura.TARGET_PAGES) {
-    const encontrados = await coletor.collectRecordsForPage(target);
-    registros.push(
-      ...encontrados.map((record) => {
-        const pdfUrl = record.attachments.find((attachment) => attachment.url)?.url || null;
-        const presente = pdfUrl ? conhecidos.has(pdfUrl) : false;
+  return {
+    area_id: area.id,
+    area_titulo: area.titulo,
+    titulo: record.titulo,
+    numero: record.numero,
+    ano: inferAnoFromRecord(record),
+    url_origem: area.publicUrl,
+    url_tecnica: area.technicalUrl,
+    url_pdf: pdfUrl,
+    presente_no_sistema: presente
+  };
+}
 
-        return {
-          titulo: record.titulo,
-          numero: record.numero,
-          ano: inferAnoFromRecord(record),
-          url_origem: record.pageUrl,
-          url_pdf: pdfUrl,
-          presente_no_sistema: presente
-        };
-      })
-    );
-
-    if (registros.length >= limite) {
-      break;
-    }
-  }
-
-  const dados = registros.slice(0, limite);
+function summarizeByYear(dados) {
   const porAno = new Map();
+
   for (const item of dados) {
     const ano = item.ano || 'sem_ano';
     const atual = porAno.get(ano) || { ano, encontrados_site: 0, presentes_sistema: 0, ausentes_sistema: 0 };
@@ -62,20 +86,116 @@ async function compararCoberturaPrefeitura({ limite = 500 } = {}) {
     porAno.set(ano, atual);
   }
 
+  return Array.from(porAno.values()).sort((a, b) => {
+    if (a.ano === 'sem_ano') return 1;
+    if (b.ano === 'sem_ano') return -1;
+    return Number(b.ano) - Number(a.ano);
+  });
+}
+
+function buildAreaSummary({ area, status, registros, conhecidosAreaCount = 0, erro = null }) {
   return {
-    total_site: dados.length,
-    total_presentes_sistema: dados.filter((item) => item.presente_no_sistema).length,
-    total_ausentes_sistema: dados.filter((item) => !item.presente_no_sistema).length,
-    por_ano: Array.from(porAno.values()).sort((a, b) => {
-      if (a.ano === 'sem_ano') return 1;
-      if (b.ano === 'sem_ano') return -1;
-      return Number(b.ano) - Number(a.ano);
-    }),
-    ausentes: dados.filter((item) => !item.presente_no_sistema),
-    dados
+    id: area.id,
+    titulo: area.titulo,
+    tipo: area.tipo,
+    page_id: area.pageId,
+    public_url: area.publicUrl,
+    technical_url: area.technicalUrl,
+    status,
+    erro,
+    encontrados_site: registros.length,
+    presentes_sistema: registros.filter((item) => item.presente_no_sistema).length,
+    ausentes_sistema: registros.filter((item) => !item.presente_no_sistema).length,
+    documentos_conhecidos_area: conhecidosAreaCount
   };
 }
 
+async function compararCoberturaPrefeitura({ limite = 500 } = {}) {
+  const normalizedLimit = Math.max(1, Number(limite) || 500);
+  const cacheKey = `prefeitura:${normalizedLimit}`;
+  const cached = cache.get(cacheKey);
+  if (cached && Date.now() - cached.createdAt < CACHE_TTL_MS) {
+    return {
+      ...cached.payload,
+      cache: 'hit'
+    };
+  }
+
+  const coletor = new ColetorSitePrefeitura();
+  const conhecidos = getKnownPdfUrls();
+  const conhecidosPorArea = getKnownAreaSourceCounts();
+  const areas = [];
+  const registros = [];
+  const erros = [];
+
+  for (const area of getPrefeituraAreas()) {
+    try {
+      const remaining = Math.max(normalizedLimit - registros.length, 0);
+      const encontrados = remaining > 0
+        ? await coletor.collectRecordsForPage(area, { maxRecords: remaining })
+        : [];
+      const areaRegistros = encontrados.map((record) => toCoverageItem(record, area, conhecidos));
+      const disponiveisNoLimite = Math.max(normalizedLimit - registros.length, 0);
+      if (disponiveisNoLimite > 0) {
+        registros.push(...areaRegistros.slice(0, disponiveisNoLimite));
+      }
+      areas.push(buildAreaSummary({
+        area,
+        status: remaining > 0 ? 'ok' : 'nao_consultada_por_limite',
+        registros: areaRegistros,
+        conhecidosAreaCount: conhecidosPorArea.get(area.id) || 0
+      }));
+    } catch (error) {
+      const erro = error.message || 'Falha ao consultar area';
+      erros.push({
+        area_id: area.id,
+        titulo: area.titulo,
+        public_url: area.publicUrl,
+        technical_url: area.technicalUrl,
+        erro
+      });
+      areas.push(buildAreaSummary({
+        area,
+        status: 'indisponivel',
+        registros: [],
+        conhecidosAreaCount: conhecidosPorArea.get(area.id) || 0,
+        erro
+      }));
+    }
+  }
+
+  const dados = registros.slice(0, normalizedLimit);
+  const areasDisponiveis = areas.filter((area) => area.status === 'ok' || area.status === 'nao_consultada_por_limite').length;
+  const status = areasDisponiveis === areas.length
+    ? 'ok'
+    : areasDisponiveis > 0
+      ? 'parcial'
+      : 'indisponivel';
+
+  const payload = {
+    status,
+    fontes_consultadas: getCoberturaPrefeituraSourceLinks(),
+    areas,
+    erros,
+    total_site: dados.length,
+    total_presentes_sistema: dados.filter((item) => item.presente_no_sistema).length,
+    total_ausentes_sistema: dados.filter((item) => !item.presente_no_sistema).length,
+    por_ano: summarizeByYear(dados),
+    ausentes: dados.filter((item) => !item.presente_no_sistema),
+    dados,
+    cache: 'miss'
+  };
+
+  cache.set(cacheKey, {
+    createdAt: Date.now(),
+    payload
+  });
+
+  return payload;
+}
+
 module.exports = {
-  compararCoberturaPrefeitura
+  compararCoberturaPrefeitura,
+  getCoberturaPrefeituraSourceLinks,
+  getPrefeituraAreas
 };

@@ -13,9 +13,25 @@ const {
 } = require('../utils/text');
 
 const BASE_URL = 'https://ritapolis.mg.gov.br';
-const TARGET_PAGES = [
-  { pageId: 6668, fallbackTitle: 'Editais' },
-  { pageId: 9656, fallbackTitle: 'Editais 2' }
+const PREFEITURA_AREAS = [
+  {
+    id: 'editais',
+    titulo: 'Editais',
+    fallbackTitle: 'Editais',
+    pageId: 6668,
+    publicUrl: `${BASE_URL}/pagina/6668/editais`,
+    technicalUrl: `${BASE_URL}/ws_consulta/Pagina.php?INT_PAG=6668`,
+    tipo: 'editais'
+  },
+  {
+    id: 'editais_2',
+    titulo: 'Editais 2',
+    fallbackTitle: 'Editais 2',
+    pageId: 9656,
+    publicUrl: `${BASE_URL}/pagina/9656/Editais%202`,
+    technicalUrl: `${BASE_URL}/ws_consulta/Pagina.php?INT_PAG=9656`,
+    tipo: 'editais'
+  }
 ];
 
 function normalizeSpaces(value) {
@@ -70,7 +86,10 @@ class ColetorSitePrefeitura extends ColetorBase {
   }
 
   async fetchPageShell(pageId) {
-    const url = `${BASE_URL}/ws_consulta/Pagina.php?INT_PAG=${pageId}`;
+    const target = typeof pageId === 'object'
+      ? pageId
+      : PREFEITURA_AREAS.find((area) => area.pageId === Number(pageId));
+    const url = target?.technicalUrl || `${BASE_URL}/ws_consulta/Pagina.php?INT_PAG=${pageId}`;
     const response = await this.buscarComRetry(url, { responseType: 'arraybuffer' });
     return {
       url,
@@ -171,8 +190,11 @@ class ColetorSitePrefeitura extends ColetorBase {
     return records;
   }
 
-  async collectRecordsForPage(target) {
-    const shell = await this.fetchPageShell(target.pageId);
+  async collectRecordsForPage(target, options = {}) {
+    const maxRecords = Number.isFinite(Number(options.maxRecords))
+      ? Number(options.maxRecords)
+      : Infinity;
+    const shell = await this.fetchPageShell(target);
     const cadastroIds = this.extractCadastroGenericoIds(shell.html);
     const allRecords = [];
 
@@ -181,14 +203,20 @@ class ColetorSitePrefeitura extends ColetorBase {
       const firstPageHtml = await this.fetchCadastroPage(cadastroId, 0);
       const totalPages = this.getTotalPages(firstPageHtml);
       allRecords.push(
-        ...this.parseRecords(shell.url, meta.title || target.fallbackTitle, firstPageHtml)
+        ...this.parseRecords(target.publicUrl, meta.title || target.fallbackTitle, firstPageHtml)
       );
+      if (allRecords.length >= maxRecords) {
+        return allRecords.slice(0, maxRecords);
+      }
 
       for (let pageIndex = 1; pageIndex < totalPages; pageIndex += 1) {
         const pageHtml = await this.fetchCadastroPage(cadastroId, pageIndex);
         allRecords.push(
-          ...this.parseRecords(shell.url, meta.title || target.fallbackTitle, pageHtml)
+          ...this.parseRecords(target.publicUrl, meta.title || target.fallbackTitle, pageHtml)
         );
+        if (allRecords.length >= maxRecords) {
+          return allRecords.slice(0, maxRecords);
+        }
       }
     }
 
@@ -294,7 +322,7 @@ class ColetorSitePrefeitura extends ColetorBase {
   }
 
   async executar(resultado) {
-    for (const target of TARGET_PAGES) {
+    for (const target of PREFEITURA_AREAS) {
       const records = await this.collectRecordsForPage(target);
 
       for (const record of records) {
@@ -308,6 +336,7 @@ class ColetorSitePrefeitura extends ColetorBase {
   }
 }
 
-ColetorSitePrefeitura.TARGET_PAGES = TARGET_PAGES;
+ColetorSitePrefeitura.TARGET_PAGES = PREFEITURA_AREAS;
+ColetorSitePrefeitura.AREAS = PREFEITURA_AREAS;
 
 module.exports = ColetorSitePrefeitura;

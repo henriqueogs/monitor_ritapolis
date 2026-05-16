@@ -24,7 +24,12 @@ const { createAiProvider } = require('../ai/providers');
 const { scheduleResumoAiJobWorker } = require('../ai/summary-job-worker');
 const { getAiOperationPlan } = require('../ai/operation-policy');
 const { getCollectionUpdateStatus, startCollectionUpdate } = require('../coletas/update-runner');
-const { compararCoberturaPrefeitura } = require('../cobertura/prefeitura');
+const { checkPrefeituraSyncOnPortalOpen } = require('../coletas/prefeitura-sync');
+const {
+  compararCoberturaPrefeitura,
+  getCoberturaPrefeituraSourceLinks,
+  getPrefeituraAreas
+} = require('../cobertura/prefeitura');
 
 function buildAiOperationPlan(documento) {
   return getAiOperationPlan({
@@ -267,12 +272,58 @@ function createServer() {
   });
 
   app.get('/api/cobertura/prefeitura', async (req, res, next) => {
+    const limite = Math.min(Math.max(Number(req.query.limite || 500), 1), 2000);
+
     try {
-      const limite = Math.min(Math.max(Number(req.query.limite || 500), 1), 2000);
       const data = await compararCoberturaPrefeitura({ limite });
-      res.json(data);
+      res.json({
+        ...data,
+        origem: 'site_prefeitura',
+        consultado_em: new Date().toISOString(),
+        limite
+      });
     } catch (error) {
-      next(error);
+      logger.warn('Cobertura da Prefeitura indisponivel', {
+        limite,
+        erro: error.message,
+        causa: error.code || error.name
+      });
+
+      res.json({
+        status: 'indisponivel',
+        origem: 'site_prefeitura',
+        consultado_em: new Date().toISOString(),
+        fontes_consultadas: getCoberturaPrefeituraSourceLinks(),
+        areas: getPrefeituraAreas().map((area) => ({
+          id: area.id,
+          titulo: area.titulo,
+          tipo: area.tipo,
+          page_id: area.pageId,
+          public_url: area.publicUrl,
+          technical_url: area.technicalUrl,
+          status: 'indisponivel',
+          erro: error.message || 'Falha ao consultar area',
+          encontrados_site: 0,
+          presentes_sistema: 0,
+          ausentes_sistema: 0,
+          documentos_conhecidos_area: 0
+        })),
+        erros: getPrefeituraAreas().map((area) => ({
+          area_id: area.id,
+          titulo: area.titulo,
+          public_url: area.publicUrl,
+          technical_url: area.technicalUrl,
+          erro: error.message || 'Falha ao consultar area'
+        })),
+        limite,
+        erro: 'Nao foi possivel consultar o site da Prefeitura agora.',
+        total_site: 0,
+        total_presentes_sistema: 0,
+        total_ausentes_sistema: 0,
+        por_ano: [],
+        ausentes: [],
+        dados: []
+      });
     }
   });
 
@@ -283,6 +334,28 @@ function createServer() {
 
   app.get('/api/coletas/atualizacao/status', (_req, res) => {
     res.json(getCollectionUpdateStatus());
+  });
+
+  app.post('/api/coletas/sincronizar-prefeitura', async (_req, res) => {
+    try {
+      res.json(await checkPrefeituraSyncOnPortalOpen());
+    } catch (error) {
+      logger.warn('Falha ao verificar sincronizacao automatica da Prefeitura', {
+        erro: error.message,
+        stack: error.stack
+      });
+      res.json({
+        status: 'indisponivel',
+        checked_at: new Date().toISOString(),
+        erro: 'Nao foi possivel verificar a ultima atualizacao da Prefeitura agora.',
+        coleta: {
+          started: false,
+          motivo: 'verificacao_indisponivel'
+        },
+        areas: [],
+        erros: []
+      });
+    }
   });
 
   app.post('/api/coletas/atualizar', (req, res) => {
@@ -303,14 +376,53 @@ function createServer() {
   return app;
 }
 
-function startServer() {
-  const app = createServer();
-  return app.listen(config.apiPort, config.apiHost, () => {
-    logger.info('API iniciada', {
-      host: config.apiHost,
-      port: config.apiPort
+function listenOnPort(app, port) {
+  return new Promise((resolve, reject) => {
+    const server = app.listen(port, config.apiHost, () => {
+      server.off('error', onError);
+      logger.info('API iniciada', {
+        host: config.apiHost,
+        port
+      });
+      resolve(server);
     });
+
+    function onError(error) {
+      server.off('listening', onListening);
+      server.close();
+      reject(error);
+    }
+
+    function onListening() {
+      server.off('error', onError);
+    }
+
+    server.once('error', onError);
+    server.once('listening', onListening);
   });
+}
+
+async function startServer() {
+  const app = createServer();
+  const ports = config.apiPort === 3001 ? [3001, 3002] : [config.apiPort];
+
+  for (const port of ports) {
+    try {
+      return await listenOnPort(app, port);
+    } catch (error) {
+      const hasFallback = port !== ports[ports.length - 1];
+      if (error.code === 'EADDRINUSE' && hasFallback) {
+        logger.warn('Porta da API ocupada, tentando proxima porta', {
+          host: config.apiHost,
+          port,
+          proximaPorta: ports[ports.indexOf(port) + 1]
+        });
+        continue;
+      }
+
+      throw error;
+    }
+  }
 }
 
 module.exports = {

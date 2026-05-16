@@ -466,7 +466,11 @@ function listDocumentos({ fonte, tipo, ano, status, termo, qualidade, pagina = 1
   const offset = (pagina - 1) * limite;
   const rows = db
     .prepare(
-      `SELECT d.*,
+      `SELECT d.id, d.fonte, d.tipo, d.numero, d.ano, d.titulo, d.resumo,
+              d.data_publicacao, d.data_abertura, d.valor_estimado,
+              d.url_origem, d.url_pdf, d.hash_conteudo, d.status_coleta,
+              d.coletado_em, d.atualizado_em,
+              LENGTH(IFNULL(d.texto_completo, '')) AS texto_completo_chars,
               EXISTS (
                 SELECT 1
                 FROM documentos_resumos_ai rai
@@ -475,7 +479,7 @@ function listDocumentos({ fonte, tipo, ano, status, termo, qualidade, pagina = 1
               ) AS tem_resumo_ai
        FROM documentos d
        ${whereClause}
-       ORDER BY COALESCE(ano, 0) DESC, COALESCE(data_publicacao, atualizado_em) DESC, id DESC
+       ORDER BY COALESCE(data_publicacao, atualizado_em) DESC, COALESCE(ano, 0) DESC, id DESC
        LIMIT @limite OFFSET @offset`
     )
     .all({ ...params, limite, offset });
@@ -551,7 +555,12 @@ function listLicitacoes({ fonte, ano, status, termo, pagina = 1, limite = 20 }) 
   const offset = (pagina - 1) * limite;
   const rows = db
     .prepare(
-      `SELECT d.*, ld.modalidade, ld.status, ld.vencedor_nome, ld.vencedor_cnpj,
+      `SELECT d.id, d.fonte, d.tipo, d.numero, d.ano, d.titulo, d.resumo,
+              d.data_publicacao, d.data_abertura, d.valor_estimado,
+              d.url_origem, d.url_pdf, d.hash_conteudo, d.status_coleta,
+              d.coletado_em, d.atualizado_em,
+              LENGTH(IFNULL(d.texto_completo, '')) AS texto_completo_chars,
+              ld.modalidade, ld.status, ld.vencedor_nome, ld.vencedor_cnpj,
               ld.valor_final, ld.numero_pncp, ld.data_homologacao,
               EXISTS (
                 SELECT 1
@@ -710,7 +719,7 @@ function getPainelCidadao() {
   const currentYear = new Date().getFullYear();
   const hasCurrentYear = estatisticas.por_ano.some((item) => Number(item.ano) === currentYear);
   const anoPadrao = hasCurrentYear ? currentYear : estatisticas.por_ano[0]?.ano;
-  const recentes = listDocumentos({ ano: anoPadrao, pagina: 1, limite: 6 });
+  const recentes = listDocumentos({ pagina: 1, limite: 8 });
   const licitacoes = listLicitacoes({ ano: anoPadrao, pagina: 1, limite: 5 });
   const coletas = listColetasLog(5).map((item) => ({
     ...item,
