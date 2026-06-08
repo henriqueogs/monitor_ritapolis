@@ -139,12 +139,14 @@ export default function IntegratedReadingSection({ leitura, documentoId }) {
           </div>
         ) : null}
 
-        <details className={styles.integratedDetails}>
+        <details className={`${styles.integratedDetails} admin-only`}>
           <summary>Fontes usadas pela leitura integrada</summary>
           <SourceRefs fontes={dados.fontes_usadas} />
         </details>
 
-        <IntegratedReadingAction documentoId={documentoId} force />
+        <div className="admin-only">
+          <IntegratedReadingAction documentoId={documentoId} force />
+        </div>
       </div>
     </SectionBlock>
   );

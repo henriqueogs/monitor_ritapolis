@@ -143,7 +143,9 @@ export default function AiSummarySection({ resumoAi, operacao }) {
         </div>
       ) : null}
 
-      <EvidenceDrawer dados={dados} />
+      <div className="admin-only">
+        <EvidenceDrawer dados={dados} />
+      </div>
 
       {dados.objeto?.descricao ? (
         <div className={styles.aiEvidenceRow}>
