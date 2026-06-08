@@ -6,6 +6,10 @@ import { useEffect, useState } from 'react';
 
 const storageKey = 'monitor-ritapolis-admin-mode';
 
+function applyAdminMode(active) {
+  document.documentElement.classList.toggle('admin-mode', active);
+}
+
 export default function AdminModeToggle() {
   const [enabled, setEnabled] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -14,14 +18,14 @@ export default function AdminModeToggle() {
     const saved = window.localStorage.getItem(storageKey) === 'true';
     setEnabled(saved);
     setMounted(true);
-    document.documentElement.dataset.adminMode = saved ? 'on' : 'off';
+    applyAdminMode(saved);
   }, []);
 
   function toggleAdminMode() {
     const next = !enabled;
     setEnabled(next);
     window.localStorage.setItem(storageKey, String(next));
-    document.documentElement.dataset.adminMode = next ? 'on' : 'off';
+    applyAdminMode(next);
   }
 
   if (!mounted) {
@@ -43,10 +47,10 @@ export default function AdminModeToggle() {
       ) : null}
       <button
         type="button"
-        className={enabled ? 'admin-mode-button' : 'admin-mode-button is-icon-only'}
+        className={`admin-mode-button${enabled ? ' is-active' : ' is-icon-only'}`}
         aria-pressed={enabled}
         onClick={toggleAdminMode}
-        title={enabled ? 'Desativar controles internos' : 'Ativar controles internos'}
+        title={enabled ? 'Desativar modo interno' : 'Ativar modo interno'}
       >
         {enabled ? <Shield size={16} /> : <ShieldOff size={16} />}
         {enabled ? 'Interno ativo' : null}

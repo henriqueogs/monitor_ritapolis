@@ -2230,6 +2230,14 @@ h1, h2, h3, h4, p {
   }
 }
 
-/* Admin-only: visível apenas com modo admin ativo */
+/* Admin-only: visível apenas com modo admin ativo (classe toggled via AdminModeToggle.js) */
 .admin-only { display: none; }
-html[data-adminMode="on"] .admin-only { display: block; }
+html.admin-mode .admin-only { display: block; }
+
+/* Botão de toggle admin: estado ativo com destaque visual */
+.admin-mode-button.is-active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
+}
