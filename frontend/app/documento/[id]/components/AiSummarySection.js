@@ -184,27 +184,7 @@ export default function AiSummarySection({ resumoAi, operacao }) {
         </div>
       ) : null}
 
-      {dados.itens_licitados?.length ? (
-        <div className={styles.aiSummaryGroup}>
-          <h4>Itens licitados</h4>
-          <div className="simple-table">
-            {dados.itens_licitados.map((item) => (
-              <div key={`${item.lote_numero}-${item.item_numero}-${item.descricao}`} className="table-row table-row-stacked">
-                <div>
-                  <strong>{item.descricao}</strong>
-                  <p>
-                    Estimado {formatMoney(bestEstimatedValue(item))} - Final {formatMoney(bestFinalValue(item))}
-                  </p>
-                  <span>{item.trecho_fonte}</span>
-                </div>
-                <span>{item.lote_numero ? `Lote ${item.lote_numero}` : item.item_numero ? `Item ${item.item_numero}` : 'Item'}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      {dados.partes_envolvidas?.length ? (
+{dados.partes_envolvidas?.length ? (
         <div className={styles.aiSummaryGroup}>
           <h4>Partes envolvidas</h4>
           <div className="simple-table">

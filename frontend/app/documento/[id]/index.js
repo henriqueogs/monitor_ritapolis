@@ -5,7 +5,6 @@ import DocumentHeader from './components/DocumentHeader';
 import ExtractedTextSections from './components/ExtractedTextSections';
 import IdentityAndLimits from './components/IdentityAndLimits';
 import IntegratedReadingSection from './components/IntegratedReadingSection';
-import LicitationInfo from './components/LicitationInfo';
 import LicitationProducts from './components/LicitationProducts';
 import LicitationGroup from './components/LicitationGroup';
 import LicitationRelatedSources from './components/LicitationRelatedSources';
@@ -34,11 +33,10 @@ export default async function DocumentoPage({ params }) {
       <SummaryAndSource documento={documento} />
       <DocumentPreviewPane documento={documento} />
       <IdentityAndLimits documento={documento} licitacao={licitacao} />
+      <AiSummarySection resumoAi={buildResumoAi(documento)} operacao={documento.resumo_ai_operacao} />
       {documento.tipo === 'edital' ? (
         <IntegratedReadingSection leitura={documento.leitura_integrada_ai} documentoId={documento.id} />
       ) : null}
-      <AiSummarySection resumoAi={buildResumoAi(documento)} operacao={documento.resumo_ai_operacao} />
-      <LicitationInfo documento={documento} licitacao={licitacao} />
       {documento.tipo === 'edital' && documento.licitacao_grupo ? (
         <LicitationGroup grupo={documento.licitacao_grupo} />
       ) : null}

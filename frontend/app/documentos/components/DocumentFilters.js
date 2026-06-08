@@ -19,11 +19,11 @@ export default function DocumentFilters({ filters, action = '/acervo' }) {
         <option value="decreto">Decreto</option>
       </select>
       <input name="ano" defaultValue={filters.ano} className="field-input" placeholder="Ano" />
-      <select name="qualidade" defaultValue={filters.qualidade} className="field-select">
+      <select name="qualidade" defaultValue={filters.qualidade} className="field-select" title="Filtrar por problema de coleta">
         <option value="">Todos os registros</option>
-        <option value="sem_pdf">Sem arquivo vinculado</option>
-        <option value="erro_pdf">Arquivo com falha</option>
-        <option value="sem_data">Sem data identificada</option>
+        <option value="sem_pdf">Sem arquivo oficial</option>
+        <option value="erro_pdf">PDF não legível</option>
+        <option value="sem_data">Data de publicação ausente</option>
       </select>
     </FilterBar>
   );

@@ -58,6 +58,16 @@ export function formatMoney(value, fallback = 'Nao informado') {
   }).format(Number(value));
 }
 
+export function formatMoneyCompact(value) {
+  if (value == null || value === '') return '—';
+  const n = Number(value);
+  if (!Number.isFinite(n) || n === 0) return '—';
+  if (n >= 1e9) return `R$ ${(n / 1e9).toFixed(1).replace('.', ',')}B`;
+  if (n >= 1e6) return `R$ ${(n / 1e6).toFixed(1).replace('.', ',')}M`;
+  if (n >= 1e3) return `R$ ${(n / 1e3).toFixed(0)}k`;
+  return formatMoney(n);
+}
+
 export function bestResumo(documento) {
   return (
     documento?.resumo_ai?.dados?.resumo_cidadao ||

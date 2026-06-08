@@ -3234,7 +3234,7 @@ function listAnosDocumentos({ fonte, tipo } = {}) {
     .all(params);
 }
 
-function listLicitacoes({ fonte, ano, status, termo, categoria, pagina = 1, limite = 20 }) {
+function listLicitacoes({ fonte, ano, status, termo, categoria, fornecedor, pagina = 1, limite = 20 }) {
   const filters = ['d.tipo = \'edital\''];
   const params = {};
 
@@ -3263,6 +3263,17 @@ function listLicitacoes({ fonte, ano, status, termo, categoria, pagina = 1, limi
   if (categoria) {
     filters.push('EXISTS (SELECT 1 FROM licitacoes_categorias lc2 WHERE lc2.documento_id = d.id AND lc2.categoria = @categoria)');
     params.categoria = categoria;
+  }
+
+  if (fornecedor) {
+    const fornClean = String(fornecedor).replace(/\D/g, '');
+    if (fornClean.length === 14) {
+      filters.push("(REPLACE(REPLACE(REPLACE(ld.vencedor_cnpj, '.', ''), '/', ''), '-', '') = @fornecedor OR ld.vencedor_cnpj = @fornecedor)");
+      params.fornecedor = fornClean;
+    } else {
+      filters.push("ld.vencedor_nome LIKE @fornecedor");
+      params.fornecedor = likeParam(fornecedor);
+    }
   }
 
   const whereClause = `WHERE ${filters.join(' AND ')}`;

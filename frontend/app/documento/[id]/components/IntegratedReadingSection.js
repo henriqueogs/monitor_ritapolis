@@ -46,8 +46,8 @@ export default function IntegratedReadingSection({ leitura, documentoId }) {
   if (!dados) {
     return (
       <SectionBlock
-        title="Leitura integrada"
-        description="Sintese gerada a partir de dados estruturados da Prefeitura, produtos, grupo do processo e PNCP quando disponivel."
+        title="Análise do processo"
+        description="Esta análise cruza este edital com documentos do mesmo processo (atas, contratos, extratos) para construir uma visão completa do resultado."
       >
         <p className="section-note" style={{ marginBottom: '16px' }}>
           Ainda não há leitura integrada para este documento. A leitura cruza dados do processo, produtos, valores e fontes externas.

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { fetchFornecedoresRanking } from '../../lib/api';
 import { formatMoney } from '../../lib/format';
 
@@ -30,10 +31,13 @@ export default async function FornecedoresRanking() {
               {i + 1}
             </span>
             <div style={{ minWidth: 0 }}>
-              <p style={{ margin: 0, fontSize: 14, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <Link
+                href={`/licitacoes?fornecedor=${encodeURIComponent(f.cnpj)}`}
+                style={{ margin: 0, fontSize: 14, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', color: 'inherit', textDecoration: 'none' }}
+              >
                 {nome}
-              </p>
-              <p style={{ margin: '3px 0 6px', fontSize: 12, opacity: 0.5 }}>
+              </Link>
+              <p style={{ margin: '3px 0 6px', fontSize: 12, color: 'var(--text-muted)' }}>
                 CNPJ {f.cnpj}
                 {f.n_vitorias > 0 ? ` · ${f.n_vitorias} vitória${f.n_vitorias !== 1 ? 's' : ''}` : ''}
                 {f.n_itens_produtos > 0 ? ` · ${f.n_itens_produtos} item${f.n_itens_produtos !== 1 ? 'ns' : ''}` : ''}

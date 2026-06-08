@@ -98,6 +98,7 @@ function createServer() {
       status: req.query.status || undefined,
       termo: req.query.q || undefined,
       categoria: req.query.categoria || undefined,
+      fornecedor: req.query.fornecedor || undefined,
       pagina,
       limite
     });

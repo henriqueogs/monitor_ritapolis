@@ -84,7 +84,7 @@ export default async function HomePage() {
   return (
     <main className="page-container page-observatory">
       <PrefeituraAutoSync />
-      <HomeHero />
+      <HomeHero resumo={resumo} licitacoesAno={painel.licitacoes_ano_corrente} />
       <IntelligenceBrief
         resumoAi={destaqueIa}
         publicacao={ultimaPublicacao}

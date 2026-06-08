@@ -27,6 +27,7 @@ function buildFilters(searchParams, selectedYear) {
     ano: String(selectedYear || ''),
     status: currentValue(searchParams, 'status'),
     categoria: currentValue(searchParams, 'categoria'),
+    fornecedor: currentValue(searchParams, 'fornecedor'),
     pagina: currentValue(searchParams, 'pagina') || '1',
     limite: '20'
   };
@@ -58,11 +59,13 @@ export default async function LicitacoesPage({ searchParams }) {
     <main className="page-container">
       <div className="page-title">
         <div>
-          <h1>Licitações {filters.ano}{filters.categoria ? ` — ${filters.categoria}` : ''}</h1>
+          <h1>Licitações {filters.ano}{filters.categoria ? ` — ${filters.categoria}` : ''}{filters.fornecedor ? ` — Fornecedor` : ''}</h1>
           <p>
-            {filters.categoria
-              ? `Filtrado por categoria: ${filters.categoria}. `
-              : 'O recorte inicial sempre abre no ano corrente, com os registros mais recentes primeiro.'}
+            {filters.fornecedor
+              ? `Filtrado por fornecedor: ${filters.fornecedor}.`
+              : filters.categoria
+                ? `Filtrado por categoria: ${filters.categoria}.`
+                : 'O recorte inicial sempre abre no ano corrente, com os registros mais recentes primeiro.'}
           </p>
         </div>
       </div>

@@ -16,7 +16,7 @@ export default function LicitacaoFilters({ filters }) {
     <FilterBar action="/licitacoes">
       <input type="hidden" name="ano" defaultValue={filters.ano} />
       <SearchInput compact defaultValue={filters.q} placeholder="Buscar por numero, modalidade ou objeto" />
-      <select name="categoria" defaultValue={filters.categoria} className="field-select">
+      <select name="categoria" defaultValue={filters.categoria} className="field-select" title="Classificação automática por palavras-chave no objeto da licitação">
         <option value="">Todas as categorias</option>
         {CATEGORIAS.map((c) => (
           <option key={c} value={c}>{c}</option>

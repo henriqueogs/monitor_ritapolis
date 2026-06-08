@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Search } from 'lucide-react';
+import { formatMoneyCompact } from '../../lib/format';
 import styles from '../styles.module.css';
 
 const promptSuggestions = [
@@ -10,7 +11,12 @@ const promptSuggestions = [
   'Obras públicas em andamento',
 ];
 
-export default function HomeHero() {
+export default function HomeHero({ resumo, licitacoesAno }) {
+  const anoCorrente = licitacoesAno?.ano || new Date().getFullYear();
+  const comResumoAno = licitacoesAno?.com_resumo_ai || 0;
+  const totalAno = licitacoesAno?.total || 0;
+  const pctResumo = totalAno > 0 ? Math.round((comResumoAno / totalAno) * 100) : 0;
+
   return (
     <section className={styles.hero}>
       <div className={styles.heroInner}>
@@ -51,23 +57,23 @@ export default function HomeHero() {
 
         <div className={styles.heroStats}>
           <div className={styles.heroStat}>
-            <strong>527</strong>
+            <strong>{(resumo?.total_documentos || 0).toLocaleString('pt-BR')}</strong>
             <span>Documentos</span>
           </div>
           <div className={styles.heroStatDivider} />
           <div className={styles.heroStat}>
-            <strong>25</strong>
-            <span>Resumos IA</span>
+            <strong>{(resumo?.total_licitacoes || 0).toLocaleString('pt-BR')}</strong>
+            <span>Licitações</span>
           </div>
           <div className={styles.heroStatDivider} />
           <div className={styles.heroStat}>
-            <strong>100%</strong>
-            <span>Editais 2026</span>
+            <strong>{pctResumo > 0 ? `${pctResumo}%` : `${comResumoAno}`}</strong>
+            <span>Com resumo IA em {anoCorrente}</span>
           </div>
           <div className={styles.heroStatDivider} />
           <div className={styles.heroStat}>
-            <strong>R$&nbsp;1,6M</strong>
-            <span>Rastreados</span>
+            <strong>{formatMoneyCompact(resumo?.valor_estimado_total)}</strong>
+            <span>Valor estimado</span>
           </div>
         </div>
       </div>

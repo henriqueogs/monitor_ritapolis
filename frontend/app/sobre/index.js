@@ -1,5 +1,7 @@
 import SectionBlock from '../components/SectionBlock';
 import DataAvailabilityBadge from '../components/DataAvailabilityBadge';
+import { fetchEstatisticas } from '../lib/api';
+import { formatMoney, formatDate } from '../lib/format';
 import styles from './styles.module.css';
 
 export const metadata = {
@@ -7,7 +9,13 @@ export const metadata = {
   description: 'Como o Monitor Ritápolis funciona, o que monitora e quais são os limites atuais.'
 };
 
-export default function SobrePage() {
+export default async function SobrePage() {
+  const stats = await fetchEstatisticas().catch(() => null);
+  const totalDocs = stats?.total_documentos ?? '—';
+  const totalLics = stats?.total_licitacoes ?? '—';
+  const valorTotal = stats?.valor_estimado_total ?? null;
+  const ultimaColeta = stats?.ultima_coleta?.coletado_em ?? null;
+
   return (
     <main className="page-container">
       <div className="page-title">
@@ -42,9 +50,9 @@ export default function SobrePage() {
           <div className={styles.statusRow}>
             <div>
               <strong>Portal Nacional de Contratações Públicas (PNCP)</strong>
-              <p>Fonte nacional complementar para cruzamento de dados de licitações. A API externa apresenta instabilidade intermitente — dados são vinculados quando disponíveis.</p>
+              <p>Ritápolis ainda não publica licitações no portal nacional (confirmado em junho 2026 — API retorna 204 para todas as modalidades). A integração está pronta e será ativada automaticamente quando o município começar a publicar.</p>
             </div>
-            <DataAvailabilityBadge status="parcial" />
+            <DataAvailabilityBadge status="pendente" />
           </div>
           <div className={styles.statusRow}>
             <div>
@@ -57,19 +65,19 @@ export default function SobrePage() {
       </SectionBlock>
 
       {/* Estado atual */}
-      <SectionBlock title="Estado atual da base (junho 2026)">
+      <SectionBlock title={`Estado atual da base${ultimaColeta ? ` — atualizado em ${formatDate(ultimaColeta)}` : ''}`}>
         <div className={styles.statusList}>
           <div className={styles.statusRow}>
             <div>
-              <strong>545 documentos cadastrados — 494 licitações</strong>
+              <strong>{totalDocs} documentos cadastrados — {totalLics} licitações</strong>
               <p>Inclui editais, dispensas, pregões, chamadas públicas, atas e extratos. Os demais são leis, decretos e portarias da Câmara.</p>
             </div>
             <DataAvailabilityBadge status="real" />
           </div>
           <div className={styles.statusRow}>
             <div>
-              <strong>R$ 3,08 milhões em valores identificados</strong>
-              <p>Soma de contratos homologados com vencedor registrado e produtos licitados com preço estruturado. 14 licitações com vencedor identificado.</p>
+              <strong>{valorTotal ? `${formatMoney(valorTotal)} em valores estimados` : 'Valores em processamento'}</strong>
+              <p>Soma dos valores estimados de contratos e licitações coletadas. Vencedores e valores finais confirmados disponíveis em /inteligencia.</p>
             </div>
             <DataAvailabilityBadge status="real" />
           </div>
