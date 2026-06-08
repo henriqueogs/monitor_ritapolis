@@ -3,7 +3,7 @@ const { URL } = require('url');
 const axios = require('axios');
 const config = require('../config');
 const logger = require('../logger');
-const { createColetaLog, finishColetaLog, saveDocumento } = require('../db');
+const { createColetaLog, finishColetaLog, saveDocumento, createResumoAiJob } = require('../db');
 
 class ColetorBase {
   constructor({ fonte, httpOptions = {} }) {
@@ -147,6 +147,15 @@ class ColetorBase {
     const saved = saveDocumento(documento);
     if (saved.action === 'inserted') {
       resultado.itens_novos += 1;
+      if (documento.texto_completo && documento.texto_completo.length > 500 && config.aiSchedulerEnabled) {
+        try {
+          createResumoAiJob({ documento_id: saved.id, contrato_versao: config.aiContractVersion, force: false });
+          const { scheduleResumoAiJobWorker } = require('../ai/summary-job-worker');
+          scheduleResumoAiJobWorker();
+        } catch (err) {
+          logger.debug('Nao foi possivel criar job de resumo IA para doc novo', { erro: err.message });
+        }
+      }
     } else {
       resultado.itens_atualizados += 1;
     }

@@ -37,7 +37,14 @@ function compactText(value, fallback = 'Nao informado') {
 }
 
 export default function LicitationRelatedSources({ fontes }) {
-  const itens = Array.isArray(fontes) ? fontes : [];
+  const all = Array.isArray(fontes) ? fontes : [];
+  const seen = new Set();
+  const itens = all.filter((f) => {
+    const key = f.identificador || f.id;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 
   return (
     <SectionBlock

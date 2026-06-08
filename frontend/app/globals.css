@@ -2216,3 +2216,7 @@ h1, h2, h3, h4, p {
     transform: none;
   }
 }
+
+/* Admin-only: visível apenas com modo admin ativo */
+.admin-only { display: none; }
+html[data-adminMode="on"] .admin-only { display: block; }

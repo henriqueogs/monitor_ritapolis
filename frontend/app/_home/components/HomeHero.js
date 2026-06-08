@@ -3,13 +3,7 @@ import { Search } from 'lucide-react';
 import { formatMoneyCompact } from '../../lib/format';
 import styles from '../styles.module.css';
 
-const promptSuggestions = [
-  'Quais foram as últimas licitações?',
-  'Existe algum contrato de saúde?',
-  'Quais empresas mais aparecem?',
-  'Decretos recentes de Ritápolis',
-  'Obras públicas em andamento',
-];
+const CATEGORIAS = ['Saúde', 'Alimentação', 'Educação', 'Obras e Infraestrutura', 'Serviços', 'Equipamentos e Materiais'];
 
 export default function HomeHero({ resumo, licitacoesAno }) {
   const anoCorrente = licitacoesAno?.ano || new Date().getFullYear();
@@ -28,7 +22,7 @@ export default function HomeHero({ resumo, licitacoesAno }) {
         <h1>Entenda o que acontece<br />em Ritápolis</h1>
 
         <p>
-          Editais, decretos e licitações transformados em linguagem direta —
+          Editais, decretos e licitações organizados com dados reais —
           sempre com caminho para a fonte oficial.
         </p>
 
@@ -38,19 +32,19 @@ export default function HomeHero({ resumo, licitacoesAno }) {
             <input
               name="q"
               className="hero-search-input"
-              placeholder="Busque por merenda, obra, transporte, lei, edital…"
+              placeholder="Buscar edital, decreto, portaria, contrato…"
             />
           </form>
         </div>
 
         <div className={`${styles.promptList} prompt-chips`}>
-          {promptSuggestions.map((prompt) => (
+          {CATEGORIAS.map((cat) => (
             <Link
-              key={prompt}
-              href={`/acervo?q=${encodeURIComponent(prompt)}`}
+              key={cat}
+              href={`/licitacoes?categoria=${encodeURIComponent(cat)}`}
               className="prompt-chip"
             >
-              {prompt}
+              {cat}
             </Link>
           ))}
         </div>

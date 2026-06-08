@@ -1,12 +1,6 @@
 import { formatDate, labelFonte } from '../lib/format';
-import { getFallbackSourceUrl, getOfficialFileUrl, getSpecificSourcePageUrl } from '../lib/source-links';
 
 export default function SourceTrace({ documento }) {
-  const officialFileUrl = getOfficialFileUrl(documento);
-  const sourcePageUrl = getSpecificSourcePageUrl(documento);
-  const fallbackSourceUrl = getFallbackSourceUrl(documento);
-  const linkUrl = officialFileUrl || sourcePageUrl || fallbackSourceUrl;
-
   return (
     <div className="source-trace">
       <div>
@@ -18,13 +12,6 @@ export default function SourceTrace({ documento }) {
             : 'Texto ainda nao extraido.'}
         </p>
       </div>
-      {linkUrl ? (
-        <a href={linkUrl} target="_blank" rel="noopener noreferrer">
-          {officialFileUrl ? 'Abrir arquivo oficial' : 'Abrir fonte'}
-        </a>
-      ) : (
-        <span>Fonte indisponivel</span>
-      )}
     </div>
   );
 }

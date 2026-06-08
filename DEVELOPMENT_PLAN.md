@@ -82,9 +82,38 @@ Auditoria de dados (score 0–100, 545 docs, distribuição por faixa). Consolid
 ### v0.7 — Schedulers + PNCP v3
 Scheduler de coletas automáticas (12h, `collection-scheduler.js`). Scheduler de IA diário (2 ciclos × 15 docs, `ai-daily-scheduler.js`). Endpoint `GET /api/scheduler/status`. Integração PNCP v3 via API direta por CNPJ (`pncp-orgaos.js` + `pncp:sincronizar`). Documentação consolidada e repositório publicado no GitHub.
 
+### v0.8 — Qualidade de dados + UX
+Extração de texto de atas/contratos como anexos (14→124 vencedores, 219→2538 produtos, R$1,66M→R$7,64M). Trigger automático de resumo IA ao coletar documento novo (`site-prefeitura.js` → `createResumoAiJob`). Script de cobertura histórica por ano (`resumir-todos-por-ano.js`). Ajustes de UX: fontes relacionadas deduplicadas, texto completo admin-only, home sem chips de busca IA, link duplicado removido.
+
 ---
 
-## 5. Roadmap v0.8+
+## 5. Análise do Processo (leitura integrada)
+
+A "Análise do Processo" é gerada por IA (contrato v2.0) e aparece na página de cada edital. É **diferente do resumo IA** — enquanto o resumo sintetiza o texto do PDF, a análise do processo **cruza dados de múltiplas fontes**:
+
+**O que a IA recebe como entrada:**
+- Dados estruturados da Prefeitura: modalidade, valores, vencedor (se extraído)
+- Produtos estruturados de atas e listas de itens
+- Dados PNCP: correspondências confirmadas (quando disponível)
+- Divergências detectadas entre fontes (ex: valor da ata difere do edital)
+
+**O que a IA gera (JSON estruturado):**
+- Título sintético do processo
+- Narrativa de 2–3 parágrafos em linguagem de cidadão
+- Pontos principais
+- Consistência dos dados (campo a campo: consistente, divergente, incompleto)
+- Alertas (nível baixo/médio/alto)
+- Lacunas conhecidas
+
+**Quando é gerada:**
+- Atualmente: manualmente via botão "Regenerar análise" na página do documento, ou via `npm run ai:correlacionar -- --documento-id=N`
+- A partir da v0.8: automaticamente após o resumo IA ser gerado com sucesso E após extração de anexos com novos dados
+
+**Por que só para editais:** o cruzamento de dados só faz sentido para licitações — documentos que têm produtos, vencedor e processo de compra associado.
+
+---
+
+## 6. Roadmap v0.9+
 
 ### Prioridade alta
 
@@ -107,6 +136,9 @@ Notificar quando nova licitação de alto valor for publicada.
 
 **Revisão de correspondências PNCP**
 Interface em `/admin/pncp` para confirmar/rejeitar sugestões de correspondência com score intermediário.
+
+**Busca com inteligência IA (v0.9+)**
+Interpretação semântica de consultas em linguagem natural — "quais obras foram contratadas em 2024?" — cruzando múltiplas tabelas com contexto. Depende de cobertura IA >80% e índice semântico dos resumos. Não implementado na v0.8; o campo de busca atual é uma busca textual simples direcionada para `/acervo`.
 
 ### Decisões técnicas permanentes
 

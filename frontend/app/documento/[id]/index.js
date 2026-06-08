@@ -44,7 +44,7 @@ export default async function DocumentoPage({ params }) {
       {documento.tipo === 'edital' ? (
         <LicitationRelatedSources fontes={documento.licitacao_fontes_relacionadas} />
       ) : null}
-      <RelatedSources documento={documento} />
+      {documento.tipo !== 'edital' ? <RelatedSources documento={documento} /> : null}
       <ExtractedTextSections documento={documento} />
     </main>
   );
