@@ -23,7 +23,6 @@ function buildDestaqueIa(analisesItens) {
 function buildChartItems(painel) {
   const atividadePorAno = (painel.anos || [])
     .slice(0, 8)
-    .reverse()
     .map((item) => ({
       label: String(item.ano),
       value: item.total,

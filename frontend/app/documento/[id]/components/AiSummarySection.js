@@ -53,11 +53,13 @@ export default function AiSummarySection({ resumoAi, operacao }) {
           </div>
         ) : null}
         {jobErro ? (
-          <div className={styles.aiNoticeError}>
+          <div className={`${styles.aiNoticeError} admin-only`}>
             A última tentativa de resumo falhou: {job.erro || 'erro não informado'}. Você pode tentar novamente.
           </div>
         ) : null}
-        <AiSummaryAction documentoId={resumoAi?.documento_id} disabled={jobAtivo} />
+        <div className="admin-only">
+          <AiSummaryAction documentoId={resumoAi?.documento_id} disabled={jobAtivo} />
+        </div>
         {!operacao?.recomendado_frontend ? (
           <div className={styles.aiLargeDoc}>
             <p>Este documento tem {operacao?.caracteres?.toLocaleString('pt-BR') || 'muitos'} caracteres e será processado em background.</p>
@@ -77,7 +79,7 @@ export default function AiSummarySection({ resumoAi, operacao }) {
           <Sparkles size={22} style={{ color: 'var(--ai-accent)' }} />
           <div>
             <h3 className={styles.aiTitleLarge}>Análise da IA</h3>
-            <span className={styles.aiMeta}>
+            <span className={`${styles.aiMeta} admin-only`}>
               Gerado por {resumoAi.modelo || 'IA'} • {resumoAi.criado_em ? formatDate(resumoAi.criado_em) : ''}
             </span>
           </div>
@@ -88,7 +90,6 @@ export default function AiSummarySection({ resumoAi, operacao }) {
       <div className={`${styles.aiNotice} ${styles.aiNoticeCompact}`}>
         <Shield size={14} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'middle' }} />
         Este resumo foi gerado por IA a partir do texto extraído do arquivo oficial. Confira a fonte antes de tomar decisão.
-        {resumoAi.provider ? <span style={{ marginLeft: '8px', opacity: 0.7 }}>• Provider: {resumoAi.provider}</span> : null}
       </div>
 
       {staleSummary ? (
@@ -97,7 +98,7 @@ export default function AiSummarySection({ resumoAi, operacao }) {
         </div>
       ) : null}
 
-      <div style={{ marginBottom: '16px' }}>
+      <div style={{ marginBottom: '16px' }} className="admin-only">
         <AiSummaryAction
           documentoId={resumoAi.documento_id}
           label={staleSummary ? 'Gerar resumo atualizado' : 'Gerar novamente'}
@@ -124,10 +125,14 @@ export default function AiSummarySection({ resumoAi, operacao }) {
         <div className={styles.aiSummarySide}>
           <KeyValueList items={[
             { label: 'Confiança', value: formatConfidence(dados.confianca) },
-            { label: 'Gerado em', value: formatDate(resumoAi.criado_em) },
-            { label: 'Compatibilidade', value: resumoAi.corresponde_ao_texto_atual ? 'Compatível' : 'Revisar' },
-            { label: 'Modelo', value: resumoAi.modelo }
+            { label: 'Gerado em', value: formatDate(resumoAi.criado_em) }
           ]} />
+          <div className="admin-only">
+            <KeyValueList items={[
+              { label: 'Compatibilidade', value: resumoAi.corresponde_ao_texto_atual ? 'Compatível' : 'Revisar' },
+              { label: 'Modelo', value: resumoAi.modelo }
+            ]} />
+          </div>
         </div>
       </div>
 
