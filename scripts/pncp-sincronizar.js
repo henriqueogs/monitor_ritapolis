@@ -1,25 +1,32 @@
 /**
  * Sincroniza dados de vencedores e valores finais do PNCP para documentos locais.
  *
- * Usa a API /pncp-api/v1/orgaos/{cnpj}/compras para buscar compras diretamente
- * por CNPJ — mais confiável que a busca fuzzy por data+modalidade do pncp-diagnostico.
+ * Usa a API de Consulta Pública do PNCP (/api/consulta/v1/contratacoes/publicacao).
+ * Para cada contratação encontrada, tenta localizar o documento local pelo numero_pncp
+ * e enriquece com vencedor e valor final homologado.
+ *
+ * LIMITAÇÃO: Municípios que não publicam no PNCP retornam 204 (sem dados).
+ * Use `--check` para verificar a cobertura antes de sincronizar.
  *
  * Uso:
- *   node scripts/pncp-sincronizar.js [--ano=YYYY] [--cnpj=CNPJ] [--dry-run] [--max=N] [--verbose]
+ *   node scripts/pncp-sincronizar.js --check --ano=2026
+ *   node scripts/pncp-sincronizar.js --dry-run --ano=2026
+ *   node scripts/pncp-sincronizar.js --ano=2026
+ *   node scripts/pncp-sincronizar.js --ano=2026 --cnpj=18557553000105
  */
 
 process.loadEnvFile?.() || require('dotenv').config();
 
 const {
-  listarComprasPorCnpj,
-  listarItensCompra,
-  buscarResultadosItem,
-  parsePncpNumeroControle,
-  extrairVencedorResultados
+  buscarContratacoes,
+  verificarCoberturaMunicipio,
+  gerarContratacoesPorCnpj,
+  extrairNumeroPncp,
+  extrairVencedor,
+  MODALIDADES
 } = require('../src/integracoes/pncp-orgaos');
 const db = require('../src/db');
 const config = require('../src/config');
-const logger = require('../src/logger');
 
 const args = Object.fromEntries(
   process.argv.slice(2).map((a) => {
@@ -28,136 +35,105 @@ const args = Object.fromEntries(
   })
 );
 
-const ANO = args.ano ? Number(args.ano) : null;
+const ANO = args.ano ? Number(args.ano) : new Date().getFullYear();
 const CNPJ_FILTER = args.cnpj ? String(args.cnpj).replace(/\D/g, '') : null;
 const DRY_RUN = Boolean(args['dry-run']);
-const MAX_COMPRAS = args.max ? Number(args.max) : null;
+const CHECK_ONLY = Boolean(args.check);
 const VERBOSE = Boolean(args.verbose);
 
 const CNPJS = CNPJ_FILTER
   ? [CNPJ_FILTER]
   : [config.cnpjPrefeitura, config.cnpjCamara];
 
-async function processarCompra(cnpj, compra) {
-  const numeroPncp = compra.numeroControlePNCP;
-  if (!numeroPncp) return null;
+async function checkCobertura() {
+  console.log(`[PNCP] Verificando cobertura para o município IBGE ${config.ibgeCode} (${ANO})...\n`);
+  const total = await verificarCoberturaMunicipio({ codigoMunicipioIbge: config.ibgeCode, ano: ANO });
 
-  const doc = db.getDocumentoByNumeroPncp(numeroPncp);
-  if (!doc) return null;
-
-  const parsed = parsePncpNumeroControle(numeroPncp);
-  if (!parsed) return null;
-
-  let vencedor_nome = null;
-  let vencedor_cnpj = null;
-  let valor_final = 0;
-  let temResultado = false;
-
-  try {
-    const { items: itens } = await listarItensCompra(cnpj, parsed.ano, parsed.sequencial);
-
-    for (const item of itens) {
-      try {
-        const resultados = await buscarResultadosItem(cnpj, parsed.ano, parsed.sequencial, item.numeroItem);
-        const vencedor = extrairVencedorResultados(resultados);
-
-        if (vencedor) {
-          temResultado = true;
-          if (!vencedor_nome) vencedor_nome = vencedor.nomeRazaoSocialFornecedor || null;
-          if (!vencedor_cnpj) vencedor_cnpj = vencedor.niFornecedor || null;
-          if (vencedor.valorTotalHomologado) {
-            valor_final += Number(vencedor.valorTotalHomologado);
-          }
-        }
-      } catch {
-        // Item sem resultado — normal para itens desertos ou cancelados
-      }
-    }
-  } catch (err) {
-    if (VERBOSE) logger.debug(`Sem itens PNCP para ${numeroPncp}: ${err.message}`);
+  if (total === 0) {
+    console.log('  Resultado: 0 registros encontrados (município não publica no PNCP)');
+    console.log('\n  Este município pode estar publicando licitações no seu portal próprio');
+    console.log('  mas ainda não integrou ao Portal Nacional de Contratações Públicas.');
+    console.log('  A integração PNCP funcionará automaticamente quando isso ocorrer.');
+  } else {
+    console.log(`  Resultado: ${total} contrataç${total === 1 ? 'ão' : 'ões'} encontradas no PNCP para ${ANO}`);
+    console.log('  Execute sem --check para sincronizar os dados.');
   }
-
-  return {
-    documento_id: doc.id,
-    titulo: doc.titulo,
-    numero_pncp: numeroPncp,
-    vencedor_nome,
-    vencedor_cnpj,
-    valor_final: temResultado ? valor_final : null,
-    data_resultado: compra.dataResultadoCompra || compra.dataPublicacaoPncp || null
-  };
+  return total;
 }
 
 async function sincronizarCnpj(cnpj) {
   const stats = { total: 0, correspondencias: 0, atualizadas: 0, erros: 0 };
-  let pagina = 1;
-  const tamanhoPagina = 50;
+  console.log(`\n[PNCP] CNPJ ${cnpj} — ano ${ANO}...`);
 
-  console.log(`\n[PNCP] Consultando compras do CNPJ ${cnpj}${ANO ? ` (${ANO})` : ''}...`);
+  for await (const { modalidade, items } of gerarContratacoesPorCnpj(cnpj, ANO)) {
+    stats.total += items.length;
+    if (VERBOSE) console.log(`  Modalidade ${modalidade}: ${items.length} contrataç${items.length === 1 ? 'ão' : 'ões'}`);
 
-  while (true) {
-    let resp;
-    try {
-      resp = await listarComprasPorCnpj(cnpj, { ano: ANO, pagina, tamanhoPagina });
-    } catch (err) {
-      console.error(`  Erro na pág ${pagina}: ${err.message}`);
-      stats.erros++;
-      break;
-    }
+    for (const item of items) {
+      const numeroPncp = extrairNumeroPncp(item);
+      if (!numeroPncp) continue;
 
-    if (!resp.items.length) break;
-    stats.total += resp.items.length;
-
-    for (const compra of resp.items) {
-      if (MAX_COMPRAS && stats.total > MAX_COMPRAS) break;
-
-      const resultado = await processarCompra(cnpj, compra);
-      if (!resultado) continue;
+      const doc = db.getDocumentoByNumeroPncp(numeroPncp);
+      if (!doc) continue;
 
       stats.correspondencias++;
+      const vencedor = extrairVencedor(item);
 
-      if (VERBOSE) {
-        console.log(`  ✓ ${resultado.numero_pncp} → doc #${resultado.documento_id} (${resultado.vencedor_nome || 'sem vencedor'})`);
+      if (VERBOSE || DRY_RUN) {
+        console.log(`  ✓ ${numeroPncp} → doc #${doc.id} "${doc.titulo?.slice(0, 60)}" | ${vencedor?.nome || 'sem vencedor'}`);
       }
 
-      if (!DRY_RUN && (resultado.vencedor_nome || resultado.valor_final)) {
-        const changed = db.upsertDadosPncp(resultado.documento_id, resultado);
+      if (!DRY_RUN && vencedor) {
+        const changed = db.upsertDadosPncp(doc.id, {
+          vencedor_nome: vencedor.nome,
+          vencedor_cnpj: vencedor.cnpj,
+          valor_final: vencedor.valor,
+          numero_pncp: numeroPncp,
+          data_resultado: item.dataResultadoCompra || item.dataPublicacaoPncp || null
+        });
         if (changed > 0) stats.atualizadas++;
-      } else if (DRY_RUN && (resultado.vencedor_nome || resultado.valor_final)) {
+      } else if (DRY_RUN && vencedor) {
         stats.atualizadas++;
       }
     }
-
-    if (pagina >= resp.totalPaginas) break;
-    pagina++;
   }
 
   return stats;
 }
 
 async function main() {
+  if (CHECK_ONLY) {
+    await checkCobertura();
+    return;
+  }
+
   if (DRY_RUN) console.log('[PNCP] Modo dry-run — nenhum dado será salvo.\n');
+
+  // Verificação rápida antes de sincronizar
+  const cobertura = await verificarCoberturaMunicipio({ codigoMunicipioIbge: config.ibgeCode, ano: ANO });
+  if (cobertura === 0) {
+    console.log(`[PNCP] Município IBGE ${config.ibgeCode} não tem dados publicados no PNCP para ${ANO}.`);
+    console.log('       Execute com --check para detalhes. Sincronização encerrada.');
+    return;
+  }
 
   const totais = { total: 0, correspondencias: 0, atualizadas: 0, erros: 0 };
 
   for (const cnpj of CNPJS) {
     try {
       const stats = await sincronizarCnpj(cnpj);
-      console.log(`  Compras PNCP: ${stats.total} | Locais encontradas: ${stats.correspondencias} | ${DRY_RUN ? 'Seriam atualizadas' : 'Atualizadas'}: ${stats.atualizadas} | Erros: ${stats.erros}`);
+      console.log(`  Compras PNCP: ${stats.total} | Locais: ${stats.correspondencias} | ${DRY_RUN ? 'Seriam atualizadas' : 'Atualizadas'}: ${stats.atualizadas}`);
       totais.total += stats.total;
       totais.correspondencias += stats.correspondencias;
       totais.atualizadas += stats.atualizadas;
-      totais.erros += stats.erros;
     } catch (err) {
-      console.error(`Erro ao processar CNPJ ${cnpj}:`, err.message);
+      console.error(`Erro CNPJ ${cnpj}:`, err.message);
       totais.erros++;
     }
   }
 
-  console.log(`\n[PNCP] Resumo final:`);
-  console.log(`  Total compras PNCP: ${totais.total}`);
-  console.log(`  Correspondências locais: ${totais.correspondencias}`);
-  console.log(`  ${DRY_RUN ? 'Seriam atualizadas' : 'Registros atualizados'}: ${totais.atualizadas}`);
+  console.log(`\n[PNCP] Resumo:`);
+  console.log(`  Total PNCP: ${totais.total} | Correspondências locais: ${totais.correspondencias} | ${DRY_RUN ? 'Seriam atualizadas' : 'Atualizadas'}: ${totais.atualizadas}`);
   if (totais.erros) console.log(`  Erros: ${totais.erros}`);
 }
 
