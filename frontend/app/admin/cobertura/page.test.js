@@ -1,4 +1,8 @@
 export const adminCoberturaPageContract = {
   route: '/admin/cobertura',
-  expectations: ['reuses coverage page under the admin namespace']
+  expectations: [
+    'owns coverage checks under the admin namespace',
+    'compares prefeitura source files with local records',
+    'keeps missing files visible'
+  ]
 };

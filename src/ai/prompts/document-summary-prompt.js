@@ -30,6 +30,25 @@ function buildContractJsonSnippet() {
       "trecho_fonte": "string"
     }
   ],
+  "itens_licitados": [
+    {
+      "item_numero": "string | null",
+      "lote_numero": "string | null",
+      "descricao": "string",
+      "unidade": "string | null",
+      "quantidade": 0,
+      "valor_unitario_estimado": 0,
+      "valor_total_estimado": 0,
+      "valor_unitario_final": 0,
+      "valor_total_final": 0,
+      "valor_final_tipo": "unitario | total_item | lote | global | indefinido | null",
+      "valor_lote_final": 0,
+      "valor_global_final": 0,
+      "fornecedor_nome": "string | null",
+      "fornecedor_cnpj": "string | null",
+      "trecho_fonte": "string"
+    }
+  ],
   "objeto": {
     "descricao": "string | null",
     "trecho_fonte": "string | null"
@@ -62,6 +81,12 @@ Regras obrigatorias:
 - Nao use markdown.
 - Nao inclua comentarios fora do JSON.
 - Para valores, datas, objeto e partes envolvidas, inclua trecho_fonte.
+- Em itens_licitados, inclua apenas produtos, servicos, itens ou lotes explicitamente descritos no texto com trecho_fonte.
+- Nao crie item licitado apenas a partir do objeto geral do processo; se nao houver item/lote/produto detalhado, retorne itens_licitados vazio.
+- Para itens_licitados, use null quando quantidade, unidade, fornecedor ou valores nao aparecerem explicitamente.
+- Diferencie valor estimado de valor final somente quando o texto disser isso claramente.
+- Em itens_licitados, preencha valor_final_tipo quando houver valor final: unitario para preco por unidade, total_item para total do item, lote para valor do lote, global para valor global do objeto/servico, indefinido quando o texto mostra valor mas nao permite classificar.
+- Use valor_lote_final e valor_global_final apenas quando houver evidencia textual explicita de lote ou valor global; nao copie esses valores para valor_unitario_final.
 - Se o texto estiver incompleto, ruidoso ou ilegivel, reduza a confianca.
 
 Versao do contrato: ${contratoVersao}

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import QualitySignals from '../../components/QualitySignals';
 import StatusBadge from '../../components/StatusBadge';
-import { bestResumo, formatDate, labelFonte, labelTipo } from '../../lib/format';
+import { cleanDocumentTitle, cleanDocumentSummary, formatDate, labelFonte, labelTipo } from '../../lib/format';
 
 export default function DocumentPreview({ documento }) {
   return (
@@ -12,8 +12,8 @@ export default function DocumentPreview({ documento }) {
           <span>{documento.fonte_nome || labelFonte(documento.fonte)}</span>
           <span>{formatDate(documento.data_publicacao || documento.atualizado_em, 'Sem data')}</span>
         </div>
-        <strong>{documento.titulo}</strong>
-        <p>{bestResumo(documento)}</p>
+        <strong>{cleanDocumentTitle(documento)}</strong>
+        <p>{cleanDocumentSummary(documento)}</p>
         <QualitySignals documento={documento} compact />
       </div>
       <div className="citizen-row-side">

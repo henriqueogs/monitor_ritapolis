@@ -3,12 +3,10 @@ export const iaPageContract = {
   files: ['page.js', 'index.js', 'styles.module.css', 'page.test.js'],
   expectations: [
     'keeps page.js as a route bridge',
-    'shows IA coverage and jobs from real endpoints',
-    'keeps batch actions operational',
-    'splits filters, coverage, pending rows, jobs and providers into local components'
+    'redirects legacy public route to /admin/ia',
+    'preserves query filters while redirecting'
   ],
   nextRefactorTargets: [
-    'move repeated IA table styling out of globals',
-    'add behavior tests for filtered job status views'
+    'remove this legacy alias when links and bookmarks no longer depend on it'
   ]
 };

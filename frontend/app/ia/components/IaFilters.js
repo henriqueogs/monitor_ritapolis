@@ -2,7 +2,7 @@ import FilterBar from '../../components/FilterBar';
 
 export default function IaFilters({ filters, years, types }) {
   return (
-    <FilterBar action="/ia">
+    <FilterBar action="/admin/ia">
       <select name="ano" defaultValue={filters.ano} className="field-select">
         <option value="">Todos os anos</option>
         {years.map((ano) => (

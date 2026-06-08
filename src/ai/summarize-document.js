@@ -161,6 +161,46 @@ function compactPartyItems(items, maxItems = 8) {
   );
 }
 
+function compactBidItems(items, maxItems = 30) {
+  const compacted = (items || [])
+    .filter((item) => item?.descricao && item?.trecho_fonte)
+    .map((item) => ({
+      item_numero: truncateText(item.item_numero, 40),
+      lote_numero: truncateText(item.lote_numero, 40),
+      descricao: truncateText(item.descricao, 260),
+      unidade: truncateText(item.unidade, 40),
+      quantidade: Number.isFinite(Number(item.quantidade)) ? Number(item.quantidade) : null,
+      valor_unitario_estimado: Number.isFinite(Number(item.valor_unitario_estimado))
+        ? Number(item.valor_unitario_estimado)
+        : null,
+      valor_total_estimado: Number.isFinite(Number(item.valor_total_estimado))
+        ? Number(item.valor_total_estimado)
+        : null,
+      valor_unitario_final: Number.isFinite(Number(item.valor_unitario_final))
+        ? Number(item.valor_unitario_final)
+        : null,
+      valor_total_final: Number.isFinite(Number(item.valor_total_final))
+        ? Number(item.valor_total_final)
+        : null,
+      valor_final_tipo: item.valor_final_tipo || null,
+      valor_lote_final: Number.isFinite(Number(item.valor_lote_final))
+        ? Number(item.valor_lote_final)
+        : null,
+      valor_global_final: Number.isFinite(Number(item.valor_global_final))
+        ? Number(item.valor_global_final)
+        : null,
+      fornecedor_nome: truncateText(item.fornecedor_nome, 160),
+      fornecedor_cnpj: truncateText(item.fornecedor_cnpj, 32),
+      trecho_fonte: truncateText(item.trecho_fonte, 260)
+    }));
+
+  return uniqueBy(
+    compacted,
+    (item) => `${item.lote_numero || ''}|${item.item_numero || ''}|${item.descricao}|${item.trecho_fonte}`,
+    maxItems
+  );
+}
+
 function compactRiskItems(items, maxItems = 6) {
   const compacted = (items || [])
     .filter((item) => item?.descricao && item?.motivo)
@@ -186,6 +226,7 @@ function compactSummaryForConsolidation(partial) {
     datas_relevantes: compactDateItems(resumo.datas_relevantes, 6),
     valores: compactValueItems(resumo.valores, 6),
     partes_envolvidas: compactPartyItems(resumo.partes_envolvidas, 6),
+    itens_licitados: compactBidItems(resumo.itens_licitados, 18),
     objeto:
       resumo.objeto && (resumo.objeto.descricao || resumo.objeto.trecho_fonte)
         ? {
@@ -284,6 +325,10 @@ function mergePartialSummaries(partialSummaries) {
     partes_envolvidas: compactPartyItems(
       summaries.flatMap((summary) => summary.partes_envolvidas || []),
       12
+    ),
+    itens_licitados: compactBidItems(
+      summaries.flatMap((summary) => summary.itens_licitados || []),
+      60
     ),
     objeto: {
       descricao: truncateText(selectedObject.descricao, 500),

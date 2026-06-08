@@ -28,8 +28,8 @@ export default async function AnalisesPage({ searchParams }) {
     <main className="page-container">
       <div className="page-title">
         <div>
-          <h1>Analises verificaveis</h1>
-          <p>Leituras feitas a partir de resumos IA reais ja salvos. Cada item aponta para o documento oficial e deixa claro quando a cobertura ainda e limitada.</p>
+          <h1>Análises verificáveis</h1>
+          <p>Leituras feitas a partir de resumos IA reais já salvos. Cada item aponta para o documento oficial e deixa claro quando a cobertura ainda é limitada.</p>
         </div>
         <DataAvailabilityBadge status={totais.documentos_analisados ? 'real' : 'pendente'} />
       </div>
@@ -37,20 +37,20 @@ export default async function AnalisesPage({ searchParams }) {
       <AnalysisFilters filters={filters} />
 
       <div className="observatory-grid">
-        <AnimatedChartPanel title="Leituras disponiveis por tipo" description="Distribuicao das analises ja geradas pela IA." items={chartItems} footnote="A cobertura completa continua na area administrativa." />
-        <SectionBlock title="Como ler estas analises">
+        <AnimatedChartPanel title="Leituras disponíveis por tipo" description="Distribuição das análises já geradas pela IA." items={chartItems} footnote="A cobertura ainda está em expansão e deve ser lida junto das fontes oficiais." />
+        <SectionBlock title="Como ler estas análises">
           <div className={styles.statusList}>
             <div className={styles.statusRow}>
               <div>
-                <strong>Conclusoes apoiadas por fonte</strong>
+                <strong>Conclusões apoiadas por fonte</strong>
                 <p>Cada leitura abre o documento original e mostra os campos que a IA conseguiu sustentar.</p>
               </div>
               <DataAvailabilityBadge status="real" />
             </div>
             <div className={styles.statusRow}>
               <div>
-                <strong>Limites ainda visiveis</strong>
-                <p>Comparacoes financeiras amplas dependem de PNCP, contratos e portal de transparencia.</p>
+                <strong>Limites ainda visíveis</strong>
+                <p>Comparações financeiras amplas dependem de PNCP, contratos e portal de transparência.</p>
               </div>
               <DataAvailabilityBadge status="pendente" />
             </div>
@@ -58,7 +58,7 @@ export default async function AnalisesPage({ searchParams }) {
         </SectionBlock>
       </div>
 
-      <SectionBlock title="Feed de inteligencia" description="Cada analise abaixo diferencia dado extraido, inferencia de IA e campo ausente.">
+      <SectionBlock title="Feed de inteligência" description="Cada análise abaixo diferencia dado extraído, inferência de IA e campo ausente.">
         <AnalysisList itens={data.itens || []} />
       </SectionBlock>
     </main>

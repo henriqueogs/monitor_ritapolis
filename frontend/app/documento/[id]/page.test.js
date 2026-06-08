@@ -5,7 +5,9 @@ export const documentoPageContract = {
     'keeps page.js as a route bridge',
     'loads full document text only in the detail route',
     'shows official source before IA interpretation',
+    'shows integrated licitation reading above the individual PDF summary when available',
     'keeps IA summary validation visible',
+    'shows structured licitation products separately from the AI summary',
     'keeps detail sections split into local route components'
   ],
   nextRefactorTargets: [

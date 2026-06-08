@@ -26,9 +26,11 @@ module.exports = {
   ibgeCode: process.env.IBGE_CODE || '3156106',
   cnpjPrefeitura: process.env.CNPJ_PREFEITURA || '18557553000105',
   cnpjCamara: process.env.CNPJ_CAMARA || '26148056000181',
+  pncpBaseUrl: process.env.PNCP_BASE_URL || 'https://pncp.gov.br/api/consulta',
+  pncpOrgaosUrl: process.env.PNCP_ORGAOS_URL || 'https://pncp.gov.br/pncp-api/v1',
   aiSummaryEnabled: String(process.env.AI_SUMMARY_ENABLED || 'true').toLowerCase() !== 'false',
   aiProvider: process.env.AI_PROVIDER || 'nvidia',
-  aiContractVersion: process.env.AI_CONTRACT_VERSION || '1.0',
+  aiContractVersion: process.env.AI_CONTRACT_VERSION || '1.1',
   aiMaxCharsDirect: Number(process.env.AI_MAX_CHARS_DIRECT || 80000),
   aiChunkSizeChars: Number(process.env.AI_CHUNK_SIZE_CHARS || 6000),
   aiMinChunkSizeChars: Number(process.env.AI_MIN_CHUNK_SIZE_CHARS || 3000),
@@ -43,5 +45,21 @@ module.exports = {
   geminiApiKey: process.env.GEMINI_API_KEY || '',
   geminiModel: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
   groqApiKey: process.env.GROQ_API_KEY || '',
-  groqModel: process.env.GROQ_MODEL || 'llama-3.1-70b-versatile'
+  groqModel: process.env.GROQ_MODEL || 'llama-3.1-70b-versatile',
+
+  // Scheduler de coletas
+  collectionSchedulerEnabled: String(process.env.COLLECTION_SCHEDULER_ENABLED || 'true').toLowerCase() !== 'false',
+  // Intervalo mínimo entre coletas automáticas (horas)
+  collectionSchedulerIntervalHours: Number(process.env.COLLECTION_SCHEDULER_INTERVAL_HOURS || 12),
+  // Com que frequência o scheduler verifica se é hora de coletar (ms)
+  collectionSchedulerCheckMs: Number(process.env.COLLECTION_SCHEDULER_CHECK_MS || 60 * 60 * 1000),
+
+  // Scheduler de IA — processa resumos pendentes em ciclos controlados
+  aiSchedulerEnabled: String(process.env.AI_SCHEDULER_ENABLED || 'true').toLowerCase() !== 'false',
+  // Docs processados por ciclo (concorrencia=1, sequencial)
+  aiSchedulerDocsPerCycle: Number(process.env.AI_SCHEDULER_DOCS_PER_CYCLE || 15),
+  // Delay entre documentos no mesmo ciclo (ms) — evita rate limit
+  aiSchedulerDelayBetweenDocsMs: Number(process.env.AI_SCHEDULER_DELAY_BETWEEN_DOCS_MS || 30_000),
+  // Intervalo entre ciclos (ms) — padrão 12h → 2 ciclos/dia × 15 docs = 30 docs/dia
+  aiSchedulerIntervalMs: Number(process.env.AI_SCHEDULER_INTERVAL_MS || 12 * 60 * 60 * 1000)
 };

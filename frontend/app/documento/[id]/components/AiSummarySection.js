@@ -6,6 +6,24 @@ import StatusBadge from '../../../components/StatusBadge';
 import { formatDate, formatMoney } from '../../../lib/format';
 import styles from '../styles.module.css';
 
+function bestEstimatedValue(item) {
+  if (item.valor_total_estimado != null) return item.valor_total_estimado;
+  if (item.valor_unitario_estimado != null && item.quantidade != null) {
+    return Number(item.valor_unitario_estimado) * Number(item.quantidade);
+  }
+  return item.valor_unitario_estimado;
+}
+
+function bestFinalValue(item) {
+  if (item.valor_total_final != null) return item.valor_total_final;
+  if (item.valor_lote_final != null) return item.valor_lote_final;
+  if (item.valor_global_final != null) return item.valor_global_final;
+  if (item.valor_unitario_final != null && item.quantidade != null) {
+    return Number(item.valor_unitario_final) * Number(item.quantidade);
+  }
+  return item.valor_unitario_final;
+}
+
 function formatConfidence(value) {
   if (value == null) return 'Não informada';
   return `${Math.round(Number(value) * 100)}%`;
@@ -160,6 +178,26 @@ export default function AiSummarySection({ resumoAi, operacao }) {
                   <span>{item.trecho_fonte}</span>
                 </div>
                 <span>{item.tipo}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {dados.itens_licitados?.length ? (
+        <div className={styles.aiSummaryGroup}>
+          <h4>Itens licitados</h4>
+          <div className="simple-table">
+            {dados.itens_licitados.map((item) => (
+              <div key={`${item.lote_numero}-${item.item_numero}-${item.descricao}`} className="table-row table-row-stacked">
+                <div>
+                  <strong>{item.descricao}</strong>
+                  <p>
+                    Estimado {formatMoney(bestEstimatedValue(item))} - Final {formatMoney(bestFinalValue(item))}
+                  </p>
+                  <span>{item.trecho_fonte}</span>
+                </div>
+                <span>{item.lote_numero ? `Lote ${item.lote_numero}` : item.item_numero ? `Item ${item.item_numero}` : 'Item'}</span>
               </div>
             ))}
           </div>

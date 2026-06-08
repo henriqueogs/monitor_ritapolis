@@ -30,7 +30,7 @@ export default function LimitsAndSources({ fontes }) {
         <div className="simple-table">
           {fontes.length ? (
             fontes.map((fonte) => (
-              <Link key={fonte.fonte} href={`/documentos?fonte=${fonte.fonte}`} className="table-row">
+              <Link key={fonte.fonte} href={`/acervo?fonte=${fonte.fonte}`} className="table-row">
                 <span>{fonte.fonte_nome || labelFonte(fonte.fonte)}</span>
                 <strong>ver fonte &rarr;</strong>
               </Link>

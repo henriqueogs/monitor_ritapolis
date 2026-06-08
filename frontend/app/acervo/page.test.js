@@ -1,4 +1,8 @@
 export const acervoPageContract = {
   route: '/acervo',
-  expectations: ['redirects to /documentos until the acervo route has its own implementation']
+  expectations: [
+    'owns the public document collection route',
+    'renders filters, year navigation, grouped documents and pagination',
+    'uses /documentos only as the backend API contract'
+  ]
 };

@@ -5,14 +5,14 @@ import SectionBlock from '../../components/SectionBlock';
 export default function TopicGrid({ temas }) {
   return (
     <SectionBlock
-      title="Temas de navegacao"
-      description="Sem mock: quando a classificacao ainda nao existe, o tema aparece como pendente ou parcial."
+      title="Temas de navegação"
+      description="Sem mock: quando a classificação ainda não existe, o tema aparece como pendente ou parcial."
     >
       <div className="topic-grid">
         {temas.map((tema) => (
           <Link
             key={tema.nome}
-            href={tema.href || `/documentos?q=${encodeURIComponent(tema.termos.split(',')[0])}`}
+            href={tema.href || `/acervo?q=${encodeURIComponent(tema.termos.split(',')[0])}`}
             className="topic-card"
           >
             <div className="topic-card-head">

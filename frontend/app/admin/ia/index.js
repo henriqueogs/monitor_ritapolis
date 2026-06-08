@@ -1,3 +1,3 @@
-import IaPage from '../../ia';
+import IaStatusContent from '../../ia/IaStatusContent';
 
-export default IaPage;
+export default IaStatusContent;

@@ -21,4 +21,16 @@ frontend/.next/
 Thumbs.db
 
 # IDE
-.vscode/settings.json
+.vscode/
+.idea/
+
+# Local tooling (não publicar)
+.claude/
+.agents/
+.gemini/
+.qodo/
+skills-lock.json
+redesign/
+
+# Testes de validação local (contém perfis de browser)
+validation/

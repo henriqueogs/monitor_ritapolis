@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import QualitySignals from './QualitySignals';
 import StatusBadge from './StatusBadge';
-import { bestResumo, formatDate, labelFonte, labelTipo } from '../lib/format';
+import { cleanDocumentTitle, cleanDocumentSummary, formatDate, labelFonte, labelTipo } from '../lib/format';
 
 export default function DocumentRow({ documento }) {
   return (
@@ -13,9 +13,9 @@ export default function DocumentRow({ documento }) {
           <span>{formatDate(documento.data_publicacao || documento.atualizado_em)}</span>
         </div>
         <h3>
-          <Link href={`/documento/${documento.id}`}>{documento.titulo}</Link>
+          <Link href={`/documento/${documento.id}`}>{cleanDocumentTitle(documento)}</Link>
         </h3>
-        <p>{bestResumo(documento)}</p>
+        <p>{cleanDocumentSummary(documento)}</p>
         <QualitySignals documento={documento} compact />
       </div>
       <div className="document-row-side">

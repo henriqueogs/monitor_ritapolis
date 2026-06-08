@@ -33,7 +33,7 @@ export default function AnalysisList({ itens }) {
                 {item.titulo_curto || item.numero || item.titulo}
               </Link>
             </h2>
-            <p>{item.objeto || item.resumo_cidadao || 'Resumo direto ainda nao disponivel.'}</p>
+            <p>{item.objeto || item.resumo_cidadao || 'Resumo direto ainda não disponível.'}</p>
             {item.pontos_principais?.length ? (
               <ul className="plain-list">
                 {item.pontos_principais.slice(0, 3).map((ponto) => <li key={ponto}>{ponto}</li>)}
@@ -41,12 +41,12 @@ export default function AnalysisList({ itens }) {
             ) : null}
             <div className="analysis-validation-line">
               <DataAvailabilityBadge status="real" />
-              <span>Conclusao baseada no resumo IA salvo e no documento vinculado.</span>
+              <span>Conclusão baseada no resumo IA salvo e no documento vinculado.</span>
             </div>
           </div>
           <div className="analysis-side">
             <div className="document-row-field"><span>Valor</span><strong>{formatMoney(firstValue(item))}</strong></div>
-            <div className="document-row-field"><span>Data</span><strong>{formatDate(firstDate(item), 'Nao identificada')}</strong></div>
+            <div className="document-row-field"><span>Data</span><strong>{formatDate(firstDate(item), 'Não identificada')}</strong></div>
             <StatusBadge value={item.riscos_ou_alertas?.length ? 'revisar' : 'ok'} />
           </div>
         </article>

@@ -9,7 +9,7 @@ export default function UpdatesSection({ documentos, anoPadrao }) {
         title="Ultimas atualizacoes"
         description="Arquivos mais novos da base, ordenados por data, sem separar por tipo."
         aside={
-          <Link href={`/documentos${anoPadrao ? `?ano=${anoPadrao}` : ''}`}>
+          <Link href={`/acervo${anoPadrao ? `?ano=${anoPadrao}` : ''}`}>
             Abrir acervo &rarr;
           </Link>
         }

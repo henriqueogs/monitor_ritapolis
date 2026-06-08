@@ -81,12 +81,53 @@ function emptyEstatisticas() {
     qualidade_por_ano: [],
     qualidade_por_fonte: [],
     qualidade_por_tipo: [],
+    licitacoes_por_ano: [],
+    licitacoes_ano_corrente: null,
     qualidade_dados: {
       sem_pdf: 0,
       erro_pdf: 0,
       sem_data: 0
     },
     status_fontes: []
+  };
+}
+
+function emptyProdutos(params = {}) {
+  return {
+    total: 0,
+    pagina: Number(params.pagina || 1),
+    limite: Number(params.limite || 20),
+    dados: []
+  };
+}
+
+function emptyAnaliseAnual(ano) {
+  return {
+    filtros: { ano: ano ? Number(ano) : null },
+    licitacoes: { total: 0, modalidades: [] },
+    produtos: {
+      total: 0,
+      documentos_com_produtos: 0,
+      com_preco_estimado: 0,
+      com_preco_final: 0,
+      com_preco_final_calculavel: 0,
+      com_valor_unitario_final: 0,
+      com_valor_total_final: 0,
+      com_valor_lote_final: 0,
+      com_valor_global_final: 0,
+      com_fornecedor: 0,
+      sem_validacao: 0,
+      valor_estimado_total_identificado: 0,
+      valor_final_total_identificado: 0,
+      valor_lote_total_identificado: 0,
+      valor_global_total_identificado: 0
+    },
+    modalidades: [],
+    fornecedores: [],
+    origens: [],
+    validacoes: [],
+    lacunas: [],
+    produtos_recentes: []
   };
 }
 
@@ -148,6 +189,20 @@ export function fetchLicitacoes(params = {}) {
   });
 }
 
+export function fetchLicitacaoAnaliseAnual(params = {}) {
+  return fetchJson(`/licitacoes/analise-anual${buildQuery(params)}`).catch(() =>
+    emptyAnaliseAnual(params.ano)
+  );
+}
+
+export function fetchLicitacaoProdutos(params = {}) {
+  return fetchJson(`/licitacoes/produtos${buildQuery(params)}`).catch(() => emptyProdutos(params));
+}
+
+export function fetchDocumentoProdutos(id) {
+  return fetchJson(`/licitacoes/${id}/produtos`).catch(() => emptyProdutos({ limite: 100 }));
+}
+
 export function fetchEstatisticas() {
   return fetchJson('/estatisticas').catch(async () => {
     const [documentos, licitacoes, coletas] = await Promise.all([
@@ -183,6 +238,8 @@ export function fetchEstatisticas() {
       qualidade_por_ano: [],
       qualidade_por_fonte: [],
       qualidade_por_tipo: [],
+      licitacoes_por_ano: [],
+      licitacoes_ano_corrente: null,
       qualidade_dados: {
         sem_pdf: 0,
         erro_pdf: 0,
@@ -219,6 +276,7 @@ export function fetchPainelCidadao() {
       },
       publicacoes_recentes: recentes.dados,
       licitacoes_recentes: licitacoes.dados,
+      licitacoes_ano_corrente: estatisticas.licitacoes_ano_corrente || null,
       anos: estatisticas.por_ano || [],
       fontes: estatisticas.por_fonte || [],
       qualidade_por_ano: estatisticas.qualidade_por_ano || [],
@@ -283,4 +341,20 @@ export function fetchResumoIaJobs(params = {}) {
 
 export function fetchAnalisesResumos(params = {}) {
   return fetchJson(`/analises/resumos${buildQuery(params)}`);
+}
+
+export function fetchAuditoria(params = {}) {
+  return fetchJson(`/inteligencia/auditoria${buildQuery(params)}`);
+}
+
+export function fetchFornecedoresRanking(params = {}) {
+  return fetchJson(`/inteligencia/fornecedores${buildQuery(params)}`);
+}
+
+export function fetchInteligenciaPanorama() {
+  return fetchJson('/inteligencia/panorama');
+}
+
+export function fetchSchedulerStatus() {
+  return fetchJson('/scheduler/status');
 }

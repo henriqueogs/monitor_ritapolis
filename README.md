@@ -1,67 +1,30 @@
-# Monitor Ritapolis
+# Monitor Ritápolis
 
-MVP para coleta, armazenamento e visualizacao de dados publicos da Prefeitura e da Camara de Ritapolis/MG.
+Plataforma de inteligência pública verificável para o município de Ritápolis/MG. Coleta documentos oficiais da Prefeitura e da Câmara, estrutura dados com parsers determinísticos, enriquece com IA e apresenta ao cidadão de forma rastreável.
 
-Hoje o projeto ja possui:
-
-- backend em Node.js;
-- banco SQLite local;
-- coletores da Prefeitura e da Camara;
-- API REST minima;
-- frontend em Next.js.
+**Não é um repositório de PDFs.** É uma leitura do poder público local: o que está sendo contratado, por quem, a que preço, onde os dados estão incompletos e o que a IA consegue inferir com segurança.
 
 ## Requisitos
 
 - Node.js 24 ou superior
 - npm 11 ou superior
 
-## Estrutura
-
-```text
-.
-|-- frontend/          # app Next.js
-|-- scripts/           # comandos de execucao
-|-- src/
-|   |-- api/           # API Express
-|   |-- coletores/     # coletores das fontes
-|   |-- db/            # schema e acesso ao banco
-|   `-- parsers/       # parsing de PDF e extracao de campos
-|-- .env.example
-`-- package.json
-```
-
-## Instalacao
-
-Instale as dependencias do backend:
+## Instalação
 
 ```bash
 npm install
+cd frontend && npm install && cd ..
 ```
 
-Instale as dependencias do frontend:
+## Configuração
 
-```bash
-cd frontend
-npm install
-cd ..
-```
-
-## Configuracao
-
-Crie um arquivo `.env` na raiz do projeto com base no `.env.example`.
-
-Exemplo:
+Crie `.env` na raiz com base no `.env.example`:
 
 ```env
 DB_PATH=./data/ritapolis.db
 LOG_DIR=./logs
 API_PORT=3001
-API_HOST=0.0.0.0
 NEXT_PUBLIC_API_URL=http://localhost:3001/api
-COLETOR_DELAY_MS=1000
-COLETOR_TIMEOUT_MS=15000
-COLETOR_RETRY_MAX=3
-COLETOR_USER_AGENT=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36
 IBGE_CODE=3156106
 CNPJ_PREFEITURA=18557553000105
 CNPJ_CAMARA=26148056000181
@@ -72,167 +35,101 @@ NVIDIA_API_KEY=nvapi-sua-chave-aqui
 
 ## Primeiro uso
 
-Inicialize o banco:
-
 ```bash
 npm run setup-db
-```
-
-## Resumos de PDFs com IA
-
-O backend suporta uma camada opcional de enriquecimento por IA para gerar resumos estruturados de PDFs sem alterar os campos oficiais da tabela `documentos`.
-
-O provider operacional suportado atualmente e `nvidia`. O provider de testes `mock` foi removido para evitar mistura de resumos simulados com dados reais.
-
-### Como obter a chave da NVIDIA
-
-1. Acesse `https://build.nvidia.com`.
-2. Faca login ou crie uma conta NVIDIA Developer.
-3. Abra `https://build.nvidia.com/settings/api-keys`.
-4. Crie uma nova API key.
-5. Copie a chave.
-6. Adicione no `.env`:
-
-```env
-AI_PROVIDER=nvidia
-NVIDIA_API_KEY=nvapi-sua-chave-aqui
-```
-
-7. Teste a integracao:
-
-```bash
-npm run ai:test
-```
-
-8. Gere o resumo de um documento:
-
-```bash
-npm run ai:resumir -- --documento-id=1
-```
-
-Para acompanhar a cobertura dos resumos:
-
-```bash
-npm run ai:status
-npm run ai:status -- --ano=2026 --tipo=edital
-```
-
-## Coleta de dados
-
-Rodar os dois coletores:
-
-```bash
 npm run coletar
 ```
 
-Rodar somente a Prefeitura:
+## Subir localmente
 
 ```bash
+npm start   # API na porta 3001 + Next.js dev na porta 3000
+```
+
+## Rotas públicas
+
+| Rota | O que mostra |
+|---|---|
+| `/` | Home com gráficos reais e destaques |
+| `/acervo` | Consulta principal de documentos |
+| `/licitacoes` | Licitações e compras por ano e categoria |
+| `/documento/:id` | Detalhe com fonte oficial, resumo IA e leitura integrada |
+| `/analises` | Feed de análises verificáveis |
+| `/temas` | Navegação por categoria |
+| `/transparencia` | Indicadores públicos da base |
+| `/inteligencia` | Dashboard cruzado — fornecedores, categorias, gastos |
+| `/sobre` | Como a plataforma funciona e suas limitações |
+
+## Área administrativa
+
+| Rota | O que mostra |
+|---|---|
+| `/admin` | Visão geral operacional |
+| `/admin/ia` | Cobertura, fila e jobs de resumos IA |
+| `/admin/cobertura` | Cobertura das fontes monitoradas |
+| `/admin/coletas` | Ações e status de coleta (inclui schedulers) |
+| `/admin/qualidade` | Score de qualidade por documento |
+
+Aliases: `/documentos` → `/acervo`, `/estatisticas` → `/transparencia`, `/ia` → `/admin/ia`, `/cobertura` → `/admin/cobertura`.
+
+## Comandos principais
+
+```bash
+# Coleta
+npm run coletar                          # Prefeitura + Câmara
 npm run coletar:prefeitura
-```
-
-Rodar somente a Camara:
-
-```bash
 npm run coletar:camara
+
+# IA — resumos por documento
+npm run ai:resumir -- --documento-id=N
+npm run ai:resumir-pendentes -- --ano=2026 --tipo=edital --limite=5
+npm run ai:status -- --ano=2026
+
+# IA — leitura integrada (correlação)
+npm run ai:correlacionar -- --documento-id=N
+npm run ai:revisar-integradas
+
+# Licitações — estruturação
+npm run licitacoes:agrupar -- --ano=2026
+npm run licitacoes:estruturar
+npm run licitacoes:detalhar
+npm run licitacoes:enriquecer-produtos
+
+# PNCP — Portal Nacional de Contratações Públicas
+npm run pncp:sincronizar                 # Sincroniza vencedores/valores via API direta por CNPJ
+npm run pncp:sincronizar -- --ano=2026 --dry-run
+npm run pncp:diagnostico                 # Busca fuzzy por data+modalidade (fallback)
+
+# Inteligência cruzada
+npm run inteligencia:auditar             # score de qualidade por documento
+npm run inteligencia:fornecedores        # consolida perfis de fornecedor
+npm run inteligencia:categorizar         # classifica licitações por categoria
+
+# Build
+npm run build --prefix frontend
 ```
 
-Observacoes:
+## Estado atual (v0.7 — junho 2026)
 
-- a coleta da Prefeitura pode demorar alguns minutos porque processa muitos PDFs;
-- a Camara usa um portal com certificado expirado, e o coletor ja trata isso;
-- alguns PDFs podem falhar no parse e ser salvos com `status_coleta = erro_pdf`.
+- 545 documentos: 532 da Prefeitura, 13 da Câmara
+- 25/25 editais de 2026 com resumo IA (status ok)
+- 26/26 licitações 2026 com leitura integrada
+- 219 produtos estruturados, 217 com preço final e fornecedor
+- R$ 1,66M identificados em 14 licitações com vencedor
+- 495 licitações classificadas em 7 categorias (Equipamentos, Serviços, Saúde, Obras, Educação, Alimentação, Outros)
+- 25 CNPJs de fornecedores consolidados
+- Schedulers automáticos ativos: coleta (12h) e resumos IA (2 ciclos/dia × 15 docs)
+- Todas as rotas validadas em desktop (1280px) e mobile (375px)
 
-## Subir a API
+## Limitações conhecidas
 
-```bash
-npm run api
-```
+- Resumos IA anos anteriores: 407 pendentes — scheduler processa gradualmente (30/dia)
+- PNCP API pública: timeouts e 503 intermitentes são da fonte, não do código
+- Sem autenticação administrativa: `/admin` é público nesta fase
+- Banco SQLite local, sem replicação com servidor externo
+- Câmara usa certificado expirado — o coletor já trata automaticamente
 
-API disponivel em:
+## Problemas de ambiente
 
-```text
-http://localhost:3001/api
-```
-
-Endpoints principais:
-
-- `GET /api/health`
-- `GET /api/documentos`
-- `GET /api/documentos/:id`
-- `GET /api/coletas/log`
-
-Exemplos:
-
-```text
-http://localhost:3001/api/documentos?limite=10
-http://localhost:3001/api/documentos?fonte=site_prefeitura&tipo=edital
-http://localhost:3001/api/coletas/log?limite=5
-```
-
-## Subir o frontend
-
-Em outro terminal:
-
-```bash
-npm run dev
-```
-
-Frontend disponivel em:
-
-```text
-http://localhost:3000
-```
-
-## Subir tudo junto
-
-Para subir API e frontend ao mesmo tempo:
-
-```bash
-npm start
-```
-
-## Build do frontend
-
-Para validar o build de producao:
-
-```bash
-cd frontend
-npm run build
-cd ..
-```
-
-## Onde ficam os dados
-
-- Banco SQLite: caminho definido em `DB_PATH`
-- Logs da aplicacao: pasta definida em `LOG_DIR`
-
-Por padrao:
-
-- banco: `./data/ritapolis.db`
-- logs: `./logs/app.log`
-
-## Fluxo recomendado de desenvolvimento
-
-1. Instalar dependencias do backend e do frontend.
-2. Criar `.env`.
-3. Rodar `npm run setup-db`.
-4. Rodar `npm run coletar:camara` para uma validacao mais rapida.
-5. Rodar `npm run coletar:prefeitura` para popular a base principal.
-6. Subir a API com `npm run api`.
-7. Subir o frontend com `npm run dev`.
-
-## Estado atual do MVP
-
-No estado validado localmente:
-
-- coletor da Prefeitura funcionando via endpoints reais de cadastro generico;
-- coletor da Camara funcionando via portal SH3;
-- API retornando dados reais do banco;
-- frontend renderizando listagem e detalhe de documentos.
-
-## Problemas conhecidos
-
-- `node:sqlite` em Node 24 ainda emite `ExperimentalWarning`;
-- a coleta da Prefeitura pode exceder timeouts curtos de terminal;
-- alguns PDFs antigos geram ruido interno no parser, mas o projeto continua salvando os dados quando possivel.
+- `node:sqlite` emite `ExperimentalWarning` no Node 24 — esperado, não afeta o funcionamento
+- Coleta da Prefeitura pode demorar por volume de PDFs

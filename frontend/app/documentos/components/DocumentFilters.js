@@ -1,9 +1,9 @@
 import FilterBar from '../../components/FilterBar';
 import SearchInput from '../../components/SearchInput';
 
-export default function DocumentFilters({ filters }) {
+export default function DocumentFilters({ filters, action = '/acervo' }) {
   return (
-    <FilterBar action="/documentos">
+    <FilterBar action={action}>
       <SearchInput compact defaultValue={filters.q} />
       <select name="fonte" defaultValue={filters.fonte} className="field-select">
         <option value="">Todas as fontes</option>

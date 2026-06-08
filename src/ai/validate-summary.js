@@ -5,6 +5,7 @@ const enumValues = {
   tipo_documento: ['edital', 'decreto', 'portaria', 'lei', 'contrato', 'despesa', 'ata', 'outro'],
   data_tipo: ['publicacao', 'abertura', 'vigencia', 'homologacao', 'assinatura', 'outro'],
   valor_tipo: ['estimado', 'final', 'global', 'mensal', 'unitario', 'outro'],
+  valor_final_tipo: ['unitario', 'total_item', 'lote', 'global', 'indefinido'],
   papel: ['contratante', 'contratado', 'autoridade', 'fornecedor', 'orgao_publico', 'outro'],
   nivel_risco: ['baixo', 'medio', 'alto']
 };
@@ -88,6 +89,14 @@ function normalizeEnumValue(value, allowedValues, fallback = 'outro') {
     if (/unit/.test(text)) return 'unitario';
   }
 
+  if (allowedValues === enumValues.valor_final_tipo) {
+    if (/unit/.test(text)) return 'unitario';
+    if (/total|item_total/.test(text)) return 'total_item';
+    if (/lote/.test(text)) return 'lote';
+    if (/global/.test(text)) return 'global';
+    return 'indefinido';
+  }
+
   if (allowedValues === enumValues.nivel_risco) {
     if (/alto|grave/.test(text)) return 'alto';
     if (/medio|moderado/.test(text)) return 'medio';
@@ -132,6 +141,29 @@ function normalizeOptionalText(value) {
 
 function normalizeRequiredText(value) {
   return normalizeOptionalText(value) || '';
+}
+
+function normalizeNumberValue(value) {
+  if (value == null || value === '') return null;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+
+  const text = String(value)
+    .replace(/[^\d,.-]/g, '')
+    .trim();
+
+  if (!text) return null;
+
+  const normalized = text.includes(',')
+    ? text.replace(/\./g, '').replace(',', '.')
+    : text;
+  const parsed = Number(normalized);
+
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizePositiveNumberValue(value) {
+  const parsed = normalizeNumberValue(value);
+  return parsed && parsed > 0 ? parsed : null;
 }
 
 function normalizeSummaryBeforeValidation(summary) {
@@ -204,6 +236,27 @@ function normalizeSummaryBeforeValidation(summary) {
             trecho_fonte: normalizeRequiredText(item?.trecho_fonte)
           }))
       : summary.partes_envolvidas,
+    itens_licitados: Array.isArray(summary.itens_licitados)
+      ? summary.itens_licitados
+          .filter((item) => hasSourceExcerpt(item) && hasRequiredText(item?.descricao))
+          .map((item) => ({
+            item_numero: normalizeOptionalText(item?.item_numero),
+            lote_numero: normalizeOptionalText(item?.lote_numero),
+            descricao: normalizeRequiredText(item?.descricao),
+            unidade: normalizeOptionalText(item?.unidade),
+            quantidade: normalizePositiveNumberValue(item?.quantidade),
+            valor_unitario_estimado: normalizePositiveNumberValue(item?.valor_unitario_estimado),
+            valor_total_estimado: normalizePositiveNumberValue(item?.valor_total_estimado),
+            valor_unitario_final: normalizePositiveNumberValue(item?.valor_unitario_final),
+            valor_total_final: normalizePositiveNumberValue(item?.valor_total_final),
+            valor_final_tipo: normalizeEnumValue(item?.valor_final_tipo, enumValues.valor_final_tipo, null),
+            valor_lote_final: normalizePositiveNumberValue(item?.valor_lote_final),
+            valor_global_final: normalizePositiveNumberValue(item?.valor_global_final),
+            fornecedor_nome: normalizeOptionalText(item?.fornecedor_nome),
+            fornecedor_cnpj: normalizeOptionalText(item?.fornecedor_cnpj),
+            trecho_fonte: normalizeRequiredText(item?.trecho_fonte)
+          }))
+      : [],
     objeto: normalizedObject,
     riscos_ou_alertas: Array.isArray(summary.riscos_ou_alertas)
       ? summary.riscos_ou_alertas

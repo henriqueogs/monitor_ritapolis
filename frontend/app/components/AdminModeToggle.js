@@ -26,31 +26,30 @@ export default function AdminModeToggle() {
 
   if (!mounted) {
     return (
-      <div className="admin-mode-control" aria-label="Modo admin">
-        <button type="button" className="admin-mode-button" disabled>
+      <div className="admin-mode-control" aria-label="Controles internos">
+        <button type="button" className="admin-mode-button is-icon-only" disabled title="Controles internos">
           <ShieldOff size={16} />
-          Admin
         </button>
       </div>
     );
   }
 
   return (
-    <div className="admin-mode-control" aria-label="Modo admin">
+    <div className="admin-mode-control" aria-label="Controles internos">
       {enabled ? (
         <Link href="/admin" className="admin-mode-link">
-          Admin
+          Operacao
         </Link>
       ) : null}
       <button
         type="button"
-        className="admin-mode-button"
+        className={enabled ? 'admin-mode-button' : 'admin-mode-button is-icon-only'}
         aria-pressed={enabled}
         onClick={toggleAdminMode}
-        title={enabled ? 'Desativar modo admin' : 'Ativar modo admin'}
+        title={enabled ? 'Desativar controles internos' : 'Ativar controles internos'}
       >
         {enabled ? <Shield size={16} /> : <ShieldOff size={16} />}
-        {enabled ? 'Admin ativo' : 'Admin'}
+        {enabled ? 'Interno ativo' : null}
       </button>
     </div>
   );

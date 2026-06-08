@@ -1,9 +1,11 @@
 import './globals.css';
+import Link from 'next/link';
 import TopNav from './components/TopNav';
 
 export const metadata = {
   title: 'Monitor Ritápolis — Inteligência Pública com IA',
-  description: 'Entenda documentos públicos em segundos. O Monitor Ritápolis usa IA para transformar editais, decretos e licitações em informações compreensíveis.'
+  description:
+    'Entenda documentos públicos em segundos. O Monitor Ritápolis usa IA para transformar editais, decretos e licitações em informações compreensíveis.',
 };
 
 export default function RootLayout({ children }) {
@@ -15,8 +17,15 @@ export default function RootLayout({ children }) {
           {children}
           <footer className="site-footer">
             <div className="site-footer-inner">
-              <span>Monitor Ritápolis</span>
-              <span>Dados públicos coletados de fontes oficiais — <a href="/admin">Operação</a></span>
+              <div className="footer-brand">
+                <strong>Monitor Ritápolis</strong>
+                <span>Transparência municipal com IA verificável</span>
+              </div>
+              <div className="footer-meta">
+                <span>Dados coletados das fontes oficiais da Prefeitura e da Câmara</span>
+                <span className="footer-dot">·</span>
+                <Link href="/sobre">Sobre o projeto</Link>
+              </div>
             </div>
           </footer>
         </div>

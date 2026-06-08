@@ -1,3 +1,3 @@
-import CoberturaPage from '../../cobertura';
+import CoberturaContent from '../../cobertura/CoberturaContent';
 
-export default CoberturaPage;
+export default CoberturaContent;

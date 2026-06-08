@@ -5,7 +5,7 @@ export default function AnalysisFilters({ filters }) {
     <FilterBar action="/analises">
       <select name="tipo" defaultValue={filters.tipo} className="field-select">
         <option value="">Todos os tipos</option>
-        <option value="edital">Licitacoes/Editais</option>
+        <option value="edital">Licitações/Editais</option>
         <option value="lei">Leis</option>
         <option value="decreto">Decretos</option>
         <option value="portaria">Portarias</option>

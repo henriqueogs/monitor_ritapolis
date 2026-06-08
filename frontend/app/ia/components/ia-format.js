@@ -12,7 +12,7 @@ export function buildDocsHref(row) {
   if (row.ano) params.set('ano', String(row.ano));
   if (row.tipo) params.set('tipo', row.tipo);
   const query = params.toString();
-  return query ? `/documentos?${query}` : '/documentos';
+  return query ? `/acervo?${query}` : '/acervo';
 }
 
 export function formatDateTime(value) {

@@ -9,7 +9,7 @@ export default function StatsSummary({ data }) {
         <strong>{data.total_documentos}</strong>
       </div>
       <div className={styles.statBox}>
-        <span>Licitacoes e editais</span>
+        <span>Licitações e editais</span>
         <strong>{data.total_licitacoes}</strong>
       </div>
       <div className={styles.statBox}>

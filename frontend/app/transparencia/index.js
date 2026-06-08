@@ -1,5 +1,3 @@
-import { redirect } from 'next/navigation';
+import EstatisticasContent from '../estatisticas/EstatisticasContent';
 
-export default function TransparenciaPage() {
-  redirect('/estatisticas');
-}
+export default EstatisticasContent;

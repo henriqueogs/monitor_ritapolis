@@ -1,15 +1,7 @@
 import Link from 'next/link';
 import { Sparkles } from 'lucide-react';
 import AdminModeToggle from './AdminModeToggle';
-
-const links = [
-  { href: '/', label: 'Início' },
-  { href: '/analises', label: 'Análises' },
-  { href: '/temas', label: 'Temas' },
-  { href: '/licitacoes', label: 'Licitações' },
-  { href: '/documentos', label: 'Acervo' },
-  { href: '/sobre', label: 'Sobre' }
-];
+import NavLinks from './NavLinks';
 
 export default function TopNav() {
   return (
@@ -25,13 +17,7 @@ export default function TopNav() {
           </div>
         </Link>
 
-        <nav className="topnav" aria-label="Principal">
-          {links.map((link) => (
-            <Link key={link.href} href={link.href} className="topnav-link">
-              {link.label}
-            </Link>
-          ))}
-        </nav>
+        <NavLinks />
         <AdminModeToggle />
       </div>
     </header>

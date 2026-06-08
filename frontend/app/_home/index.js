@@ -47,10 +47,21 @@ function buildChartItems(painel) {
       valueLabel: formatMoney(item.valor_estimado)
     }));
 
+  const licitacoesAno = painel.licitacoes_ano_corrente || {};
+  const modalidadesAno = (licitacoesAno.modalidades || [])
+    .slice(0, 6)
+    .map((item) => ({
+      label: item.modalidade,
+      value: item.total,
+      valueLabel: `${item.total}`
+    }));
+
   return {
     atividadePorAno,
     temasPorTipo,
-    comprasComValor
+    comprasComValor,
+    modalidadesAno,
+    licitacoesAno
   };
 }
 

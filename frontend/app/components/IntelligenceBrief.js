@@ -23,7 +23,7 @@ export default function IntelligenceBrief({ resumoAi, publicacao, licitacao }) {
           A plataforma organiza atos, licitações e leituras de IA em linguagem direta, sempre com caminho para a
           fonte oficial.
         </p>
-        <form action="/documentos" className="brief-search">
+        <form action="/acervo" className="brief-search">
           <input name="q" placeholder="Buscar por merenda, obra, transporte, lei, edital…" />
           <button type="submit">Explorar evidências</button>
         </form>

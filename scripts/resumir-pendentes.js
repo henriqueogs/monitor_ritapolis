@@ -13,6 +13,8 @@ async function main() {
   const maxChars = maxCharsFlag ? Number(maxCharsFlag) : null;
   const minCharsFlag = readFlag('min-chars', null);
   const minChars = minCharsFlag ? Number(minCharsFlag) : null;
+  const delayFlag = readFlag('delay-entre-docs', null);
+  const delayBetweenDocsMs = delayFlag ? Number(delayFlag) * 1000 : 0;
   const ano = readFlag('ano', null);
   const tipo = readFlag('tipo', null);
   const fonte = readFlag('fonte', null);
@@ -22,6 +24,7 @@ async function main() {
     concorrencia,
     maxChars,
     minChars,
+    delayBetweenDocsMs,
     ano,
     tipo,
     fonte,

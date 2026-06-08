@@ -9,14 +9,30 @@
     "coletar": "node scripts/coletar-agora.js",
     "coletar:prefeitura": "node scripts/coletar-prefeitura.js",
     "coletar:camara": "node scripts/coletar-camara.js",
+    "licitacoes:estruturar": "node scripts/estruturar-licitacoes.js",
+    "licitacoes:detalhar": "node scripts/detalhar-licitacoes.js",
+    "licitacoes:enriquecer-produtos": "node scripts/enriquecer-produtos-licitacoes.js",
+    "licitacoes:validar-valores": "node scripts/validar-valores-licitacoes.js",
+    "pncp:diagnostico": "node scripts/pncp-diagnostico.js",
+    "pncp:vincular": "node scripts/pncp-vincular.js",
+    "pncp:sincronizar": "node scripts/pncp-sincronizar.js",
+    "pncp:sincronizar:prefeitura": "node scripts/pncp-sincronizar.js --cnpj=18557553000105",
+    "pncp:sincronizar:camara": "node scripts/pncp-sincronizar.js --cnpj=26148056000181",
+    "licitacoes:agrupar": "node scripts/agrupar-licitacoes.js",
     "saneamento:pdf": "node scripts/saneamento-pdf.js",
     "ai:test": "node scripts/ai-test.js",
     "ai:status": "node scripts/ai-status.js",
     "ai:limpar-mock": "node scripts/limpar-resumos-mock.js",
     "ai:resumir": "node scripts/resumir-documento.js",
     "ai:resumir-pendentes": "node scripts/resumir-pendentes.js",
+    "ai:correlacionar": "node scripts/correlacionar-licitacao-ai.js",
+    "ai:revisar-integradas": "node scripts/revisar-leituras-integradas.js",
     "ai:worker": "node scripts/ai-worker.js",
     "api": "node scripts/api.js",
+    "inteligencia:auditar": "node scripts/auditar-inteligencia.js",
+    "inteligencia:fornecedores": "node scripts/consolidar-fornecedores.js",
+    "inteligencia:categorizar": "node scripts/categorizar-licitacoes.js",
+    "db-stats": "node scripts/db-stats.js",
     "dev": "concurrently \"npm run api\" \"npm run dev --prefix frontend\"",
     "dev:frontend": "npm run dev --prefix frontend",
     "start": "concurrently \"npm run api\" \"npm run dev --prefix frontend\""
@@ -37,6 +53,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "playwright": "^1.60.0"
   }
 }

@@ -21,6 +21,7 @@ const dataTipoEnum = z.enum([
 ]);
 
 const valorTipoEnum = z.enum(['estimado', 'final', 'global', 'mensal', 'unitario', 'outro']);
+const valorFinalTipoEnum = z.enum(['unitario', 'total_item', 'lote', 'global', 'indefinido']).nullable().default(null);
 const papelEnum = z.enum([
   'contratante',
   'contratado',
@@ -30,6 +31,9 @@ const papelEnum = z.enum([
   'outro'
 ]);
 const nivelRiscoEnum = z.enum(['baixo', 'medio', 'alto']);
+
+const nullableText = z.string().trim().min(1).nullable().default(null);
+const nullableNumber = z.number().finite().nullable().default(null);
 
 const SummaryContract = z.object({
   tipo_documento: tipoDocumentoEnum,
@@ -64,6 +68,27 @@ const SummaryContract = z.object({
         nome: z.string().trim().min(1),
         papel: papelEnum,
         documento: z.string().trim().min(1).nullable(),
+        trecho_fonte: z.string().trim().min(1)
+      })
+    )
+    .default([]),
+  itens_licitados: z
+    .array(
+      z.object({
+        item_numero: nullableText,
+        lote_numero: nullableText,
+        descricao: z.string().trim().min(1),
+        unidade: nullableText,
+        quantidade: nullableNumber,
+        valor_unitario_estimado: nullableNumber,
+        valor_total_estimado: nullableNumber,
+        valor_unitario_final: nullableNumber,
+        valor_total_final: nullableNumber,
+        valor_final_tipo: valorFinalTipoEnum,
+        valor_lote_final: nullableNumber,
+        valor_global_final: nullableNumber,
+        fornecedor_nome: nullableText,
+        fornecedor_cnpj: nullableText,
         trecho_fonte: z.string().trim().min(1)
       })
     )

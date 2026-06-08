@@ -1,31 +1,88 @@
 .hero {
+  position: relative;
+  overflow: hidden;
   margin-bottom: 48px;
+  padding: 80px 0 72px;
   text-align: center;
 }
 
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 100% 75% at 50% -8%, rgba(19, 81, 180, 0.12) 0%, transparent 65%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle at 1px 1px, rgba(19, 81, 180, 0.055) 1px, transparent 0);
+  background-size: 28px 28px;
+  pointer-events: none;
+  z-index: 0;
+}
+
 .heroInner {
-  max-width: 720px;
+  position: relative;
+  z-index: 1;
+  max-width: 740px;
   margin: 0 auto;
+  animation: fade-in-up 550ms var(--ease-out) both;
+}
+
+.heroBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px 6px 10px;
+  border: 1px solid rgba(19, 81, 180, 0.18);
+  border-radius: 100px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: var(--accent);
+  font-size: 0.83rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  margin-bottom: 28px;
+  box-shadow: 0 1px 6px rgba(19, 81, 180, 0.1), 0 1px 2px rgba(19, 81, 180, 0.06);
+}
+
+.heroBadgeDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px rgba(19, 81, 180, 0.22);
+  animation: pulse-dot 2.4s ease-in-out infinite;
+  flex-shrink: 0;
 }
 
 .hero h1 {
   margin-bottom: 20px;
-  color: var(--text);
-  font-size: clamp(2.2rem, 5vw, 3.5rem);
-  font-weight: 700;
-  line-height: 1.05;
+  background: linear-gradient(148deg, #0a2463 0%, #1351b4 45%, #2976f5 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-size: clamp(2.6rem, 5.8vw, 4rem);
+  font-weight: 900;
+  line-height: 1.02;
+  letter-spacing: -0.05em;
 }
 
 .hero p {
-  max-width: 560px;
+  max-width: 540px;
   margin: 0 auto 32px;
   color: var(--text-secondary);
   font-size: 1.1rem;
-  line-height: 1.6;
+  line-height: 1.65;
 }
 
 .heroSearch {
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 
 .searchForm {
@@ -34,6 +91,51 @@
 
 .promptList {
   justify-content: center;
+}
+
+.heroStats {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  flex-wrap: wrap;
+  margin-top: 40px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border);
+  animation: fade-in 700ms 350ms var(--ease-out) both;
+}
+
+.heroStat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 0 28px;
+}
+
+.heroStatDivider {
+  width: 1px;
+  height: 34px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.heroStat strong {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--accent);
+  letter-spacing: -0.045em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.heroStat span {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .contentGrid {
@@ -61,6 +163,13 @@
   transition: box-shadow var(--motion-base) var(--ease-out),
     border-color var(--motion-base) var(--ease-out),
     transform var(--motion-base) var(--ease-out);
+  will-change: transform;
+}
+
+.statusRow:hover {
+  box-shadow: var(--shadow-colored);
+  border-color: var(--border-accent);
+  transform: translateY(-1px);
 }
 
 .statusRow p {
@@ -73,6 +182,10 @@
   .contentGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .hero {
+    padding: 60px 0 52px;
+  }
 }
 
 @media (max-width: 720px) {
@@ -83,5 +196,37 @@
   .statusRow {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .hero {
+    padding: 48px 0 40px;
+  }
+
+  .hero h1 {
+    font-size: 2.2rem;
+  }
+
+  .heroStats {
+    flex-direction: row;
+    gap: 0;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .heroStat {
+    padding: 0 18px;
+    flex-shrink: 0;
+  }
+
+  .heroStat strong {
+    font-size: 1.2rem;
+  }
+
+  .heroStatDivider {
+    height: 28px;
+  }
+
+  .statusRow:hover {
+    transform: none;
   }
 }

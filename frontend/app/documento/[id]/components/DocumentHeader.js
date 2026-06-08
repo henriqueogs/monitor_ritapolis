@@ -1,6 +1,6 @@
 import QualitySignals from '../../../components/QualitySignals';
 import StatusBadge from '../../../components/StatusBadge';
-import { formatDate, labelFonte, labelTipo } from '../../../lib/format';
+import { cleanDocumentTitle, formatDate, labelFonte, labelTipo } from '../../../lib/format';
 
 export default function DocumentHeader({ documento, licitacao }) {
   return (
@@ -11,7 +11,7 @@ export default function DocumentHeader({ documento, licitacao }) {
           <span>{documento.tipo_nome || labelTipo(documento.tipo)}</span>
           <span>{formatDate(documento.data_publicacao || documento.atualizado_em)}</span>
         </div>
-        <h1>{documento.titulo}</h1>
+        <h1>{cleanDocumentTitle(documento)}</h1>
         <QualitySignals documento={documento} />
       </div>
       <StatusBadge value={licitacao?.status || documento.status_coleta} />

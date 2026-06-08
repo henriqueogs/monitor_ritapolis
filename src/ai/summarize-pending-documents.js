@@ -6,6 +6,10 @@ const {
 const { createAiProvider } = require('./providers');
 const { summarizeDocument, buildTextoHash } = require('./summarize-document');
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function summarizePendingDocuments({
   limite = 20,
   concorrencia = 1,
@@ -14,9 +18,9 @@ async function summarizePendingDocuments({
   ano = null,
   tipo = null,
   fonte = null,
+  delayBetweenDocsMs = 0,
   dryRun = false
 } = {}) {
-  const { default: pLimit } = await import('p-limit');
   const candidateLimit = Math.max(limite * 20, 200);
   const documentos = listDocumentosPendentesResumoAi({
     limite: candidateLimit,
@@ -36,7 +40,8 @@ async function summarizePendingDocuments({
       }
 
       const textoHash = buildTextoHash(textoCompleto);
-      return !getResumoAiByDocumentoHash(documento.id, textoHash, config.aiContractVersion);
+      const cached = getResumoAiByDocumentoHash(documento.id, textoHash, config.aiContractVersion);
+      return cached?.status !== 'ok';
     })
     .slice(0, limite);
 
@@ -69,31 +74,58 @@ async function summarizePendingDocuments({
   }
 
   const provider = createAiProvider();
-
-  const limit = pLimit(Math.max(concorrencia, 1));
   const resultados = [];
 
-  await Promise.all(
-    documentos.map((documento) =>
-      limit(async () => {
-        try {
-          const result = await summarizeDocument(documento.id, { provider });
-          resultados.push({
-            documento_id: documento.id,
-            status: 'ok',
-            reutilizado: result.reutilizado,
-            confianca: result.confianca
-          });
-        } catch (error) {
-          resultados.push({
-            documento_id: documento.id,
-            status: 'erro',
-            erro: error.message
-          });
-        }
-      })
-    )
-  );
+  // Com delay explícito: processa sequencialmente com pausa entre docs
+  if (delayBetweenDocsMs > 0) {
+    for (let i = 0; i < documentos.length; i++) {
+      const documento = documentos[i];
+      try {
+        const result = await summarizeDocument(documento.id, { provider });
+        resultados.push({
+          documento_id: documento.id,
+          status: 'ok',
+          reutilizado: result.reutilizado,
+          confianca: result.confianca
+        });
+      } catch (error) {
+        resultados.push({
+          documento_id: documento.id,
+          status: 'erro',
+          erro: error.message
+        });
+      }
+      // Pausa entre docs (exceto após o último)
+      if (i < documentos.length - 1) {
+        await sleep(delayBetweenDocsMs);
+      }
+    }
+  } else {
+    // Sem delay: usa pLimit para concorrência configurável
+    const { default: pLimit } = await import('p-limit');
+    const limit = pLimit(Math.max(concorrencia, 1));
+    await Promise.all(
+      documentos.map((documento) =>
+        limit(async () => {
+          try {
+            const result = await summarizeDocument(documento.id, { provider });
+            resultados.push({
+              documento_id: documento.id,
+              status: 'ok',
+              reutilizado: result.reutilizado,
+              confianca: result.confianca
+            });
+          } catch (error) {
+            resultados.push({
+              documento_id: documento.id,
+              status: 'erro',
+              erro: error.message
+            });
+          }
+        })
+      )
+    );
+  }
 
   return {
     dry_run: false,
