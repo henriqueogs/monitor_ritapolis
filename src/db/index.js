@@ -1751,7 +1751,7 @@ function estruturarProdutosLicitacoes({ ano = new Date().getFullYear(), limite }
   return resultado;
 }
 
-const RESULTADO_ANEXO_TIPOS = ['ata', 'classificacao', 'resultado', 'homologacao'];
+const RESULTADO_ANEXO_TIPOS = ['ata', 'classificacao', 'resultado', 'homologacao', 'contrato'];
 
 function isResultadoAnexoTipo(tipo) {
   return RESULTADO_ANEXO_TIPOS.includes(tipo);
@@ -4777,6 +4777,7 @@ module.exports = {
   listLicitacaoFontesRelacionadas,
   listLicitacaoFontesRelacionadasByDocumentoId,
   updateLicitacaoFonteRelacionadaStatus,
+  upsertLicitacaoDetalhesExtraidos,
   upsertLicitacaoFonteRelacionada,
   getEstatisticas,
   getPainelCidadao,

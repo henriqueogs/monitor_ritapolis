@@ -5,7 +5,8 @@ const {
   getNextPendingResumoAiJob,
   getResumoAiByDocumentoHash,
   markResumoAiJobProcessing,
-  recoverStaleResumoAiJobs
+  recoverStaleResumoAiJobs,
+  estruturarProdutosDeResumoAi
 } = require('../db');
 const { summarizeDocument } = require('./summarize-document');
 
@@ -40,6 +41,17 @@ async function processJob(job) {
       documentoId: lockedJob.documento_id,
       reutilizado: result.reutilizado
     });
+
+    if (resumoAi) {
+      try {
+        const prodResult = estruturarProdutosDeResumoAi(lockedJob.documento_id, resumoAi);
+        if (prodResult.produtos_salvos > 0) {
+          logger.info('Produtos extraidos do resumo IA', { documentoId: lockedJob.documento_id, ...prodResult });
+        }
+      } catch (err) {
+        logger.warn('Erro ao estruturar produtos do resumo IA', { documentoId: lockedJob.documento_id, erro: err.message });
+      }
+    }
   } catch (error) {
     finishResumoAiJobError(lockedJob.id, error.message);
     logger.error('Job de resumo IA falhou', {

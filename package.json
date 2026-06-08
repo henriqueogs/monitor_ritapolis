@@ -13,6 +13,8 @@
     "licitacoes:detalhar": "node scripts/detalhar-licitacoes.js",
     "licitacoes:enriquecer-produtos": "node scripts/enriquecer-produtos-licitacoes.js",
     "licitacoes:validar-valores": "node scripts/validar-valores-licitacoes.js",
+    "licitacoes:extrair-anexos": "node scripts/extrair-texto-anexos.js",
+    "licitacoes:extrair-anexos:ano": "node scripts/extrair-texto-anexos.js --ano=2026",
     "pncp:diagnostico": "node scripts/pncp-diagnostico.js",
     "pncp:vincular": "node scripts/pncp-vincular.js",
     "pncp:sincronizar": "node scripts/pncp-sincronizar.js",

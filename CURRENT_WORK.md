@@ -10,9 +10,10 @@ Atualizado em: 2026-06-08 — v0.7 concluído. Iniciando preparação para publi
 
 **v0.8 — próximo**
 
-1. **Autenticação `/admin`** — HTTP Basic Auth, usuário/senha em `.env`. Blocker para publicação ampla.
-2. **Cobertura PNCP anos anteriores** — Executar `npm run pncp:sincronizar` para 2023–2025, enriquecer vencedores e valores.
-3. **Deploy** — Testar build de produção (`next build`), dockerizar, publicar em cloud.
+1. **Qualidade de dados** — Extrair texto de atas/homologações já coletadas como anexos para popular vencedor + valor em 97% dos editais sem resultado. Script: `licitacoes:extrair-anexos`.
+2. **Produtos pós-IA** — `estruturarProdutosDeResumoAi` passa a ser chamado automaticamente após cada job de IA concluído.
+3. **Autenticação `/admin`** — HTTP Basic Auth, usuário/senha em `.env`. Blocker para publicação ampla.
+4. **Deploy** — Testar build de produção (`next build`), dockerizar, publicar em cloud.
 
 ---
 
@@ -73,7 +74,7 @@ Atualizado em: 2026-06-08 — v0.7 concluído. Iniciando preparação para publi
 | Fornecedores consolidados | ✅ 25 CNPJs únicos |
 | Categorização | ✅ 495 licitações, 7 categorias |
 | Resumos IA — anos anteriores | ⚠️ ~380 pendentes (scheduler processa 30/dia) |
-| PNCP v3 sincronizado | ⏳ Não executado ainda — rodar `pncp:sincronizar` |
+| PNCP v3 sincronizado | ❌ Não aplicável — Ritápolis não publica no PNCP (204 em todas as modalidades) |
 | Autenticação `/admin` | ❌ Pendente v0.8 |
 | Deploy cloud | ❌ Pendente v0.8 |
 

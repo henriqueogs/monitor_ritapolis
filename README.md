@@ -124,7 +124,7 @@ npm run build --prefix frontend
 ## Limitações conhecidas
 
 - Resumos IA anos anteriores: 407 pendentes — scheduler processa gradualmente (30/dia)
-- PNCP API pública: timeouts e 503 intermitentes são da fonte, não do código
+- PNCP: Ritápolis não publica no Portal Nacional de Contratações Públicas (API retorna 204 para todas as modalidades). Os dados vêm exclusivamente do portal próprio da Prefeitura. O script `pncp:sincronizar` funciona automaticamente quando o município começar a publicar.
 - Sem autenticação administrativa: `/admin` é público nesta fase
 - Banco SQLite local, sem replicação com servidor externo
 - Câmara usa certificado expirado — o coletor já trata automaticamente

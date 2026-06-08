@@ -42,8 +42,10 @@ O Monitor Ritápolis é uma plataforma de inteligência pública verificável pa
 A IA só opera sobre dado já estruturado nas camadas 1 e 2. Nunca substitui a coleta.
 
 **PNCP — duas estratégias:**
-- `pncp-orgaos.js` — consulta direta por CNPJ (`/pncp-api/v1/orgaos/{cnpj}/compras`). Retorna itens com vencedor e valor homologado. Preferencial.
-- `pncp.js` — busca fuzzy por data+modalidade+município (`/api/consulta/v1/`). Fallback para documentos sem `numero_pncp`.
+- `pncp-orgaos.js` — usa a API de consulta pública (`/api/consulta/v1/contratacoes/publicacao`) com busca por CNPJ e modalidade. Preferencial quando o município publicar.
+- `pncp.js` — busca fuzzy por data+modalidade+município. Fallback para documentos sem `numero_pncp`.
+
+> **Status (junho 2026):** Ritápolis não publica no PNCP — todas as modalidades retornam 204. O campo `numero_pncp` está vazio em todos os 494 editais. A camada 2 da arquitetura está inativa até que o município integre ao portal nacional. Use `npm run pncp:sincronizar -- --check` para monitorar.
 
 ---
 
