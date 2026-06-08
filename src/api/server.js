@@ -5,11 +5,26 @@ const logger = require('../logger');
 const {
   listDocumentos,
   listLicitacoes,
+  listLicitacaoProdutos,
+  getLicitacaoProdutosByDocumentoId,
+  getLicitacaoAnaliseAnual,
+  listLicitacaoFontesRelacionadas,
+  listLicitacaoFontesRelacionadasByDocumentoId,
+  updateLicitacaoFonteRelacionadaStatus,
+  getLicitacaoGrupoByDocumentoId,
+  syncLicitacoesGrupos,
   getEstatisticas,
   getPainelCidadao,
   getDocumentoById,
   listColetasLog,
   getResumoAiStatus,
+  getAuditoria,
+  getFornecedoresRanking,
+  getFornecedorByCnpj,
+  getInteligenciaPanorama,
+  getCategoriasStats,
+  listCategoriasDocumentos,
+  getCategoriasDocumentoId,
   createResumoAiJob,
   getResumoAiByDocumentoHash,
   getResumoAiJobById,
@@ -20,11 +35,14 @@ const {
   recoverStaleResumoAiJobs
 } = require('../db');
 const { summarizeDocument, buildTextoHash } = require('../ai/summarize-document');
+const { correlateLicitation } = require('../ai/correlate-licitation');
 const { createAiProvider } = require('../ai/providers');
 const { scheduleResumoAiJobWorker } = require('../ai/summary-job-worker');
 const { getAiOperationPlan } = require('../ai/operation-policy');
 const { getCollectionUpdateStatus, startCollectionUpdate } = require('../coletas/update-runner');
 const { checkPrefeituraSyncOnPortalOpen } = require('../coletas/prefeitura-sync');
+const collectionScheduler = require('../coletas/collection-scheduler');
+const aiScheduler = require('../ai/ai-daily-scheduler');
 const {
   compararCoberturaPrefeitura,
   getCoberturaPrefeituraSourceLinks,
@@ -45,6 +63,13 @@ function createServer() {
 
   app.get('/api/health', (_req, res) => {
     res.json({ ok: true });
+  });
+
+  app.get('/api/scheduler/status', (_req, res) => {
+    res.json({
+      coletas: collectionScheduler.getStatus(),
+      ia: aiScheduler.getStatus()
+    });
   });
 
   app.get('/api/documentos', (req, res) => {
@@ -72,11 +97,95 @@ function createServer() {
       ano: req.query.ano || undefined,
       status: req.query.status || undefined,
       termo: req.query.q || undefined,
+      categoria: req.query.categoria || undefined,
       pagina,
       limite
     });
 
     res.json(data);
+  });
+
+  app.get('/api/licitacoes/analise-anual', (req, res) => {
+    res.json(
+      getLicitacaoAnaliseAnual({
+        ano: req.query.ano || undefined
+      })
+    );
+  });
+
+  app.get('/api/licitacoes/produtos', (req, res) => {
+    const pagina = Math.max(Number(req.query.pagina || 1), 1);
+    const limite = Math.min(Math.max(Number(req.query.limite || 20), 1), 100);
+    res.json(
+      listLicitacaoProdutos({
+        ano: req.query.ano || undefined,
+        termo: req.query.q || undefined,
+        origem: req.query.origem || undefined,
+        validacao: req.query.validacao || undefined,
+        pagina,
+        limite
+      })
+    );
+  });
+
+  app.get('/api/licitacoes/fontes-relacionadas', (req, res) => {
+    const pagina = Math.max(Number(req.query.pagina || 1), 1);
+    const limite = Math.min(Math.max(Number(req.query.limite || 20), 1), 100);
+    res.json(
+      listLicitacaoFontesRelacionadas({
+        ano: req.query.ano || undefined,
+        status: req.query.status || undefined,
+        fonte: req.query.fonte || undefined,
+        pagina,
+        limite
+      })
+    );
+  });
+
+  app.patch('/api/licitacoes/fontes-relacionadas/:id', (req, res, next) => {
+    try {
+      const fonteRelacionada = updateLicitacaoFonteRelacionadaStatus(
+        Number(req.params.id),
+        req.body?.status_correspondencia || req.body?.status
+      );
+
+      if (!fonteRelacionada) {
+        return res.status(404).json({ error: 'Fonte relacionada nao encontrada' });
+      }
+
+      return res.json(fonteRelacionada);
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  app.get('/api/licitacoes/:id/produtos', (req, res) => {
+    const data = getLicitacaoProdutosByDocumentoId(Number(req.params.id));
+    res.json(data);
+  });
+
+  app.get('/api/licitacoes/:id/fontes-relacionadas', (req, res) => {
+    const data = listLicitacaoFontesRelacionadasByDocumentoId(Number(req.params.id));
+    res.json({
+      total: data.length,
+      dados: data
+    });
+  });
+
+  app.get('/api/licitacoes/:id/grupo', (req, res) => {
+    const grupo = getLicitacaoGrupoByDocumentoId(Number(req.params.id));
+    if (!grupo) {
+      return res.status(404).json({ error: 'Grupo de licitacao nao encontrado para este documento' });
+    }
+    res.json(grupo);
+  });
+
+  app.post('/api/licitacoes/agrupar', (req, res) => {
+    res.json(
+      syncLicitacoesGrupos({
+        ano: req.body?.ano || req.query?.ano || undefined
+      })
+    );
   });
 
   app.get('/api/estatisticas', (_req, res) => {
@@ -253,6 +362,26 @@ function createServer() {
     }
   });
 
+  app.post('/api/documentos/:id/correlacionar', async (req, res) => {
+    try {
+      const force = req.body?.force === true || String(req.query.force || '').toLowerCase() === 'true';
+      const result = await correlateLicitation(Number(req.params.id), { force });
+      return res.json({
+        ...result,
+        forcar_regeneracao: force
+      });
+    } catch (error) {
+      const statusCode = /nao encontrado|nao e uma licitacao|AI_SUMMARY_ENABLED=false/i.test(error.message)
+        ? 400
+        : 500;
+      logger.error('Falha no endpoint de leitura integrada IA', {
+        documentoId: req.params.id,
+        erro: error.message
+      });
+      return res.status(statusCode).json({ error: error.message });
+    }
+  });
+
   app.get('/api/ia/resumos/jobs/:id', (req, res) => {
     const job = getResumoAiJobById(Number(req.params.id));
     if (!job) {
@@ -325,6 +454,53 @@ function createServer() {
         dados: []
       });
     }
+  });
+
+  app.get('/api/inteligencia/panorama', (_req, res) => {
+    res.json(getInteligenciaPanorama());
+  });
+
+  app.get('/api/inteligencia/auditoria', (req, res) => {
+    res.json(
+      getAuditoria({
+        ano: req.query.ano || undefined,
+        tipo: req.query.tipo || undefined,
+        fonte: req.query.fonte || undefined
+      })
+    );
+  });
+
+  app.get('/api/inteligencia/categorias', (_req, res) => {
+    res.json(getCategoriasStats());
+  });
+
+  app.get('/api/inteligencia/categorias/documentos', (req, res) => {
+    const pagina = Math.max(Number(req.query.pagina || 1), 1);
+    const limite = Math.min(Math.max(Number(req.query.limite || 20), 1), 100);
+    res.json(
+      listCategoriasDocumentos({
+        categoria: req.query.categoria || undefined,
+        limite,
+        pagina
+      })
+    );
+  });
+
+  app.get('/api/inteligencia/fornecedores', (req, res) => {
+    const limite = Math.min(Math.max(Number(req.query.limite || 20), 1), 100);
+    const ordem = ['valor', 'vitorias'].includes(req.query.ordem) ? req.query.ordem : 'valor';
+    res.json({
+      dados: getFornecedoresRanking({ limite, ordem }),
+      filtros: { limite, ordem }
+    });
+  });
+
+  app.get('/api/inteligencia/fornecedores/:cnpj', (req, res) => {
+    const perfil = getFornecedorByCnpj(req.params.cnpj);
+    if (!perfil) {
+      return res.status(404).json({ error: 'Fornecedor nao encontrado' });
+    }
+    return res.json(perfil);
   });
 
   app.get('/api/coletas/log', (req, res) => {

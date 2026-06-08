@@ -13,6 +13,18 @@ function decodeHttpBody(data, contentType = '', fallback = 'utf8') {
   return buffer.toString(fallback);
 }
 
+function hasLoneSurrogate(str) {
+  for (let i = 0; i < str.length; i++) {
+    const code = str.charCodeAt(i);
+    if (code >= 0xDC00 && code <= 0xDFFF) {
+      if (i === 0 || str.charCodeAt(i - 1) < 0xD800 || str.charCodeAt(i - 1) > 0xDBFF) return true;
+    } else if (code >= 0xD800 && code <= 0xDBFF) {
+      if (i + 1 >= str.length || str.charCodeAt(i + 1) < 0xDC00 || str.charCodeAt(i + 1) > 0xDFFF) return true;
+    }
+  }
+  return false;
+}
+
 function looksLikeMojibake(value) {
   return /Ã[\u00A0-\u00BF]|Â[\u00A0-\u00BF]|â[\u0080-\u00BF]{1,2}|ï¿½|�/.test(String(value || ''));
 }
@@ -78,9 +90,14 @@ function deepHasMojibake(value) {
   return false;
 }
 
+function looksLikeMojibakeOrHasSurrogate(value) {
+  const str = String(value || '');
+  return looksLikeMojibake(str) || hasLoneSurrogate(str);
+}
+
 module.exports = {
   decodeHttpBody,
-  looksLikeMojibake,
+  looksLikeMojibake: looksLikeMojibakeOrHasSurrogate,
   normalizeText,
   deepRepairStrings,
   deepHasMojibake

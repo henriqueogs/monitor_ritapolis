@@ -44,8 +44,16 @@ function toIsoDate(value) {
   return `${match[3]}-${match[2]}-${match[1]}`;
 }
 
-function inferTipo(title, text) {
-  const source = `${title} ${text}`.toLowerCase();
+function inferTipo(title, text, modalidade = '') {
+  const mod = String(modalidade || '');
+  const source = `${title} ${text}`;
+  // Verificar antes de 'edital': publicações de extrato podem conter "dispensa" no corpo
+  if (
+    /publica[cç][aã]o.*diversa|contratos[/\s]?atas|atas[/\s]?contratos/i.test(mod) ||
+    /publica[cç][aã]o.*diversa/i.test(source)
+  ) {
+    return 'publicacao_extrato';
+  }
   if (/(edital|preg[aã]o|dispensa|processo seletivo|concurso)/i.test(source)) return 'edital';
   if (/decreto/i.test(source)) return 'decreto';
   if (/portaria/i.test(source)) return 'portaria';
@@ -72,6 +80,13 @@ function buildTitulo(fields, cadastroTitle) {
   const modalidade = pickField(fields, ['Modalidade nº', 'Modalidade n°', 'Modalidade no', 'Modalidade']);
   const objetoBruto = pickField(fields, ['Objeto']);
   const objeto = looksLikeMojibake(objetoBruto) ? null : objetoBruto;
+
+  // Publicação de extrato coletivo: título sintético, nunca usar o Objeto como título
+  if (/publica[cç][aã]o.*diversa|contratos[/\s]?atas|atas[/\s]?contratos/i.test(String(modalidade || ''))) {
+    const anoMatch = String(processo || objetoBruto || '').match(/\d{4}/);
+    const ano = anoMatch ? anoMatch[0] : null;
+    return normalizeSpaces(`Publicação de Contratos e Atas${ano ? ` — ${ano}` : ''}`);
+  }
 
   return normalizeSpaces(
     [processo ? `Processo ${processo}` : null, modalidade, objeto || cadastroTitle]
@@ -260,7 +275,8 @@ class ColetorSitePrefeitura extends ColetorBase {
     const mergedText = textoBase || `${item.titulo}\n${item.fields.Objeto || ''}`;
     const licitacao = parseLicitacao(mergedText);
     const decreto = parseDecreto(mergedText);
-    const tipo = inferTipo(item.titulo, mergedText);
+    const modalidadeRaw = pickField(item.fields, ['Modalidade nº', 'Modalidade n°', 'Modalidade no', 'Modalidade']) || '';
+    const tipo = inferTipo(item.titulo, mergedText, modalidadeRaw);
     const numero = item.numero || inferNumero(`${item.titulo}\n${mergedText}`);
     const camposNormalizados = deepRepairStrings({ ...item.fields });
 
@@ -287,7 +303,11 @@ class ColetorSitePrefeitura extends ColetorBase {
         valor_estimado: licitacao.valor_estimado,
         url_origem: item.pageUrl,
         url_pdf: pdfUrl,
-        texto_completo: textoBase || null,
+        texto_completo: textoBase || (
+          !looksLikeMojibake(camposNormalizados?.Objeto) && (camposNormalizados?.Objeto?.length || 0) > 200
+            ? camposNormalizados.Objeto
+            : null
+        ),
         dados_extras: {
           cadastro_titulo: item.cadastroTitle,
           campos: camposNormalizados,
