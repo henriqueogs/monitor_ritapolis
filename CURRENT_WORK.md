@@ -51,7 +51,7 @@ Atualizado em: 2026-06-10 — Plano de melhoria de conteúdo (v0.9). Foco: integ
 
 > ### ⭐ DESTAQUE — Fila de OCR (importância alta, tentativa futura)
 > **74 anexos escaneados aguardam OCR** (`status_extracao='requer_ocr'`), e **16 processos sem vencedor dependem exclusivamente deles**. NÃO são só arquivos antigos: 2025 tem 17 e 2024 tem 18 — a prefeitura continua publicando atas escaneadas, então a fila crescerá. Opções na decisão futura: Gemini visão (PDF nativo, requer `GEMINI_API_KEY`) ou tesseract local (offline, requer binário Windows + por idioma). Consulta da fila: `SELECT * FROM documentos_anexos WHERE status_extracao='requer_ocr'`.
-- [ ] 2.5 Estender leitura integrada (v2.0) para 2023–2025
+- [x] 2.5 Leitura integrada estendida para 2023–2025 via `scripts/correlacionar-licitacoes-lote.js` (npm `ai:correlacionar:lote`; retomável por cache de hash). **141 leituras geradas, 0 erros → cobertura 100% em 2023–2026 (165/165 elegíveis)**
 - [ ] 2.6 (menor) Extrair os 526 editais-anexo só onde o doc principal não tem `texto_completo`
 - [ ] 2.7 Dívida 1.3: endurecer parser de `numero` (processos distintos sob mesmo número)
 

@@ -45,6 +45,7 @@
     "ai:resumir-todos:ano": "node scripts/resumir-todos-por-ano.js --anos=2026",
     "ai:resumir-todos:dry": "node scripts/resumir-todos-por-ano.js --dry-run",
     "ai:correlacionar": "node scripts/correlacionar-licitacao-ai.js",
+    "ai:correlacionar:lote": "node scripts/correlacionar-licitacoes-lote.js",
     "ai:revisar-integradas": "node scripts/revisar-leituras-integradas.js",
     "ai:worker": "node scripts/ai-worker.js",
     "api": "node scripts/api.js",
