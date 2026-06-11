@@ -1,25 +1,47 @@
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
-const { DatabaseSync } = require('node:sqlite');
 const config = require('../config');
-const { classifyAiError, getAiOperationPlan } = require('../ai/operation-policy');
 const { deepRepairStrings, normalizeText } = require('../utils/text');
 const { parseLicitacaoDetalhes } = require('../parsers/licitacao-detalhes');
 const { parseProdutosLicitados } = require('../parsers/licitacao-produtos');
 const { parseResultadosItensLicitacao } = require('../parsers/licitacao-resultados-itens');
 const { agruparDocumentosLicitacao, papelLabel } = require('../licitacoes/grupos');
 
-fs.mkdirSync(path.dirname(config.dbPath), { recursive: true });
+// Fase E: importa db do singleton para evitar conexões duplicadas
+const { db } = require('./connection');
 
-const db = new DatabaseSync(config.dbPath);
-db.exec('PRAGMA journal_mode = WAL;');
-db.exec('PRAGMA foreign_keys = ON;');
+// Fase E: importa repos especializados para re-export de compatibilidade
+const coletasRepo = require('./coletas-repo');
+const aiJobsRepo = require('./ai-jobs-repo');
+const documentosRepo = require('./documentos-repo');
+
+// Desestrutura helpers do documentos-repo para uso nas funções restantes
+const {
+  parseJson,
+  serializeJson,
+  likeParam,
+  buildTextoHash,
+  buildJsonHash,
+  labelFonte,
+  labelTipo,
+  labelStatus,
+  buildQualidadeAlertas: _buildQualidadeAlertas,
+  buildDocumentoIndicadores,
+  buildOrigemResumo,
+  normalizeDocumento,
+  cleanField,
+  compactField,
+  normalizeCampoKey,
+  getCampo,
+  isUsableUrl,
+  classifyAnexo,
+  normalizeModalidadeLicitacao,
+  listDocumentos,
+  listAnosDocumentos,
+} = documentosRepo;
 
 function ensureColumn(table, column, definition) {
   const columns = db.prepare(`PRAGMA table_info(${table})`).all();
-  if (!columns.length) return;
-  if (columns.some((item) => item.name === column)) return;
+  if (!columns.length) {return;}
+  if (columns.some((item) => item.name === column)) {return;}
   db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
 }
 
@@ -138,226 +160,11 @@ function ensureRuntimeSchema() {
 
 ensureRuntimeSchema();
 
-function parseJson(value) {
-  if (!value) return null;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return null;
-  }
-}
-
-function serializeJson(value) {
-  return value == null ? null : JSON.stringify(value);
-}
-
-function likeParam(value) {
-  return `%${String(value).trim()}%`;
-}
-
-function buildTextoHash(textoCompleto) {
-  return crypto.createHash('sha256').update(String(textoCompleto || ''), 'utf8').digest('hex');
-}
-
-function buildJsonHash(value) {
-  return buildTextoHash(JSON.stringify(value || {}));
-}
-
-const fonteLabels = {
-  site_prefeitura: 'Prefeitura',
-  camara: 'C\u00e2mara'
-};
-
-const tipoLabels = {
-  edital: 'Licita\u00e7\u00e3o/Edital',
-  publicacao_extrato: 'Publica\u00e7\u00e3o de Extrato',
-  lei: 'Lei',
-  portaria: 'Portaria',
-  contrato: 'Contrato',
-  decreto: 'Decreto',
-  documento: 'Documento',
-  documento_publico: 'Documento Público',
-  resolucao: 'Resolução'
-};
-
-const statusLabels = {
-  ok: 'Coletado com sucesso',
-  erro_pdf: 'Arquivo com falha de leitura',
-  sem_pdf: 'Sem arquivo oficial',
-  erro_total: 'Falha na coleta',
-  erro_parcial: 'Coleta parcial',
-  em_andamento: 'Coleta em andamento',
-  aberta: 'Aberta',
-  homologada: 'Homologada',
-  deserta: 'Deserta',
-  suspensa: 'Suspensa',
-  revisar: 'Revisar'
-};
-
-function labelFonte(value) {
-  return fonteLabels[value] || value || 'Fonte nao informada';
-}
-
-function labelTipo(value) {
-  return tipoLabels[value] || value || 'Documento';
-}
-
-function labelStatus(value) {
-  return statusLabels[value] || value || 'Sem status';
-}
-
-function buildQualidadeAlertas(documento) {
-  const alertas = [];
-
-  if (!documento.url_pdf) {
-    alertas.push({
-      tipo: 'sem_pdf',
-      label: 'Sem arquivo oficial vinculado',
-      descricao: 'A fonte original esta disponivel, mas nao ha arquivo anexado neste registro.'
-    });
-  }
-
-  if (documento.status_coleta === 'erro_pdf') {
-    alertas.push({
-      tipo: 'erro_pdf',
-      label: 'Arquivo com falha de leitura',
-      descricao: 'O documento foi localizado, mas o texto do arquivo oficial nao pode ser extraido corretamente.'
-    });
-  }
-
-  if (!documento.data_publicacao && !documento.atualizado_em) {
-    alertas.push({
-      tipo: 'sem_data',
-      label: 'Sem data identificada',
-      descricao: 'Nao foi possivel identificar uma data de publicacao confiavel.'
-    });
-  }
-
-  return alertas;
-}
-
-function buildDocumentoIndicadores(documento) {
-  const temPdf = Boolean(documento.url_pdf);
-  const temTextoExtraido = Boolean(documento.texto_completo || documento.texto_completo_chars > 0);
-  const temResumoAi = Boolean(documento.tem_resumo_ai || documento.resumo_ai);
-  const alertas = buildQualidadeAlertas(documento);
-
-  return {
-    tem_pdf: temPdf,
-    tem_texto_extraido: temTextoExtraido,
-    tem_resumo_ai: temResumoAi,
-    tem_alertas_qualidade: alertas.length > 0,
-    dados_incompletos: alertas.length > 0,
-    total_alertas_qualidade: alertas.length
-  };
-}
-
-function buildOrigemResumo(documento) {
-  return {
-    fonte: documento.fonte,
-    fonte_nome: labelFonte(documento.fonte),
-    tipo: documento.tipo,
-    tipo_nome: labelTipo(documento.tipo),
-    url_origem: documento.url_origem || null,
-    url_pdf: documento.url_pdf || null,
-    coletado_em: documento.coletado_em || null,
-    atualizado_em: documento.atualizado_em || null
-  };
-}
-
-function decorateDocumento(documento) {
-  if (!documento) return null;
-  const qualidadeAlertas = buildQualidadeAlertas(documento);
-
-  return {
-    ...documento,
-    fonte_nome: labelFonte(documento.fonte),
-    tipo_nome: labelTipo(documento.tipo),
-    status_coleta_nome: labelStatus(documento.status_coleta),
-    origem_resumo: buildOrigemResumo(documento),
-    indicadores: buildDocumentoIndicadores(documento),
-    qualidade_alertas: qualidadeAlertas
-  };
-}
-
-function normalizeDocumento(row) {
-  if (!row) return null;
-  return decorateDocumento({
-    ...Object.fromEntries(
-      Object.entries(row).map(([key, value]) => [
-        key,
-        typeof value === 'string' ? normalizeText(value) : value
-      ])
-    ),
-    dados_extras: deepRepairStrings(parseJson(row.dados_extras))
-  });
-}
-
-function cleanField(value) {
-  if (value == null) return null;
-  const text = normalizeText(String(value)).replace(/\s+/g, ' ').trim();
-  if (!text || /^https?:\/\/$/i.test(text)) return null;
-  return text;
-}
-
-function compactField(value, maxLength = 420) {
-  const text = cleanField(value);
-  if (!text) return null;
-  if (text.length <= maxLength) return text;
-  return `${text.slice(0, maxLength - 1).trim()}...`;
-}
-
-function normalizeCampoKey(value) {
-  return String(value || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
-}
-
-function getCampo(campos, matches) {
-  const normalizedMatches = matches.map(normalizeCampoKey);
-  const entry = Object.entries(campos || {}).find(([key]) => {
-    const normalizedKey = normalizeCampoKey(key);
-    return normalizedMatches.some((match) => normalizedKey.includes(match));
-  });
-
-  return entry ? cleanField(entry[1]) : null;
-}
-
-function isUsableUrl(value) {
-  const text = cleanField(value);
-  return text && /^https?:\/\/.+/i.test(text) ? text : null;
-}
-
-function classifyAnexo(nome) {
-  const text = normalizeCampoKey(nome);
-  if (text.includes('edital')) return 'edital';
-  if (text.includes('ata')) return 'ata';
-  if (text.includes('classifica')) return 'classificacao';
-  if (text.includes('homologa')) return 'homologacao';
-  if (text.includes('resultado')) return 'resultado';
-  if (text.includes('contrato') || text.includes('extrato')) return 'contrato';
-  if (text.includes('proposta')) return 'proposta';
-  if (text.includes('recurso')) return 'recurso';
-  return 'outro';
-}
-
-function normalizeModalidadeLicitacao(value) {
-  const text = normalizeCampoKey(value);
-  if (!text) return null;
-  if (text.includes('pregao') && text.includes('eletronico')) return 'Pregao eletronico';
-  if (text.includes('pregao')) return 'Pregao presencial';
-  if (text.includes('dispensa') || text.includes('dispnsa')) return 'Dispensa';
-  if (text.includes('adesao')) return 'Adesao';
-  if (text.includes('inexigibilidade')) return 'Inexigibilidade';
-  if (text.includes('tomada')) return 'Tomada de precos';
-  if (text.includes('concorrencia')) return 'Concorrencia';
-  if (text.includes('chamamento') || text.includes('chamada')) return 'Chamamento publico';
-  if (text.includes('credenciamento') || text.includes('credencimento')) return 'Credenciamento';
-  if (text.includes('leilao')) return 'Leilao';
-  if (/^\d+\/\d+$/.test(text)) return null;
-  return cleanField(value);
-}
+// parseJson, serializeJson, likeParam, buildTextoHash, buildJsonHash,
+// labelFonte, labelTipo, labelStatus, buildQualidadeAlertas, buildDocumentoIndicadores,
+// buildOrigemResumo, decorateDocumento, normalizeDocumento, cleanField, compactField,
+// normalizeCampoKey, getCampo, isUsableUrl, classifyAnexo, normalizeModalidadeLicitacao
+// → movidos para documentos-repo.js
 
 function buildLicitacaoModelo(documento, detalhes = {}) {
   const dados = documento?.dados_extras || {};
@@ -392,14 +199,14 @@ function buildLicitacaoModelo(documento, detalhes = {}) {
 }
 
 function parseNumericField(value) {
-  if (value == null || value === '') return null;
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (value === null || value === '') {return null;}
+  if (typeof value === 'number') {return Number.isFinite(value) ? value : null;}
 
   const text = String(value)
     .replace(/[^\d,.-]/g, '')
     .trim();
 
-  if (!text) return null;
+  if (!text) {return null;}
 
   const normalized = text.includes(',')
     ? text.replace(/\./g, '').replace(',', '.')
@@ -418,25 +225,25 @@ const VALOR_FINAL_TIPOS = new Set(['unitario', 'total_item', 'lote', 'global', '
 
 function normalizeValorFinalTipo(value) {
   const text = normalizeCampoKey(value).replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-  if (!text) return null;
-  if (text === 'total' || text === 'total_final' || text === 'item_total') return 'total_item';
-  if (text === 'valor_lote' || text === 'lote_final') return 'lote';
-  if (text === 'valor_global' || text === 'global_final') return 'global';
+  if (!text) {return null;}
+  if (text === 'total' || text === 'total_final' || text === 'item_total') {return 'total_item';}
+  if (text === 'valor_lote' || text === 'lote_final') {return 'lote';}
+  if (text === 'valor_global' || text === 'global_final') {return 'global';}
   return VALOR_FINAL_TIPOS.has(text) ? text : null;
 }
 
 function hasFinalValue(produto) {
   return (
-    produto.valor_unitario_final != null ||
-    produto.valor_total_final != null ||
-    produto.valor_lote_final != null ||
-    produto.valor_global_final != null
+    produto.valor_unitario_final !== null ||
+    produto.valor_total_final !== null ||
+    produto.valor_lote_final !== null ||
+    produto.valor_global_final !== null
   );
 }
 
 function normalizeProdutoDescricao(value) {
   const text = cleanField(value);
-  if (!text) return null;
+  if (!text) {return null;}
 
   return text
     .normalize('NFD')
@@ -470,9 +277,9 @@ function produtoCompletenessScore(produto) {
   return [
     produto.descricao ? Math.min(produto.descricao.length, 500) : 0,
     produto.trecho_fonte ? Math.min(produto.trecho_fonte.length, 500) : 0,
-    produto.quantidade != null ? 80 : 0,
+    produto.quantidade !== null ? 80 : 0,
     produto.unidade ? 40 : 0,
-    produto.valor_unitario_estimado != null || produto.valor_total_estimado != null ? 80 : 0,
+    produto.valor_unitario_estimado !== null || produto.valor_total_estimado !== null ? 80 : 0,
     hasFinalValue(produto) ? 80 : 0,
     produto.fornecedor_nome ? 40 : 0
   ].reduce((sum, value) => sum + value, 0);
@@ -511,7 +318,7 @@ function normalizeProdutoLicitadoFromAi(item, contexto) {
   const descricao = compactField(item?.descricao, 900);
   const trechoFonte = compactField(item?.trecho_fonte, 900);
 
-  if (!descricao || !trechoFonte) return null;
+  if (!descricao || !trechoFonte) {return null;}
 
   const hasPriceEvidence = /R\$|\b(valor|preco|preço|estimad[oa]?|unit[aá]ri[oa]?|total|global|final|contratad[oa]?|homologad[oa]?)\b/i.test(
     `${trechoFonte} ${descricao}`
@@ -522,13 +329,13 @@ function normalizeProdutoLicitadoFromAi(item, contexto) {
   const valorGlobalFinal = hasPriceEvidence ? parsePositiveNumericField(item?.valor_global_final) : null;
   const valorFinalTipo =
     normalizeValorFinalTipo(item?.valor_final_tipo) ||
-    (valorGlobalFinal != null
+    (valorGlobalFinal !== null
       ? 'global'
-      : valorLoteFinal != null
+      : valorLoteFinal !== null
         ? 'lote'
-        : valorTotalFinal != null
+        : valorTotalFinal !== null
           ? 'total_item'
-          : valorUnitarioFinal != null
+          : valorUnitarioFinal !== null
             ? 'unitario'
             : null);
 
@@ -568,7 +375,7 @@ function normalizeProdutoLicitadoFromTabela(item, contexto) {
   const descricao = compactField(item?.descricao, 900);
   const trechoFonte = compactField(item?.trecho_fonte, 900);
 
-  if (!descricao || !trechoFonte) return null;
+  if (!descricao || !trechoFonte) {return null;}
 
   const produto = {
     documento_id: contexto.documento.id,
@@ -603,7 +410,7 @@ function normalizeProdutoLicitadoFromTabela(item, contexto) {
 }
 
 function normalizeProdutoRow(row) {
-  if (!row) return null;
+  if (!row) {return null;}
 
   return {
     ...Object.fromEntries(
@@ -666,7 +473,7 @@ function upsertLicitacaoProdutoValidacao({
 }
 
 function normalizeLicitacaoPncpCandidate(row) {
-  if (!row) return null;
+  if (!row) {return null;}
   const documento = normalizeDocumento(row);
   const modelo = buildLicitacaoModelo(documento, row);
 
@@ -719,7 +526,7 @@ function listLicitacoesParaDiagnosticoPncp({
 
   const limitValue = Number(limite);
   const limitClause = Number.isFinite(limitValue) && limitValue > 0 ? 'LIMIT @limite' : '';
-  if (limitClause) params.limite = limitValue;
+  if (limitClause) {params.limite = limitValue;}
 
   return db
     .prepare(
@@ -763,7 +570,7 @@ function upsertLicitacaoFonteRelacionada({
     atualizado_em: new Date().toISOString()
   };
 
-  if (!payload.documento_id || !payload.identificador) return 0;
+  if (!payload.documento_id || !payload.identificador) {return 0;}
 
   return db
     .prepare(
@@ -796,7 +603,7 @@ const LICITACAO_FONTE_STATUS = new Set([
 ]);
 
 function normalizeLicitacaoFonteRelacionada(row) {
-  if (!row) return null;
+  if (!row) {return null;}
   const payload = deepRepairStrings(parseJson(row.payload_json)) || {};
 
   return {
@@ -908,7 +715,7 @@ function updateLicitacaoFonteRelacionadaStatus(id, status) {
       atualizado_em: now
     });
 
-  if (!result.changes) return null;
+  if (!result.changes) {return null;}
 
   return normalizeLicitacaoFonteRelacionada(
     db.prepare('SELECT * FROM licitacoes_fontes_relacionadas WHERE id = ?').get(Number(id))
@@ -1006,10 +813,10 @@ function syncLicitacoesGrupos({ ano } = {}) {
       .prepare('SELECT id FROM licitacoes_grupos WHERE processo_chave = ? AND ano = ?')
       .get(grupo.processo_chave, grupo.ano);
 
-    if (!registro) return;
+    if (!registro) {return;}
 
     gruposSalvos += 1;
-    if (grupo.total_documentos > 1) gruposMultiplos += 1;
+    if (grupo.total_documentos > 1) {gruposMultiplos += 1;}
 
     deleteMembros.run(registro.id);
     grupo.documentos.forEach((doc) => {
@@ -1042,13 +849,13 @@ function getLicitacaoGrupoByDocumentoId(documentoId) {
     )
     .get(Number(documentoId));
 
-  if (!membro) return null;
+  if (!membro) {return null;}
 
   const grupo = db
     .prepare('SELECT * FROM licitacoes_grupos WHERE id = ?')
     .get(membro.grupo_id);
 
-  if (!grupo) return null;
+  if (!grupo) {return null;}
 
   const documentos = db
     .prepare(
@@ -1145,10 +952,10 @@ function buildProdutoAmostrasParaLeituraIntegrada(produtos) {
     if (
       produtosComPrecoFinal.length < 12 &&
       (
-        produto.valor_unitario_final != null ||
-        produto.valor_total_final != null ||
-        produto.valor_lote_final != null ||
-        produto.valor_global_final != null
+        produto.valor_unitario_final !== null ||
+        produto.valor_total_final !== null ||
+        produto.valor_lote_final !== null ||
+        produto.valor_global_final !== null
       )
     ) {
       produtosComPrecoFinal.push({
@@ -1169,7 +976,7 @@ function buildProdutoAmostrasParaLeituraIntegrada(produtos) {
 }
 
 function getResumoDocumentoParaLeituraIntegrada(documentoId) {
-  const resumo = normalizeResumoAi(
+  const resumo = aiJobsRepo.normalizeResumoAi(
     db
       .prepare(
         `SELECT *
@@ -1184,7 +991,7 @@ function getResumoDocumentoParaLeituraIntegrada(documentoId) {
       .get(documentoId)
   );
 
-  if (!resumo) return null;
+  if (!resumo) {return null;}
 
   return {
     id: resumo.id,
@@ -1282,7 +1089,7 @@ function buildLicitacaoLeituraIntegradaPayload(documentoId) {
       documento.licitacao_grupo ? null : 'sem_grupo_de_processo',
       produtosTodos.length ? null : 'sem_produtos_estruturados',
       fontesPncp.length ? null : 'sem_correspondencia_pncp',
-      documento.licitacao_detalhes?.valor_final != null ? null : 'sem_valor_final_local',
+      documento.licitacao_detalhes?.valor_final !== null ? null : 'sem_valor_final_local',
       documento.licitacao_detalhes?.vencedor_nome ? null : 'sem_vencedor_local'
     ].filter(Boolean)
   };
@@ -1374,7 +1181,7 @@ function upsertLicitacaoDetalhesExtraidos(documento, detalhes) {
 }
 
 function getDocumentoByNumeroPncp(numeroPncp) {
-  if (!numeroPncp) return null;
+  if (!numeroPncp) {return null;}
   return (
     db
       .prepare(
@@ -1470,9 +1277,9 @@ function estruturarDetalhesLicitacoes({ ano = new Date().getFullYear(), limite }
     }
 
     resultado.documentos_com_detalhes_extraidos += 1;
-    if (detalhes.vencedor_nome || detalhes.vencedor_cnpj) resultado.com_vencedor += 1;
-    if (detalhes.valor_final != null) resultado.com_valor_final += 1;
-    if (detalhes.data_homologacao) resultado.com_data_homologacao += 1;
+    if (detalhes.vencedor_nome || detalhes.vencedor_cnpj) {resultado.com_vencedor += 1;}
+    if (detalhes.valor_final !== null) {resultado.com_valor_final += 1;}
+    if (detalhes.data_homologacao) {resultado.com_data_homologacao += 1;}
     resultado.detalhes_salvos += upsertLicitacaoDetalhesExtraidos(row, detalhes);
   });
 
@@ -1606,10 +1413,10 @@ function estruturarProdutosDeResumoAi(documentoId, resumoAi) {
     produtos_salvos: 0
   };
 
-  if (!resumoAi || resumoAi.status !== 'ok') return resultado;
+  if (!resumoAi || resumoAi.status !== 'ok') {return resultado;}
 
   const row = getLicitacaoRowParaProdutos(documentoId);
-  if (!row || row.tipo !== 'edital') return resultado;
+  if (!row || row.tipo !== 'edital') {return resultado;}
 
   const documento = normalizeLicitacao(row);
   const modelo = documento.licitacao_modelo || {};
@@ -1715,7 +1522,7 @@ function estruturarProdutosLicitacoes({ ano = new Date().getFullYear(), limite }
     const itens = Array.isArray(resumo.itens_licitados) ? resumo.itens_licitados : [];
     const itensTabela = parseProdutosLicitados(row.texto_completo || '');
 
-    if (row.resumo_ai_id) resultado.documentos_com_resumo += 1;
+    if (row.resumo_ai_id) {resultado.documentos_com_resumo += 1;}
     const produtosTabela = itensTabela.length >= 5
       ? itensTabela
           .map((item) => normalizeProdutoLicitadoFromTabela(item, { documento, modelo }))
@@ -1753,7 +1560,7 @@ function estruturarProdutosLicitacoes({ ano = new Date().getFullYear(), limite }
 
 const RESULTADO_ANEXO_TIPOS = ['ata', 'classificacao', 'resultado', 'homologacao', 'contrato'];
 
-function isResultadoAnexoTipo(tipo) {
+function _isResultadoAnexoTipo(tipo) {
   return RESULTADO_ANEXO_TIPOS.includes(tipo);
 }
 
@@ -1809,7 +1616,7 @@ function syncDocumentoAnexosLicitacao({ ano = new Date().getFullYear(), document
 
     anexos.forEach((anexo) => {
       const url = isUsableUrl(anexo?.url);
-      if (!url) return;
+      if (!url) {return;}
 
       anexosEncontrados += 1;
       const result = upsert.run({
@@ -1855,6 +1662,9 @@ function listDocumentoAnexosParaExtracao({
 
   if (!force) {
     filters.push("(da.status_extracao IS NULL OR da.status_extracao <> 'ok' OR IFNULL(da.texto_completo, '') = '')");
+    // PDFs escaneados aguardam pipeline de OCR (flag 'requer_ocr') — re-extrair
+    // sem OCR sempre devolve "texto vazio"; só reprocessar com --force
+    filters.push("IFNULL(da.status_extracao, '') <> 'requer_ocr'");
   }
 
   const limitClause = limite ? 'LIMIT @limite' : '';
@@ -1935,7 +1745,7 @@ function mergeTextParts(parts, maxLength = 1200) {
   const values = [];
   parts.forEach((part) => {
     const text = compactField(part, maxLength);
-    if (text && !values.includes(text)) values.push(text);
+    if (text && !values.includes(text)) {values.push(text);}
   });
 
   return compactField(values.join(' | '), maxLength);
@@ -1948,10 +1758,10 @@ function mergeProdutoOrigem(current, next) {
     .map((item) => item.trim())
     .filter(Boolean)
     .forEach((item) => {
-      if (!values.includes(item)) values.push(item);
+      if (!values.includes(item)) {values.push(item);}
     });
 
-  if (next && !values.includes(next)) values.push(next);
+  if (next && !values.includes(next)) {values.push(next);}
   return values.join('+') || next || current || 'ata_resultado';
 }
 
@@ -1961,21 +1771,21 @@ function roundMoney(value) {
 }
 
 function inferValorFinalTipoResultado({ atual, resultado, descricao, quantidade, valorFinal }) {
-  if (quantidade) return 'unitario';
+  if (quantidade) {return 'unitario';}
 
   const explicit = normalizeValorFinalTipo(resultado?.valor_final_tipo);
-  if (explicit && explicit !== 'unitario') return explicit;
+  if (explicit && explicit !== 'unitario') {return explicit;}
 
   const key = normalizeProdutoDescricao(
     [descricao, atual?.trecho_fonte, resultado?.trecho_fonte].filter(Boolean).join(' ')
   ) || '';
 
-  if (/\bvalor global\b|\bglobal\b/.test(key)) return 'global';
-  if (/\blote\b/.test(key) || atual?.lote_numero || resultado?.lote_numero) return 'lote';
+  if (/\bvalor global\b|\bglobal\b/.test(key)) {return 'global';}
+  if (/\blote\b/.test(key) || atual?.lote_numero || resultado?.lote_numero) {return 'lote';}
 
   const looksLikeServiceOrWork =
     /\b(servico|servicos|prestacao|obra|reforma|construcao|ampliacao|engenharia|manutencao)\b/.test(key);
-  if (looksLikeServiceOrWork && Number(valorFinal || 0) >= 1000) return 'global';
+  if (looksLikeServiceOrWork && Number(valorFinal || 0) >= 1000) {return 'global';}
 
   return explicit || 'unitario';
 }
@@ -1985,7 +1795,7 @@ function buildProdutoEnriquecidoPorResultado({ documento, modelo, atual, resulta
   const valorResultadoFinal =
     parsePositiveNumericField(resultado.valor_total_final) ||
     parsePositiveNumericField(resultado.valor_unitario_final);
-  if (!descricao || !resultado.item_numero || !valorResultadoFinal) return null;
+  if (!descricao || !resultado.item_numero || !valorResultadoFinal) {return null;}
 
   const quantidade = parsePositiveNumericField(atual?.quantidade);
   const valorTotalInformado = parsePositiveNumericField(resultado.valor_total_final);
@@ -2291,23 +2101,23 @@ function getLicitacaoProdutosResumo(documentoId) {
 }
 
 function getProdutoValorFinalEstruturado(produto) {
-  if (produto.valor_global_final != null) {
+  if (produto.valor_global_final !== null) {
     return { campo: 'valor_global_final', tipo: 'global', valor: Number(produto.valor_global_final) };
   }
-  if (produto.valor_lote_final != null) {
+  if (produto.valor_lote_final !== null) {
     return { campo: 'valor_lote_final', tipo: 'lote', valor: Number(produto.valor_lote_final) };
   }
-  if (produto.valor_total_final != null) {
+  if (produto.valor_total_final !== null) {
     return { campo: 'valor_total_final', tipo: 'total_item', valor: Number(produto.valor_total_final) };
   }
-  if (produto.valor_unitario_final != null && produto.quantidade != null) {
+  if (produto.valor_unitario_final !== null && produto.quantidade !== null) {
     return {
       campo: 'valor_total_final_calculado',
       tipo: 'total_item',
       valor: roundMoney(Number(produto.valor_unitario_final) * Number(produto.quantidade))
     };
   }
-  if (produto.valor_unitario_final != null) {
+  if (produto.valor_unitario_final !== null) {
     return { campo: 'valor_unitario_final', tipo: 'unitario', valor: Number(produto.valor_unitario_final) };
   }
   return null;
@@ -2318,7 +2128,7 @@ function buildProdutoValidationGroups(produtos) {
 
   produtos.forEach((produto) => {
     const valor = getProdutoValorFinalEstruturado(produto);
-    if (!valor || !Number.isFinite(valor.valor)) return;
+    if (!valor || !Number.isFinite(valor.valor)) {return;}
 
     const groupKey = `${produto.documento_id}|${valor.tipo}`;
     const current = groups.get(groupKey) || {
@@ -2338,7 +2148,7 @@ function buildProdutoValidationGroups(produtos) {
 }
 
 function compareValores({ extraido, encontrado, toleranciaAbs, toleranciaPct }) {
-  if (encontrado == null || !Number.isFinite(Number(encontrado))) {
+  if (encontrado === null || !Number.isFinite(Number(encontrado))) {
     return {
       status: 'sem_correspondencia',
       divergencia_abs: null,
@@ -2350,12 +2160,12 @@ function compareValores({ extraido, encontrado, toleranciaAbs, toleranciaPct }) 
   const abs = Math.abs(diff);
   const pct = Number(encontrado) ? abs / Math.abs(Number(encontrado)) : null;
   const withinAbs = abs <= Number(toleranciaAbs);
-  const withinPct = pct != null && pct <= Number(toleranciaPct);
+  const withinPct = pct !== null && pct <= Number(toleranciaPct);
 
   return {
     status: withinAbs || withinPct ? 'validado' : 'divergente',
     divergencia_abs: diff,
-    divergencia_pct: pct == null ? null : roundMoney(pct * 100)
+    divergencia_pct: pct === null ? null : roundMoney(pct * 100)
   };
 }
 
@@ -2746,25 +2556,25 @@ function listLicitacoesPorAnoStats() {
     const modalidade = modelo.modalidade_nome || 'Nao identificada';
 
     target.total += 1;
-    if (modelo.data_sessao) target.com_data_sessao += 1;
-    if (item.url_pdf || modelo.anexos_total) target.com_arquivo += 1;
-    if (!item.url_pdf && !modelo.anexos_total) target.sem_arquivo += 1;
-    if (!item.texto_completo_chars) target.sem_texto += 1;
-    if (!item.data_publicacao && !modelo.data_sessao) target.sem_data += 1;
-    if (item.tem_resumo_ai) target.com_resumo_ai += 1;
-    if (item.correlacao_resumo?.tem_leitura_integrada) target.com_leitura_integrada += 1;
-    if (item.correlacao_resumo?.tem_grupo) target.com_grupo += 1;
-    if (item.correlacao_resumo?.tem_pncp) target.com_pncp += 1;
-    if (modelo.valor_estimado != null) target.com_valor_estimado += 1;
-    if (item.licitacao_detalhes?.valor_final != null) {
+    if (modelo.data_sessao) {target.com_data_sessao += 1;}
+    if (item.url_pdf || modelo.anexos_total) {target.com_arquivo += 1;}
+    if (!item.url_pdf && !modelo.anexos_total) {target.sem_arquivo += 1;}
+    if (!item.texto_completo_chars) {target.sem_texto += 1;}
+    if (!item.data_publicacao && !modelo.data_sessao) {target.sem_data += 1;}
+    if (item.tem_resumo_ai) {target.com_resumo_ai += 1;}
+    if (item.correlacao_resumo?.tem_leitura_integrada) {target.com_leitura_integrada += 1;}
+    if (item.correlacao_resumo?.tem_grupo) {target.com_grupo += 1;}
+    if (item.correlacao_resumo?.tem_pncp) {target.com_pncp += 1;}
+    if (modelo.valor_estimado !== null) {target.com_valor_estimado += 1;}
+    if (item.licitacao_detalhes?.valor_final !== null) {
       target.com_valor_final += 1;
       target.valor_final_total += Number(item.licitacao_detalhes.valor_final || 0);
     }
     if (item.licitacao_detalhes?.vencedor_nome || item.licitacao_detalhes?.vencedor_cnpj) {
       target.com_vencedor += 1;
     }
-    if (modelo.tem_ata) target.com_ata += 1;
-    if (modelo.tem_contrato) target.com_contrato += 1;
+    if (modelo.tem_ata) {target.com_ata += 1;}
+    if (modelo.tem_contrato) {target.com_contrato += 1;}
     target.modalidades[modalidade] = (target.modalidades[modalidade] || 0) + 1;
   });
 
@@ -2777,15 +2587,15 @@ function listLicitacoesPorAnoStats() {
         .sort((a, b) => b.total - a.total || a.modalidade.localeCompare(b.modalidade))
     }))
     .sort((a, b) => {
-      if (a.ano === 'sem_ano') return 1;
-      if (b.ano === 'sem_ano') return -1;
+      if (a.ano === 'sem_ano') {return 1;}
+      if (b.ano === 'sem_ano') {return -1;}
       return Number(b.ano) - Number(a.ano);
     });
 }
 
 function parseDateForSort(value) {
   const text = cleanField(value);
-  if (!text) return 0;
+  if (!text) {return 0;}
 
   const brDate = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   if (brDate) {
@@ -2805,12 +2615,12 @@ function compareLicitacoesRecentes(a, b) {
     b.licitacao_modelo?.data_sessao || b.data_abertura || b.data_publicacao || b.atualizado_em
   );
 
-  if (aDate !== bDate) return bDate - aDate;
+  if (aDate !== bDate) {return bDate - aDate;}
   return Number(b.id || 0) - Number(a.id || 0);
 }
 
 function normalizeLicitacao(row) {
-  if (!row) return null;
+  if (!row) {return null;}
   const documento = normalizeDocumento(row);
   const status = row.status || null;
   return {
@@ -2844,55 +2654,17 @@ function normalizeLicitacao(row) {
   };
 }
 
-function normalizeResumoAi(row) {
-  if (!row) return null;
-
-  return {
-    ...Object.fromEntries(
-      Object.entries(row).map(([key, value]) => [
-        key,
-        typeof value === 'string' ? normalizeText(value) : value
-      ])
-    ),
-    resumo_json: deepRepairStrings(parseJson(row.resumo_json))
-  };
-}
-
-function normalizeResumoAiJob(row) {
-  if (!row) return null;
-  const startedAt = row.iniciado_em ? new Date(row.iniciado_em).getTime() : null;
-  const finishedAt = row.finalizado_em ? new Date(row.finalizado_em).getTime() : null;
-  const durationMs = startedAt && finishedAt ? Math.max(finishedAt - startedAt, 0) : null;
-  const operation = getAiOperationPlan({
-    texto: row.texto_completo || '',
-    caracteres: row.texto_chars
-  });
-
-  return {
-    ...Object.fromEntries(
-      Object.entries(row).map(([key, value]) => [
-        key,
-        typeof value === 'string' ? normalizeText(value) : value
-      ])
-    ),
-    texto_completo: undefined,
-    duracao_ms: durationMs,
-    duracao_segundos: durationMs == null ? null : Math.round(durationMs / 1000),
-    erro_categoria: classifyAiError(row.erro),
-    operacao: operation,
-    force: Boolean(row.force)
-  };
-}
+// normalizeResumoAi e normalizeResumoAiJob → movidos para ai-jobs-repo.js
 
 function findDocumentoByIdentity(identity) {
   if (identity.urlPdf) {
     const byPdf = db
       .prepare('SELECT * FROM documentos WHERE url_pdf = ? LIMIT 1')
       .get(identity.urlPdf);
-    if (byPdf) return byPdf;
+    if (byPdf) {return byPdf;}
   }
 
-  if (identity.fonte === 'camara') {
+  if (identity.fonte === 'camara' || identity.fonte === 'site_prefeitura') {
     const candidates = db
       .prepare(
         `SELECT * FROM documentos
@@ -2911,7 +2683,7 @@ function findDocumentoByIdentity(identity) {
         tipo: identity.tipo
       });
 
-    if (candidates) return candidates;
+    if (candidates) {return candidates;}
   }
 
   if (identity.hashConteudo && identity.fonte) {
@@ -3055,184 +2827,9 @@ function saveDocumento(documento) {
   return result;
 }
 
-function createColetaLog({ fonte, inicio }) {
-  db.prepare(
-    `UPDATE coletas_log
-     SET status = 'erro_total',
-         fim = COALESCE(fim, CURRENT_TIMESTAMP),
-         detalhes = json_object('motivo', 'execucao_interrompida')
-     WHERE fonte = ?
-       AND status = 'em_andamento'`
-  ).run(fonte);
+// createColetaLog, finishColetaLog → movidos para coletas-repo.js
 
-  const result = db
-    .prepare('INSERT INTO coletas_log (fonte, inicio, status, detalhes) VALUES (?, ?, ?, ?)')
-    .run(fonte, inicio, 'em_andamento', null);
-  return result.lastInsertRowid;
-}
-
-function finishColetaLog(id, data) {
-  db.prepare(
-    `UPDATE coletas_log SET
-      fim = @fim,
-      status = @status,
-      itens_novos = @itens_novos,
-      itens_atualizados = @itens_atualizados,
-      itens_com_erro = @itens_com_erro,
-      detalhes = @detalhes
-    WHERE id = @id`
-  ).run({
-    id,
-    fim: data.fim,
-    status: data.status,
-    itens_novos: data.itens_novos || 0,
-    itens_atualizados: data.itens_atualizados || 0,
-    itens_com_erro: data.itens_com_erro || 0,
-    detalhes: serializeJson(data.detalhes || null)
-  });
-}
-
-function buildDocumentoWhere({ fonte, tipo, ano, status, termo, qualidade }, params) {
-  const filters = [];
-
-  if (fonte) {
-    filters.push('fonte = @fonte');
-    params.fonte = fonte;
-  }
-
-  if (tipo) {
-    filters.push('tipo = @tipo');
-    params.tipo = tipo;
-  }
-
-  if (ano) {
-    filters.push('ano = @ano');
-    params.ano = Number(ano);
-  }
-
-  if (status) {
-    filters.push('status_coleta = @status');
-    params.status = status;
-  }
-
-  if (termo) {
-    filters.push(
-      '(titulo LIKE @termo OR resumo LIKE @termo OR IFNULL(numero, \'\') LIKE @termo OR IFNULL(texto_completo, \'\') LIKE @termo)'
-    );
-    params.termo = likeParam(termo);
-  }
-
-  if (qualidade === 'sem_pdf') {
-    filters.push("IFNULL(url_pdf, '') = ''");
-  }
-
-  if (qualidade === 'erro_pdf') {
-    filters.push("status_coleta = 'erro_pdf'");
-  }
-
-  if (qualidade === 'sem_data') {
-    filters.push("IFNULL(data_publicacao, '') = ''");
-  }
-
-  return filters.length ? `WHERE ${filters.join(' AND ')}` : '';
-}
-
-function listDocumentos({ fonte, tipo, ano, status, termo, qualidade, pagina = 1, limite = 20 }) {
-  const params = {};
-  const whereClause = buildDocumentoWhere({ fonte, tipo, ano, status, termo, qualidade }, params);
-  const total = db.prepare(`SELECT COUNT(*) as total FROM documentos ${whereClause}`).get(params).total;
-  const offset = (pagina - 1) * limite;
-  const rows = db
-    .prepare(
-      `SELECT d.id, d.fonte, d.tipo, d.numero, d.ano, d.titulo, d.resumo,
-              d.data_publicacao, d.data_abertura, d.valor_estimado,
-              d.url_origem, d.url_pdf, d.hash_conteudo, d.status_coleta,
-              d.dados_extras,
-              d.coletado_em, d.atualizado_em,
-              LENGTH(IFNULL(d.texto_completo, '')) AS texto_completo_chars,
-              EXISTS (
-                SELECT 1
-                FROM documentos_resumos_ai rai
-                WHERE rai.documento_id = d.id
-                  AND rai.status = 'ok'
-                  AND rai.contrato_versao NOT LIKE '2.%'
-              ) AS tem_resumo_ai
-              ,
-              (
-                SELECT lg.total_documentos
-                FROM licitacoes_grupo_documentos lgd
-                JOIN licitacoes_grupos lg ON lg.id = lgd.grupo_id
-                WHERE lgd.documento_id = d.id
-                LIMIT 1
-              ) AS grupo_total_documentos,
-              EXISTS (
-                SELECT 1
-                FROM licitacoes_grupo_documentos lgd
-                JOIN licitacoes_grupos lg ON lg.id = lgd.grupo_id
-                WHERE lgd.documento_id = d.id
-                  AND lg.total_documentos > 1
-              ) AS tem_grupo_licitacao,
-              EXISTS (
-                SELECT 1
-                FROM licitacoes_fontes_relacionadas lfr
-                WHERE lfr.documento_id = d.id
-                  AND lfr.fonte = 'pncp'
-                  AND lfr.status_correspondencia <> 'rejeitada'
-              ) AS tem_pncp,
-              (
-                SELECT COUNT(*)
-                FROM licitacoes_fontes_relacionadas lfr
-                WHERE lfr.documento_id = d.id
-                  AND lfr.fonte = 'pncp'
-                  AND lfr.status_correspondencia <> 'rejeitada'
-              ) AS pncp_fontes_total,
-              EXISTS (
-                SELECT 1
-                FROM documentos_resumos_ai rai2
-                WHERE rai2.documento_id = d.id
-                  AND rai2.status = 'ok'
-                  AND rai2.provider <> 'mock'
-                  AND rai2.contrato_versao = '2.0'
-              ) AS tem_leitura_integrada
-       FROM documentos d
-       ${whereClause}
-       ORDER BY COALESCE(data_publicacao, atualizado_em) DESC, COALESCE(ano, 0) DESC, id DESC
-       LIMIT @limite OFFSET @offset`
-    )
-    .all({ ...params, limite, offset });
-
-  return {
-    total,
-    pagina,
-    limite,
-    dados: rows.map(normalizeDocumento)
-  };
-}
-
-function listAnosDocumentos({ fonte, tipo } = {}) {
-  const filters = ['ano IS NOT NULL'];
-  const params = {};
-
-  if (fonte) {
-    filters.push('fonte = @fonte');
-    params.fonte = fonte;
-  }
-
-  if (tipo) {
-    filters.push('tipo = @tipo');
-    params.tipo = tipo;
-  }
-
-  return db
-    .prepare(
-      `SELECT ano, COUNT(*) AS total
-       FROM documentos
-       WHERE ${filters.join(' AND ')}
-       GROUP BY ano
-       ORDER BY ano DESC`
-    )
-    .all(params);
-}
+// buildDocumentoWhere, listDocumentos, listAnosDocumentos → movidos para documentos-repo.js
 
 function listLicitacoes({ fonte, ano, status, termo, categoria, fornecedor, pagina = 1, limite = 20 }) {
   const filters = ['d.tipo = \'edital\''];
@@ -3506,7 +3103,7 @@ function getPainelCidadao() {
   const anoPadrao = hasCurrentYear ? currentYear : estatisticas.por_ano[0]?.ano;
   const recentes = listDocumentos({ pagina: 1, limite: 8 });
   const licitacoes = listLicitacoes({ ano: anoPadrao, pagina: 1, limite: 5 });
-  const coletas = listColetasLog(5).map((item) => ({
+  const coletas = coletasRepo.listColetasLog(5).map((item) => ({
     ...item,
     fonte_nome: labelFonte(item.fonte),
     status_nome: labelStatus(item.status)
@@ -3565,7 +3162,7 @@ function getDocumentoById(id) {
   const documento = normalizeDocumento(
     db.prepare('SELECT * FROM documentos WHERE id = ?').get(id)
   );
-  if (!documento) return null;
+  if (!documento) {return null;}
 
   const textoCompletoChars = documento.texto_completo ? documento.texto_completo.length : 0;
   const fontes = db
@@ -3584,12 +3181,12 @@ function getDocumentoById(id) {
   const licitacao = db
     .prepare('SELECT * FROM licitacoes_detalhes WHERE documento_id = ?')
     .get(id);
-  const resumoAi = getLatestResumoAiByDocumentoId(id);
+  const resumoAi = aiJobsRepo.getLatestResumoAiByDocumentoId(id);
   const leituraIntegradaAi =
-    documento.tipo === 'edital' ? getLatestLeituraIntegradaByDocumentoId(id) : null;
+    documento.tipo === 'edital' ? aiJobsRepo.getLatestLeituraIntegradaByDocumentoId(id) : null;
   const textoHashAtual = documento.texto_completo ? buildTextoHash(documento.texto_completo) : null;
   const resumoAiJob = textoHashAtual
-    ? getLatestResumoAiJobByDocumentoHash(id, textoHashAtual, config.aiContractVersion)
+    ? aiJobsRepo.getLatestResumoAiJobByDocumentoHash(id, textoHashAtual, config.aiContractVersion)
     : null;
 
   return {
@@ -3637,55 +3234,13 @@ function getDocumentoById(id) {
   };
 }
 
-function getResumoAiByDocumentoHash(documentoId, textoHash, contratoVersao) {
-  return normalizeResumoAi(
-    db
-      .prepare(
-        `SELECT *
-         FROM documentos_resumos_ai
-         WHERE documento_id = ?
-           AND texto_hash = ?
-           AND contrato_versao = ?
-         LIMIT 1`
-      )
-      .get(documentoId, textoHash, contratoVersao)
-  );
-}
+// getResumoAiByDocumentoHash, getLatestResumoAiByDocumentoId,
+// getLatestLeituraIntegradaByDocumentoId → movidos para ai-jobs-repo.js
 
-function getLatestResumoAiByDocumentoId(documentoId) {
-  return normalizeResumoAi(
-    db
-      .prepare(
-        `SELECT *
-         FROM documentos_resumos_ai
-         WHERE documento_id = ?
-           AND status = 'ok'
-           AND provider <> 'mock'
-           AND contrato_versao NOT LIKE '2.%'
-         ORDER BY datetime(criado_em) DESC, id DESC
-         LIMIT 1`
-      )
-      .get(documentoId)
-  );
-}
-
-function getLatestLeituraIntegradaByDocumentoId(documentoId) {
-  return normalizeResumoAi(
-    db
-      .prepare(
-        `SELECT *
-         FROM documentos_resumos_ai
-         WHERE documento_id = ?
-           AND status = 'ok'
-           AND provider <> 'mock'
-           AND contrato_versao = '2.0'
-         ORDER BY datetime(criado_em) DESC, id DESC
-         LIMIT 1`
-      )
-      .get(documentoId)
-  );
-}
-
+/**
+ * saveResumoAi permanece aqui porque chama estruturarProdutosDeResumoAi
+ * (domínio licitações). Será migrado quando licitacoes-repo.js for criado.
+ */
 function saveResumoAi({
   documento_id,
   provider,
@@ -3730,495 +3285,19 @@ function saveResumoAi({
       atualizado_em = excluded.atualizado_em`
   ).run(payload);
 
-  const saved = getResumoAiByDocumentoHash(documento_id, texto_hash, contrato_versao);
+  const saved = aiJobsRepo.getResumoAiByDocumentoHash(documento_id, texto_hash, contrato_versao);
   if (!String(contrato_versao || '').startsWith('2.')) {
     estruturarProdutosDeResumoAi(documento_id, saved);
   }
   return saved;
 }
 
-function createResumoAiJob({
-  documento_id,
-  provider,
-  modelo,
-  contrato_versao,
-  texto_hash,
-  force = false
-}) {
-  const existing = db
-    .prepare(
-      `SELECT *
-       FROM documentos_resumos_ai_jobs
-       WHERE documento_id = @documento_id
-         AND texto_hash = @texto_hash
-         AND contrato_versao = @contrato_versao
-         AND status IN ('pendente', 'processando')
-       ORDER BY datetime(atualizado_em) DESC, id DESC
-       LIMIT 1`
-    )
-    .get({ documento_id, texto_hash, contrato_versao });
+// createResumoAiJob, getResumoAiJobById, getLatestResumoAiJobByDocumentoHash, getNextPendingResumoAiJob,
+// listResumoAiJobs, getResumoAiJobsStats, recoverStaleResumoAiJobs, markResumoAiJobProcessing,
+// finishResumoAiJobOk, finishResumoAiJobError, listDocumentosPendentesResumoAi, listDocumentosParaResumoAi,
+// getResumoAiStatus, listResumoAnalises → movidos para ai-jobs-repo.js
 
-  if (existing) {
-    return normalizeResumoAiJob(existing);
-  }
-
-  const now = new Date().toISOString();
-  const result = db
-    .prepare(
-      `INSERT INTO documentos_resumos_ai_jobs (
-        documento_id, provider, modelo, contrato_versao, texto_hash,
-        status, force, criado_em, atualizado_em
-      ) VALUES (
-        @documento_id, @provider, @modelo, @contrato_versao, @texto_hash,
-        'pendente', @force, @criado_em, @atualizado_em
-      )`
-    )
-    .run({
-      documento_id,
-      provider,
-      modelo,
-      contrato_versao,
-      texto_hash,
-      force: force ? 1 : 0,
-      criado_em: now,
-      atualizado_em: now
-    });
-
-  return getResumoAiJobById(result.lastInsertRowid);
-}
-
-function getResumoAiJobById(id) {
-  return normalizeResumoAiJob(
-    db.prepare('SELECT * FROM documentos_resumos_ai_jobs WHERE id = ?').get(id)
-  );
-}
-
-function getLatestResumoAiJobByDocumentoHash(documentoId, textoHash, contratoVersao) {
-  return normalizeResumoAiJob(
-    db
-      .prepare(
-        `SELECT
-           j.*,
-           d.texto_completo,
-           LENGTH(IFNULL(d.texto_completo, '')) AS texto_chars
-         FROM documentos_resumos_ai_jobs j
-         JOIN documentos d ON d.id = j.documento_id
-         WHERE j.documento_id = ?
-           AND j.texto_hash = ?
-           AND j.contrato_versao = ?
-         ORDER BY datetime(j.atualizado_em) DESC, j.id DESC
-         LIMIT 1`
-      )
-      .get(documentoId, textoHash, contratoVersao)
-  );
-}
-
-function getNextPendingResumoAiJob() {
-  return normalizeResumoAiJob(
-    db
-      .prepare(
-        `SELECT *
-         FROM documentos_resumos_ai_jobs
-         WHERE status = 'pendente'
-         ORDER BY datetime(criado_em) ASC, id ASC
-         LIMIT 1`
-      )
-      .get()
-  );
-}
-
-function listResumoAiJobs({ limite = 20, status } = {}) {
-  const filters = [];
-  const params = {
-    limite: Math.min(Math.max(Number(limite || 20), 1), 100)
-  };
-
-  if (status) {
-    filters.push('j.status = @status');
-    params.status = status;
-  }
-
-  const whereClause = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
-
-  return db
-    .prepare(
-      `SELECT
-         j.*,
-         d.titulo,
-         d.ano,
-         d.tipo,
-         d.fonte,
-         d.texto_completo,
-         r.status AS resumo_status,
-         r.erro AS resumo_erro,
-         length(IFNULL(d.texto_completo, '')) AS texto_chars
-       FROM documentos_resumos_ai_jobs j
-       JOIN documentos d ON d.id = j.documento_id
-       LEFT JOIN documentos_resumos_ai r ON r.id = j.resumo_ai_id
-       ${whereClause}
-       ORDER BY datetime(j.atualizado_em) DESC, j.id DESC
-       LIMIT @limite`
-    )
-    .all(params)
-    .map(normalizeResumoAiJob);
-}
-
-function getResumoAiJobsStats() {
-  const porStatus = db
-    .prepare(
-      `SELECT status, COUNT(*) AS total
-       FROM documentos_resumos_ai_jobs
-       GROUP BY status
-       ORDER BY total DESC`
-    )
-    .all();
-  const porErro = db
-    .prepare(
-      `SELECT erro, COUNT(*) AS total
-       FROM documentos_resumos_ai_jobs
-       WHERE status = 'erro'
-       GROUP BY erro
-       ORDER BY total DESC
-       LIMIT 10`
-    )
-    .all()
-    .map((item) => ({
-      ...item,
-      erro_categoria: classifyAiError(item.erro)
-    }));
-
-  return {
-    por_status: porStatus,
-    por_erro: porErro
-  };
-}
-
-function recoverStaleResumoAiJobs({ staleMinutes = 30 } = {}) {
-  const now = new Date().toISOString();
-  const threshold = new Date(Date.now() - Number(staleMinutes || 30) * 60 * 1000).toISOString();
-  const result = db
-    .prepare(
-      `UPDATE documentos_resumos_ai_jobs
-       SET status = 'pendente',
-           erro = NULL,
-           atualizado_em = @now
-       WHERE status = 'processando'
-         AND atualizado_em < @threshold`
-    )
-    .run({ now, threshold });
-
-  return {
-    recovered: result.changes,
-    threshold,
-    staleMinutes: Number(staleMinutes || 30)
-  };
-}
-
-function markResumoAiJobProcessing(id) {
-  const now = new Date().toISOString();
-  db.prepare(
-    `UPDATE documentos_resumos_ai_jobs
-     SET status = 'processando',
-         tentativas = tentativas + 1,
-         iniciado_em = COALESCE(iniciado_em, @now),
-         atualizado_em = @now
-     WHERE id = @id
-       AND status = 'pendente'`
-  ).run({ id, now });
-
-  return getResumoAiJobById(id);
-}
-
-function finishResumoAiJobOk(id, resumoAiId = null) {
-  const now = new Date().toISOString();
-  db.prepare(
-    `UPDATE documentos_resumos_ai_jobs
-     SET status = 'ok',
-         erro = NULL,
-         resumo_ai_id = @resumoAiId,
-         finalizado_em = @now,
-         atualizado_em = @now
-     WHERE id = @id`
-  ).run({ id, resumoAiId, now });
-
-  return getResumoAiJobById(id);
-}
-
-function finishResumoAiJobError(id, erro) {
-  const now = new Date().toISOString();
-  db.prepare(
-    `UPDATE documentos_resumos_ai_jobs
-     SET status = 'erro',
-         erro = @erro,
-         finalizado_em = @now,
-         atualizado_em = @now
-     WHERE id = @id`
-  ).run({ id, erro: String(erro || 'Erro desconhecido'), now });
-
-  return getResumoAiJobById(id);
-}
-
-function listDocumentosPendentesResumoAi({ limite = 20, fonte, tipo, ano } = {}) {
-  const filters = ["IFNULL(texto_completo, '') <> ''"];
-  const params = { limite };
-
-  if (fonte) {
-    filters.push('fonte = @fonte');
-    params.fonte = fonte;
-  }
-
-  if (tipo) {
-    filters.push('tipo = @tipo');
-    params.tipo = tipo;
-  }
-
-  if (ano) {
-    filters.push('ano = @ano');
-    params.ano = Number(ano);
-  }
-
-  return db
-    .prepare(
-      `SELECT d.*
-       FROM documentos d
-       WHERE ${filters.join(' AND ')}
-       ORDER BY COALESCE(d.data_publicacao, d.atualizado_em) DESC, d.id DESC
-       LIMIT @limite`
-    )
-    .all(params)
-    .map(normalizeDocumento);
-}
-
-function listDocumentosParaResumoAi({
-  limite = 20,
-  fonte,
-  tipo,
-  ano,
-  maxChars = null,
-  minChars = null,
-  contratoVersao = config.aiContractVersion
-} = {}) {
-  const candidateLimit = Math.max(Number(limite || 20) * 20, 200);
-  return listDocumentosPendentesResumoAi({
-    limite: candidateLimit,
-    fonte,
-    tipo,
-    ano
-  })
-    .filter((documento) => {
-      const textoCompleto = documento.texto_completo || '';
-      if (!textoCompleto) return false;
-      if (maxChars && textoCompleto.length > Number(maxChars)) return false;
-      if (minChars && textoCompleto.length < Number(minChars)) return false;
-
-      const textoHash = buildTextoHash(textoCompleto);
-      const resumo = getResumoAiByDocumentoHash(documento.id, textoHash, contratoVersao);
-      return resumo?.status !== 'ok';
-    })
-    .slice(0, Math.max(Number(limite || 20), 1));
-}
-
-function getResumoAiStatus({ fonte, tipo, ano } = {}) {
-  const filters = ["IFNULL(d.texto_completo, '') <> ''"];
-  const params = {};
-
-  if (fonte) {
-    filters.push('d.fonte = @fonte');
-    params.fonte = fonte;
-  }
-
-  if (tipo) {
-    filters.push('d.tipo = @tipo');
-    params.tipo = tipo;
-  }
-
-  if (ano) {
-    filters.push('d.ano = @ano');
-    params.ano = Number(ano);
-  }
-
-  const whereClause = `WHERE ${filters.join(' AND ')}`;
-  const porAnoTipo = db
-    .prepare(
-      `SELECT
-         d.ano,
-         d.tipo,
-         COUNT(DISTINCT d.id) AS total_documentos,
-         COUNT(DISTINCT CASE WHEN r.status = 'ok' THEN d.id END) AS com_resumo_ok,
-         COUNT(DISTINCT CASE WHEN r.status = 'erro' THEN d.id END) AS com_resumo_erro
-       FROM documentos d
-       LEFT JOIN documentos_resumos_ai r ON r.documento_id = d.id
-       ${whereClause}
-       GROUP BY d.ano, d.tipo
-       ORDER BY COALESCE(d.ano, 0) DESC, total_documentos DESC`
-    )
-    .all(params)
-    .map((row) => ({
-      ...row,
-      sem_resumo_ok: row.total_documentos - row.com_resumo_ok
-    }));
-
-  const porProvider = db
-    .prepare(
-      `SELECT
-         IFNULL(r.provider, 'sem_resumo') AS provider,
-         IFNULL(r.modelo, 'sem_modelo') AS modelo,
-         IFNULL(r.status, 'sem_status') AS status,
-         COUNT(DISTINCT d.id) AS total
-       FROM documentos d
-       LEFT JOIN documentos_resumos_ai r ON r.documento_id = d.id
-       ${whereClause}
-       GROUP BY provider, modelo, status
-       ORDER BY total DESC`
-    )
-    .all(params);
-
-  const totais = db
-    .prepare(
-      `SELECT
-         COUNT(DISTINCT d.id) AS total_documentos,
-         COUNT(DISTINCT CASE WHEN r.status = 'ok' THEN d.id END) AS com_resumo_ok,
-         COUNT(DISTINCT CASE WHEN r.status = 'erro' THEN d.id END) AS com_resumo_erro
-       FROM documentos d
-       LEFT JOIN documentos_resumos_ai r ON r.documento_id = d.id
-       ${whereClause}`
-    )
-    .get(params);
-
-  return {
-    filtros: {
-      fonte: fonte || null,
-      tipo: tipo || null,
-      ano: ano ? Number(ano) : null
-    },
-    totais: {
-      ...totais,
-      sem_resumo_ok: totais.total_documentos - totais.com_resumo_ok
-    },
-    por_ano_tipo: porAnoTipo,
-    por_provider: porProvider
-  };
-}
-
-function listResumoAnalises({ tipo, limite = 50 } = {}) {
-  const filters = ["r.status = 'ok'", "r.provider <> 'mock'", "r.contrato_versao NOT LIKE '2.%'"];
-  const params = {
-    limite: Math.min(Math.max(Number(limite || 50), 1), 100)
-  };
-
-  if (tipo) {
-    filters.push('d.tipo = @tipo');
-    params.tipo = tipo;
-  }
-
-  const rows = db
-    .prepare(
-      `SELECT
-         d.id AS documento_id,
-         d.titulo,
-         d.tipo,
-         d.ano,
-         d.fonte,
-         d.numero,
-         d.data_publicacao,
-         d.data_abertura,
-         d.valor_estimado,
-         r.resumo_json,
-         r.criado_em AS resumo_criado_em
-       FROM documentos_resumos_ai r
-       JOIN documentos d ON d.id = r.documento_id
-       WHERE ${filters.join(' AND ')}
-         AND r.id = (
-           SELECT r2.id
-           FROM documentos_resumos_ai r2
-           WHERE r2.documento_id = r.documento_id
-             AND r2.status = 'ok'
-             AND r2.provider <> 'mock'
-             AND r2.contrato_versao NOT LIKE '2.%'
-           ORDER BY datetime(r2.criado_em) DESC, r2.id DESC
-           LIMIT 1
-         )
-       ORDER BY datetime(r.criado_em) DESC, r.id DESC
-       LIMIT @limite`
-    )
-    .all(params);
-
-  const itens = rows.map((row) => {
-    const resumo = deepRepairStrings(parseJson(row.resumo_json)) || {};
-    return {
-      documento_id: row.documento_id,
-      titulo: normalizeText(row.titulo),
-      tipo: row.tipo,
-      tipo_nome: labelTipo(row.tipo),
-      ano: row.ano,
-      fonte: row.fonte,
-      fonte_nome: labelFonte(row.fonte),
-      numero: row.numero,
-      data_publicacao: row.data_publicacao,
-      data_abertura: row.data_abertura,
-      valor_estimado: row.valor_estimado,
-      resumo_criado_em: row.resumo_criado_em,
-      titulo_curto: resumo.titulo_curto || null,
-      resumo_cidadao: resumo.resumo_cidadao || null,
-      objeto: resumo.objeto?.descricao || null,
-      pontos_principais: resumo.pontos_principais || [],
-      valores: resumo.valores || [],
-      datas_relevantes: resumo.datas_relevantes || [],
-      partes_envolvidas: resumo.partes_envolvidas || [],
-      riscos_ou_alertas: resumo.riscos_ou_alertas || [],
-      confianca: resumo.confianca ?? null
-    };
-  });
-
-  const porTipo = itens.reduce((acc, item) => {
-    const current = acc.get(item.tipo) || {
-      tipo: item.tipo,
-      tipo_nome: item.tipo_nome,
-      total: 0,
-      com_valores: 0,
-      com_riscos: 0
-    };
-    current.total += 1;
-    if (item.valores.length) current.com_valores += 1;
-    if (item.riscos_ou_alertas.length) current.com_riscos += 1;
-    acc.set(item.tipo, current);
-    return acc;
-  }, new Map());
-
-  return {
-    filtros: {
-      tipo: tipo || null,
-      limite: params.limite
-    },
-    totais: {
-      documentos_analisados: itens.length,
-      com_valores: itens.filter((item) => item.valores.length).length,
-      com_datas: itens.filter((item) => item.datas_relevantes.length).length,
-      com_riscos: itens.filter((item) => item.riscos_ou_alertas.length).length
-    },
-    por_tipo: Array.from(porTipo.values()),
-    itens
-  };
-}
-
-function getDocumentoByUrlPdf(urlPdf) {
-  if (!urlPdf) return null;
-  return normalizeDocumento(
-    db.prepare('SELECT * FROM documentos WHERE url_pdf = ? LIMIT 1').get(urlPdf)
-  );
-}
-
-function getDocumentoByUrlPdfRaw(urlPdf) {
-  if (!urlPdf) return null;
-  return db.prepare('SELECT * FROM documentos WHERE url_pdf = ? LIMIT 1').get(urlPdf) || null;
-}
-
-function listColetasLog(limite = 10) {
-  return db
-    .prepare('SELECT * FROM coletas_log ORDER BY id DESC LIMIT ?')
-    .all(limite)
-    .map((item) => ({ ...item, detalhes: parseJson(item.detalhes) }));
-}
+// getDocumentoByUrlPdf, getDocumentoByUrlPdfRaw → movidos para documentos-repo.js
 
 function consolidarFornecedores() {
   // Agrega via produtos
@@ -4278,7 +3357,7 @@ function consolidarFornecedores() {
       existing.n_licitacoes_vencedor = row.n_licitacoes || 0;
       (row.anos || '').split(',').filter(Boolean).forEach((a) => existing.anos.add(a));
       // Prefere o nome do vencedor (geralmente mais limpo)
-      if (!existing.nome_canonico && row.nome) existing.nome_canonico = row.nome;
+      if (!existing.nome_canonico && row.nome) {existing.nome_canonico = row.nome;}
     } else {
       mapa.set(row.cnpj, {
         cnpj: row.cnpj,
@@ -4374,7 +3453,7 @@ function getFornecedorByCnpj(cnpj) {
   const row = db
     .prepare('SELECT * FROM fornecedores_perfil WHERE cnpj = ?')
     .get(cnpj);
-  if (!row) return null;
+  if (!row) {return null;}
 
   const licitacoesProdutos = db
     .prepare(
@@ -4594,7 +3673,7 @@ function listCategoriasDocumentos({ categoria, limite = 50, pagina = 1 } = {}) {
 
 function getCategoriasDocumentoId(documentoId) {
   const row = db.prepare('SELECT * FROM licitacoes_categorias WHERE documento_id = ?').get(documentoId);
-  if (!row) return null;
+  if (!row) {return null;}
   return { ...row, keywords_matched: parseJson(row.keywords_matched) || [] };
 }
 
@@ -4677,10 +3756,10 @@ function getAuditoria({ ano, tipo, fonte } = {}) {
 
   const faixas = { '0–25': 0, '26–50': 0, '51–75': 0, '76–100': 0 };
   for (const r of rows) {
-    if (r.score <= 25) faixas['0–25']++;
-    else if (r.score <= 50) faixas['26–50']++;
-    else if (r.score <= 75) faixas['51–75']++;
-    else faixas['76–100']++;
+    if (r.score <= 25) {faixas['0–25']++;}
+    else if (r.score <= 50) {faixas['26–50']++;}
+    else if (r.score <= 75) {faixas['51–75']++;}
+    else {faixas['76–100']++;}
   }
 
   const camposLacuna = [
@@ -4707,7 +3786,7 @@ function getAuditoria({ ano, tipo, fonte } = {}) {
   const anosMap = new Map();
   for (const r of rows) {
     const k = r.ano || 0;
-    if (!anosMap.has(k)) anosMap.set(k, []);
+    if (!anosMap.has(k)) {anosMap.set(k, []);}
     anosMap.get(k).push(r.score);
   }
   const por_ano = Array.from(anosMap.entries())
@@ -4722,7 +3801,7 @@ function getAuditoria({ ano, tipo, fonte } = {}) {
 
   const tiposMap = new Map();
   for (const r of rows) {
-    if (!tiposMap.has(r.tipo)) tiposMap.set(r.tipo, []);
+    if (!tiposMap.has(r.tipo)) {tiposMap.set(r.tipo, []);}
     tiposMap.get(r.tipo).push(r.score);
   }
   const por_tipo = Array.from(tiposMap.entries())
@@ -4761,14 +3840,14 @@ function getAuditoria({ ano, tipo, fonte } = {}) {
   };
 }
 
+// ── Re-exports de compatibilidade (Fase E) ────────────────────────────────────
+// Novos repos especializados; importadores legados continuam usando './db/index'
+
 module.exports = {
   db,
+  // Funções locais (cross-domain — serão migradas progressivamente)
   saveDocumento,
   saveResumoAi,
-  createColetaLog,
-  finishColetaLog,
-  listDocumentos,
-  listAnosDocumentos,
   listLicitacoes,
   listLicitacaoProdutos,
   getLicitacaoProdutosByDocumentoId,
@@ -4793,26 +3872,6 @@ module.exports = {
   getEstatisticas,
   getPainelCidadao,
   getDocumentoById,
-  getDocumentoByUrlPdf,
-  getDocumentoByUrlPdfRaw,
-  getResumoAiByDocumentoHash,
-  getLatestResumoAiByDocumentoId,
-  getLatestLeituraIntegradaByDocumentoId,
-  createResumoAiJob,
-  getResumoAiJobById,
-  getLatestResumoAiJobByDocumentoHash,
-  getNextPendingResumoAiJob,
-  listResumoAiJobs,
-  getResumoAiJobsStats,
-  recoverStaleResumoAiJobs,
-  markResumoAiJobProcessing,
-  finishResumoAiJobOk,
-  finishResumoAiJobError,
-  listDocumentosPendentesResumoAi,
-  listDocumentosParaResumoAi,
-  getResumoAiStatus,
-  listResumoAnalises,
-  listColetasLog,
   getAuditoria,
   getInteligenciaPanorama,
   salvarCategoria,
@@ -4824,5 +3883,10 @@ module.exports = {
   getFornecedorByCnpj,
   getDocumentoByNumeroPncp,
   upsertDadosPncp,
-  parseJson
+  // Re-exports de coletas-repo.js
+  ...coletasRepo,
+  // Re-exports de ai-jobs-repo.js
+  ...aiJobsRepo,
+  // Re-exports de documentos-repo.js
+  ...documentosRepo,
 };

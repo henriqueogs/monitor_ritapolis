@@ -59,6 +59,26 @@ async function postJson(path, body = {}) {
   return response.json();
 }
 
+async function patchJson(path, body = {}) {
+  const response = await fetch(`${apiUrl}${path}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    cache: 'no-store',
+  });
+  if (!response.ok) {
+    let detail = '';
+    try {
+      const responseBody = await response.json();
+      detail = responseBody?.error ? `: ${responseBody.error}` : '';
+    } catch {
+      detail = '';
+    }
+    throw new Error(`Falha ao atualizar ${path} (${response.status})${detail}`);
+  }
+  return response.json();
+}
+
 function emptyList(params = {}) {
   return {
     total: 0,
@@ -201,6 +221,31 @@ export function fetchLicitacaoProdutos(params = {}) {
 
 export function fetchDocumentoProdutos(id) {
   return fetchJson(`/licitacoes/${id}/produtos`).catch(() => emptyProdutos({ limite: 100 }));
+}
+
+export async function fetchDocumentoEmpenhos(id) {
+  try {
+    return await fetchJson(`/documentos/${id}/empenhos`);
+  } catch {
+    return { resumo: null, empenhos: [] };
+  }
+}
+
+export async function fetchTransparenciaResumo() {
+  try {
+    return await fetchJson('/transparencia/resumo');
+  } catch {
+    return null;
+  }
+}
+
+export function fetchTransparenciaDespesas(params = {}) {
+  return fetchJson(`/transparencia/despesas${buildQuery(params)}`).catch(() => ({
+    total: 0,
+    pagina: 1,
+    limite: 50,
+    dados: []
+  }));
 }
 
 export function fetchEstatisticas() {
@@ -357,4 +402,83 @@ export function fetchInteligenciaPanorama() {
 
 export function fetchSchedulerStatus() {
   return fetchJson('/scheduler/status');
+}
+
+// ── Busca FTS ────────────────────────────────────────────────────────────────
+
+export function fetchBusca(params = {}) {
+  return fetchJson(`/busca${buildQuery(params)}`).catch(() => ({
+    total: 0, pagina: 1, limite: 20, dados: [], query_usada: null,
+  }));
+}
+
+// ── Credores ─────────────────────────────────────────────────────────────────
+
+export function fetchCredores(params = {}) {
+  return fetchJson(`/credores${buildQuery(params)}`).catch(() => ({
+    total: 0, pagina: 1, limite: 50, dados: [],
+  }));
+}
+
+export function fetchCredorProfile(cnpj) {
+  return fetchJson(`/credores/${cnpj}`).catch(() => null);
+}
+
+// ── Inteligência financeira (B1-B4) ─────────────────────────────────────────
+
+export function fetchInteligenciaFinanceira(exercicio) {
+  const q = exercicio ? `?exercicio=${exercicio}` : '';
+  return fetchJson(`/inteligencia${q}`).catch(() => null);
+}
+
+export function fetchConcentracaoCredores(exercicio) {
+  const q = exercicio ? `?exercicio=${exercicio}` : '';
+  return fetchJson(`/inteligencia/concentracao${q}`).catch(() => null);
+}
+
+export function fetchAnomaliasEmpenhos(exercicio) {
+  const q = exercicio ? `?exercicio=${exercicio}` : '';
+  return fetchJson(`/inteligencia/anomalias${q}`).catch(() => null);
+}
+
+export function fetchEvolucaoFuncoes() {
+  return fetchJson('/inteligencia/evolucao').catch(() => null);
+}
+
+export function fetchRankingPorFuncao(exercicio, topN) {
+  const params = {};
+  if (exercicio) params.exercicio = exercicio;
+  if (topN) params.topN = topN;
+  return fetchJson(`/inteligencia/ranking${buildQuery(params)}`).catch(() => null);
+}
+
+// ── Admin observabilidade ─────────────────────────────────────────────────────
+
+export function fetchAdminStatus() {
+  return fetchJson('/admin/status');
+}
+
+export function triggerAdminAction(acao) {
+  return fetch(`${apiUrl}/admin/trigger/${acao}`, { method: 'POST' }).then((r) => r.json());
+}
+
+// ── Revisão de produtos extraídos (curadoria de qualidade) ────────────────────
+
+export function fetchProdutosRevisaoResumo() {
+  return fetchJson('/admin/produtos-revisao/resumo').catch(() => null);
+}
+
+export function fetchProdutosRevisao(params = {}) {
+  return fetchJson(`/admin/produtos-revisao${buildQuery(params)}`).catch(() => ({
+    total: 0,
+    itens: [],
+  }));
+}
+
+export function setProdutoRevisaoStatus(id, status) {
+  return patchJson(`/admin/produtos-revisao/${id}`, { status });
+}
+
+export function validarProdutosEmLote(body = {}) {
+  return postJson('/admin/produtos-revisao/validar-lote', body);
 }

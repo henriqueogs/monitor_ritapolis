@@ -198,6 +198,88 @@ CREATE TABLE IF NOT EXISTS documentos_resumos_ai_jobs (
   atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS fornecedores_perfil (
+  cnpj TEXT PRIMARY KEY,
+  nome_canonico TEXT,
+  total_valor_produtos REAL NOT NULL DEFAULT 0,
+  total_valor_vencedor REAL NOT NULL DEFAULT 0,
+  n_itens_produtos INTEGER NOT NULL DEFAULT 0,
+  n_vitorias INTEGER NOT NULL DEFAULT 0,
+  n_licitacoes_produtos INTEGER NOT NULL DEFAULT 0,
+  n_licitacoes_vencedor INTEGER NOT NULL DEFAULT 0,
+  anos_ativos TEXT,
+  atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS licitacoes_categorias (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  documento_id INTEGER NOT NULL REFERENCES documentos(id) ON DELETE CASCADE,
+  categoria TEXT NOT NULL,
+  subcategoria TEXT,
+  confianca REAL NOT NULL DEFAULT 0,
+  origem TEXT NOT NULL DEFAULT 'keyword',
+  keywords_matched TEXT,
+  criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (documento_id)
+);
+
+CREATE TABLE IF NOT EXISTS transparencia_despesas (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  documento_id INTEGER REFERENCES documentos(id) ON DELETE SET NULL,
+  exercicio_orcamento INTEGER NOT NULL,
+  empenho TEXT NOT NULL,
+  tipo TEXT,
+  data_empenho TEXT,
+  data_liquidacao TEXT,
+  data_pagamento TEXT,
+  credor_nome TEXT,
+  credor_cnpj TEXT,
+  valor REAL NOT NULL DEFAULT 0,
+  unidade TEXT,
+  funcao TEXT,
+  subfuncao TEXT,
+  programa TEXT,
+  projeto_atividade TEXT,
+  categoria_economica TEXT,
+  fonte_recurso TEXT,
+  historico TEXT,
+  licitacao_ref TEXT,
+  modalidade TEXT,
+  dados_extras TEXT,
+  hash_despesa TEXT NOT NULL,
+  coletado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (exercicio_orcamento, empenho)
+);
+
+CREATE TABLE IF NOT EXISTS transparencia_receitas (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  exercicio INTEGER NOT NULL,
+  codigo_receita TEXT NOT NULL,
+  nome_receita TEXT,
+  tipo_conta TEXT,
+  valor_previsto REAL NOT NULL DEFAULT 0,
+  coletado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (exercicio, codigo_receita)
+);
+
+CREATE TABLE IF NOT EXISTS transparencia_coletas_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  fonte TEXT NOT NULL DEFAULT 'portal_transparencia',
+  tipo TEXT NOT NULL,
+  exercicio INTEGER NOT NULL,
+  mes INTEGER,
+  registros INTEGER NOT NULL DEFAULT 0,
+  novos INTEGER NOT NULL DEFAULT 0,
+  atualizados INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'ok',
+  erro TEXT,
+  coletado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (tipo, exercicio, mes)
+);
+
 CREATE INDEX IF NOT EXISTS idx_documentos_fonte ON documentos(fonte);
 CREATE INDEX IF NOT EXISTS idx_documentos_tipo ON documentos(tipo);
 CREATE INDEX IF NOT EXISTS idx_documentos_data_publicacao ON documentos(data_publicacao);
@@ -227,3 +309,42 @@ CREATE INDEX IF NOT EXISTS idx_resumos_ai_jobs_documento_hash
   ON documentos_resumos_ai_jobs(documento_id, texto_hash, contrato_versao, status);
 CREATE INDEX IF NOT EXISTS idx_resumos_ai_jobs_status
   ON documentos_resumos_ai_jobs(status, atualizado_em);
+CREATE INDEX IF NOT EXISTS idx_licitacoes_categorias_documento ON licitacoes_categorias(documento_id);
+CREATE INDEX IF NOT EXISTS idx_licitacoes_categorias_categoria ON licitacoes_categorias(categoria);
+CREATE INDEX IF NOT EXISTS idx_transp_despesas_exercicio ON transparencia_despesas(exercicio_orcamento);
+CREATE INDEX IF NOT EXISTS idx_transp_despesas_empenho ON transparencia_despesas(empenho);
+CREATE INDEX IF NOT EXISTS idx_transp_despesas_credor_cnpj ON transparencia_despesas(credor_cnpj);
+CREATE INDEX IF NOT EXISTS idx_transp_despesas_data_empenho ON transparencia_despesas(data_empenho);
+CREATE INDEX IF NOT EXISTS idx_transp_despesas_licitacao_ref ON transparencia_despesas(licitacao_ref);
+CREATE INDEX IF NOT EXISTS idx_transp_despesas_documento_id ON transparencia_despesas(documento_id);
+CREATE INDEX IF NOT EXISTS idx_transp_receitas_exercicio ON transparencia_receitas(exercicio);
+
+
+-- FTS5 — Busca textual nos documentos
+-- Tabela de conteúdo (content table) — FTS sincroniza com documentos via triggers
+CREATE VIRTUAL TABLE IF NOT EXISTS documentos_fts USING fts5(
+  titulo,
+  resumo,
+  texto_completo,
+  content='documentos',
+  content_rowid='id',
+  tokenize='unicode61 remove_diacritics 2'
+);
+
+-- Triggers para manter o índice FTS atualizado automaticamente
+CREATE TRIGGER IF NOT EXISTS documentos_fts_ai AFTER INSERT ON documentos BEGIN
+  INSERT INTO documentos_fts(rowid, titulo, resumo, texto_completo)
+  VALUES (new.id, new.titulo, new.resumo, new.texto_completo);
+END;
+
+CREATE TRIGGER IF NOT EXISTS documentos_fts_ad AFTER DELETE ON documentos BEGIN
+  INSERT INTO documentos_fts(documentos_fts, rowid, titulo, resumo, texto_completo)
+  VALUES ('delete', old.id, old.titulo, old.resumo, old.texto_completo);
+END;
+
+CREATE TRIGGER IF NOT EXISTS documentos_fts_au AFTER UPDATE ON documentos BEGIN
+  INSERT INTO documentos_fts(documentos_fts, rowid, titulo, resumo, texto_completo)
+  VALUES ('delete', old.id, old.titulo, old.resumo, old.texto_completo);
+  INSERT INTO documentos_fts(rowid, titulo, resumo, texto_completo)
+  VALUES (new.id, new.titulo, new.resumo, new.texto_completo);
+END;

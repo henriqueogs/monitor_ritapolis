@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import SectionBlock from '../../components/SectionBlock';
 import { fetchAuditoria } from '../../lib/api';
+import RevisaoProdutos from './RevisaoProdutos';
 
 // Mapeados para os tokens do design system Gov.br
 const SCORE_TOKENS = {
@@ -155,6 +156,14 @@ export default async function AdminQualidadePage() {
             </strong>
           </div>
         </div>
+      </SectionBlock>
+
+      {/* Revisão de produtos extraídos — curadoria humana */}
+      <SectionBlock
+        title="Revisão de produtos extraídos"
+        description="Valide ou rejeite os itens extraídos por IA/atas. Os menos confiáveis aparecem primeiro; valide em lote os de alta confiança."
+      >
+        <RevisaoProdutos />
       </SectionBlock>
 
       {/* Distribuição de score — não-clicável */}

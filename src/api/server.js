@@ -24,7 +24,6 @@ const {
   getInteligenciaPanorama,
   getCategoriasStats,
   listCategoriasDocumentos,
-  getCategoriasDocumentoId,
   createResumoAiJob,
   getResumoAiByDocumentoHash,
   getResumoAiJobById,
@@ -34,12 +33,40 @@ const {
   listResumoAiJobs,
   recoverStaleResumoAiJobs
 } = require('../db');
+const {
+  getDespesasPorDocumento,
+  getResumoFinanceiroPorDocumento,
+  getPainelResumo,
+  getDespesas,
+  getReceitasPorAno,
+  getReceitasDetalheExercicio,
+} = require('../db/transparencia-repo');
+const {
+  getConcentracaoCredores,
+  getConcentracaoHistorico,
+  getEmpenhoAtipicos,
+  getEvolucaoFuncoes,
+  getRankingPorFuncao,
+  getPainelInteligencia,
+} = require('../db/inteligencia-repo');
 const { summarizeDocument, buildTextoHash } = require('../ai/summarize-document');
 const { correlateLicitation } = require('../ai/correlate-licitation');
 const { createAiProvider } = require('../ai/providers');
 const { scheduleResumoAiJobWorker } = require('../ai/summary-job-worker');
 const { getAiOperationPlan } = require('../ai/operation-policy');
+const { extractEntitiesFromResumes } = require('../ai/extract-entities');
+const { gerarNarrativaAnomalias } = require('../ai/anomaly-narrative');
 const { getCollectionUpdateStatus, startCollectionUpdate } = require('../coletas/update-runner');
+const { listCredores, getCredorProfile } = require('../db/credores-repo');
+const { searchDocumentos, ensureFtsIndex, rebuildFtsIndex } = require('../db/fts-repo');
+const { getAdminSnapshot } = require('../db/admin-repo');
+const {
+  contarProdutosRevisao,
+  listProdutosParaRevisao,
+  setProdutoStatusRevisao,
+  validarLoteProdutos,
+} = require('../db/produtos-revisao-repo');
+const dailyScheduler = require('../coletas/daily-scheduler');
 const { checkPrefeituraSyncOnPortalOpen } = require('../coletas/prefeitura-sync');
 const collectionScheduler = require('../coletas/collection-scheduler');
 const aiScheduler = require('../ai/ai-daily-scheduler');
@@ -60,6 +87,16 @@ function createServer() {
   const app = express();
   app.use(cors());
   app.use(express.json());
+
+  // Inicializa índice FTS5 se ainda não populado (apenas no primeiro start)
+  try {
+    const ftsResult = ensureFtsIndex();
+    if (ftsResult.rebuiltRows > 0) {
+      logger.info('FTS5: índice reconstruído', { linhas: ftsResult.rebuiltRows });
+    }
+  } catch (err) {
+    logger.warn('FTS5: falha ao inicializar índice', { erro: err.message });
+  }
 
   app.get('/api/health', (_req, res) => {
     res.json({ ok: true });
@@ -299,6 +336,143 @@ function createServer() {
     res.json(recoverStaleResumoAiJobs({ staleMinutes }));
   });
 
+  app.get('/api/documentos/:id/empenhos', (req, res) => {
+    const id = Number(req.params.id);
+    const documento = getDocumentoById(id);
+    if (!documento) {return res.status(404).json({ error: 'Documento nao encontrado' });}
+
+    const resumo = getResumoFinanceiroPorDocumento(id);
+    const empenhos = getDespesasPorDocumento(id);
+
+    return res.json({ resumo, empenhos });
+  });
+
+  // ── Portal da Transparência ───────────────────────────────────────────────
+
+  app.get('/api/transparencia/resumo', (_req, res) => {
+    return res.json(getPainelResumo());
+  });
+
+  app.get('/api/transparencia/despesas', (req, res) => {
+    const { exercicio, credor_cnpj, documento_id, pagina, limite } = req.query;
+    return res.json(getDespesas({ exercicio, credor_cnpj, documento_id, pagina, limite }));
+  });
+
+  app.get('/api/transparencia/receitas', (_req, res) => {
+    return res.json(getReceitasPorAno());
+  });
+
+  app.get('/api/transparencia/receitas/:exercicio', (req, res) => {
+    const exercicio = Number(req.params.exercicio);
+    if (!exercicio) {return res.status(400).json({ error: 'exercicio inválido' });}
+    return res.json(getReceitasDetalheExercicio(exercicio));
+  });
+
+  // ── Inteligência financeira (B1-B4) ──────────────────────────────────────
+
+  // GET /api/inteligencia — painel completo (último exercício com dados)
+  app.get('/api/inteligencia', (req, res) => {
+    const exercicio = req.query.exercicio ? Number(req.query.exercicio) : undefined;
+    return res.json(getPainelInteligencia(exercicio));
+  });
+
+  // GET /api/inteligencia/concentracao?exercicio=2025 — B1 concentração
+  app.get('/api/inteligencia/concentracao', (req, res) => {
+    const exercicio = req.query.exercicio ? Number(req.query.exercicio) : undefined;
+    if (exercicio) {return res.json(getConcentracaoCredores(exercicio));}
+    return res.json(getConcentracaoHistorico());
+  });
+
+  // GET /api/inteligencia/anomalias?exercicio=2025 — B2 anomalias
+  app.get('/api/inteligencia/anomalias', (req, res) => {
+    const exercicio = Number(req.query.exercicio || 2025);
+    return res.json(getEmpenhoAtipicos(exercicio));
+  });
+
+  // GET /api/inteligencia/evolucao — B3 evolução por funcao
+  app.get('/api/inteligencia/evolucao', (_req, res) => {
+    return res.json(getEvolucaoFuncoes());
+  });
+
+  // GET /api/inteligencia/ranking?exercicio=2025 — B4 ranking por funcao
+  app.get('/api/inteligencia/ranking', (req, res) => {
+    const exercicio = Number(req.query.exercicio || 2025);
+    const topN = req.query.topN ? Number(req.query.topN) : 5;
+    return res.json(getRankingPorFuncao(exercicio, topN));
+  });
+
+  // ── Narrativa IA para anomalias ───────────────────────────────────────────
+
+  // POST /api/inteligencia/anomalias/narrativa?exercicio=2025
+  app.post('/api/inteligencia/anomalias/narrativa', async (req, res) => {
+    const exercicio = Number(req.query.exercicio || 2025);
+    try {
+      const anomalias = getEmpenhoAtipicos(exercicio);
+      const { narrativa, cached } = await gerarNarrativaAnomalias(anomalias);
+      return res.json({ exercicio, narrativa, cached });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Credores ─────────────────────────────────────────────────────────────
+
+  // GET /api/credores — lista de credores
+  app.get('/api/credores', (req, res) => {
+    const { limite, pagina, busca, exercicio } = req.query;
+    return res.json(listCredores({
+      limite: limite ? Number(limite) : 50,
+      pagina: pagina ? Number(pagina) : 1,
+      busca: busca || undefined,
+      exercicio: exercicio ? Number(exercicio) : undefined,
+    }));
+  });
+
+  // GET /api/credores/:cnpj — perfil completo de um credor
+  app.get('/api/credores/:cnpj', (req, res) => {
+    const cnpj = String(req.params.cnpj).replace(/\D/g, '');
+    if (cnpj.length !== 14) {return res.status(400).json({ error: 'CNPJ inválido' });}
+    const perfil = getCredorProfile(cnpj);
+    if (!perfil) {return res.status(404).json({ error: 'Credor não encontrado' });}
+    return res.json(perfil);
+  });
+
+  // ── Busca FTS ─────────────────────────────────────────────────────────────
+
+  // GET /api/busca?q=texto&tipo=edital&ano=2025
+  app.get('/api/busca', (req, res) => {
+    const { q, tipo, fonte, ano, limite, pagina } = req.query;
+    if (!q || String(q).trim().length < 2) {
+      return res.status(400).json({ error: 'Parâmetro q obrigatório (mínimo 2 caracteres)' });
+    }
+    return res.json(searchDocumentos(q, {
+      tipo: tipo || undefined,
+      fonte: fonte || undefined,
+      ano: ano ? Number(ano) : undefined,
+      limite: limite ? Number(limite) : 20,
+      pagina: pagina ? Number(pagina) : 1,
+    }));
+  });
+
+  // ── Extração de entidades ─────────────────────────────────────────────────
+
+  // POST /api/ia/extrair-entidades — run entity extraction from AI summaries
+  app.post('/api/ia/extrair-entidades', (_req, res) => {
+    try {
+      const stats = extractEntitiesFromResumes();
+      return res.json({ ok: true, ...stats });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/scheduler/daily — status do scheduler diário
+  app.get('/api/scheduler/daily', (_req, res) => {
+    return res.json(dailyScheduler.getStatus());
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+
   app.get('/api/documentos/:id', (req, res) => {
     recoverStaleResumoAiJobs({ staleMinutes: 5 });
     const documento = getDocumentoById(Number(req.params.id));
@@ -401,7 +575,7 @@ function createServer() {
     );
   });
 
-  app.get('/api/cobertura/prefeitura', async (req, res, next) => {
+  app.get('/api/cobertura/prefeitura', async (req, res, _next) => {
     const limite = Math.min(Math.max(Number(req.query.limite || 500), 1), 2000);
 
     try {
@@ -544,6 +718,103 @@ function createServer() {
       res.status(400).json({ error: error.message });
     }
   });
+
+  // ── Admin observabilidade ─────────────────────────────────────────────────
+
+  // GET /api/admin/status — snapshot completo de saúde do sistema
+  app.get('/api/admin/status', (_req, res) => {
+    const snapshot = getAdminSnapshot();
+    return res.json({
+      ...snapshot,
+      schedulers: {
+        coleta: collectionScheduler.getStatus(),
+        ia: aiScheduler.getStatus(),
+        diario: dailyScheduler.getStatus(),
+      },
+      timestamp: new Date().toISOString(),
+    });
+  });
+
+  // POST /api/admin/trigger/:acao — dispara ação manual
+  app.post('/api/admin/trigger/:acao', async (req, res) => {
+    const { acao } = req.params;
+
+    if (acao === 'ai-cycle') {
+      // Dispara ciclo IA em background — não bloqueia resposta
+      aiScheduler.runCycle().catch((e) =>
+        logger.warn('admin trigger ai-cycle: erro', { erro: e.message })
+      );
+      return res.json({ ok: true, acao, msg: 'Ciclo IA iniciado em background' });
+    }
+
+    if (acao === 'extract-entities') {
+      const resultado = extractEntitiesFromResumes();
+      return res.json({ ok: true, acao, resultado });
+    }
+
+    if (acao === 'rebuild-fts') {
+      const n = rebuildFtsIndex();
+      return res.json({ ok: true, acao, rows_indexed: n });
+    }
+
+    if (acao === 'daily-transparencia') {
+      // Forçar coleta de transparência ignorando intervalo
+      const ColetorPortalTransparencia = require('../coletores/portal-transparencia');
+      const coletor = new ColetorPortalTransparencia();
+      const resultado = { novos: 0, atualizados: 0, erros: 0 };
+      coletor.executar(resultado).catch((e) =>
+        logger.warn('admin trigger daily-transparencia: erro', { erro: e.message })
+      );
+      return res.json({ ok: true, acao, msg: 'Coleta de transparência iniciada em background' });
+    }
+
+    return res.status(400).json({ error: `Ação desconhecida: ${acao}` });
+  });
+
+  // ── Revisão de produtos extraídos (curadoria de qualidade) ────────────────
+
+  // GET /api/admin/produtos-revisao/resumo — contagens por status e confiança
+  app.get('/api/admin/produtos-revisao/resumo', (_req, res) => {
+    res.json(contarProdutosRevisao());
+  });
+
+  // GET /api/admin/produtos-revisao — fila de pendentes (menos confiáveis primeiro)
+  app.get('/api/admin/produtos-revisao', (req, res) => {
+    res.json(
+      listProdutosParaRevisao({
+        confiancaMax: req.query.confiancaMax !== undefined ? Number(req.query.confiancaMax) : undefined,
+        documentoId: req.query.documentoId || undefined,
+        limite: req.query.limite || undefined,
+        pagina: req.query.pagina || undefined,
+      })
+    );
+  });
+
+  // PATCH /api/admin/produtos-revisao/:id — validar/rejeitar um produto
+  app.patch('/api/admin/produtos-revisao/:id', (req, res) => {
+    const { status } = req.body || {};
+    try {
+      const atualizado = setProdutoStatusRevisao(req.params.id, status);
+      if (!atualizado) {
+        return res.status(404).json({ error: 'Produto não encontrado' });
+      }
+      return res.json(atualizado);
+    } catch (err) {
+      return res.status(400).json({ error: err.message });
+    }
+  });
+
+  // POST /api/admin/produtos-revisao/validar-lote — validar em lote por confiança
+  app.post('/api/admin/produtos-revisao/validar-lote', (req, res) => {
+    const { documentoId, confiancaMin } = req.body || {};
+    const validados = validarLoteProdutos({
+      documentoId: documentoId || undefined,
+      confiancaMin: confiancaMin !== undefined ? Number(confiancaMin) : undefined,
+    });
+    res.json({ ok: true, validados });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
 
   app.use((error, _req, res, _next) => {
     logger.error('Erro inesperado na API', { erro: error.message, stack: error.stack });

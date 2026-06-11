@@ -4,6 +4,10 @@ import StatusBadge from './StatusBadge';
 import { cleanDocumentTitle, cleanDocumentSummary, formatDate, labelFonte, labelTipo } from '../lib/format';
 
 export default function DocumentRow({ documento }) {
+  // snippet_texto vem da busca FTS5 — tem <mark> tags para highlight
+  const ftsSnippet = documento.snippet_texto || null;
+  const resumoTexto = ftsSnippet ? null : cleanDocumentSummary(documento);
+
   return (
     <article className="document-row">
       <div className="document-row-main">
@@ -15,7 +19,11 @@ export default function DocumentRow({ documento }) {
         <h3>
           <Link href={`/documento/${documento.id}`}>{cleanDocumentTitle(documento)}</Link>
         </h3>
-        <p>{cleanDocumentSummary(documento)}</p>
+        {ftsSnippet ? (
+          <p className="fts-snippet" dangerouslySetInnerHTML={{ __html: ftsSnippet }} />
+        ) : (
+          <p>{resumoTexto}</p>
+        )}
         <QualitySignals documento={documento} compact />
       </div>
       <div className="document-row-side">

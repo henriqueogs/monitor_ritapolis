@@ -31,6 +31,33 @@ const PREFEITURA_AREAS = [
     publicUrl: `${BASE_URL}/pagina/9656/Editais%202`,
     technicalUrl: `${BASE_URL}/ws_consulta/Pagina.php?INT_PAG=9656`,
     tipo: 'editais'
+  },
+  {
+    id: 'emendas_estaduais',
+    titulo: 'Emendas Parlamentares Estaduais',
+    fallbackTitle: 'Emendas Estaduais',
+    pageId: 21642,
+    publicUrl: `${BASE_URL}/pagina/21642/emendas-parlamentares-estaduais`,
+    technicalUrl: `${BASE_URL}/ws_consulta/Pagina.php?INT_PAG=21642`,
+    tipo: 'emendas'
+  },
+  {
+    id: 'emendas_federais',
+    titulo: 'Emendas Parlamentares Federais',
+    fallbackTitle: 'Emendas Federais',
+    pageId: 21947,
+    publicUrl: `${BASE_URL}/pagina/21947/emendas-parlamentares-federais`,
+    technicalUrl: `${BASE_URL}/ws_consulta/Pagina.php?INT_PAG=21947`,
+    tipo: 'emendas'
+  },
+  {
+    id: 'assistencia_social',
+    titulo: 'Assistência Social',
+    fallbackTitle: 'Assistência Social',
+    pageId: 18204,
+    publicUrl: `${BASE_URL}/pagina/18204/assistencia-social`,
+    technicalUrl: `${BASE_URL}/ws_consulta/Pagina.php?INT_PAG=18204`,
+    tipo: 'documentos_sociais'
   }
 ];
 
@@ -40,24 +67,43 @@ function normalizeSpaces(value) {
 
 function toIsoDate(value) {
   const match = String(value || '').match(/(\d{2})\/(\d{2})\/(\d{4})/);
-  if (!match) return null;
+  if (!match) {return null;}
   return `${match[3]}-${match[2]}-${match[1]}`;
 }
 
 function inferTipo(title, text, modalidade = '') {
   const mod = String(modalidade || '');
-  const source = `${title} ${text}`;
+  // Usar apenas título + modalidade para classificação — o texto completo do PDF
+  // menciona "lei" em todo documento jurídico ("nos termos da Lei 14.133..."), o que
+  // causaria misclassificação de inexigibilidades e outros como tipo 'lei'.
+  const headSource = `${title} ${mod}`;
+  const fullSource = `${title} ${text}`;
+
   // Verificar antes de 'edital': publicações de extrato podem conter "dispensa" no corpo
   if (
     /publica[cç][aã]o.*diversa|contratos[/\s]?atas|atas[/\s]?contratos/i.test(mod) ||
-    /publica[cç][aã]o.*diversa/i.test(source)
+    /publica[cç][aã]o.*diversa/i.test(fullSource)
   ) {
     return 'publicacao_extrato';
   }
-  if (/(edital|preg[aã]o|dispensa|processo seletivo|concurso)/i.test(source)) return 'edital';
-  if (/decreto/i.test(source)) return 'decreto';
-  if (/portaria/i.test(source)) return 'portaria';
-  if (/\blei\b/i.test(source)) return 'lei';
+  // Modalidades de contratação (inclusive inexigibilidade) → edital.
+  // Inclui chamamento/chamada pública, credenciamento, concorrência, leilão,
+  // tomada de preços, concessão de espaço/uso público e o erro comum "inexibilidade".
+  if (
+    /(edital|preg[aã]o|dispensa|inexigibilidade|inexibilidade|processo seletivo|concurso|ades[aã]o|chamamento|chamada p[uú]blica|credenciamento|concorr[eê]ncia|leil[aã]o|tomada de pre[cç]o|concess[aã]o)/i.test(
+      headSource
+    )
+  ) {
+    return 'edital';
+  }
+  // Contrato/ata apenas no título (evita falso positivo no corpo do PDF)
+  if (/(contrato|aditivo|\bata\b)/i.test(headSource)) {return 'contrato';}
+  if (/decreto/i.test(headSource)) {return 'decreto';}
+  if (/portaria/i.test(headSource)) {return 'portaria';}
+  // "lei" apenas no título (ex: "Lei nº 001/2024") — nunca no corpo do PDF
+  if (/\blei\b/i.test(headSource)) {return 'lei';}
+  // Emendas parlamentares (estaduais ou federais) — título pode ser "Emenda" ou "Emendas"
+  if (/\bemendas?\b/i.test(headSource)) {return 'emenda_parlamentar';}
   return 'documento_publico';
 }
 
@@ -80,6 +126,9 @@ function buildTitulo(fields, cadastroTitle) {
   const modalidade = pickField(fields, ['Modalidade nº', 'Modalidade n°', 'Modalidade no', 'Modalidade']);
   const objetoBruto = pickField(fields, ['Objeto']);
   const objeto = looksLikeMojibake(objetoBruto) ? null : objetoBruto;
+  // Campos de emendas parlamentares e outros tipos não-licitatórios
+  const nomeDoc = pickField(fields, ['Nome', 'TITULO', 'Título']);
+  const numeroDoc = pickField(fields, ['NÚMERO', 'Número', 'Nº']);
 
   // Publicação de extrato coletivo: título sintético, nunca usar o Objeto como título
   if (/publica[cç][aã]o.*diversa|contratos[/\s]?atas|atas[/\s]?contratos/i.test(String(modalidade || ''))) {
@@ -88,8 +137,15 @@ function buildTitulo(fields, cadastroTitle) {
     return normalizeSpaces(`Publicação de Contratos e Atas${ano ? ` — ${ano}` : ''}`);
   }
 
+  // Para documentos não-licitatórios (emendas, assistência social, etc.)
+  // o campo "Nome" ou "TITULO" é o título principal
+  if (!processo && !modalidade && nomeDoc) {
+    const parts = [nomeDoc, numeroDoc ? `nº ${numeroDoc}` : null].filter(Boolean);
+    return normalizeSpaces(parts.join(' '));
+  }
+
   return normalizeSpaces(
-    [processo ? `Processo ${processo}` : null, modalidade, objeto || cadastroTitle]
+    [processo ? `Processo ${processo}` : null, modalidade, objeto || nomeDoc || cadastroTitle]
       .filter(Boolean)
       .join(' - ')
   );
@@ -163,7 +219,12 @@ class ColetorSitePrefeitura extends ColetorBase {
         .find('.informacao_generica')
         .each((__, node) => {
           const label = normalizeSpaces($(node).find('.titulo_generico').first().text()).replace(/:$/, '');
-          const value = normalizeSpaces($(node).find('.valor_generico').first().text());
+          const valorNode = $(node).find('.valor_generico').first();
+          // Preferir href quando há link real (ex: PNCP, YouTube) em vez de só texto
+          const linkHref = valorNode.find('a[href]').attr('href') || '';
+          const linkText = normalizeSpaces(valorNode.text());
+          const isValidHref = linkHref && linkHref !== 'http://' && linkHref.startsWith('http');
+          const value = isValidHref ? linkHref : linkText;
           if (label) {
             fields[label] = value;
           }
@@ -325,7 +386,13 @@ class ColetorSitePrefeitura extends ColetorBase {
           typeof hashSource === 'string' && existing?.hash_conteudo
             ? existing.hash_conteudo
             : this.calcularHash(hashSource),
-        status_coleta: pdfUrl ? (arquivo.error ? 'erro_pdf' : 'ok') : 'sem_pdf',
+        status_coleta: pdfUrl
+          ? arquivo.error
+            ? 'erro_pdf'
+            : !textoBase && arquivo.pages > 0
+              ? 'imagem'
+              : 'ok'
+          : 'sem_pdf',
         licitacao_detalhes:
           tipo === 'edital'
             ? {
@@ -360,3 +427,4 @@ ColetorSitePrefeitura.TARGET_PAGES = PREFEITURA_AREAS;
 ColetorSitePrefeitura.AREAS = PREFEITURA_AREAS;
 
 module.exports = ColetorSitePrefeitura;
+module.exports.inferTipo = inferTipo;

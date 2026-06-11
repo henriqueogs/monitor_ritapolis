@@ -2,81 +2,97 @@
 
 Foco operacional imediato. Atualizar sempre que uma fase for concluída ou a prioridade mudar.
 
-Atualizado em: 2026-06-08 — v0.7 concluído. Iniciando preparação para publicação e v0.8.
+Atualizado em: 2026-06-10 — Plano de melhoria de conteúdo (v0.9). Foco: integridade, unificação com IA e redução de redundância **antes** de publicar.
 
 ---
 
-## Foco atual
+## Diagnóstico (10/06/2026 — sobre o banco real, 626 documentos)
 
-**v0.8 — próximo**
-
-1. **Qualidade de dados** — Extrair texto de atas/homologações já coletadas como anexos para popular vencedor + valor em 97% dos editais sem resultado. Script: `licitacoes:extrair-anexos`.
-2. **Produtos pós-IA** — `estruturarProdutosDeResumoAi` passa a ser chamado automaticamente após cada job de IA concluído.
-3. **Autenticação `/admin`** — HTTP Basic Auth, usuário/senha em `.env`. Blocker para publicação ampla.
-4. **Deploy** — Testar build de produção (`next build`), dockerizar, publicar em cloud.
-
----
-
-## v0.7 — Concluído (junho 2026)
-
-### Schedulers automáticos
-
-**Scheduler de coletas** (`src/coletas/collection-scheduler.js`)
-- Verifica a cada hora se a última coleta tem mais de 12h; dispara automaticamente
-- Configurável: `COLLECTION_SCHEDULER_INTERVAL_HOURS` (padrão 12), `COLLECTION_SCHEDULER_ENABLED`
-- `timer.unref()` — não bloqueia shutdown
-
-**Scheduler de IA** (`src/ai/ai-daily-scheduler.js`)
-- Enfileira lote de docs pendentes a cada 12h (padrão 15 por ciclo = 30 docs/dia)
-- Prioridade: ano corrente → anterior → mais recentes primeiro
-- Configurável: `AI_SCHEDULER_DOCS_PER_CYCLE`, `AI_SCHEDULER_INTERVAL_MS`
-
-**Infraestrutura de schedulers**
-- `GET /api/scheduler/status` — status em tempo real de ambos os schedulers
-- Painel `/admin/coletas` com seção de schedulers
-
-### Integração PNCP v3
-
-**`src/integracoes/pncp-orgaos.js`** — Novo módulo
-- Consulta direta por CNPJ via `/pncp-api/v1/orgaos/{cnpj}/compras`
-- `listarComprasPorCnpj`, `listarItensCompra`, `buscarResultadosItem`, `listarContratosPorCnpj`
-- `parsePncpNumeroControle`, `extrairVencedorResultados`
-
-**`scripts/pncp-sincronizar.js`** — Novo script
-- Busca compras por CNPJ, localiza documentos locais por `numero_pncp`, atualiza vencedor + valor
-- Opções: `--ano=YYYY`, `--cnpj=X`, `--dry-run`, `--max=N`, `--verbose`
-- `npm run pncp:sincronizar`, `pncp:sincronizar:prefeitura`, `pncp:sincronizar:camara`
-
-**`src/db/index.js`** — novas funções
-- `getDocumentoByNumeroPncp(numeroPncp)` — lookup por `licitacoes_detalhes.numero_pncp`
-- `upsertDadosPncp(documentoId, dados)` — atualiza vencedor/valor com `origem='pncp_orgaos'`
-
-### Documentação e repositório
-- README atualizado para v0.7 com estado atual, todos os scripts e limitações
-- DEVELOPMENT_PLAN compactado (histórico v0.1–v0.7 consolidado, roadmap v0.8+)
-- `.env.example` com variáveis de schedulers e PNCP adicionadas
-- `.gitignore` atualizado (`.claude/`, `.agents/`, `.gemini/`, `.qodo/`, `skills-lock.json`)
-- Arquivos obsoletos removidos: `ARCHITECTURE_REFACTOR_PLAN.md`, `IMPLEMENTACAO_*.md`, `SPEC_*.md`, `redesign/`
-- Repositório publicado no GitHub: https://github.com/henriqueogs/monitor_ritapolis
+| # | Achado | Evidência |
+|---|---|---|
+| 1 | 58 licitações classificadas como `documento_publico` (dispensas, chamamentos, leilões) | 53 têm `licitacoes_detalhes`, 52 estão em grupos |
+| 2 | Cobertura de IA é um precipício histórico | 2024–26: 80–97% · 2020: 0/61 · 2021: 0/47 · 2023: 1/55 |
+| 3 | 1.208 anexos (61%) com extração pendente | maior mina de vencedores/valores antigos |
+| 4 | Unificação despesa↔licitação latente | 2.538 despesas com `licitacao_ref`, 127 CNPJs em comum |
+| 5 | 80 documentos sem texto útil | 33 PDF-imagem, 51 sem PDF, 3 erro |
+| 6 | 7 pares de editais duplicados (número+ano+tipo) | dedup + endurecer identidade |
+| 7 | `status_revisao='pendente'` em 100% dos 2.955 produtos | fluxo de revisão nunca roda |
+| 8 | Páginas órfãs / redundantes (`/analises`, `/temas`) | fora da navegação |
+| 9 | Schema drift: 5 tabelas no banco não estão em `schema.sql` | `fornecedores_perfil`, `licitacoes_categorias`, `transparencia_*` |
+| 10 | 57 licitações (12%) na categoria "Outros"; 1 valor errado (doc 29: R$ 60) | refino IA + gate de validação |
 
 ---
 
-## Estado da base (referência rápida)
+## Plano por fases (conteúdo primeiro, publicação depois)
+
+### Fase 1 — Integridade da base ✅ CONCLUÍDA (exceto 1.2-C, movida p/ Fase 4)
+- [x] 1.1 `schema.sql` sincronizado com o banco real (5 tabelas + 9 índices adicionados; sem drift de tabela nem de coluna — validado contra `:memory:`)
+- [x] 1.2-A Classificador `inferTipo` do coletor corrigido (TDD: +chamamento, chamada pública, credenciamento, concorrência, leilão, tomada de preços, concessão, "inexibilidade"). 16 testes novos · `site-prefeitura.test.js`
+- [x] 1.2-B Backfill `scripts/reclassificar-tipos.js`: 35 docs reclassificados (28→edital, 7→contrato) pelo papel do grupo; 21 atas e 2 atos de conselheira tutelar mantidos. Backup em `data/ritapolis-backup-reclassificar-*.db`
+- [ ] 1.2-C **(= Fase 4.1)** `/licitacoes` listar por GRUPO (`documento_canonico_id`) em vez de `tipo='edital'` — torna visíveis os 31 grupos só-ata/contrato. Refactor da página pública; fazer com TDD junto da Fase 4
+- [x] 1.3 Merge seguro: 4 uploads duplicados fundidos (`scripts/merge-duplicatas.js`; keepers 519/517/513/373, anexos+procedência preservados). Eram "5", mas 371/372 NÃO é duplicata (ata+edital do mesmo processo) — preservado. Os 3 pares restantes são documentos distintos com `numero` mal-parseado (falsos positivos, não tocar). Backup em `data/ritapolis-backup-merge-*.db`
+- [x] 1.4 Gate de valores: função pura `src/licitacoes/valores.js` (TDD, 11 testes) + `scripts/aplicar-gate-valores.js`. Doc 29 (R$ 60, parse da prosa) → "não verificado" com trilha em `origem_detalhe`. 1 de 177 valores invalidado (zero falso positivo). Piso R$100 / teto R$100M
+- [x] 1.5 Tela de revisão de produtos em `/admin/qualidade` (decisão: curadoria admin). Repo `produtos-revisao-repo.js` (TDD, 9 testes :memory:) + 4 endpoints + componente client `RevisaoProdutos.js` (fila por menor confiança, validar/rejeitar item, validar lote ≥0.8). Endpoints validados via smoke test. Estados: pendente/validado/rejeitado
+- [x] 1.6 (bônus) Bloqueador de build corrigido: `.eslintrc.js` da raiz era herdado pelo frontend ESM e travava `next build`. Adicionado `frontend/.eslintrc.json` (`root: true`) + removido `eslint-disable react/no-danger` órfão. **`next build` passa limpo (23/23 páginas)** — destrava Fase 5
+
+> ⚠️ Atenção 1.2-C: re-rodar `syncLicitacoesGrupos` ANTES do refactor descartaria as 21 atas/7 contratos dos grupos (o input `listDocumentosEditalParaGrupos` filtra `tipo='edital'`). Ampliar o input set de agrupamento faz parte do Passo C.
+> 🔧 Dívida 1.3-resíduo: o parsing de `numero` une processos distintos sob o mesmo número (0001/2018 são 3 processos; 011/2016. são 2 aditamentos). Endurecer `findDocumentoByIdentity`/parser de número fica para a Fase 2.
+
+**Suíte: 130/130 testes verdes. Lint limpo.**
+
+### Fase 2 — Destravar conteúdo represado  ⚠️ RE-ESCOPADA com evidência (10/06)
+
+> **Correção de premissa:** os 1.208 anexos "pendentes" NÃO são mina de vencedores — são 526 editais, 528 "outro", 131 propostas, 23 recursos. Os anexos de **resultado** (ata/homologação/resultado) já foram TODOS extraídos. O gargalo real dos vencedores antigos é **OCR**: 69 anexos de resultado falharam com "texto vazio" = PDFs escaneados (imagem), concentrados em 2017–2021. Em 2020, 37 editais têm anexo de resultado coletado mas só 19 têm vencedor.
+
+- [x] 2.2 **Vencedores derivados dos produtos** (TDD): `src/licitacoes/vencedor.js` (7 testes) + `scripts/derivar-vencedores-produtos.js`. Promove o fornecedor dominante dos itens já extraídos ao nível do documento quando o parser de prosa falhou. **+39 vencedores (273→312)**, ganhos em 2019/2020/2021/2023. `origem='derivado_produtos'`. Backup salvo
+- [x] 2.1→**ADIADO COM FLAG** — decisão 10/06: OCR fica para tentativa futura (Gemini visão ou tesseract local). **74 anexos marcados `status_extracao='requer_ocr'`** via `scripts/marcar-requer-ocr.js` (69 "texto vazio" + 5 imagens .jpg/.jpeg). Filtro de retry em `listAnexosResultadoParaExtracao` agora pula `requer_ocr` (reprocessável só com `--force`)
+- [x] 2.3 Investigado: os 6 "Invalid PDF structure" não eram PDFs corrompidos — 5 eram imagens (→ fila OCR) e 1 é `.rtf` (único `erro_pdf` restante; parser RTF não vale o esforço por 1 arquivo)
+- [x] 2.4 Verificado: backlog de resumos (308 docs, 2017–2023) se resolve sozinho — scheduler ordena pendentes por data DESC e com 2024–26 completos desce aos antigos (~180 docs/dia ⇒ ~2 dias de API ligada). Nenhum código necessário
+
+> ### ⭐ DESTAQUE — Fila de OCR (importância alta, tentativa futura)
+> **74 anexos escaneados aguardam OCR** (`status_extracao='requer_ocr'`), e **16 processos sem vencedor dependem exclusivamente deles**. NÃO são só arquivos antigos: 2025 tem 17 e 2024 tem 18 — a prefeitura continua publicando atas escaneadas, então a fila crescerá. Opções na decisão futura: Gemini visão (PDF nativo, requer `GEMINI_API_KEY`) ou tesseract local (offline, requer binário Windows + por idioma). Consulta da fila: `SELECT * FROM documentos_anexos WHERE status_extracao='requer_ocr'`.
+- [ ] 2.5 Estender leitura integrada (v2.0) para 2023–2025
+- [ ] 2.6 (menor) Extrair os 526 editais-anexo só onde o doc principal não tem `texto_completo`
+- [ ] 2.7 Dívida 1.3: endurecer parser de `numero` (processos distintos sob mesmo número)
+
+### Fase 3 — Unificação com IA (diferencial do produto)
+- [ ] 3.1 Vínculo licitação↔empenho↔pagamento (2.538 refs + match por CNPJ; IA sugere os ambíguos)
+- [ ] 3.2 Dossiê único de fornecedor: expandir `fornecedores_perfil` de 25 → todos os ativos (192 vencedores, 411 credores), unificar nomes com IA
+- [ ] 3.3 Normalização de produtos para comparação histórica de preço unitário
+- [ ] 3.4 Refinar os 57 "Outros" de categoria com IA (keyword → IA só no resíduo)
+
+### Fase 4 — Arquitetura de informação e UX
+- [ ] 4.1 Fundir `/temas` em filtro de `/licitacoes`; `/analises` vira seção de `/inteligencia`
+- [ ] 4.2 Navegação enxuta: Início · Licitações · Fornecedores · Dinheiro público · Acervo · Sobre
+- [ ] 4.3 Página do processo como hub único (resumo vs. análise rotulados; pagamentos vinculados)
+- [ ] 4.4 Página pública de cobertura honesta (% com vencedor/resumo/valor por ano)
+
+### Fase 5 — Publicação
+- [ ] 5.1 Basic Auth `/admin/*`
+- [ ] 5.2 Testes de parser pendentes (Prioridade 1 do CLAUDE.md) antes do deploy
+- [ ] 5.3 Build de produção + Docker + deploy (Railway/Fly + Vercel)
+
+---
+
+## Top 3 (se precisar escolher)
+1. Anexos pendentes + OCR (2.1–2.2) — destrava vencedores/valores antigos
+2. Vínculo licitação↔pagamento + dossiê de fornecedor (3.1–3.2) — o diferencial
+3. Reclassificação + cobertura honesta (1.2, 4.4) — integridade dos números exibidos
+
+---
+
+## Estado da base (referência rápida — 10/06/2026)
 
 | Camada | Estado |
 |---|---|
-| Coleta Prefeitura | ✅ 532 docs, última em 2026-05-15 |
-| Coleta Câmara | ✅ 13 docs, última em 2026-05-13 |
-| Resumos IA — 2026 | ✅ 25/25 editais com status ok |
-| Leitura integrada — 2026 | ✅ 26/26 licitações com grupo |
-| Produtos estruturados | ✅ 219 produtos, 217 com preço/fornecedor |
-| Vencedores identificados | ✅ 14 licitações, R$ 1,66M |
-| Fornecedores consolidados | ✅ 25 CNPJs únicos |
-| Categorização | ✅ 495 licitações, 7 categorias |
-| Resumos IA — anos anteriores | ⚠️ ~380 pendentes (scheduler processa 30/dia) |
-| PNCP v3 sincronizado | ❌ Não aplicável — Ritápolis não publica no PNCP (204 em todas as modalidades) |
-| Autenticação `/admin` | ❌ Pendente v0.8 |
-| Deploy cloud | ❌ Pendente v0.8 |
+| Documentos | 626 (475 edital, 58 documento_publico, resto câmara/pncp) |
+| Resumos IA — 2024-26 | ✅ 80–97% |
+| Resumos IA — 2017-23 | ❌ ~quase zero (backlog real) |
+| Leitura integrada (v2.0) | ⚠️ só 2026 (30 docs) |
+| Anexos extraídos | ⚠️ 424 ok / 1.208 pendentes / 75 erro |
+| Despesas | ✅ 16.675 (2.538 com licitacao_ref) |
+| Fornecedores consolidados | ⚠️ 25 (de 192 vencedores / 411 credores) |
+| Produtos | 2.955 (100% status_revisao=pendente) |
 
 ---
 
@@ -85,7 +101,6 @@ Atualizado em: 2026-06-08 — v0.7 concluído. Iniciando preparação para publi
 ```bash
 npm start                                          # API 3001 + frontend 3000
 npm run ai:status -- --ano=2026                    # cobertura IA
-npm run pncp:sincronizar -- --dry-run --ano=2026   # testar sync PNCP
 npm run inteligencia:auditar                       # reauditoria
 npm run build --prefix frontend                    # build produção
 ```
@@ -96,6 +111,7 @@ npm run build --prefix frontend                    # build produção
 
 - `DEVELOPMENT_PLAN.md` — roadmap e histórico de versões
 - `CURRENT_WORK.md` — foco imediato, manter enxuto
+- TDD: teste antes da implementação (ver `CLAUDE.md`)
 - Arquivos temporários (logs, screenshots, checklists) devem ser deletados após o uso
 - O frontend consome apenas a API própria
 - A fonte oficial sempre tem prioridade sobre o resumo de IA
