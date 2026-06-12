@@ -4,6 +4,7 @@ const { parseLicitacaoDetalhes } = require('../parsers/licitacao-detalhes');
 const { parseProdutosLicitados } = require('../parsers/licitacao-produtos');
 const { parseResultadosItensLicitacao } = require('../parsers/licitacao-resultados-itens');
 const { agruparDocumentosLicitacao, papelLabel } = require('../licitacoes/grupos');
+const { normalizarNumeroDocumento, titulosCompativeis } = require('../licitacoes/processo');
 
 // Fase E: importa db do singleton para evitar conexões duplicadas
 const { db } = require('./connection');
@@ -2665,6 +2666,10 @@ function findDocumentoByIdentity(identity) {
   }
 
   if (identity.fonte === 'camara' || identity.fonte === 'site_prefeitura') {
+    // url_origem da prefeitura é a página de listagem (igual para todos os
+    // editais), então o match efetivo aqui é numero+ano+tipo. Processos
+    // distintos podem dividir o mesmo número — a compatibilidade de títulos
+    // impede a fusão indevida (ver titulosCompativeis).
     const candidates = db
       .prepare(
         `SELECT * FROM documentos
@@ -2672,10 +2677,9 @@ function findDocumentoByIdentity(identity) {
            AND url_origem = @urlOrigem
            AND IFNULL(numero, '') = IFNULL(@numero, '')
            AND IFNULL(ano, 0) = IFNULL(@ano, 0)
-           AND tipo = @tipo
-         LIMIT 1`
+           AND tipo = @tipo`
       )
-      .get({
+      .all({
         fonte: identity.fonte,
         urlOrigem: identity.urlOrigem,
         numero: identity.numero || null,
@@ -2683,7 +2687,10 @@ function findDocumentoByIdentity(identity) {
         tipo: identity.tipo
       });
 
-    if (candidates) {return candidates;}
+    const compativel = candidates.find((candidate) =>
+      titulosCompativeis(identity.titulo, candidate.titulo)
+    );
+    if (compativel) {return compativel;}
   }
 
   if (identity.hashConteudo && identity.fonte) {
@@ -2701,11 +2708,13 @@ function findDocumentoByIdentity(identity) {
 
 function saveDocumento(documento) {
   const now = new Date().toISOString();
+  const numeroNormalizado = normalizarNumeroDocumento(documento.numero);
   const existing = findDocumentoByIdentity({
     fonte: documento.fonte,
     tipo: documento.tipo,
-    numero: documento.numero,
+    numero: numeroNormalizado,
     ano: documento.ano,
+    titulo: documento.titulo,
     urlOrigem: documento.url_origem,
     urlPdf: documento.url_pdf,
     hashConteudo: documento.hash_conteudo
@@ -2714,7 +2723,7 @@ function saveDocumento(documento) {
   const payload = {
     fonte: documento.fonte,
     tipo: documento.tipo,
-    numero: documento.numero || null,
+    numero: numeroNormalizado,
     ano: documento.ano || null,
     titulo: documento.titulo,
     resumo: documento.resumo || null,
@@ -3847,6 +3856,7 @@ module.exports = {
   db,
   // Funções locais (cross-domain — serão migradas progressivamente)
   saveDocumento,
+  findDocumentoByIdentity,
   saveResumoAi,
   listLicitacoes,
   listLicitacaoProdutos,
