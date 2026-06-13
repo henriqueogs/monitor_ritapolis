@@ -5,6 +5,7 @@ const { parseProdutosLicitados } = require('../parsers/licitacao-produtos');
 const { parseResultadosItensLicitacao } = require('../parsers/licitacao-resultados-itens');
 const { agruparDocumentosLicitacao, papelLabel } = require('../licitacoes/grupos');
 const { normalizarNumeroDocumento, titulosCompativeis } = require('../licitacoes/processo');
+const { normalizarCnpj, formatarCnpj } = require('../licitacoes/cnpj');
 
 // Fase E: importa db do singleton para evitar conexões duplicadas
 const { db } = require('./connection');
@@ -75,6 +76,9 @@ function ensureRuntimeSchema() {
   ensureColumn('licitacoes_produtos', 'valor_final_tipo', 'TEXT');
   ensureColumn('licitacoes_produtos', 'valor_lote_final', 'REAL');
   ensureColumn('licitacoes_produtos', 'valor_global_final', 'REAL');
+  ensureColumn('fornecedores_perfil', 'total_valor_pago', 'REAL NOT NULL DEFAULT 0');
+  ensureColumn('fornecedores_perfil', 'n_empenhos', 'INTEGER NOT NULL DEFAULT 0');
+  ensureColumn('fornecedores_perfil', 'n_anos_pago', 'INTEGER NOT NULL DEFAULT 0');
   db.exec(`
     CREATE TABLE IF NOT EXISTS licitacoes_fontes_relacionadas (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -3308,6 +3312,9 @@ function saveResumoAi({
 
 // getDocumentoByUrlPdf, getDocumentoByUrlPdfRaw → movidos para documentos-repo.js
 
+// Dossiê único de fornecedor: agrega licitado (produtos + vencedor) e pago
+// (empenhos), unificando por CNPJ normalizado (14 dígitos) — os formatos mistos
+// nas tabelas fragmentavam o mesmo CNPJ em perfis separados.
 function consolidarFornecedores() {
   // Agrega via produtos
   const porProdutos = db
@@ -3342,63 +3349,114 @@ function consolidarFornecedores() {
     )
     .all();
 
+  // Agrega via empenhos (lado pago) — exclui folha de pagamento e tributos
+  const porEmpenhos = db
+    .prepare(
+      `SELECT
+         credor_cnpj AS cnpj,
+         credor_nome AS nome,
+         COUNT(*) AS n_empenhos,
+         SUM(COALESCE(valor, 0)) AS total_valor,
+         GROUP_CONCAT(DISTINCT CAST(exercicio_orcamento AS TEXT)) AS anos
+       FROM transparencia_despesas
+       WHERE credor_cnpj IS NOT NULL AND credor_cnpj <> ''
+         AND UPPER(IFNULL(credor_nome, '')) NOT LIKE '%FOLHA%'
+         AND UPPER(IFNULL(credor_nome, '')) NOT LIKE '%INSS%'
+         AND UPPER(IFNULL(credor_nome, '')) NOT LIKE '%FGTS%'
+         AND UPPER(IFNULL(credor_nome, '')) NOT LIKE '%PASEP%'
+         AND UPPER(IFNULL(credor_nome, '')) NOT LIKE '%RECEITA FEDERAL%'
+       GROUP BY credor_cnpj`
+    )
+    .all();
+
   const mapa = new Map();
 
+  // Chave canônica = 14 dígitos; exibição = formatado. Acumula fragmentos.
+  function obter(cnpjRaw, nome) {
+    const chave = normalizarCnpj(cnpjRaw);
+    if (!chave) {
+      return null;
+    }
+    let perfil = mapa.get(chave);
+    if (!perfil) {
+      perfil = {
+        cnpj: formatarCnpj(chave),
+        nome_canonico: nome || null,
+        total_valor_produtos: 0,
+        total_valor_vencedor: 0,
+        total_valor_pago: 0,
+        n_itens_produtos: 0,
+        n_vitorias: 0,
+        n_empenhos: 0,
+        n_licitacoes_produtos: 0,
+        n_licitacoes_vencedor: 0,
+        anos: new Set(),
+        anosPago: new Set(),
+      };
+      mapa.set(chave, perfil);
+    }
+    return perfil;
+  }
+
   for (const row of porProdutos) {
-    mapa.set(row.cnpj, {
-      cnpj: row.cnpj,
-      nome_canonico: row.nome || null,
-      total_valor_produtos: row.total_valor || 0,
-      total_valor_vencedor: 0,
-      n_itens_produtos: row.n_itens || 0,
-      n_vitorias: 0,
-      n_licitacoes_produtos: row.n_licitacoes || 0,
-      n_licitacoes_vencedor: 0,
-      anos: new Set((row.anos || '').split(',').filter(Boolean))
-    });
+    const perfil = obter(row.cnpj, row.nome);
+    if (!perfil) {
+      continue;
+    }
+    perfil.total_valor_produtos += row.total_valor || 0;
+    perfil.n_itens_produtos += row.n_itens || 0;
+    perfil.n_licitacoes_produtos += row.n_licitacoes || 0;
+    (row.anos || '').split(',').filter(Boolean).forEach((a) => perfil.anos.add(a));
   }
 
   for (const row of porDetalhes) {
-    const existing = mapa.get(row.cnpj);
-    if (existing) {
-      existing.total_valor_vencedor = row.total_valor || 0;
-      existing.n_vitorias = row.n_vitorias || 0;
-      existing.n_licitacoes_vencedor = row.n_licitacoes || 0;
-      (row.anos || '').split(',').filter(Boolean).forEach((a) => existing.anos.add(a));
-      // Prefere o nome do vencedor (geralmente mais limpo)
-      if (!existing.nome_canonico && row.nome) {existing.nome_canonico = row.nome;}
-    } else {
-      mapa.set(row.cnpj, {
-        cnpj: row.cnpj,
-        nome_canonico: row.nome || null,
-        total_valor_produtos: 0,
-        total_valor_vencedor: row.total_valor || 0,
-        n_itens_produtos: 0,
-        n_vitorias: row.n_vitorias || 0,
-        n_licitacoes_produtos: 0,
-        n_licitacoes_vencedor: row.n_licitacoes || 0,
-        anos: new Set((row.anos || '').split(',').filter(Boolean))
-      });
+    const perfil = obter(row.cnpj, row.nome);
+    if (!perfil) {
+      continue;
     }
+    perfil.total_valor_vencedor += row.total_valor || 0;
+    perfil.n_vitorias += row.n_vitorias || 0;
+    perfil.n_licitacoes_vencedor += row.n_licitacoes || 0;
+    (row.anos || '').split(',').filter(Boolean).forEach((a) => perfil.anos.add(a));
+    // Prefere o nome do vencedor (geralmente mais limpo)
+    if (row.nome) {perfil.nome_canonico = row.nome;}
   }
+
+  for (const row of porEmpenhos) {
+    const perfil = obter(row.cnpj, row.nome);
+    if (!perfil) {
+      continue;
+    }
+    perfil.total_valor_pago += row.total_valor || 0;
+    perfil.n_empenhos += row.n_empenhos || 0;
+    (row.anos || '').split(',').filter(Boolean).forEach((a) => perfil.anosPago.add(a));
+    // nome de empenho só como último recurso (nomes do SH3 podem vir abreviados)
+    if (!perfil.nome_canonico && row.nome) {perfil.nome_canonico = row.nome;}
+  }
+
+  // Limpa perfis antigos (chaves em formato inconsistente) antes de regravar
+  db.prepare('DELETE FROM fornecedores_perfil').run();
 
   const upsert = db.prepare(`
     INSERT INTO fornecedores_perfil
-      (cnpj, nome_canonico, total_valor_produtos, total_valor_vencedor,
-       n_itens_produtos, n_vitorias, n_licitacoes_produtos, n_licitacoes_vencedor,
-       anos_ativos, atualizado_em)
+      (cnpj, nome_canonico, total_valor_produtos, total_valor_vencedor, total_valor_pago,
+       n_itens_produtos, n_vitorias, n_empenhos, n_licitacoes_produtos, n_licitacoes_vencedor,
+       n_anos_pago, anos_ativos, atualizado_em)
     VALUES
-      (@cnpj, @nome_canonico, @total_valor_produtos, @total_valor_vencedor,
-       @n_itens_produtos, @n_vitorias, @n_licitacoes_produtos, @n_licitacoes_vencedor,
-       @anos_ativos, CURRENT_TIMESTAMP)
+      (@cnpj, @nome_canonico, @total_valor_produtos, @total_valor_vencedor, @total_valor_pago,
+       @n_itens_produtos, @n_vitorias, @n_empenhos, @n_licitacoes_produtos, @n_licitacoes_vencedor,
+       @n_anos_pago, @anos_ativos, CURRENT_TIMESTAMP)
     ON CONFLICT(cnpj) DO UPDATE SET
       nome_canonico = excluded.nome_canonico,
       total_valor_produtos = excluded.total_valor_produtos,
       total_valor_vencedor = excluded.total_valor_vencedor,
+      total_valor_pago = excluded.total_valor_pago,
       n_itens_produtos = excluded.n_itens_produtos,
       n_vitorias = excluded.n_vitorias,
+      n_empenhos = excluded.n_empenhos,
       n_licitacoes_produtos = excluded.n_licitacoes_produtos,
       n_licitacoes_vencedor = excluded.n_licitacoes_vencedor,
+      n_anos_pago = excluded.n_anos_pago,
       anos_ativos = excluded.anos_ativos,
       atualizado_em = CURRENT_TIMESTAMP
   `);
@@ -3414,10 +3472,13 @@ function consolidarFornecedores() {
       nome_canonico: perfil.nome_canonico,
       total_valor_produtos: perfil.total_valor_produtos,
       total_valor_vencedor: perfil.total_valor_vencedor,
+      total_valor_pago: perfil.total_valor_pago,
       n_itens_produtos: perfil.n_itens_produtos,
       n_vitorias: perfil.n_vitorias,
+      n_empenhos: perfil.n_empenhos,
       n_licitacoes_produtos: perfil.n_licitacoes_produtos,
       n_licitacoes_vencedor: perfil.n_licitacoes_vencedor,
+      n_anos_pago: perfil.anosPago.size,
       anos_ativos: JSON.stringify(anos)
     });
     salvos++;
@@ -3439,11 +3500,14 @@ function getFornecedoresRanking({ limite = 20, ordem = 'valor' } = {}) {
          nome_canonico,
          total_valor_produtos,
          total_valor_vencedor,
+         total_valor_pago,
          (total_valor_vencedor + total_valor_produtos) AS total_valor_combinado,
          n_itens_produtos,
          n_vitorias,
+         n_empenhos,
          n_licitacoes_produtos,
          n_licitacoes_vencedor,
+         n_anos_pago,
          anos_ativos,
          atualizado_em
        FROM fornecedores_perfil
@@ -3459,10 +3523,18 @@ function getFornecedoresRanking({ limite = 20, ordem = 'valor' } = {}) {
 }
 
 function getFornecedorByCnpj(cnpj) {
+  // CNPJ pode chegar formatado ou em dígitos; o perfil guarda formatado e as
+  // tabelas-fonte têm formatos mistos. Normaliza e compara por dígitos.
+  const digitos = normalizarCnpj(cnpj);
+  if (!digitos) {return null;}
+  const formatado = formatarCnpj(digitos);
+
   const row = db
     .prepare('SELECT * FROM fornecedores_perfil WHERE cnpj = ?')
-    .get(cnpj);
+    .get(formatado);
   if (!row) {return null;}
+
+  const CNPJ_NORM = "REPLACE(REPLACE(REPLACE(REPLACE(%col, '.', ''), '/', ''), '-', ''), ' ', '')";
 
   const licitacoesProdutos = db
     .prepare(
@@ -3471,12 +3543,12 @@ function getFornecedorByCnpj(cnpj) {
               SUM(COALESCE(p.valor_total_final, 0)) AS valor_total
        FROM licitacoes_produtos p
        JOIN documentos d ON d.id = p.documento_id
-       WHERE p.fornecedor_cnpj = ?
+       WHERE ${CNPJ_NORM.replace('%col', 'p.fornecedor_cnpj')} = @cnpj
        GROUP BY d.id
        ORDER BY d.ano DESC, d.id DESC
        LIMIT 50`
     )
-    .all(cnpj);
+    .all({ cnpj: digitos });
 
   const licitacoesVencedor = db
     .prepare(
@@ -3484,17 +3556,30 @@ function getFornecedorByCnpj(cnpj) {
               ld.vencedor_nome, ld.valor_final, ld.data_homologacao
        FROM licitacoes_detalhes ld
        JOIN documentos d ON d.id = ld.documento_id
-       WHERE ld.vencedor_cnpj = ?
+       WHERE ${CNPJ_NORM.replace('%col', 'ld.vencedor_cnpj')} = @cnpj
        ORDER BY d.ano DESC, d.id DESC
        LIMIT 50`
     )
-    .all(cnpj);
+    .all({ cnpj: digitos });
+
+  const pagamentos = db
+    .prepare(
+      `SELECT d.id, d.titulo, d.ano, td.empenho, td.valor, td.data_pagamento,
+              td.modalidade, td.historico
+       FROM transparencia_despesas td
+       LEFT JOIN documentos d ON d.id = td.documento_id
+       WHERE ${CNPJ_NORM.replace('%col', 'td.credor_cnpj')} = @cnpj
+       ORDER BY td.data_empenho DESC, td.id DESC
+       LIMIT 100`
+    )
+    .all({ cnpj: digitos });
 
   return {
     ...row,
     anos_ativos: parseJson(row.anos_ativos) || [],
     licitacoes_produtos: licitacoesProdutos,
-    licitacoes_vencedor: licitacoesVencedor
+    licitacoes_vencedor: licitacoesVencedor,
+    pagamentos
   };
 }
 

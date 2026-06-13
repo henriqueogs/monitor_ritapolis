@@ -59,7 +59,7 @@ Atualizado em: 2026-06-10 — Plano de melhoria de conteúdo (v0.9). Foco: integ
 
 ### Fase 3 — Unificação com IA (diferencial do produto) ⏳ EM EXECUÇÃO
 - [x] 3.1 Vínculo licitação↔empenho **corrigido** (era o gap real): o crosswalk antigo casava por número solto (LIKE) e ignorava o tipo → **46% dos 3.216 empenhos vinculados estavam no edital errado (R$ 31M mal-alocados)**. Novo `src/licitacoes/modalidade.js` (TDD, 19 testes) faz match EXATO tipo+número+ano; `crosswalkDespesasDocumentos({relink})` reconstrói. Resultado: **3.216→1.621 links, 0 divergência de tipo**; 130 modalidades sem link = sem edital correspondente (legítimo, 0 bug). Vencedores via empenho re-derivados. Script `npm run transparencia:revincular`
-- [ ] 3.2 Dossiê único de fornecedor: expandir `fornecedores_perfil` de 25 → todos os ativos (192 vencedores, 411 credores), unificar nomes com IA
+- [x] 3.2 Dossiê único de fornecedor: `src/licitacoes/cnpj.js` (TDD, 9 testes) normaliza CNPJ; `consolidarFornecedores` reescrito agrupa por CNPJ normalizado (corrige 49 fragmentos por formato misto) e une **licitado (produtos+vencedor) + pago (empenhos)**. `fornecedores_perfil` ganhou `total_valor_pago`, `n_empenhos`, `n_anos_pago`. **25 → 494 perfis**, 184 com licitação+pagamento. `getFornecedorByCnpj` normaliza CNPJ e traz pagamentos. Exclui INSS/FGTS/folha
 - [ ] 3.3 Normalização de produtos para comparação histórica de preço unitário
 - [ ] 3.4 Refinar os 57 "Outros" de categoria com IA (keyword → IA só no resíduo)
 

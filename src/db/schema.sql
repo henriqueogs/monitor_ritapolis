@@ -203,10 +203,13 @@ CREATE TABLE IF NOT EXISTS fornecedores_perfil (
   nome_canonico TEXT,
   total_valor_produtos REAL NOT NULL DEFAULT 0,
   total_valor_vencedor REAL NOT NULL DEFAULT 0,
+  total_valor_pago REAL NOT NULL DEFAULT 0,
   n_itens_produtos INTEGER NOT NULL DEFAULT 0,
   n_vitorias INTEGER NOT NULL DEFAULT 0,
+  n_empenhos INTEGER NOT NULL DEFAULT 0,
   n_licitacoes_produtos INTEGER NOT NULL DEFAULT 0,
   n_licitacoes_vencedor INTEGER NOT NULL DEFAULT 0,
+  n_anos_pago INTEGER NOT NULL DEFAULT 0,
   anos_ativos TEXT,
   atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP
 );
