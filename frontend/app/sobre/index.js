@@ -83,8 +83,8 @@ export default async function SobrePage() {
           </div>
           <div className={styles.statusRow}>
             <div>
-              <strong>495 licitações classificadas em 7 categorias</strong>
-              <p>Classificação determinística por palavras-chave: Saúde, Alimentação, Educação, Obras e Infraestrutura, Serviços, Equipamentos e Materiais, Outros. Visível em cada edital e no dashboard /inteligencia.</p>
+              <strong>Licitações classificadas em 8 categorias</strong>
+              <p>Classificação determinística por palavras-chave: Saúde, Alimentação, Educação, Cultura e Eventos, Obras e Infraestrutura, Serviços, Equipamentos e Materiais, Outros. Visível em cada edital e no dashboard /inteligencia.</p>
             </div>
             <DataAvailabilityBadge status="real" />
           </div>

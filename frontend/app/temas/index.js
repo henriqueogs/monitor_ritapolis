@@ -11,6 +11,7 @@ const DESCRICOES = {
   'Alimentação':              'Merenda escolar, gêneros alimentícios, chamadas públicas e rancho.',
   'Saúde':                    'Vacinas, medicamentos, consórcios de saúde, veterinário e laboratórios.',
   'Educação':                 'Escola, creche, material didático, uniforme escolar e transporte escolar.',
+  'Cultura e Eventos':        'Shows, bandas, cantores, rodeios, festas, exposições e contratações artísticas.',
   'Obras e Infraestrutura':   'Construção, reforma, pavimentação, redes elétricas e de água.',
   'Serviços':                 'Contabilidade, vigilância, limpeza, eventos, locações e transporte.',
   'Equipamentos e Materiais': 'Veículos, informática, mobiliário, uniformes e ferramentas.',

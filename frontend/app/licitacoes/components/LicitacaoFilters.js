@@ -5,6 +5,7 @@ const CATEGORIAS = [
   'Alimentação',
   'Saúde',
   'Educação',
+  'Cultura e Eventos',
   'Obras e Infraestrutura',
   'Serviços',
   'Equipamentos e Materiais',

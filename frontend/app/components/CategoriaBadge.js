@@ -4,6 +4,7 @@ const ESTILOS = {
   'Alimentação':              { bg: 'var(--warning-soft)',  color: 'var(--warning)' },
   'Saúde':                    { bg: 'var(--error-soft)',    color: 'var(--error)' },
   'Educação':                 { bg: 'var(--accent-soft)',   color: 'var(--accent)' },
+  'Cultura e Eventos':        { bg: 'rgba(147,51,234,0.1)', color: '#7c3aed' },
   'Obras e Infraestrutura':   { bg: 'var(--demo-soft)',     color: 'var(--demo)' },
   'Serviços':                 { bg: 'var(--ai-soft)',       color: 'var(--ai-accent)' },
   'Equipamentos e Materiais': { bg: 'rgba(183,121,31,0.1)', color: '#9a5f00' },
