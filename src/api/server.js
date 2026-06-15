@@ -20,7 +20,6 @@ const {
   getResumoAiStatus,
   getAuditoria,
   getFornecedoresRanking,
-  getFornecedorByCnpj,
   getProdutosGruposComparaveis,
   getEvolucaoPrecoGrupo,
   getInteligenciaPanorama,
@@ -685,13 +684,9 @@ function createServer() {
     });
   });
 
-  app.get('/api/inteligencia/fornecedores/:cnpj', (req, res) => {
-    const perfil = getFornecedorByCnpj(req.params.cnpj);
-    if (!perfil) {
-      return res.status(404).json({ error: 'Fornecedor nao encontrado' });
-    }
-    return res.json(perfil);
-  });
+  // Dossiê de fornecedor unificado vive em /api/credores/:cnpj (getCredorProfile),
+  // que já agrega licitado + pago. O endpoint /inteligencia/fornecedores/:cnpj foi
+  // removido por redundância (Fase 4).
 
   app.get('/api/coletas/log', (req, res) => {
     const limite = Math.min(Math.max(Number(req.query.limite || 10), 1), 50);

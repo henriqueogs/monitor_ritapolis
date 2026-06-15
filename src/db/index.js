@@ -3535,67 +3535,6 @@ function getFornecedoresRanking({ limite = 20, ordem = 'valor' } = {}) {
   }));
 }
 
-function getFornecedorByCnpj(cnpj) {
-  // CNPJ pode chegar formatado ou em dígitos; o perfil guarda formatado e as
-  // tabelas-fonte têm formatos mistos. Normaliza e compara por dígitos.
-  const digitos = normalizarCnpj(cnpj);
-  if (!digitos) {return null;}
-  const formatado = formatarCnpj(digitos);
-
-  const row = db
-    .prepare('SELECT * FROM fornecedores_perfil WHERE cnpj = ?')
-    .get(formatado);
-  if (!row) {return null;}
-
-  const CNPJ_NORM = "REPLACE(REPLACE(REPLACE(REPLACE(%col, '.', ''), '/', ''), '-', ''), ' ', '')";
-
-  const licitacoesProdutos = db
-    .prepare(
-      `SELECT DISTINCT d.id, d.titulo, d.ano, d.tipo, d.numero,
-              p.fornecedor_nome,
-              SUM(COALESCE(p.valor_total_final, 0)) AS valor_total
-       FROM licitacoes_produtos p
-       JOIN documentos d ON d.id = p.documento_id
-       WHERE ${CNPJ_NORM.replace('%col', 'p.fornecedor_cnpj')} = @cnpj
-       GROUP BY d.id
-       ORDER BY d.ano DESC, d.id DESC
-       LIMIT 50`
-    )
-    .all({ cnpj: digitos });
-
-  const licitacoesVencedor = db
-    .prepare(
-      `SELECT d.id, d.titulo, d.ano, d.tipo, d.numero,
-              ld.vencedor_nome, ld.valor_final, ld.data_homologacao
-       FROM licitacoes_detalhes ld
-       JOIN documentos d ON d.id = ld.documento_id
-       WHERE ${CNPJ_NORM.replace('%col', 'ld.vencedor_cnpj')} = @cnpj
-       ORDER BY d.ano DESC, d.id DESC
-       LIMIT 50`
-    )
-    .all({ cnpj: digitos });
-
-  const pagamentos = db
-    .prepare(
-      `SELECT d.id, d.titulo, d.ano, td.empenho, td.valor, td.data_pagamento,
-              td.modalidade, td.historico
-       FROM transparencia_despesas td
-       LEFT JOIN documentos d ON d.id = td.documento_id
-       WHERE ${CNPJ_NORM.replace('%col', 'td.credor_cnpj')} = @cnpj
-       ORDER BY td.data_empenho DESC, td.id DESC
-       LIMIT 100`
-    )
-    .all({ cnpj: digitos });
-
-  return {
-    ...row,
-    anos_ativos: parseJson(row.anos_ativos) || [],
-    licitacoes_produtos: licitacoesProdutos,
-    licitacoes_vencedor: licitacoesVencedor,
-    pagamentos
-  };
-}
-
 // Grupos de produtos com preço unitário em 2+ anos — base da comparação
 // histórica de preços (3.3). Ordenado por amplitude temporal e volume.
 function getProdutosGruposComparaveis({ limite = 50 } = {}) {
@@ -4041,7 +3980,6 @@ module.exports = {
   getCategoriasDocumentoId,
   consolidarFornecedores,
   getFornecedoresRanking,
-  getFornecedorByCnpj,
   getProdutosGruposComparaveis,
   getEvolucaoPrecoGrupo,
   getDocumentoByNumeroPncp,
