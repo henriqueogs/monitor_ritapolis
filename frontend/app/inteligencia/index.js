@@ -4,6 +4,7 @@ import CategoriaBadge from '../components/CategoriaBadge';
 import { fetchInteligenciaPanorama } from '../lib/api';
 import { formatMoney } from '../lib/format';
 import FornecedoresRanking from '../estatisticas/components/FornecedoresRanking';
+import EvolucaoPrecos from './components/EvolucaoPrecos';
 
 export const metadata = {
   title: 'Inteligência pública — Monitor Ritápolis',
@@ -180,6 +181,36 @@ export default async function InteligenciaPage() {
         </SectionBlock>
       )}
 
+      {/* ── Link para análise financeira ── */}
+      <SectionBlock
+        title="Análise financeira (B1–B4)"
+        description="Concentração de fornecedores, empenhos atípicos, evolução de gastos e ranking por área — baseados nos empenhos executados."
+        aside={
+          <Link
+            href="/inteligencia/financeira"
+            style={{
+              display: 'inline-block',
+              padding: '6px 16px',
+              borderRadius: 6,
+              background: 'var(--accent)',
+              color: '#fff',
+              fontWeight: 600,
+              fontSize: 13,
+              textDecoration: 'none',
+            }}
+          >
+            Ver análise →
+          </Link>
+        }
+      >
+        <p style={{ margin: 0, fontSize: 14, color: 'var(--text-muted)' }}>
+          Análise inteligente sobre os {' '}
+          <strong>empenhos reais</strong> da Prefeitura: índice HHI de concentração de mercado,
+          detecção de valores atípicos com z-score, evolução 2023–2026 por área funcional e
+          ranking dos principais fornecedores por secretaria.
+        </p>
+      </SectionBlock>
+
       {/* ── Fornecedores ── */}
       <SectionBlock
         title="Ranking de fornecedores"
@@ -234,6 +265,14 @@ export default async function InteligenciaPage() {
           </div>
         </SectionBlock>
       )}
+
+      {/* ── Evolução de preços (3.3) ── */}
+      <SectionBlock
+        title="Evolução de preços por produto"
+        description="Mesmo item comprado em anos diferentes, agrupado por similaridade semântica (IA). Mostra como o preço unitário pago pela prefeitura variou ao longo do tempo."
+      >
+        <EvolucaoPrecos />
+      </SectionBlock>
 
       {/* ── Alertas de lacuna ── */}
       {(alertas.sem_vencedor > 0 || alertas.sem_cnpj_vencedor > 0 || alertas.sem_valor_vencedor > 0) && (

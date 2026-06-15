@@ -482,3 +482,13 @@ export function setProdutoRevisaoStatus(id, status) {
 export function validarProdutosEmLote(body = {}) {
   return postJson('/admin/produtos-revisao/validar-lote', body);
 }
+
+// ── Comparação histórica de preços (3.3) ──────────────────────────────────────
+
+export function fetchProdutosGruposComparaveis(params = {}) {
+  return fetchJson(`/produtos/grupos-comparaveis${buildQuery(params)}`).catch(() => ({ dados: [] }));
+}
+
+export function fetchEvolucaoPrecoGrupo(id) {
+  return fetchJson(`/produtos/grupos/${id}/evolucao`).catch(() => null);
+}
