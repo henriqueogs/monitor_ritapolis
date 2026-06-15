@@ -7,9 +7,9 @@ import { useState, useEffect } from 'react';
 const links = [
   { href: '/', label: 'Início', exact: true },
   { href: '/licitacoes', label: 'Licitações' },
-  { href: '/inteligencia', label: 'Inteligência' },
+  { href: '/credores', label: 'Fornecedores' },
+  { href: '/transparencia', label: 'Dinheiro público' },
   { href: '/acervo', label: 'Acervo' },
-  { href: '/transparencia', label: 'Transparência' },
   { href: '/sobre', label: 'Sobre' },
 ];
 

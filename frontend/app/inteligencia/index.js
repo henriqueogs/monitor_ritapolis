@@ -4,7 +4,6 @@ import CategoriaBadge from '../components/CategoriaBadge';
 import { fetchInteligenciaPanorama } from '../lib/api';
 import { formatMoney } from '../lib/format';
 import FornecedoresRanking from '../estatisticas/components/FornecedoresRanking';
-import EvolucaoPrecos from './components/EvolucaoPrecos';
 
 export const metadata = {
   title: 'Inteligência pública — Monitor Ritápolis',
@@ -265,14 +264,6 @@ export default async function InteligenciaPage() {
           </div>
         </SectionBlock>
       )}
-
-      {/* ── Evolução de preços (3.3) ── */}
-      <SectionBlock
-        title="Evolução de preços por produto"
-        description="Mesmo item comprado em anos diferentes, agrupado por similaridade semântica (IA). Mostra como o preço unitário pago pela prefeitura variou ao longo do tempo."
-      >
-        <EvolucaoPrecos />
-      </SectionBlock>
 
       {/* ── Alertas de lacuna ── */}
       {(alertas.sem_vencedor > 0 || alertas.sem_cnpj_vencedor > 0 || alertas.sem_valor_vencedor > 0) && (
