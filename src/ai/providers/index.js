@@ -14,6 +14,7 @@ function createAiProvider(env = process.env) {
       apiKey,
       baseURL: env.NVIDIA_BASE_URL || config.nvidiaBaseUrl,
       model: env.NVIDIA_MODEL || config.nvidiaModel,
+      embedModel: env.NVIDIA_EMBED_MODEL || config.nvidiaEmbedModel,
       timeoutMs: Number(env.AI_REQUEST_TIMEOUT_MS || config.aiRequestTimeoutMs)
     });
   }

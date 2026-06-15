@@ -42,6 +42,7 @@ module.exports = {
   nvidiaApiKey: process.env.NVIDIA_API_KEY || '',
   nvidiaBaseUrl: process.env.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1',
   nvidiaModel: process.env.NVIDIA_MODEL || 'meta/llama-3.1-70b-instruct',
+  nvidiaEmbedModel: process.env.NVIDIA_EMBED_MODEL || 'baai/bge-m3',
   geminiApiKey: process.env.GEMINI_API_KEY || '',
   geminiModel: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
   groqApiKey: process.env.GROQ_API_KEY || '',
@@ -54,12 +55,18 @@ module.exports = {
   // Com que frequência o scheduler verifica se é hora de coletar (ms)
   collectionSchedulerCheckMs: Number(process.env.COLLECTION_SCHEDULER_CHECK_MS || 60 * 60 * 1000),
 
+  // Scheduler diário — transparência (despesas + receitas), PNCP, fornecedores
+  dailySchedulerEnabled: String(process.env.DAILY_SCHEDULER_ENABLED || 'true').toLowerCase() !== 'false',
+  dailySchedulerCheckMs: Number(process.env.DAILY_SCHEDULER_CHECK_MS || 30 * 60 * 1000),
+  dailySchedulerTransparenciaIntervalHoras: Number(process.env.DAILY_SCHEDULER_TRANSPARENCIA_INTERVAL_H || 24),
+  dailySchedulerPncpIntervalHoras: Number(process.env.DAILY_SCHEDULER_PNCP_INTERVAL_H || 168),
+
   // Scheduler de IA — processa resumos pendentes em ciclos controlados
   aiSchedulerEnabled: String(process.env.AI_SCHEDULER_ENABLED || 'true').toLowerCase() !== 'false',
   // Docs processados por ciclo (concorrencia=1, sequencial)
-  aiSchedulerDocsPerCycle: Number(process.env.AI_SCHEDULER_DOCS_PER_CYCLE || 15),
+  aiSchedulerDocsPerCycle: Number(process.env.AI_SCHEDULER_DOCS_PER_CYCLE || 30),
   // Delay entre documentos no mesmo ciclo (ms) — evita rate limit
-  aiSchedulerDelayBetweenDocsMs: Number(process.env.AI_SCHEDULER_DELAY_BETWEEN_DOCS_MS || 30_000),
-  // Intervalo entre ciclos (ms) — padrão 12h → 2 ciclos/dia × 15 docs = 30 docs/dia
-  aiSchedulerIntervalMs: Number(process.env.AI_SCHEDULER_INTERVAL_MS || 12 * 60 * 60 * 1000)
+  aiSchedulerDelayBetweenDocsMs: Number(process.env.AI_SCHEDULER_DELAY_BETWEEN_DOCS_MS || 10_000),
+  // Intervalo entre ciclos (ms) — padrão 4h → 6 ciclos/dia × 30 docs = 180 docs/dia
+  aiSchedulerIntervalMs: Number(process.env.AI_SCHEDULER_INTERVAL_MS || 4 * 60 * 60 * 1000)
 };

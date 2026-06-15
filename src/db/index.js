@@ -80,6 +80,19 @@ function ensureRuntimeSchema() {
   ensureColumn('fornecedores_perfil', 'n_empenhos', 'INTEGER NOT NULL DEFAULT 0');
   ensureColumn('fornecedores_perfil', 'n_anos_pago', 'INTEGER NOT NULL DEFAULT 0');
   db.exec(`
+    CREATE TABLE IF NOT EXISTS produtos_grupos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      rotulo_canonico TEXT NOT NULL,
+      n_itens INTEGER NOT NULL DEFAULT 0,
+      n_variacoes INTEGER NOT NULL DEFAULT 0,
+      metodo TEXT NOT NULL DEFAULT 'embeddings',
+      criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+      atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+  ensureColumn('licitacoes_produtos', 'grupo_id', 'INTEGER REFERENCES produtos_grupos(id) ON DELETE SET NULL');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_licitacoes_produtos_grupo_id ON licitacoes_produtos(grupo_id);');
+  db.exec(`
     CREATE TABLE IF NOT EXISTS licitacoes_fontes_relacionadas (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       documento_id INTEGER NOT NULL REFERENCES documentos(id) ON DELETE CASCADE,
@@ -3583,6 +3596,59 @@ function getFornecedorByCnpj(cnpj) {
   };
 }
 
+// Grupos de produtos com preço unitário em 2+ anos — base da comparação
+// histórica de preços (3.3). Ordenado por amplitude temporal e volume.
+function getProdutosGruposComparaveis({ limite = 50 } = {}) {
+  return db
+    .prepare(
+      `SELECT g.id, g.rotulo_canonico, g.n_variacoes,
+              COUNT(DISTINCT p.ano) AS n_anos,
+              COUNT(*) AS n_itens,
+              ROUND(MIN(p.valor_unitario_final), 2) AS preco_min,
+              ROUND(MAX(p.valor_unitario_final), 2) AS preco_max,
+              ROUND(AVG(p.valor_unitario_final), 2) AS preco_medio
+         FROM produtos_grupos g
+         JOIN licitacoes_produtos p ON p.grupo_id = g.id
+        WHERE p.valor_unitario_final IS NOT NULL AND p.valor_unitario_final > 0 AND p.ano IS NOT NULL
+        GROUP BY g.id
+       HAVING n_anos >= 2
+        ORDER BY n_anos DESC, n_itens DESC
+        LIMIT @limite`
+    )
+    .all({ limite: Math.min(Math.max(Number(limite) || 50, 1), 200) });
+}
+
+// Série anual de preço unitário (média/mín/máx) de um grupo de produto.
+function getEvolucaoPrecoGrupo(grupoId) {
+  const grupo = db.prepare('SELECT id, rotulo_canonico, n_variacoes FROM produtos_grupos WHERE id = ?').get(Number(grupoId));
+  if (!grupo) {return null;}
+
+  const serie = db
+    .prepare(
+      `SELECT p.ano,
+              ROUND(AVG(p.valor_unitario_final), 2) AS preco_medio,
+              ROUND(MIN(p.valor_unitario_final), 2) AS preco_min,
+              ROUND(MAX(p.valor_unitario_final), 2) AS preco_max,
+              COUNT(*) AS n_itens
+         FROM licitacoes_produtos p
+        WHERE p.grupo_id = @grupoId AND p.valor_unitario_final IS NOT NULL
+          AND p.valor_unitario_final > 0 AND p.ano IS NOT NULL
+        GROUP BY p.ano
+        ORDER BY p.ano`
+    )
+    .all({ grupoId: Number(grupoId) });
+
+  const variacoes = db
+    .prepare(
+      `SELECT DISTINCT descricao_normalizada AS descricao
+         FROM licitacoes_produtos WHERE grupo_id = ? ORDER BY descricao_normalizada`
+    )
+    .all(Number(grupoId))
+    .map((r) => r.descricao);
+
+  return { ...grupo, serie, variacoes };
+}
+
 function getInteligenciaPanorama() {
   const totalLicitacoes = db
     .prepare("SELECT COUNT(*) AS n FROM documentos WHERE tipo IN ('edital','publicacao_extrato')")
@@ -3976,6 +4042,8 @@ module.exports = {
   consolidarFornecedores,
   getFornecedoresRanking,
   getFornecedorByCnpj,
+  getProdutosGruposComparaveis,
+  getEvolucaoPrecoGrupo,
   getDocumentoByNumeroPncp,
   upsertDadosPncp,
   // Re-exports de coletas-repo.js

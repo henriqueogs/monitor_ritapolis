@@ -29,6 +29,7 @@
     "licitacoes:marcar-requer-ocr": "node scripts/marcar-requer-ocr.js",
     "licitacoes:extrair-anexos-sem-texto": "node scripts/extrair-anexos-edital-sem-texto.js",
     "transparencia:revincular": "node scripts/revincular-despesas.js",
+    "licitacoes:agrupar-produtos": "node scripts/agrupar-produtos-embeddings.js",
     "licitacoes:extrair-anexos": "node scripts/extrair-texto-anexos.js",
     "licitacoes:extrair-anexos:ano": "node scripts/extrair-texto-anexos.js --ano=2026",
     "pncp:diagnostico": "node scripts/pncp-diagnostico.js",

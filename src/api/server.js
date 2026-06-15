@@ -21,6 +21,8 @@ const {
   getAuditoria,
   getFornecedoresRanking,
   getFornecedorByCnpj,
+  getProdutosGruposComparaveis,
+  getEvolucaoPrecoGrupo,
   getInteligenciaPanorama,
   getCategoriasStats,
   listCategoriasDocumentos,
@@ -200,6 +202,19 @@ function createServer() {
   app.get('/api/licitacoes/:id/produtos', (req, res) => {
     const data = getLicitacaoProdutosByDocumentoId(Number(req.params.id));
     res.json(data);
+  });
+
+  // Comparação histórica de preços — grupos de produtos equivalentes (3.3)
+  app.get('/api/produtos/grupos-comparaveis', (req, res) => {
+    res.json({ dados: getProdutosGruposComparaveis({ limite: req.query.limite || undefined }) });
+  });
+
+  app.get('/api/produtos/grupos/:id/evolucao', (req, res) => {
+    const data = getEvolucaoPrecoGrupo(Number(req.params.id));
+    if (!data) {
+      return res.status(404).json({ error: 'Grupo de produto nao encontrado' });
+    }
+    return res.json(data);
   });
 
   app.get('/api/licitacoes/:id/fontes-relacionadas', (req, res) => {

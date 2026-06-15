@@ -94,6 +94,7 @@ CREATE TABLE IF NOT EXISTS licitacoes_produtos (
   resumo_ai_id INTEGER REFERENCES documentos_resumos_ai(id) ON DELETE SET NULL,
   confianca REAL,
   status_revisao TEXT NOT NULL DEFAULT 'pendente',
+  grupo_id INTEGER REFERENCES produtos_grupos(id) ON DELETE SET NULL,
   hash_item TEXT NOT NULL,
   criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
   atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -268,6 +269,16 @@ CREATE TABLE IF NOT EXISTS transparencia_receitas (
   UNIQUE (exercicio, codigo_receita)
 );
 
+CREATE TABLE IF NOT EXISTS produtos_grupos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  rotulo_canonico TEXT NOT NULL,
+  n_itens INTEGER NOT NULL DEFAULT 0,
+  n_variacoes INTEGER NOT NULL DEFAULT 0,
+  metodo TEXT NOT NULL DEFAULT 'embeddings',
+  criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS transparencia_coletas_log (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   fonte TEXT NOT NULL DEFAULT 'portal_transparencia',
@@ -321,6 +332,7 @@ CREATE INDEX IF NOT EXISTS idx_transp_despesas_data_empenho ON transparencia_des
 CREATE INDEX IF NOT EXISTS idx_transp_despesas_licitacao_ref ON transparencia_despesas(licitacao_ref);
 CREATE INDEX IF NOT EXISTS idx_transp_despesas_documento_id ON transparencia_despesas(documento_id);
 CREATE INDEX IF NOT EXISTS idx_transp_receitas_exercicio ON transparencia_receitas(exercicio);
+CREATE INDEX IF NOT EXISTS idx_licitacoes_produtos_grupo_id ON licitacoes_produtos(grupo_id);
 
 
 -- FTS5 — Busca textual nos documentos
