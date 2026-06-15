@@ -492,3 +492,7 @@ export function fetchProdutosGruposComparaveis(params = {}) {
 export function fetchEvolucaoPrecoGrupo(id) {
   return fetchJson(`/produtos/grupos/${id}/evolucao`).catch(() => null);
 }
+
+export function fetchCoberturaPorAno() {
+  return fetchJson('/inteligencia/cobertura').catch(() => ({ dados: [] }));
+}

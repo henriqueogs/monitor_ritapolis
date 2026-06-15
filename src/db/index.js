@@ -3605,6 +3605,34 @@ function getEvolucaoPrecoGrupo(grupoId) {
   return { ...grupo, serie, variacoes };
 }
 
+// Cobertura honesta por ano: % de editais com vencedor, valor, resumo e análise
+// integrada. Transforma as lacunas em informação visível (princípio do projeto).
+function getCoberturaPorAno() {
+  return db
+    .prepare(
+      `SELECT d.ano,
+              COUNT(*) AS total,
+              SUM(CASE WHEN ld.vencedor_nome IS NOT NULL THEN 1 ELSE 0 END) AS com_vencedor,
+              SUM(CASE WHEN ld.valor_final IS NOT NULL AND ld.valor_final > 0 THEN 1 ELSE 0 END) AS com_valor,
+              SUM(CASE WHEN EXISTS (SELECT 1 FROM documentos_resumos_ai r WHERE r.documento_id = d.id AND r.status = 'ok') THEN 1 ELSE 0 END) AS com_resumo,
+              SUM(CASE WHEN EXISTS (SELECT 1 FROM documentos_resumos_ai r WHERE r.documento_id = d.id AND r.status = 'ok' AND r.contrato_versao LIKE '2.%') THEN 1 ELSE 0 END) AS com_analise
+         FROM documentos d
+         LEFT JOIN licitacoes_detalhes ld ON ld.documento_id = d.id
+        WHERE d.tipo = 'edital' AND d.ano IS NOT NULL
+        GROUP BY d.ano
+        ORDER BY d.ano DESC`
+    )
+    .all()
+    .map((r) => ({
+      ano: r.ano,
+      total: r.total,
+      vencedor_pct: Math.round((r.com_vencedor / r.total) * 100),
+      valor_pct: Math.round((r.com_valor / r.total) * 100),
+      resumo_pct: Math.round((r.com_resumo / r.total) * 100),
+      analise_pct: Math.round((r.com_analise / r.total) * 100),
+    }));
+}
+
 function getInteligenciaPanorama() {
   const totalLicitacoes = db
     .prepare("SELECT COUNT(*) AS n FROM documentos WHERE tipo IN ('edital','publicacao_extrato')")
@@ -3991,6 +4019,7 @@ module.exports = {
   getDocumentoById,
   getAuditoria,
   getInteligenciaPanorama,
+  getCoberturaPorAno,
   salvarCategoria,
   getCategoriasStats,
   listCategoriasDocumentos,

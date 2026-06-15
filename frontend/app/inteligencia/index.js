@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import SectionBlock from '../components/SectionBlock';
 import CategoriaBadge from '../components/CategoriaBadge';
-import { fetchInteligenciaPanorama } from '../lib/api';
+import { fetchInteligenciaPanorama, fetchCoberturaPorAno } from '../lib/api';
 import { formatMoney } from '../lib/format';
 import FornecedoresRanking from '../estatisticas/components/FornecedoresRanking';
 
@@ -59,8 +59,26 @@ function AlertaRow({ label, valor, descricao, critical }) {
 
 // ── Página ───────────────────────────────────────────────────────────────────
 
+// Célula de % com cor proporcional à completude — verde alto, vermelho baixo
+function CoberturaCell({ pct }) {
+  const cor = pct >= 80 ? 'var(--success)' : pct >= 50 ? 'var(--warning)' : 'var(--error)';
+  return (
+    <span style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
+      <span style={{ flex: 1, height: 6, background: 'var(--surface-muted)', borderRadius: 3, overflow: 'hidden', maxWidth: 80 }}>
+        <span style={{ display: 'block', width: `${pct}%`, height: '100%', background: cor }} />
+      </span>
+      <span style={{ fontVariantNumeric: 'tabular-nums', minWidth: 36, textAlign: 'right', color: cor, fontWeight: 600, fontSize: 13 }}>
+        {pct}%
+      </span>
+    </span>
+  );
+}
+
 export default async function InteligenciaPage() {
-  const panorama = await fetchInteligenciaPanorama().catch(() => null);
+  const [panorama, cobertura] = await Promise.all([
+    fetchInteligenciaPanorama().catch(() => null),
+    fetchCoberturaPorAno().catch(() => ({ dados: [] })),
+  ]);
 
   if (!panorama) {
     return (
@@ -258,6 +276,37 @@ export default async function InteligenciaPage() {
                   >
                     {item.valor_final_total > 0 ? formatMoney(item.valor_final_total) : '—'}
                   </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </SectionBlock>
+      )}
+
+      {/* ── Cobertura honesta por ano (4.4) ── */}
+      {cobertura?.dados?.length > 0 && (
+        <SectionBlock
+          title="Cobertura dos dados por ano"
+          description="Quanto de cada ano já foi efetivamente lido e cruzado. Os anos mais antigos têm menos resultado registrado na fonte — a plataforma mostra a lacuna em vez de escondê-la."
+        >
+          <div className="table-scroll-x">
+            <div className="simple-table" style={{ minWidth: 560 }}>
+              <div className="table-row table-row-header">
+                <span>Ano</span>
+                <span>Editais</span>
+                <span style={{ textAlign: 'right' }}>Com vencedor</span>
+                <span style={{ textAlign: 'right' }}>Com valor</span>
+                <span style={{ textAlign: 'right' }}>Com resumo</span>
+                <span style={{ textAlign: 'right' }}>Com análise</span>
+              </div>
+              {cobertura.dados.map((r) => (
+                <div key={r.ano} className="table-row">
+                  <span style={{ fontWeight: 500 }}>{r.ano}</span>
+                  <span style={{ fontVariantNumeric: 'tabular-nums' }}>{r.total}</span>
+                  <span><CoberturaCell pct={r.vencedor_pct} /></span>
+                  <span><CoberturaCell pct={r.valor_pct} /></span>
+                  <span><CoberturaCell pct={r.resumo_pct} /></span>
+                  <span><CoberturaCell pct={r.analise_pct} /></span>
                 </div>
               ))}
             </div>

@@ -23,6 +23,7 @@ const {
   getProdutosGruposComparaveis,
   getEvolucaoPrecoGrupo,
   getInteligenciaPanorama,
+  getCoberturaPorAno,
   getCategoriasStats,
   listCategoriasDocumentos,
   createResumoAiJob,
@@ -647,6 +648,10 @@ function createServer() {
 
   app.get('/api/inteligencia/panorama', (_req, res) => {
     res.json(getInteligenciaPanorama());
+  });
+
+  app.get('/api/inteligencia/cobertura', (_req, res) => {
+    res.json({ dados: getCoberturaPorAno() });
   });
 
   app.get('/api/inteligencia/auditoria', (req, res) => {
