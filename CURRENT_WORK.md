@@ -69,10 +69,10 @@ Atualizado em: 2026-06-10 — Plano de melhoria de conteúdo (v0.9). Foco: integ
 - [x] **Dossiê de fornecedor unificado** (`5894036`): `/credores/[cnpj]` ganha "Licitado vs. pago"; corrige regressão do 3.2 (lookup de CNPJ normalizado); remove `getFornecedorByCnpj` + endpoint redundante. Validado por screenshot
 - [x] **Evolução de preços** (`0b2eb09`): seção interativa em `/inteligencia` (master-detail + sparkline + variação no período) consumindo os grupos do 3.3. Validado por screenshot
 - [x] 4.3 Página do processo como hub — **já era um hub** (resumo do documento / análise do processo / produtos / grupo / empenhos / fontes, rótulos distintos); o fix do 3.1 tornou os empenhos exibidos corretos. Confirmado por screenshot
-- [ ] 4.1 Fundir `/temas` em filtro de `/licitacoes`; `/analises` vira seção de `/inteligencia` — **decisão de produto pendente**
-- [ ] 4.2 Navegação enxuta (hoje 7 itens; fundir Inteligência+Transparência em "Dinheiro público"?) — **decisão de produto pendente**
+- [x] 4.1/4.2 Navegação fundida: Inteligência + Transparência → **"Dinheiro público"** (`45811eb`). Nav de 7→6 itens; `/transparencia` é o hub (orçamento + pagamentos + evolução de preços), `/inteligencia` vira aprofundamento linkado. Validado por screenshot
+- [x] 1.2-C `/licitacoes` lista por grupo (`99f007c`): +16 processos só-ata/extrato agora visíveis
 - [ ] 4.4 Página pública de cobertura honesta (% com vencedor/resumo/valor por ano)
-- [ ] 1.2-C (adiado da Fase 1): `/licitacoes` listar por grupo (31 processos só-ata/contrato invisíveis)
+- [ ] (opcional) `/temas` → filtro de `/licitacoes`; `/analises` redirecionar (órfãs, fora da nav)
 
 ### Fase 5 — Publicação
 - [ ] 5.1 Basic Auth `/admin/*`
