@@ -1,12 +1,18 @@
 export const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
-async function fetchJson(path) {
+// Rotas que precisam sempre do dado mais recente (admin, jobs, status ao vivo).
+// As demais (dados públicos do acervo/transparência) são cacheadas com ISR para
+// que a navegação seja instantânea e não re-bata na API a cada clique.
+const PREFIXOS_SEM_CACHE = ['/admin', '/coletas', '/ia/resumos', '/scheduler'];
+const REVALIDATE_PADRAO_S = 120;
+
+async function fetchJson(path, { revalidate = REVALIDATE_PADRAO_S } = {}) {
+  const semCache = PREFIXOS_SEM_CACHE.some((prefixo) => path.startsWith(prefixo));
+  const cacheOpts = semCache ? { cache: 'no-store' } : { next: { revalidate } };
   let response;
 
   try {
-    response = await fetch(`${apiUrl}${path}`, {
-      cache: 'no-store'
-    });
+    response = await fetch(`${apiUrl}${path}`, cacheOpts);
   } catch (error) {
     throw new Error(`Falha ao conectar na API ${apiUrl}${path}: ${error.message}`);
   }

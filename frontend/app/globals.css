@@ -1209,6 +1209,20 @@ h1, h2, h3, h4, p {
   text-overflow: ellipsis;
 }
 
+/* Snippet de busca FTS5 — highlight das palavras encontradas */
+.fts-snippet {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.fts-snippet mark {
+  background-color: #fef08a;
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 2px;
+  font-weight: 600;
+}
+
 .document-row-side,
 .citizen-row-side,
 .product-row-side,
@@ -1376,6 +1390,32 @@ h1, h2, h3, h4, p {
   border-color: rgba(124, 58, 237, 0.28);
   background: var(--demo-soft);
   color: var(--demo);
+}
+
+.availability-badge.is-gov {
+  border-color: rgba(19, 81, 180, 0.28);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* Links using availability-badge styling should not have underline */
+a.availability-badge {
+  text-decoration: none;
+}
+
+a.availability-badge:hover {
+  opacity: 0.85;
+}
+
+/* Inline source badge — sits next to a value in a key-value row */
+.origin-badge {
+  margin-left: 6px;
+  vertical-align: middle;
+  cursor: default;
+}
+
+a.origin-badge {
+  cursor: pointer;
 }
 
 .status-badge.is-bad,
@@ -2240,4 +2280,27 @@ html.admin-mode .admin-only { display: block; }
   color: #fff;
   border-color: var(--accent);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+/* ── Skeleton de carregamento (loading.js) ─────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface-muted) 25%,
+    color-mix(in srgb, var(--surface-muted) 60%, #fff) 50%,
+    var(--surface-muted) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.3s ease-in-out infinite;
+  border-radius: var(--radius-sm, 6px);
+}
+.skeleton-title { height: 28px; width: 240px; max-width: 60%; margin-bottom: 10px; }
+.skeleton-line { height: 12px; width: 100%; }
+.skeleton-strong { height: 20px; margin-top: 8px; }
+@keyframes skeletonShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
 }
