@@ -2857,8 +2857,25 @@ function saveDocumento(documento) {
 
 // buildDocumentoWhere, listDocumentos, listAnosDocumentos → movidos para documentos-repo.js
 
+// Um processo licitatório aparece em /licitacoes como uma linha. Normalmente o
+// edital o representa, mas há processos cujo único documento coletado é a ata ou
+// o extrato de resultado (grupo sem edital) — incluímos o documento canônico
+// desses grupos para que o processo não fique invisível (Fase 4 / 1.2-C).
+const LICITACAO_BASE_FILTER = `(
+  d.tipo = 'edital'
+  OR d.id IN (
+    SELECT g.documento_canonico_id FROM licitacoes_grupos g
+    WHERE g.documento_canonico_id IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM licitacoes_grupo_documentos gd
+        JOIN documentos de ON de.id = gd.documento_id
+        WHERE gd.grupo_id = g.id AND de.tipo = 'edital'
+      )
+  )
+)`;
+
 function listLicitacoes({ fonte, ano, status, termo, categoria, fornecedor, pagina = 1, limite = 20 }) {
-  const filters = ['d.tipo = \'edital\''];
+  const filters = [LICITACAO_BASE_FILTER];
   const params = {};
 
   if (fonte) {
