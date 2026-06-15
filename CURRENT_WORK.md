@@ -65,14 +65,14 @@ Atualizado em: 2026-06-10 — Plano de melhoria de conteúdo (v0.9). Foco: integ
 **FASE 3 CONCLUÍDA.** A Fase 4 (UX) tem agora muito conteúdo limpo a expor: dossiê de fornecedor (licitado+pago), evolução de preços, Cultura e Eventos, cobertura honesta.
 - [x] 3.4 Categorias refinadas: classificador extraído p/ `src/licitacoes/categoria.js` (domínio + TDD, 14 testes) + nova categoria **Cultura e Eventos** (shows/bandas/rodeios via inexigibilidade, antes ocultos) + credenciamento→Serviços. **"Outros" 57→37**, Cultura e Eventos=74. Frontend ligado (badge, filtro, /temas, /sobre). Resíduo encolhe quando backlog de resumos completar
 
-### Fase 4 — Arquitetura de informação e UX ⏳ EM EXECUÇÃO
+### Fase 4 — Arquitetura de informação e UX ✅ CONCLUÍDA
 - [x] **Dossiê de fornecedor unificado** (`5894036`): `/credores/[cnpj]` ganha "Licitado vs. pago"; corrige regressão do 3.2 (lookup de CNPJ normalizado); remove `getFornecedorByCnpj` + endpoint redundante. Validado por screenshot
 - [x] **Evolução de preços** (`0b2eb09`): seção interativa em `/inteligencia` (master-detail + sparkline + variação no período) consumindo os grupos do 3.3. Validado por screenshot
 - [x] 4.3 Página do processo como hub — **já era um hub** (resumo do documento / análise do processo / produtos / grupo / empenhos / fontes, rótulos distintos); o fix do 3.1 tornou os empenhos exibidos corretos. Confirmado por screenshot
 - [x] 4.1/4.2 Navegação fundida: Inteligência + Transparência → **"Dinheiro público"** (`45811eb`). Nav de 7→6 itens; `/transparencia` é o hub (orçamento + pagamentos + evolução de preços), `/inteligencia` vira aprofundamento linkado. Validado por screenshot
 - [x] 1.2-C `/licitacoes` lista por grupo (`99f007c`): +16 processos só-ata/extrato agora visíveis
-- [ ] 4.4 Página pública de cobertura honesta (% com vencedor/resumo/valor por ano)
-- [ ] (opcional) `/temas` → filtro de `/licitacoes`; `/analises` redirecionar (órfãs, fora da nav)
+- [x] 4.4 Cobertura honesta por ano (`233068e`): seção em `/inteligencia` com % de vencedor/valor/resumo/análise por ano, barras coloridas. Validado por screenshot
+- [ ] (opcional, baixa prioridade) `/temas` → filtro de `/licitacoes`; `/analises` redirecionar (órfãs, já fora da nav)
 
 ### Fase 5 — Publicação
 - [ ] 5.1 Basic Auth `/admin/*`
