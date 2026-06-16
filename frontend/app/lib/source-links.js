@@ -9,17 +9,27 @@ export function safeHttpUrl(value) {
   }
 }
 
+// Páginas de lista da prefeitura — não identificam um documento específico
+const PREFEITURA_LIST_PATHS = new Set([
+  '/pagina/6668',
+  '/pagina/6668/editais',
+  '/pagina/9656',
+  '/pagina/9656/editais 2',
+  '/pagina/9656/editais%202',
+  '/ws_consulta/pagina.php',
+]);
+
 export function isGenericPrefeituraSourcePage(value) {
   const url = safeHttpUrl(value);
   if (!url) return false;
 
   try {
     const parsed = new URL(url);
-    return (
-      ['ritapolis.mg.gov.br', 'www.ritapolis.mg.gov.br'].includes(parsed.hostname) &&
-      parsed.pathname === '/ws_consulta/Pagina.php' &&
-      ['6668', '9656'].includes(parsed.searchParams.get('INT_PAG'))
-    );
+    if (!['ritapolis.mg.gov.br', 'www.ritapolis.mg.gov.br'].includes(parsed.hostname)) return false;
+
+    // Decode antes de comparar para cobrir variações de encoding
+    const path = decodeURIComponent(parsed.pathname).toLowerCase();
+    return PREFEITURA_LIST_PATHS.has(path) || PREFEITURA_LIST_PATHS.has(parsed.pathname.toLowerCase());
   } catch {
     return false;
   }
@@ -53,15 +63,63 @@ export function getPublicPrefeituraSourcePageUrl(value) {
 }
 
 export function getOfficialFileUrl(documento) {
-  return safeHttpUrl(documento?.url_pdf);
+  const url = safeHttpUrl(documento?.url_pdf);
+  if (!url) return null;
+  // URL SAPL é página HTML, não arquivo — tratar como source page, não arquivo
+  if (url.includes('sapl.ritapolis.mg.leg.br')) return null;
+  return url;
+}
+
+function isCamaraModuleIndexUrl(url) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname !== 'pt.ritapolis.mg.leg.br') return false;
+    // Módulo raiz: path simples sem query params identificadores de documento
+    return parsed.search === '' || parsed.searchParams.size === 0;
+  } catch {
+    return false;
+  }
+}
+
+function getSaplPageUrl(documento) {
+  const saplUrl = safeHttpUrl(documento?.url_pdf);
+  if (!saplUrl) return null;
+  if (!saplUrl.includes('sapl.ritapolis.mg.leg.br')) return null;
+  return saplUrl;
 }
 
 export function getSpecificSourcePageUrl(documento) {
+  // SAPL tem a página específica do documento
+  const saplUrl = getSaplPageUrl(documento);
+  if (saplUrl) return saplUrl;
+
   const sourceUrl = safeHttpUrl(documento?.url_origem);
   if (!sourceUrl || isGenericPrefeituraSourcePage(sourceUrl)) return null;
+  // URL de módulo genérico da câmara não identifica documento específico
+  if (!documento?.url_pdf && isCamaraModuleIndexUrl(sourceUrl)) return null;
   return getPublicPrefeituraSourcePageUrl(sourceUrl) || sourceUrl;
 }
 
 export function getFallbackSourceUrl(documento) {
-  return getPublicPrefeituraSourcePageUrl(documento?.url_origem) || safeHttpUrl(documento?.url_origem);
+  const url = safeHttpUrl(documento?.url_origem);
+  if (!url) return null;
+  if (isGenericPrefeituraSourcePage(url)) return null;
+  if (!documento?.url_pdf && isCamaraModuleIndexUrl(url)) return null;
+  return getPublicPrefeituraSourcePageUrl(url) || url;
+}
+
+// Origem de ÚLTIMO recurso: a página de listagem/módulo de onde o documento foi
+// raspado. Menos específica que um arquivo ou página de processo, mas é a
+// procedência real — todo documento DEVE ter de onde veio (nunca "indisponível"
+// quando há url_origem). Use junto com `isOrigemGenerica` para rotular honestamente.
+export function getOrigemGenericaUrl(documento) {
+  const url = safeHttpUrl(documento?.url_origem);
+  if (!url) return null;
+  return getPublicPrefeituraSourcePageUrl(url) || url;
+}
+
+export function isOrigemGenerica(documento) {
+  const url = safeHttpUrl(documento?.url_origem);
+  if (!url) return false;
+  return isGenericPrefeituraSourcePage(url) || isCamaraModuleIndexUrl(url);
 }

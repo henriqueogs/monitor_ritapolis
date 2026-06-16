@@ -487,6 +487,19 @@ Regras obrigatórias para qualquer tela, componente ou endpoint que exiba dados 
 - Preferir valores **por ano**; somas multi-ano só com o intervalo explícito ao lado.
 - Feature futura: seletor de intervalo de tempo nas telas de valores.
 
+### 11.3 Toda informação tem origem rastreável e visível (inegociável)
+
+Nenhum dado exibido pode parecer "sem fonte". Todo documento tem `url_origem`
+(coluna `NOT NULL`) — de PDF, página de processo, ou, no mínimo, a **listagem
+oficial** de onde foi raspado. A UI **sempre** oferece um link para essa origem.
+
+- ✅ Mesmo sem PDF individual: "Abrir página da fonte na Prefeitura" + nota
+  explicando que foi publicado na listagem, sem arquivo próprio.
+- ❌ "Fonte oficial indisponível" / "sem origem" quando existe `url_origem`.
+- A listagem genérica é origem de **último recurso** (rotular honestamente), mas
+  é melhor que nada — a procedência nunca some.
+- Helpers: `getOrigemGenericaUrl`/`isOrigemGenerica` em `lib/source-links.js`.
+
 ### 11.2 "Recente" = data de publicação, nunca data de processamento
 
 Na home e em qualquer listagem de "novidades/atualizações", o usuário quer os dados **publicados** mais recentemente pela fonte — não os que o sistema coletou/atualizou por último (isso é informação interna).
