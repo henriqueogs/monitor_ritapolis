@@ -15,6 +15,44 @@ function getPdfjs() {
   return pdfjsModulePromise;
 }
 
+// Reconstrói o texto de uma página usando a geometria dos itens (x/y), em vez de
+// juntar tudo com espaço. Junta glifos contíguos sem espaço (não quebra números
+// como "1.800.000,00"), insere espaço só quando há lacuna real e quebra linha
+// quando o item sinaliza fim de linha ou o y muda.
+function reconstructPageText(items) {
+  const parts = [];
+  let prev = null;
+
+  for (const item of items) {
+    if (!('str' in item)) {
+      continue;
+    }
+    const str = item.str || '';
+
+    if (prev) {
+      const fontSize = prev.height || item.height || 10;
+      const dy = Math.abs((item.transform?.[5] ?? 0) - (prev.transform?.[5] ?? 0));
+      const novaLinha = prev.hasEOL || dy > fontSize * 0.5;
+
+      if (novaLinha) {
+        parts.push('\n');
+      } else {
+        const prevFimX = (prev.transform?.[4] ?? 0) + (prev.width || 0);
+        const gap = (item.transform?.[4] ?? 0) - prevFimX;
+        // Espaço só com lacuna perceptível; senão concatena (mantém número inteiro)
+        if (gap > fontSize * 0.3 && !/\s$/.test(parts[parts.length - 1] || '')) {
+          parts.push(' ');
+        }
+      }
+    }
+
+    parts.push(str);
+    prev = item;
+  }
+
+  return parts.join('');
+}
+
 async function extractWithPdfjs(buffer) {
   const pdfjs = await getPdfjs();
   const originalWarn = console.warn;
@@ -32,10 +70,7 @@ async function extractWithPdfjs(buffer) {
     for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
       const page = await document.getPage(pageNumber);
       const content = await page.getTextContent();
-      const text = content.items
-        .map((item) => ('str' in item ? item.str : ''))
-        .join(' ');
-      pages.push(text);
+      pages.push(reconstructPageText(content.items));
     }
 
     return {
