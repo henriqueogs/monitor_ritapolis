@@ -15,10 +15,13 @@ Atualizado em: 2026-06-16. Base: 547 documentos (516 editais).
 | Dimensão | Cobertura | Faltam | O que falta |
 |---|---|---|---|
 | Texto extraído | **93%** (478/516) | 38 | 38 sem PDF (recoleta) — PDF-imagem zerado via OCR |
-| Resumo IA (contrato 1.x) | **93%** (480/516) | 36 | fila de jobs drenando + 36 sem texto |
-| Análise integrada (2.0) | **87%** (447/516) | 69 | sobe conforme resumo dos OCR'd completa |
+| Resumo IA (contrato 1.x) | **97%** (500/516) | 16 | 16 sem texto (`sem_pdf`) |
+| Análise integrada (2.0) | **88%** (456/516) | 60 | editais recentes sem grupo + sem texto |
 | Vencedor identificado | **82%** (424/516) | 92 | resultado não publicado na fonte |
 | Valor final | **44%** (227/516) | 289 | valor ausente na fonte / em ata escaneada |
+
+**Resumo por ano agora 95–100% em todos os períodos** (antes 54% em 2017). Fila
+de jobs de resumo (era 391) drenada via `npm run ai:worker`.
 
 > **OCR local (sem IA) executado (16/06):** pdftoppm + tesseract.js processaram
 > 32 editais PDF-imagem (texto 86%→93%) + 140 anexos escaneados. Restou 1 anexo
