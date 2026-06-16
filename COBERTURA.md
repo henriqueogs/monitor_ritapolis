@@ -2,7 +2,7 @@
 
 Levantamento da completude da base e da recorrência da coleta.
 
-Atualizado em: 2026-06-15. Base: 547 documentos (516 editais).
+Atualizado em: 2026-06-16. Base: 547 documentos (516 editais).
 
 > Como atualizar este documento: rode `npm run cobertura:relatorio` (ver §4) e
 > cole os números. Os percentuais ao vivo estão em `/inteligencia` → "Cobertura
@@ -15,15 +15,17 @@ Atualizado em: 2026-06-15. Base: 547 documentos (516 editais).
 | Dimensão | Cobertura | Faltam | O que falta |
 |---|---|---|---|
 | Texto extraído (status `ok`) | **86%** (446/516) | 70 | 38 sem PDF + 32 PDF-imagem (OCR) |
-| Resumo IA (contrato 1.x) | **89%** (458/516) | 58 | 16 prontos p/ scheduler · 42 sem texto |
-| Análise integrada (2.0) | **32%** (165/516) | 351 | **274 elegíveis** 2017–2022 (lote não rodado) |
+| Resumo IA (contrato 1.x) | **90%** (466/516) | 50 | ~8 prontos p/ scheduler · 42 sem texto |
+| Análise integrada (2.0) | **87%** (447/516) | 69 | 42 sem texto + casos sem grupo/dados esparsos |
 | Vencedor identificado | **82%** (422/516) | 94 | resultado não publicado ou em PDF-imagem |
 | Valor final | **44%** (225/516) | 291 | valor ausente na fonte / em ata escaneada |
 
-**Leitura:** o acervo, o texto e o resumo estão maduros (86–89%). As duas maiores
-alavancas para chegar perto de 100% são **(a) rodar a análise integrada nos anos
-2017–2022** (salto de 32% → ~85%) e **(b) OCR das atas escaneadas** (destrava
-vencedor/valor dos anos antigos).
+**Leitura:** acervo, texto, resumo e análise integrada estão maduros (86–90%). A
+análise integrada saltou de **32% → 87%** com o lote 2017–2022. O que falta agora
+é majoritariamente **estrutural**: os 42 editais sem texto (dependem de OCR/recoleta)
+e poucos casos sem grupo ou com dados esparsos demais. As alavancas restantes são
+**(a) OCR das atas/editais escaneados** (destrava texto→resumo→análise→vencedor→valor)
+e **(b) recoleta dos `sem_pdf`** onde houver PDF publicado.
 
 ---
 
@@ -31,33 +33,36 @@ vencedor/valor dos anos antigos).
 
 | Ano | Editais | Vencedor | Valor | Resumo | Análise |
 |----:|----:|----:|----:|----:|----:|
-| 2026 | 35 | 97% | 86% | 100% | 71% |
+| 2026 | 35 | 97% | 86% | 100% | 74% |
 | 2025 | 68 | 87% | 69% | 91% | 71% |
 | 2024 | 46 | 93% | 83% | 96% | 78% |
 | 2023 | 62 | 95% | 58% | 100% | 90% |
-| 2022 | 51 | 98% | 53% | 96% | **0%** |
-| 2021 | 50 | 92% | 22% | 100% | **0%** |
-| 2020 | 65 | 65% | 17% | 72% | **0%** |
-| 2019 | 56 | 71% | 21% | 95% | **0%** |
-| 2018 | 42 | 76% | 17% | 100% | **0%** |
-| 2017 | 35 | 14% | 3% | 54% | **0%** |
-| 2016/2013 | 4 | 100% | 0% | ~100% | 0% |
+| 2022 | 51 | 98% | 53% | 98% | **98%** |
+| 2021 | 50 | 92% | 22% | 100% | **100%** |
+| 2020 | 65 | 65% | 17% | 83% | **82%** |
+| 2019 | 56 | 71% | 21% | 95% | **89%** |
+| 2018 | 42 | 76% | 17% | 100% | **95%** |
+| 2017 | 35 | 14% | 3% | 100% | **100%** |
+| 2016 | 3 | 100% | 0% | 100% | 100% |
+| 2013 | 1 | 100% | 0% | 100% | 0% |
 
-A coluna **Análise = 0%** em 2017–2022 é o item mais visível: a leitura integrada
-(contrato 2.0) só foi executada para 2023–2026.
+A leitura integrada (Análise) foi executada para todos os anos. O que ainda falta
+em cada ano são editais **sem texto** (PDF-imagem/sem PDF) — sem texto não há
+resumo nem análise. Curiosidade: 2024–2026 têm análise um pouco menor (71–78%)
+porque incluem editais recém-coletados ainda sem grupo de processo formado.
 
 ---
 
 ## 3. Gaps detalhados e como fechá-los
 
-### 3.1 Análise integrada 2017–2022 — *maior alavanca, recuperável agora*
-- **274 editais** têm grupo + texto mas nunca passaram pela leitura integrada.
-- Ação: `npm run ai:correlacionar:lote -- --de=2017 --ate=2022` (NVIDIA ligada).
-- Estimativa: ~277 chamadas × ~12s ≈ **1h**. Reentrante (cache por hash).
-- Efeito: Análise 32% → ~85%.
+### 3.1 Análise integrada 2017–2022 — ✅ CONCLUÍDA
+- Lote executado: **análise 32% → 87%** (447/516). Anos 2017/2021/2016 a 100%.
+- O que restou são editais **sem texto** (dependem de OCR/recoleta) + 2 docs de
+  2013 com dados esparsos demais para o contrato 2.0 (erro recorrente, aceitável).
+- Comando (reentrante): `npm run ai:correlacionar:lote -- --de=YYYY --ate=YYYY`.
 
-### 3.2 Resumo IA — 16 editais prontos
-- 16 editais com texto `ok` ainda sem resumo 1.x → o **ai-daily-scheduler**
+### 3.2 Resumo IA — ~8 editais prontos
+- ~8 editais com texto `ok` ainda sem resumo 1.x → o **ai-daily-scheduler**
   resolve sozinho (basta a API ligada) ou `npm run ai:resumir`.
 
 ### 3.3 OCR de documentos escaneados — *destrava anos antigos*
@@ -97,7 +102,7 @@ verifica periodicamente e só dispara quando passou do intervalo.
 | **ai-daily-scheduler** | Resumo IA de pendentes | **4h** (30 docs/ciclo) | — | `AI_SCHEDULER_*` |
 
 - Ritmo da IA: 30 docs a cada 4h ≈ **~180 documentos/dia**.
-- Última execução de cada fonte (em 2026-06-15): Prefeitura, Câmara, PNCP e
+- Última execução de cada fonte (em 2026-06-16): Prefeitura, Câmara, PNCP e
   Transparência todas rodaram no mesmo dia — recorrência ativa.
 
 ### Visibilidade ao vivo
@@ -115,10 +120,12 @@ roda no fim da coleta de transparência.
 
 ## 5. Caminho recomendado para ~100%
 
-1. **Rodar a análise integrada 2017–2022** (§3.1) — maior salto, ~1h, sem custo de infra.
-2. **Deixar a API ligada** continuamente — o scheduler quita os 16 resumos
+1. ~~Análise integrada 2017–2022~~ ✅ **feito** (32% → 87%).
+2. **Decidir o OCR** (§3.3) — agora a **alavanca #1**. Destrava texto dos 32
+   editais-imagem + 141 anexos escaneados → cascata resumo→análise→vencedor→valor.
+3. **Recoleta dirigida dos `sem_pdf`** (§3.4) onde houver PDF publicado (38 editais).
+4. **Deixar a API ligada** continuamente — o scheduler quita os ~8 resumos
    pendentes e mantém tudo atualizado (12h coleta / 4h IA / 24h transparência).
-3. **Decidir o OCR** (§3.3) — única dependência externa pendente; destrava
-   vencedor/valor de ~13 processos antigos e os 32 editais-imagem.
-4. **Recoleta dirigida dos `sem_pdf`** (§3.4) onde houver PDF publicado.
-5. O que restar é **lacuna real da fonte** — exibida explicitamente, não escondida.
+5. **Validação de produtos** já é automática via IA (`npm run licitacoes:validar-produtos-ia`):
+   fila manual em 49 itens; só auto-valida, nunca auto-rejeita.
+6. O que restar é **lacuna real da fonte** — exibida explicitamente, não escondida.
