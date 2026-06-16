@@ -31,6 +31,7 @@
     "transparencia:revincular": "node scripts/revincular-despesas.js",
     "licitacoes:agrupar-produtos": "node scripts/agrupar-produtos-embeddings.js",
     "cobertura:relatorio": "node scripts/relatorio-cobertura.js",
+    "licitacoes:validar-produtos-ia": "node scripts/validar-produtos-ia.js",
     "licitacoes:extrair-anexos": "node scripts/extrair-texto-anexos.js",
     "licitacoes:extrair-anexos:ano": "node scripts/extrair-texto-anexos.js --ano=2026",
     "pncp:diagnostico": "node scripts/pncp-diagnostico.js",
