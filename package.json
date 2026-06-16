@@ -44,6 +44,7 @@
     "pncp:sincronizar:camara": "node scripts/pncp-sincronizar.js --cnpj=26148056000181",
     "licitacoes:agrupar": "node scripts/agrupar-licitacoes.js",
     "saneamento:pdf": "node scripts/saneamento-pdf.js",
+    "reextrair:texto": "node scripts/reextrair-texto-docs.js",
     "ai:test": "node scripts/ai-test.js",
     "ai:status": "node scripts/ai-status.js",
     "ai:limpar-mock": "node scripts/limpar-resumos-mock.js",
