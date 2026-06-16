@@ -14,11 +14,15 @@ Atualizado em: 2026-06-16. Base: 547 documentos (516 editais).
 
 | Dimensão | Cobertura | Faltam | O que falta |
 |---|---|---|---|
-| Texto extraído (status `ok`) | **86%** (446/516) | 70 | 38 sem PDF + 32 PDF-imagem (OCR) |
-| Resumo IA (contrato 1.x) | **90%** (466/516) | 50 | ~8 prontos p/ scheduler · 42 sem texto |
-| Análise integrada (2.0) | **87%** (447/516) | 69 | 42 sem texto + casos sem grupo/dados esparsos |
-| Vencedor identificado | **82%** (422/516) | 94 | resultado não publicado ou em PDF-imagem |
-| Valor final | **44%** (225/516) | 291 | valor ausente na fonte / em ata escaneada |
+| Texto extraído | **93%** (478/516) | 38 | 38 sem PDF (recoleta) — PDF-imagem zerado via OCR |
+| Resumo IA (contrato 1.x) | **93%** (480/516) | 36 | fila de jobs drenando + 36 sem texto |
+| Análise integrada (2.0) | **87%** (447/516) | 69 | sobe conforme resumo dos OCR'd completa |
+| Vencedor identificado | **82%** (424/516) | 92 | resultado não publicado na fonte |
+| Valor final | **44%** (227/516) | 289 | valor ausente na fonte / em ata escaneada |
+
+> **OCR local (sem IA) executado (16/06):** pdftoppm + tesseract.js processaram
+> 32 editais PDF-imagem (texto 86%→93%) + 140 anexos escaneados. Restou 1 anexo
+> ilegível e 38 `sem_pdf` (recoleta). Os 32 OCR'd entraram na fila de resumo→análise.
 
 **Leitura:** acervo, texto, resumo e análise integrada estão maduros (86–90%). A
 análise integrada saltou de **32% → 87%** com o lote 2017–2022. O que falta agora
