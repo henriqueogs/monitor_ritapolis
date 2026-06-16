@@ -2,7 +2,7 @@
 
 Roadmap mestre do projeto. Registra o que o produto é, o que foi construído e o que vem a seguir.
 
-Atualizado em: 2026-06-08 (v0.7 — Schedulers + integração PNCP v3).
+Atualizado em: 2026-06-08 (v0.8 — Qualidade de dados + coletor PNCP real).
 
 ---
 
@@ -18,6 +18,8 @@ O Monitor Ritápolis é uma plataforma de inteligência pública verificável pa
 - IA como apoio, não como fonte — resume, organiza, compara, mas não inventa.
 - Lacunas explícitas — quando falta dado, a interface diz isso.
 - Dados verificáveis — cada inferência diferencia fato extraído de estimativa.
+- Valores sempre com intervalo de tempo explícito — nunca soma grande sem dizer o período (ver CLAUDE.md §11.1).
+- "Recente" = data de publicação, não de processamento do sistema (ver CLAUDE.md §11.2).
 - Mock nunca em produção.
 
 ### Município monitorado
@@ -41,11 +43,13 @@ O Monitor Ritápolis é uma plataforma de inteligência pública verificável pa
 
 A IA só opera sobre dado já estruturado nas camadas 1 e 2. Nunca substitui a coleta.
 
-**PNCP — duas estratégias:**
-- `pncp-orgaos.js` — usa a API de consulta pública (`/api/consulta/v1/contratacoes/publicacao`) com busca por CNPJ e modalidade. Preferencial quando o município publicar.
-- `pncp.js` — busca fuzzy por data+modalidade+município. Fallback para documentos sem `numero_pncp`.
+**PNCP — coletor por CNPJ (`src/coletores/pncp.js`):**
+- Itera sequenciais por ano: `GET /api/consulta/v1/orgaos/{cnpj}/compras/{ano}/{seq}` até 404.
+- Também busca atas e contratos com janela anual.
+- Cobre Prefeitura (18557553000105) e Câmara (26148056000181).
+- Integrado ao `update-runner.js` como `fonte: 'pncp'` (incluso em `'todas'`).
 
-> **Status (junho 2026):** Ritápolis não publica no PNCP — todas as modalidades retornam 204. O campo `numero_pncp` está vazio em todos os 494 editais. A camada 2 da arquitetura está inativa até que o município integre ao portal nacional. Use `npm run pncp:sincronizar -- --check` para monitorar.
+> **Status (junho 2026):** Ritápolis publica pontualmente no PNCP. Confirmado 1 Pregão Eletrônico (2025/1 — mobiliário planejado, R$ 6,51M). Atas e contratos: nenhum encontrado via API. O coletor está ativo e roda junto com as demais fontes.
 
 ---
 
@@ -53,9 +57,10 @@ A IA só opera sobre dado já estruturado nas camadas 1 e 2. Nunca substitui a c
 
 | Dado | Valor |
 |---|---|
-| Documentos cadastrados | 545 |
-| Da Prefeitura | 532 |
-| Da Câmara | 13 |
+| Documentos cadastrados | ~626 |
+| Da Prefeitura | ~533 |
+| Da Câmara | ~13 |
+| Do PNCP | 1 |
 | Licitações/editais | 494 |
 | Resumos IA — editais 2026 | 25/25 (status ok) |
 | Leitura integrada — 2026 | 26/26 licitações com grupo |
@@ -82,8 +87,12 @@ Auditoria de dados (score 0–100, 545 docs, distribuição por faixa). Consolid
 ### v0.7 — Schedulers + PNCP v3
 Scheduler de coletas automáticas (12h, `collection-scheduler.js`). Scheduler de IA diário (2 ciclos × 15 docs, `ai-daily-scheduler.js`). Endpoint `GET /api/scheduler/status`. Integração PNCP v3 via API direta por CNPJ (`pncp-orgaos.js` + `pncp:sincronizar`). Documentação consolidada e repositório publicado no GitHub.
 
-### v0.8 — Qualidade de dados + UX
-Extração de texto de atas/contratos como anexos (14→124 vencedores, 219→2538 produtos, R$1,66M→R$7,64M). Trigger automático de resumo IA ao coletar documento novo (`site-prefeitura.js` → `createResumoAiJob`). Script de cobertura histórica por ano (`resumir-todos-por-ano.js`). Ajustes de UX: fontes relacionadas deduplicadas, texto completo admin-only, home sem chips de busca IA, link duplicado removido.
+### v0.8 — Qualidade de dados + UX + Coletor PNCP real
+Extração de texto de atas/contratos como anexos (14→124 vencedores, 219→2538 produtos, R$1,66M→R$7,64M). Trigger automático de resumo IA ao coletar documento novo. Ajustes de UX diversos.
+
+**Qualidade de dados (junho 2026):** Filtro `isDocumentoValido()` na câmara para rejeitar elementos de UI/filtros. Detecção de PDFs baseados em imagem (`status_coleta: 'imagem'`). Correção de preview genérico: URLs de lista da Prefeitura bloqueadas como source pages. Correção de duplicação no `findDocumentoByIdentity()` para `site_prefeitura`. Fix de SAPL: `url_pdf` aponta para página HTML do SAPL.
+
+**PNCP real:** `src/coletores/pncp.js` — busca por sequencial e por janela temporal. 1 Pregão confirmado (2025/1, Prefeitura). Integrado ao `update-runner.js`.
 
 ---
 
@@ -120,8 +129,8 @@ A "Análise do Processo" é gerada por IA (contrato v2.0) e aparece na página d
 **Autenticação administrativa**
 Proteger `/admin/*` com HTTP Basic Auth (usuário/senha em variável de ambiente). Sem banco de usuários, sem OAuth — proteção mínima antes de publicar amplamente.
 
-**Cobertura PNCP anos anteriores**
-Executar `npm run pncp:sincronizar` para todos os anos. Enriquecer `licitacoes_detalhes` com vencedores e valores do PNCP para 2023–2025.
+**Cobertura PNCP anos anteriores** *(parcialmente concluído)*
+Coletor ativo desde 2023. Confirmado: Prefeitura publica apenas pontualmente no PNCP (1 edital em 2025). Monitorar crescimento — executar `npm run coletar -- --fonte=pncp` periodicamente.
 
 **Build de produção e deploy**
 Testar `next build && next start` em produção. Dockerizar backend + SQLite. Deploy em Railway/Fly.io (backend) + Vercel (frontend).

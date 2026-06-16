@@ -558,7 +558,9 @@ function listLicitacoesParaDiagnosticoPncp({
        FROM documentos d
        LEFT JOIN licitacoes_detalhes ld ON ld.documento_id = d.id
        WHERE ${filters.join(' AND ')}
-       ORDER BY COALESCE(d.data_publicacao, d.data_abertura, d.atualizado_em) DESC, d.id DESC
+       -- "Recente" = publicado recentemente (data real), não processado pelo sistema.
+       -- Sem fallback para atualizado_em: docs sem data real vão para o fim, não ao topo.
+       ORDER BY COALESCE(d.data_publicacao, d.data_abertura) DESC, d.id DESC
        ${limitClause}`
     )
     .all(params)
@@ -3008,7 +3010,7 @@ function getEstatisticas() {
     .get().total;
   const publicacoesRecentes = db
     .prepare(
-      "SELECT COUNT(*) AS total FROM documentos WHERE COALESCE(data_publicacao, atualizado_em) >= datetime('now', '-30 day')"
+      "SELECT COUNT(*) AS total FROM documentos WHERE COALESCE(data_publicacao, data_abertura) >= datetime('now', '-30 day')"
     )
     .get().total;
   const ultimaColeta = db
@@ -3146,6 +3148,14 @@ function getPainelCidadao() {
   const anoPadrao = hasCurrentYear ? currentYear : estatisticas.por_ano[0]?.ano;
   const recentes = listDocumentos({ pagina: 1, limite: 8 });
   const licitacoes = listLicitacoes({ ano: anoPadrao, pagina: 1, limite: 5 });
+  // Valor SEMPRE escopado por ano — nunca soma de todos os exercícios sem intervalo
+  const valorEstimadoAno = anoPadrao
+    ? db
+        .prepare(
+          "SELECT ROUND(IFNULL(SUM(valor_estimado), 0), 2) AS total FROM documentos WHERE tipo = 'edital' AND ano = @ano"
+        )
+        .get({ ano: Number(anoPadrao) }).total
+    : 0;
   const coletas = coletasRepo.listColetasLog(5).map((item) => ({
     ...item,
     fonte_nome: labelFonte(item.fonte),
@@ -3179,6 +3189,7 @@ function getPainelCidadao() {
       total_licitacoes: estatisticas.total_licitacoes,
       publicacoes_recentes: estatisticas.publicacoes_recentes,
       ano_padrao: anoPadrao || null,
+      valor_estimado_ano: valorEstimadoAno,
       valor_estimado_total: estatisticas.valor_estimado_total,
       ultima_coleta: estatisticas.ultima_coleta
         ? {

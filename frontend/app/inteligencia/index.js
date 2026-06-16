@@ -94,6 +94,11 @@ export default async function InteligenciaPage() {
   const { resumo, alertas, por_ano, por_categoria } = panorama;
   const valorTotal = (resumo.valor_vencedor_identificado || 0) + (resumo.valor_produtos_identificado || 0);
   const totalMaxCategoria = Math.max(...(por_categoria || []).map((c) => c.total), 1);
+  // Intervalo explícito para o valor somado (princípio: soma sempre com período)
+  const anosPanorama = (por_ano || []).map((r) => Number(r.ano)).filter(Boolean);
+  const periodoPanorama = anosPanorama.length
+    ? `${Math.min(...anosPanorama)}–${Math.max(...anosPanorama)}`
+    : 'acervo';
 
   return (
     <main className="page-container">
@@ -112,9 +117,9 @@ export default async function InteligenciaPage() {
             value={resumo.total_licitacoes}
           />
           <MetricCard
-            label="Valor identificado"
+            label={`Valor identificado (${periodoPanorama})`}
             value={formatMoney(valorTotal)}
-            sub="contratos homologados + itens com preço"
+            sub="contratos homologados + itens com preço no período"
           />
           <MetricCard
             label="Fornecedores identificados"

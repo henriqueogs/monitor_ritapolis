@@ -66,8 +66,8 @@ export default function HomeHero({ resumo, licitacoesAno }) {
           </div>
           <div className={styles.heroStatDivider} />
           <div className={styles.heroStat}>
-            <strong>{formatMoneyCompact(resumo?.valor_estimado_total)}</strong>
-            <span>Valor estimado</span>
+            <strong>{formatMoneyCompact(resumo?.valor_estimado_ano)}</strong>
+            <span>Estimado em {resumo?.ano_padrao || anoCorrente}</span>
           </div>
         </div>
       </div>

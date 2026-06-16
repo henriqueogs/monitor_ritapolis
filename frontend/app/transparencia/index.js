@@ -88,6 +88,13 @@ export default async function TransparenciaPage() {
     ? Math.round((total.n_licitacoes_vinculadas / total.n_empenhos) * 100)
     : 0;
 
+  // Intervalo de tempo explícito para todo valor somado (princípio: nunca somar
+  // sem indicar o período coberto).
+  const anosEmpenho = (porAno || []).map((r) => Number(r.ano)).filter(Boolean);
+  const periodoLabel = anosEmpenho.length
+    ? `${Math.min(...anosEmpenho)}–${Math.max(...anosEmpenho)}`
+    : 'período coletado';
+
   // Filtrar autorreferências (CNPJ da própria Prefeitura aparece em transferências internas)
   const credoresFiltrados = (topCredores || []).filter(
     (c) => c.credor_cnpj !== CNPJ_PREFEITURA
@@ -130,9 +137,9 @@ export default async function TransparenciaPage() {
         }}
       >
         <MetricCard
-          label="Total empenhado"
+          label={`Total empenhado (${periodoLabel})`}
           value={formatMoney(total.valor_total)}
-          sub="todos os exercícios coletados"
+          sub={`soma dos exercícios ${periodoLabel}`}
           accent="--accent"
         />
         <MetricCard
