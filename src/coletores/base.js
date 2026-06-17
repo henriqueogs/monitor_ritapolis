@@ -4,6 +4,7 @@ const axios = require('axios');
 const config = require('../config');
 const logger = require('../logger');
 const { createColetaLog, finishColetaLog, saveDocumento, createResumoAiJob } = require('../db');
+const { extrairAno } = require('../utils/datas');
 
 class ColetorBase {
   constructor({ fonte, httpOptions = {} }) {
@@ -87,16 +88,12 @@ class ColetorBase {
   }
 
   resumirTexto(text) {
-    if (!text) return null;
+    if (!text) {return null;}
     return text.replace(/\s+/g, ' ').trim().slice(0, 280) || null;
   }
 
-  inferirAno({ numero, dataPublicacao }) {
-    if (dataPublicacao) {
-      return Number(String(dataPublicacao).slice(0, 4));
-    }
-    const match = String(numero || '').match(/(20\d{2})/);
-    return match ? Number(match[1]) : null;
+  inferirAno({ numero, dataPublicacao, dataAbertura = null, titulo = null }) {
+    return extrairAno({ dataPublicacao, dataAbertura, numero, titulo });
   }
 
   async run() {

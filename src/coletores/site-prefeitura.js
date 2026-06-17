@@ -356,7 +356,7 @@ class ColetorSitePrefeitura extends ColetorBase {
         fonte: this.fonte,
         tipo,
         numero,
-        ano: this.inferirAno({ numero, dataPublicacao: item.dataPublicacao }),
+        ano: this.inferirAno({ numero, dataPublicacao: item.dataPublicacao, titulo }),
         titulo,
         resumo: this.resumirTexto(mergedText || item.fields.Objeto || titulo),
         data_publicacao: item.dataPublicacao,
