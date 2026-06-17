@@ -21,12 +21,12 @@ const DISCOVERY_KEYWORDS = [
 
 function inferTipoFromLabel(text) {
   const source = normalizeText(String(text || '')).toLowerCase();
-  if (/licit/.test(source)) return 'edital';
-  if (/contrat|aditivo|ata/.test(source)) return 'contrato';
-  if (/portaria/.test(source)) return 'portaria';
-  if (/decreto/.test(source)) return 'decreto';
-  if (/resolu/.test(source)) return 'resolucao';
-  if (/\blei\b|legis/.test(source)) return 'lei';
+  if (/licit/.test(source)) {return 'edital';}
+  if (/contrat|aditivo|ata/.test(source)) {return 'contrato';}
+  if (/portaria/.test(source)) {return 'portaria';}
+  if (/decreto/.test(source)) {return 'decreto';}
+  if (/resolu/.test(source)) {return 'resolucao';}
+  if (/\blei\b|legis/.test(source)) {return 'lei';}
   return 'documento_publico';
 }
 
@@ -38,9 +38,45 @@ function inferNumero(source) {
 function inferDate(source) {
   const joined = normalizeText(Array.isArray(source) ? source.join(' ') : String(source || ''));
   const match = joined.match(/(\d{2}\/\d{2}\/\d{4})/);
-  if (!match) return null;
+  if (!match) {return null;}
   const [day, month, year] = match[1].split('/');
   return `${year}-${month}-${day}`;
+}
+
+// Referência a legislação externa (federal ou de órgão de controle) — citada nas
+// páginas da Câmara, mas NÃO é um documento da Câmara municipal. Ex.: "Lei Federal
+// nº 12.527", "Portaria TCU nº 275", "Lei Complementar Federal nº 101".
+function isLegislacaoExterna(titulo) {
+  const s = normalizeText(String(titulo || ''));
+  return /\bfederal\b/i.test(s) || /\bT\.?\s?C\.?\s?[UE]\b/i.test(s);
+}
+
+// Página institucional / de referência (LAI, "ordem cronológica de pagamentos")
+// que NÃO lista documentos — só tem texto explicativo e links de navegação. Não
+// deve gerar documentos no acervo.
+function isModuloInstitucional(moduloText) {
+  const s = normalizeText(String(moduloText || '')).toLowerCase();
+  return /acesso [àa] informa|sobre a lei de acesso|ordem cronol[óo]gica de pagamentos/.test(s);
+}
+
+// Rejeita linhas de UI (filtros, rótulos, links de navegação genéricos)
+function isDocumentoValido(titulo, numero, dataPublicacao) {
+  if (!titulo || titulo.length < 4) {return false;}
+  // Número que é só pontuação não conta como identificador real
+  const temNumero = numero && /\d/.test(numero);
+  // Rótulos de filtro: "Situação:" ou "Histórico:"
+  if (/:\s*$/.test(titulo)) {return false;}
+  // Widget seletor de exercício: 3+ anos concatenados ("2026202520242023...")
+  if (/(20\d{2}){3,}/.test(titulo)) {return false;}
+  // Filtro com opções: "Situação: - Opção1 Opção2"
+  if (/:\s*-?\s*([\w\s]{1,20}\s){2,}/.test(titulo) && !temNumero) {return false;}
+  // Filtro de ano: "Ano: - 202620252024..." ou campo com anos concatenados
+  if (/:\s*-?\s*(\d{4}){2,}/.test(titulo) && !temNumero) {return false;}
+  // Título é só um ano isolado (seletor de ano)
+  if (!temNumero && !dataPublicacao && /^\d{4}$/.test(titulo.trim())) {return false;}
+  // Sem identificador algum (número, data) e título sem dígitos = link de navegação
+  if (!temNumero && !dataPublicacao && !/\d/.test(titulo)) {return false;}
+  return true;
 }
 
 class ColetorCamara extends ColetorBase {
@@ -121,6 +157,17 @@ class ColetorCamara extends ColetorBase {
   }
 
   async processHtmlModule(moduleInfo, html, resultado) {
+    // Páginas institucionais (LAI, ordem cronológica) não listam documentos — só
+    // texto e links de referência. Não inventar documentos a partir delas.
+    if (isModuloInstitucional(moduleInfo.text)) {
+      resultado.detalhes.push({
+        modulo: moduleInfo.text,
+        url: moduleInfo.href,
+        aviso: 'modulo_institucional_ignorado'
+      });
+      return;
+    }
+
     const rows = parseHtmlTable(moduleInfo.href, html).filter((row) => row.cells.length > 1 || row.links.length);
     const $ = cheerio.load(html);
     const fallbackLinks = $('a[href]')
@@ -136,6 +183,9 @@ class ColetorCamara extends ColetorBase {
       for (const link of fallbackLinks) {
         const numero = inferNumero(link.text);
         const dataPublicacao = inferDate(link.text);
+        if (!isDocumentoValido(link.text, numero, dataPublicacao)) {continue;}
+        // Referências a legislação federal/órgão de controle não são documentos da Câmara
+        if (isLegislacaoExterna(link.text)) {continue;}
         this.salvarDocumento(
           {
             fonte: this.fonte,
@@ -181,6 +231,8 @@ class ColetorCamara extends ColetorBase {
         }
 
         const documento = this.buildDocumentoFromRow(moduleInfo, row, pdfInfo);
+        if (!isDocumentoValido(documento.titulo, documento.numero, documento.data_publicacao)) {continue;}
+        if (isLegislacaoExterna(documento.titulo)) {continue;}
         this.salvarDocumento(documento, resultado);
       } catch (error) {
         this.registrarErroItem(resultado, { modulo: moduleInfo.text, url: moduleInfo.href }, error);
@@ -249,3 +301,6 @@ class ColetorCamara extends ColetorBase {
 }
 
 module.exports = ColetorCamara;
+module.exports.isDocumentoValido = isDocumentoValido;
+module.exports.isLegislacaoExterna = isLegislacaoExterna;
+module.exports.isModuloInstitucional = isModuloInstitucional;
