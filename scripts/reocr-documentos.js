@@ -27,6 +27,7 @@ const axios = require('axios');
 const { setupDatabase } = require('../src/db/setup');
 const { db } = require('../src/db');
 const { ocrPdfBuffer, encerrarWorker } = require('../src/parsers/ocr');
+const { extractPdfText, isImageBasedPdf } = require('../src/parsers/pdf');
 const { resumirTextoLimpo } = require('../src/utils/text');
 const config = require('../src/config');
 
@@ -39,6 +40,7 @@ function parseArgs(argv) {
     documentoId: null,
     status: null,
     reocrBaixoDpi: false,
+    detectarImagem: false,
     limite: null,
     maxPaginas: 15,
   };
@@ -47,6 +49,8 @@ function parseArgs(argv) {
       o.apply = true;
     } else if (a === '--reocr-baixo-dpi') {
       o.reocrBaixoDpi = true;
+    } else if (a === '--detectar-imagem') {
+      o.detectarImagem = true;
     } else if (a.startsWith('--documento-id=')) {
       o.documentoId = Number(a.split('=')[1]);
     } else if (a.startsWith('--status=')) {
@@ -87,6 +91,19 @@ function listar(opts) {
       )
       .all();
   }
+  if (opts.detectarImagem) {
+    // Ainda não checados: nem re-OCR a 300 DPI nem marcados como texto-nativo.
+    return db
+      .prepare(
+        `SELECT id, tipo, ano, url_pdf FROM documentos
+          WHERE status_coleta = 'ok'
+            AND url_pdf LIKE 'http%'
+            AND IFNULL(json_extract(dados_extras, '$.ocr_dpi'), 0) < ${DPI_ATUAL}
+            AND json_extract(dados_extras, '$.ocr_checado') IS NULL
+          ORDER BY id ${limitClause}`
+      )
+      .all();
+  }
   return [];
 }
 
@@ -101,15 +118,17 @@ async function baixar(url) {
 
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
-  if (!opts.documentoId && !opts.status && !opts.reocrBaixoDpi) {
-    console.error('Selecione alvos: --documento-id=N | --status=imagem | --reocr-baixo-dpi');
+  if (!opts.documentoId && !opts.status && !opts.reocrBaixoDpi && !opts.detectarImagem) {
+    console.error(
+      'Selecione alvos: --documento-id=N | --status=imagem | --reocr-baixo-dpi | --detectar-imagem'
+    );
     process.exitCode = 1;
     return;
   }
 
   setupDatabase();
   const docs = listar(opts);
-  console.warn(`Documentos a re-OCR: ${docs.length}${opts.apply ? '' : ' (dry-run)'}`);
+  console.warn(`Documentos a avaliar: ${docs.length}${opts.apply ? '' : ' (dry-run)'}`);
 
   const update = db.prepare(
     `UPDATE documentos
@@ -123,8 +142,15 @@ async function main() {
             atualizado_em = CURRENT_TIMESTAMP
       WHERE id = @id`
   );
+  // Marca um PDF de texto-nativo como já checado, para a varredura ser
+  // reentrante e não rebaixá-lo de novo nas próximas execuções.
+  const marcarChecado = db.prepare(
+    `UPDATE documentos
+        SET dados_extras = json_set(IFNULL(dados_extras, '{}'), '$.ocr_checado', 1)
+      WHERE id = ?`
+  );
 
-  const cont = { ok: 0, curto: 0, erro: 0, sem_url: 0 };
+  const cont = { ok: 0, curto: 0, erro: 0, sem_url: 0, texto_nativo: 0 };
   for (let i = 0; i < docs.length; i += 1) {
     const d = docs[i];
     const tag = `[${i + 1}/${docs.length}] #${d.id} (${d.tipo} / ${d.ano})`;
@@ -136,6 +162,21 @@ async function main() {
     }
     try {
       const buf = await baixar(url);
+
+      // No modo detecção, só re-OCR PDFs sem camada de texto (imagem). PDFs de
+      // texto extraem melhor pelo pdfjs — re-OCR só pioraria.
+      if (opts.detectarImagem) {
+        const extr = await extractPdfText(buf);
+        if (!isImageBasedPdf(extr.text, extr.pages)) {
+          cont.texto_nativo += 1;
+          if (opts.apply) {
+            marcarChecado.run(d.id);
+          }
+          continue;
+        }
+        console.warn(`${tag} PDF-imagem detectado — re-OCR…`);
+      }
+
       const r = await ocrPdfBuffer(buf, { maxPaginas: opts.maxPaginas });
       const texto = (r.texto || '').trim();
       if (texto.length < MIN_CHARS_OCR) {
@@ -156,7 +197,7 @@ async function main() {
 
   await encerrarWorker();
   console.warn(
-    `\n${opts.apply ? 'Aplicado' : 'Dry-run'} — OK: ${cont.ok} · curtos: ${cont.curto} · erros: ${cont.erro} · sem url: ${cont.sem_url}`
+    `\n${opts.apply ? 'Aplicado' : 'Dry-run'} — re-OCR: ${cont.ok} · texto-nativo: ${cont.texto_nativo} · curtos: ${cont.curto} · erros: ${cont.erro} · sem url: ${cont.sem_url}`
   );
 }
 
