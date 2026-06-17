@@ -29,6 +29,7 @@ const { db } = require('../src/db');
 const { ocrPdfBuffer, encerrarWorker } = require('../src/parsers/ocr');
 const { extractPdfText, isImageBasedPdf } = require('../src/parsers/pdf');
 const { resumirTextoLimpo } = require('../src/utils/text');
+const { criarProgresso } = require('../src/utils/progress');
 const config = require('../src/config');
 
 const MIN_CHARS_OCR = 120;
@@ -150,55 +151,64 @@ async function main() {
       WHERE id = ?`
   );
 
+  // Processa um documento e devolve {categoria, info} — a categoria alimenta o
+  // contador e o heartbeat de progresso.
+  async function processarDoc(d, tag) {
+    const url = (d.url_pdf || '').startsWith('http') ? d.url_pdf : null;
+    if (!url) {
+      console.warn(`${tag} sem url_pdf viva (pula)`);
+      return { categoria: 'sem_url', info: `#${d.id} sem url` };
+    }
+
+    const buf = await baixar(url);
+
+    // No modo detecção, só re-OCR PDFs sem camada de texto (imagem). PDFs de
+    // texto extraem melhor pelo pdfjs — re-OCR só pioraria.
+    if (opts.detectarImagem) {
+      const extr = await extractPdfText(buf);
+      if (!isImageBasedPdf(extr.text, extr.pages)) {
+        if (opts.apply) {
+          marcarChecado.run(d.id);
+        }
+        return { categoria: 'texto_nativo', info: `#${d.id} texto-nativo` };
+      }
+      console.warn(`${tag} PDF-imagem detectado — re-OCR…`);
+    }
+
+    const r = await ocrPdfBuffer(buf, { maxPaginas: opts.maxPaginas });
+    const texto = (r.texto || '').trim();
+    if (texto.length < MIN_CHARS_OCR) {
+      console.warn(`${tag} texto curto/ilegível (${texto.length} chars) — mantém`);
+      return { categoria: 'curto', info: `#${d.id} curto (${texto.length})` };
+    }
+    console.warn(`${tag} OK — ${r.paginas}p, ${texto.length} chars`);
+    if (opts.apply) {
+      update.run({ id: d.id, texto, resumo: resumirTextoLimpo(texto) });
+    }
+    return { categoria: 'ok', info: `#${d.id} OK ${r.paginas}p` };
+  }
+
+  const prog = criarProgresso(`reocr-${opts.detectarImagem ? 'detectar' : 'alvo'}`, { total: docs.length });
   const cont = { ok: 0, curto: 0, erro: 0, sem_url: 0, texto_nativo: 0 };
   for (let i = 0; i < docs.length; i += 1) {
     const d = docs[i];
     const tag = `[${i + 1}/${docs.length}] #${d.id} (${d.tipo} / ${d.ano})`;
-    const url = (d.url_pdf || '').startsWith('http') ? d.url_pdf : null;
-    if (!url) {
-      cont.sem_url += 1;
-      console.warn(`${tag} sem url_pdf viva (pula)`);
-      continue;
-    }
+    let resultado;
     try {
-      const buf = await baixar(url);
-
-      // No modo detecção, só re-OCR PDFs sem camada de texto (imagem). PDFs de
-      // texto extraem melhor pelo pdfjs — re-OCR só pioraria.
-      if (opts.detectarImagem) {
-        const extr = await extractPdfText(buf);
-        if (!isImageBasedPdf(extr.text, extr.pages)) {
-          cont.texto_nativo += 1;
-          if (opts.apply) {
-            marcarChecado.run(d.id);
-          }
-          continue;
-        }
-        console.warn(`${tag} PDF-imagem detectado — re-OCR…`);
-      }
-
-      const r = await ocrPdfBuffer(buf, { maxPaginas: opts.maxPaginas });
-      const texto = (r.texto || '').trim();
-      if (texto.length < MIN_CHARS_OCR) {
-        cont.curto += 1;
-        console.warn(`${tag} texto curto/ilegível (${texto.length} chars) — mantém`);
-        continue;
-      }
-      console.warn(`${tag} OK — ${r.paginas}p, ${texto.length} chars`);
-      if (opts.apply) {
-        update.run({ id: d.id, texto, resumo: resumirTextoLimpo(texto) });
-      }
-      cont.ok += 1;
+      resultado = await processarDoc(d, tag);
     } catch (err) {
-      cont.erro += 1;
       console.error(`${tag} ERRO: ${err.message}`);
+      resultado = { categoria: 'erro', info: `#${d.id} ERRO: ${err.message.slice(0, 60)}` };
     }
+    cont[resultado.categoria] += 1;
+    // tick a cada iteração (inclusive skips) — é isso que mantém o heartbeat vivo
+    prog.tick(resultado.info, resultado.categoria);
   }
 
   await encerrarWorker();
-  console.warn(
-    `\n${opts.apply ? 'Aplicado' : 'Dry-run'} — re-OCR: ${cont.ok} · texto-nativo: ${cont.texto_nativo} · curtos: ${cont.curto} · erros: ${cont.erro} · sem url: ${cont.sem_url}`
-  );
+  const resumo = `re-OCR: ${cont.ok} · texto-nativo: ${cont.texto_nativo} · curtos: ${cont.curto} · erros: ${cont.erro} · sem url: ${cont.sem_url}`;
+  prog.finish(resumo);
+  console.warn(`\n${opts.apply ? 'Aplicado' : 'Dry-run'} — ${resumo}`);
 }
 
 main().catch(async (e) => {
