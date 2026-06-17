@@ -68,6 +68,11 @@ describe('linhaTemConteudo', () => {
     expect(linhaTemConteudo('Â i u Ç,')).toBe(false);
   });
 
+  it('reprova linha de logo com palavra acidental isolada entre lixo', () => {
+    // OCR de brasão: só "VINDO"/"Pac" acidentais entre muito ruído (< 40%)
+    expect(linhaTemConteudo('CC KO) Cc Pac Nk VINDO ah. (7 e LB |')).toBe(false);
+  });
+
   it('preserva linhas de fecho com palavras hifenizadas', () => {
     expect(linhaTemConteudo('Registre-se, publique-se e cumpra-se.')).toBe(true);
     expect(linhaTemConteudo('Publique-se.')).toBe(true);
@@ -85,7 +90,7 @@ describe('limparRuidoOcr', () => {
       'w u*',
       'Â',
       'Rua Miguel Arcanjo de Almeida, s/no - Cássia',
-      'RESOLUÇÃO N. 0U202s',
+      'RESOLUÇÃO N. 01/2025',
       'O Conselho Municipal dos Direitos da Criança e do Adolescente.',
     ].join('\n');
 
@@ -93,7 +98,7 @@ describe('limparRuidoOcr', () => {
 
     expect(r).not.toMatch(/!4tS|&\*1Jt|tlLL#UL|tYÃw/);
     expect(r).toMatch(/Rua Miguel Arcanjo de Almeida/);
-    expect(r).toMatch(/RESOLUÇÃO N\. 0U202s/);
+    expect(r).toMatch(/RESOLUÇÃO N\. 01\/2025/);
     expect(r.startsWith('Rua Miguel Arcanjo')).toBe(true);
   });
 

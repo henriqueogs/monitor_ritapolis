@@ -13,15 +13,33 @@ const { execFileSync } = require('child_process');
 const { createWorker } = require('tesseract.js');
 const { limparRuidoOcr } = require('../utils/text');
 
-const DPI_PADRAO = 200;
+// 300 DPI é o padrão recomendado para OCR (200 perde traços finos e troca
+// letras parecidas, ex.: "PERMANÊNCIA" → "PERMANÊNCTA").
+const DPI_PADRAO = 300;
 const MAX_PAGINAS_PADRAO = 12;
+
+// Modelos "best" (LSTM float) do tessdata — bem mais precisos em scans ruins que
+// os "fast" (inteiros) que o tesseract.js baixa por padrão. Baixados uma vez e
+// cacheados; depois o OCR roda offline.
+const TESSDATA_BEST = 'https://tessdata.projectnaptha.com/4.0.0_best';
+const OEM_LSTM = 1;
 
 let workerPromise = null;
 
 // Worker reutilizado entre chamadas (carregar o idioma é caro).
 async function getWorker() {
   if (!workerPromise) {
-    workerPromise = createWorker('por');
+    workerPromise = (async () => {
+      const worker = await createWorker('por', OEM_LSTM, {
+        langPath: TESSDATA_BEST,
+        gzip: true,
+      });
+      await worker.setParameters({
+        preserve_interword_spaces: '1',
+        user_defined_dpi: String(DPI_PADRAO),
+      });
+      return worker;
+    })();
   }
   return workerPromise;
 }

@@ -138,13 +138,29 @@ function isNumeroReal(token) {
   return core.length / t.length >= 0.6;
 }
 
-// Uma linha tem conteúdo de verdade quando contém ao menos uma palavra real ou
-// um número real. Filtra ruído de OCR de cabeçalho/brasão ("a,r t B B !4tS r
-// &*1Jt", "\\ tlLL#UL:;Ç tYÃw"), preservando linhas legítimas como "RESOLUÇÃO
-// N. 01/2025" ou "VALOR: R$ 6.510.000,00".
+// Proporção mínima de tokens de conteúdo (palavra/número real) para uma linha
+// não ser considerada ruído.
+const MIN_PROPORCAO_CONTEUDO = 0.4;
+// A partir desta contagem de tokens de conteúdo, a linha é conteúdo de qualquer
+// forma (cabeçalho/título/endereço real mesmo com ruído de OCR ao lado).
+const MIN_TOKENS_CONTEUDO = 3;
+
+// Uma linha tem conteúdo quando os tokens de conteúdo (palavra/número real)
+// dominam — não basta UMA palavra solta. Assim linhas de brasão/logo que o OCR
+// transforma em ruído com uma ou outra palavra acidental ("CC KO) Cc Pac Nk
+// VINDO ah. (7") são descartadas, enquanto títulos e frases reais ("RESOLUÇÃO N.
+// 01/2025", "VALOR: R$ 6.510.000,00", "Registre-se, publique-se e cumpra-se.")
+// são preservados.
 function linhaTemConteudo(linha) {
   const tokens = String(linha || '').split(/\s+/).filter(Boolean);
-  return tokens.some(isPalavraReal) || tokens.some(isNumeroReal);
+  if (tokens.length === 0) {
+    return false;
+  }
+  const conteudo = tokens.filter((t) => isPalavraReal(t) || isNumeroReal(t)).length;
+  if (conteudo >= MIN_TOKENS_CONTEUDO) {
+    return true;
+  }
+  return conteudo / tokens.length >= MIN_PROPORCAO_CONTEUDO;
 }
 
 // Remove de um texto OCR as linhas que são puro ruído (brasão/carimbo/logo que o
