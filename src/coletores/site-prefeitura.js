@@ -4,6 +4,7 @@ const { getDocumentoByUrlPdfRaw } = require('../db');
 const { extractOfficialFileText, inferFileExtension } = require('../parsers/document-file');
 const { parseLicitacao } = require('../parsers/licitacao');
 const { parseDecreto } = require('../parsers/decreto');
+const { parseDataBrasileira, naoFutura } = require('../utils/datas');
 const {
   decodeHttpBody,
   normalizeText,
@@ -252,6 +253,15 @@ class ColetorSitePrefeitura extends ColetorBase {
       const modalidade = pickField(fields, ['Modalidade nº', 'Modalidade n°', 'Modalidade no', 'Modalidade']);
       const titulo = buildTitulo(fields, cadastroTitle);
 
+      // data_publicacao = quando o arquivo foi efetivamente publicado no site
+      // (datahora do anexo, sempre passada). O campo "Data" da listagem, para
+      // editais, costuma ser a data da SESSÃO (futura) — vira data_abertura.
+      const dataAnexo = attachments
+        .map((a) => parseDataBrasileira(a.datahora))
+        .filter(Boolean)
+        .sort()[0] || null;
+      const dataListagem = toIsoDate(fields.Data || null);
+
       records.push({
         pageUrl,
         cadastroTitle,
@@ -259,7 +269,8 @@ class ColetorSitePrefeitura extends ColetorBase {
         attachments,
         titulo,
         numero: processo || inferNumero(`${modalidade || ''} ${titulo}`),
-        dataPublicacao: toIsoDate(fields.Data || null)
+        dataPublicacao: dataAnexo || naoFutura(dataListagem),
+        dataSessao: dataListagem
       });
     });
 
@@ -360,7 +371,10 @@ class ColetorSitePrefeitura extends ColetorBase {
         titulo,
         resumo: this.resumirTexto(mergedText || item.fields.Objeto || titulo),
         data_publicacao: item.dataPublicacao,
-        data_abertura: licitacao.data_abertura || null,
+        // Sessão futura da listagem vira data_abertura quando o edital não traz a sua.
+        data_abertura:
+          licitacao.data_abertura ||
+          (item.dataSessao && naoFutura(item.dataSessao) === null ? item.dataSessao : null),
         valor_estimado: licitacao.valor_estimado,
         url_origem: item.pageUrl,
         url_pdf: pdfUrl,

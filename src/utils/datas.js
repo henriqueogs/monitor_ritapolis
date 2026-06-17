@@ -50,4 +50,29 @@ function extrairAno({ dataPublicacao = null, dataAbertura = null, numero = null,
   return null;
 }
 
-module.exports = { extrairAno, anoValido, anoDeData };
+// Extrai uma data brasileira (DD/MM/AAAA) de uma string com ruído ao redor,
+// devolvendo ISO "AAAA-MM-DD". Aceita "(10/06/2026 07:46:39)", "10/06/2026", etc.
+function parseDataBrasileira(texto) {
+  const m = String(texto || '').match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  if (!m) {
+    return null;
+  }
+  const [, dia, mes, ano] = m;
+  const iso = `${ano}-${mes}-${dia}`;
+  const dt = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(dt.getTime()) || dt.getUTCDate() !== Number(dia)) {
+    return null;
+  }
+  return iso;
+}
+
+// Uma data de PUBLICAÇÃO não pode ser futura (§11.2). Devolve a data se for <=
+// hoje, senão null (provavelmente é data de sessão/abertura, não de publicação).
+function naoFutura(isoDate, hoje = new Date()) {
+  if (!isoDate) {
+    return null;
+  }
+  return isoDate <= hoje.toISOString().slice(0, 10) ? isoDate : null;
+}
+
+module.exports = { extrairAno, anoValido, anoDeData, parseDataBrasileira, naoFutura };

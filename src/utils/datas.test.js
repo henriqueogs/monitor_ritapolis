@@ -1,6 +1,6 @@
 'use strict';
 
-const { extrairAno } = require('./datas');
+const { extrairAno, parseDataBrasileira, naoFutura } = require('./datas');
 
 describe('extrairAno', () => {
   it('prioriza data_publicacao/data_abertura', () => {
@@ -33,5 +33,35 @@ describe('extrairAno', () => {
   it('ignora anos implausíveis (fora de 2000..ano+1)', () => {
     expect(extrairAno({ titulo: 'Documento de 1850' })).toBeNull();
     expect(extrairAno({ titulo: 'Projeto para 2099' })).toBeNull();
+  });
+});
+
+describe('parseDataBrasileira', () => {
+  it('extrai data ISO de datahora com parênteses e hora', () => {
+    expect(parseDataBrasileira('(10/06/2026 07:46:39)')).toBe('2026-06-10');
+    expect(parseDataBrasileira('Publicado em 25/12/2024')).toBe('2024-12-25');
+  });
+
+  it('retorna null para texto sem data ou data inválida', () => {
+    expect(parseDataBrasileira('sem data')).toBeNull();
+    expect(parseDataBrasileira('32/13/2024')).toBeNull();
+    expect(parseDataBrasileira(null)).toBeNull();
+  });
+});
+
+describe('naoFutura', () => {
+  const hoje = new Date('2026-06-17T12:00:00Z');
+
+  it('mantém datas passadas ou de hoje', () => {
+    expect(naoFutura('2026-06-10', hoje)).toBe('2026-06-10');
+    expect(naoFutura('2026-06-17', hoje)).toBe('2026-06-17');
+  });
+
+  it('rejeita data futura (provável data de sessão, não publicação)', () => {
+    expect(naoFutura('2026-06-19', hoje)).toBeNull();
+  });
+
+  it('null entra, null sai', () => {
+    expect(naoFutura(null, hoje)).toBeNull();
   });
 });
