@@ -21,6 +21,7 @@ const axios = require('axios');
 const { setupDatabase } = require('../src/db/setup');
 const { db } = require('../src/db');
 const { extractPdfText } = require('../src/parsers/pdf');
+const { resumirTextoLimpo } = require('../src/utils/text');
 const config = require('../src/config');
 
 const RE_NUMERO_QUEBRADO = /R\$\s*\d{1,3}(\s+[.,]\s*|\s+)\d{3}/;
@@ -52,8 +53,11 @@ async function main() {
   console.warn(`Documentos candidatos a re-extração: ${candidatos.length}`);
 
   const update = db.prepare(
-    "UPDATE documentos SET texto_completo = @texto, atualizado_em = CURRENT_TIMESTAMP WHERE id = @id"
+    "UPDATE documentos SET texto_completo = @texto, resumo = @resumo, atualizado_em = CURRENT_TIMESTAMP WHERE id = @id"
   );
+  // Regenera a coluna resumo (truncagem limpa) junto com o texto — evita resumo
+  // antigo/quebrado preso após melhoria de extração; pula ruído de cabeçalho.
+  const resumirTexto = resumirTextoLimpo;
 
   const cont = { atualizados: 0, pdf_morto: 0, sem_url: 0, sem_ganho: 0 };
   for (const d of candidatos) {
@@ -82,7 +86,7 @@ async function main() {
       }
       console.warn(`  #${d.id} — ${novo.length} chars, número quebrado: ${aindaQuebrado ? 'AINDA' : 'corrigido'}`);
       if (opts.apply) {
-        update.run({ id: d.id, texto: novo });
+        update.run({ id: d.id, texto: novo, resumo: resumirTexto(novo) });
         cont.atualizados += 1;
       } else {
         cont.sem_ganho += 0;

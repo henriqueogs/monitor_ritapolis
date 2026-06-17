@@ -17,9 +17,9 @@ function hasLoneSurrogate(str) {
   for (let i = 0; i < str.length; i++) {
     const code = str.charCodeAt(i);
     if (code >= 0xDC00 && code <= 0xDFFF) {
-      if (i === 0 || str.charCodeAt(i - 1) < 0xD800 || str.charCodeAt(i - 1) > 0xDBFF) return true;
+      if (i === 0 || str.charCodeAt(i - 1) < 0xD800 || str.charCodeAt(i - 1) > 0xDBFF) {return true;}
     } else if (code >= 0xD800 && code <= 0xDBFF) {
-      if (i + 1 >= str.length || str.charCodeAt(i + 1) < 0xDC00 || str.charCodeAt(i + 1) > 0xDFFF) return true;
+      if (i + 1 >= str.length || str.charCodeAt(i + 1) < 0xDC00 || str.charCodeAt(i + 1) > 0xDFFF) {return true;}
     }
   }
   return false;
@@ -95,10 +95,38 @@ function looksLikeMojibakeOrHasSurrogate(value) {
   return looksLikeMojibake(str) || hasLoneSurrogate(str);
 }
 
+// Uma linha tem conteúdo de verdade quando contém ao menos uma "palavra"
+// (sequência de 4+ letras). Filtra ruído de OCR de cabeçalho/brasão
+// ("a,r t B B !4tS r &*1Jt"), onde as letras aparecem isoladas, mas preserva
+// linhas legítimas com números ("RESOLUÇÃO N. 01/2025").
+function linhaTemConteudo(linha) {
+  return /[a-zà-ú]{4,}/i.test(String(linha || ''));
+}
+
+// Resumo-truncagem para a coluna `documentos.resumo` (fallback de exibição):
+// pula linhas-lixo iniciais (cabeçalho OCR) e pega os primeiros `max` chars do
+// conteúdo real. Não substitui o resumo da IA, que é preferido na exibição.
+function resumirTextoLimpo(texto, max = 280) {
+  if (!texto) {
+    return null;
+  }
+  const linhas = String(texto).split('\n');
+  let i = 0;
+  while (i < linhas.length && !linhaTemConteudo(linhas[i])) {
+    i += 1;
+  }
+  const corpo = (i < linhas.length ? linhas.slice(i) : linhas)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return corpo.slice(0, max) || null;
+}
+
 module.exports = {
   decodeHttpBody,
   looksLikeMojibake: looksLikeMojibakeOrHasSurrogate,
   normalizeText,
   deepRepairStrings,
-  deepHasMojibake
+  deepHasMojibake,
+  resumirTextoLimpo
 };
