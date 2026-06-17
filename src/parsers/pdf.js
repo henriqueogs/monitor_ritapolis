@@ -1,5 +1,12 @@
 const pdfParse = require('pdf-parse');
-const { normalizeText } = require('../utils/text');
+const { normalizeText, isPalavraReal } = require('../utils/text');
+
+// Símbolos que NÃO ocorrem em texto legível em sequência longa — uma corrida de
+// 6+ deles (excluída a pontuação básica) denuncia lixo de encoding/OCR.
+const RE_CORRIDA_LIXO = /[^a-z0-9áéíóúàèìòùâêîôûãõçñ\s.,;:!?()/-]{6,}/i;
+const MIN_CHARS_POR_PAGINA = 15;
+const PROPORCAO_PALAVRAS_MIN = 0.3;
+const LIMITE_TEXTO_LONGO = 100;
 
 let pdfjsModulePromise;
 
@@ -58,7 +65,7 @@ async function extractWithPdfjs(buffer) {
   const originalWarn = console.warn;
 
   try {
-    console.warn = () => {};
+    console.warn = () => { };
     const loadingTask = pdfjs.getDocument({
       data: new Uint8Array(buffer),
       isEvalSupported: false,
@@ -90,8 +97,8 @@ async function extractWithPdfParse(buffer) {
   const originalLog = console.log;
 
   try {
-    console.warn = () => {};
-    console.log = () => {};
+    console.warn = () => { };
+    console.log = () => { };
     const result = await pdfParse(buffer);
     return {
       text: normalizeWhitespace(result.text || ''),
@@ -105,6 +112,47 @@ async function extractWithPdfParse(buffer) {
     console.warn = originalWarn;
     console.log = originalLog;
   }
+}
+
+/**
+ * Detecta se o texto extraído de um PDF é "lixo" (OCR ruim / encoding incorreto)
+ * ou ausente (scan sem camada de texto), indicando que o PDF precisa de OCR.
+ *
+ * O sinal central é a QUALIDADE DE PALAVRAS (`isPalavraReal`): texto legível é
+ * dominado por palavras reais; lixo de OCR é dominado por letras soltas e
+ * símbolos. Critérios (OR — qualquer um dispara):
+ *   1. Nenhuma palavra real no texto inteiro (ex.: "a,r t B B !4tS", "aaaa...").
+ *   2. Página quase vazia (densidade < 15 chars/página).
+ *   3. Corrida longa de símbolos especiais variados (lixo de encoding).
+ *   4. Texto longo (> 100 chars) dominado por não-palavras (< 30% palavras reais).
+ */
+function isImageBasedPdf(text, numPages) {
+  if (!text || text.trim().length === 0) {
+    return true;
+  }
+
+  const trimmedText = text.trim();
+  const pages = Number(numPages) > 0 ? Number(numPages) : 1;
+  const tokens = trimmedText.split(/\s+/).filter(Boolean);
+  const palavrasReais = tokens.filter(isPalavraReal).length;
+
+  if (palavrasReais === 0) {
+    return true;
+  }
+  if (trimmedText.length / pages < MIN_CHARS_POR_PAGINA) {
+    return true;
+  }
+  if (RE_CORRIDA_LIXO.test(trimmedText)) {
+    return true;
+  }
+  if (trimmedText.length > LIMITE_TEXTO_LONGO) {
+    const proporcao = palavrasReais / tokens.length;
+    if (proporcao < PROPORCAO_PALAVRAS_MIN) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 async function extractPdfText(buffer) {
@@ -132,5 +180,6 @@ async function extractPdfText(buffer) {
 }
 
 module.exports = {
-  extractPdfText
+  extractPdfText,
+  isImageBasedPdf
 };

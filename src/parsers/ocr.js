@@ -11,6 +11,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { execFileSync } = require('child_process');
 const { createWorker } = require('tesseract.js');
+const { limparRuidoOcr } = require('../utils/text');
 
 const DPI_PADRAO = 200;
 const MAX_PAGINAS_PADRAO = 12;
@@ -61,8 +62,11 @@ async function ocrImagens(caminhos) {
   const partes = [];
   for (const caminho of caminhos) {
     const { data } = await worker.recognize(caminho);
-    if (data.text && data.text.trim()) {
-      partes.push(data.text.trim());
+    // Remove o ruído por página (brasão/carimbo/logo que vira caractere aleatório)
+    // antes de juntar — mantém só o conteúdo legível de cada imagem.
+    const limpo = limparRuidoOcr(data.text);
+    if (limpo) {
+      partes.push(limpo);
     }
   }
   return partes.join('\n\n');

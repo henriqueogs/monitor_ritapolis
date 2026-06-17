@@ -95,12 +95,72 @@ function looksLikeMojibakeOrHasSurrogate(value) {
   return looksLikeMojibake(str) || hasLoneSurrogate(str);
 }
 
-// Uma linha tem conteúdo de verdade quando contém ao menos uma "palavra"
-// (sequência de 4+ letras). Filtra ruído de OCR de cabeçalho/brasão
-// ("a,r t B B !4tS r &*1Jt"), onde as letras aparecem isoladas, mas preserva
-// linhas legítimas com números ("RESOLUÇÃO N. 01/2025").
+const LETRA = 'a-záéíóúàèìòùâêîôûãõçñ';
+const VOGAL = 'aeiouáéíóúàèìòùâêîôûãõ';
+// Palavra = letras, podendo ter hífen/apóstrofo INTERNO entre letras
+// ("publique-se", "d'água"), mas não símbolos arbitrários no meio.
+const RE_PALAVRA = new RegExp(`^[${LETRA}]+(?:['-][${LETRA}]+)*$`, 'i');
+const RE_TEM_VOGAL = new RegExp(`[${VOGAL}]`, 'i');
+const RE_LIMPAR_BORDAS = new RegExp(`^[^${LETRA}]+|[^${LETRA}]+$`, 'gi');
+
+// Uma "palavra real" é um token que, removidas pontuações de borda, é alfabético
+// (admite hífen/apóstrofo interno) com 3+ letras e ao menos uma vogal. Aceita
+// "RESOLUÇÃO", "Almeida," (vírgula de borda), "Publique-se"; rejeita ruído de OCR
+// com símbolos no MEIO ("tlLL#UL:;Ç", "&*1Jt!1:t:") ou sem vogal ("tlLL").
+function isPalavraReal(token) {
+  const core = String(token || '').replace(RE_LIMPAR_BORDAS, '');
+  const letras = core.match(new RegExp(`[${LETRA}]`, 'gi')) || [];
+  if (letras.length < 3) {
+    return false;
+  }
+  // Um mesmo caractere repetido ("aaaa", "iii") não é palavra — exige variedade.
+  if (new Set(letras.map((c) => c.toLowerCase())).size < 2) {
+    return false;
+  }
+  return RE_PALAVRA.test(core) && RE_TEM_VOGAL.test(core);
+}
+
+// Um "número real" é um token numérico de verdade (valor, data, processo):
+// começa e termina em dígito, só contém dígitos e separadores numéricos, e tem
+// 2+ dígitos. Aceita "6.510.000,00", "15/03/2024", "36335-000"; rejeita ruído
+// como ":t):11:t::tti" (dígitos colados em símbolos no meio).
+function isNumeroReal(token) {
+  const t = String(token || '');
+  const core = t.replace(/^[^\d]+|[^\d]+$/g, '');
+  if (!/^\d[\d.,:/-]*\d$/.test(core)) {
+    return false;
+  }
+  if ((core.match(/\d/g) || []).length < 2) {
+    return false;
+  }
+  // O núcleo numérico precisa dominar o token — rejeita dígitos perdidos em
+  // ruído (":t):11:t::tti"), onde "11" é minoria entre símbolos.
+  return core.length / t.length >= 0.6;
+}
+
+// Uma linha tem conteúdo de verdade quando contém ao menos uma palavra real ou
+// um número real. Filtra ruído de OCR de cabeçalho/brasão ("a,r t B B !4tS r
+// &*1Jt", "\\ tlLL#UL:;Ç tYÃw"), preservando linhas legítimas como "RESOLUÇÃO
+// N. 01/2025" ou "VALOR: R$ 6.510.000,00".
 function linhaTemConteudo(linha) {
-  return /[a-zà-ú]{4,}/i.test(String(linha || ''));
+  const tokens = String(linha || '').split(/\s+/).filter(Boolean);
+  return tokens.some(isPalavraReal) || tokens.some(isNumeroReal);
+}
+
+// Remove de um texto OCR as linhas que são puro ruído (brasão/carimbo/logo que o
+// OCR transformou em caracteres aleatórios), preservando todas as linhas com
+// conteúdo real e a separação por linhas em branco. Conservador: só descarta a
+// linha quando ela não tem NENHUMA palavra nem número real.
+function limparRuidoOcr(texto) {
+  if (!texto) {
+    return '';
+  }
+  return String(texto)
+    .split('\n')
+    .filter((linha) => linha.trim() === '' || linhaTemConteudo(linha))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 // Resumo-truncagem para a coluna `documentos.resumo` (fallback de exibição):
@@ -128,5 +188,9 @@ module.exports = {
   normalizeText,
   deepRepairStrings,
   deepHasMojibake,
-  resumirTextoLimpo
+  resumirTextoLimpo,
+  isPalavraReal,
+  isNumeroReal,
+  linhaTemConteudo,
+  limparRuidoOcr
 };
