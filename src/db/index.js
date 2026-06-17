@@ -1,5 +1,6 @@
 const config = require('../config');
 const { deepRepairStrings, normalizeText } = require('../utils/text');
+const { devePreservarTextoOcr } = require('../utils/documento-merge');
 const { parseLicitacaoDetalhes } = require('../parsers/licitacao-detalhes');
 const { parseProdutosLicitados } = require('../parsers/licitacao-produtos');
 const { parseResultadosItensLicitacao } = require('../parsers/licitacao-resultados-itens');
@@ -2760,6 +2761,37 @@ function saveDocumento(documento) {
   let result;
 
   if (existing) {
+    const atual = db
+      .prepare('SELECT texto_completo, resumo, dados_extras, ano FROM documentos WHERE id = ?')
+      .get(existing.id);
+
+    // Não-regressão: uma re-coleta (pdfjs) não pode rebaixar o texto de OCR
+    // (autoritativo), nem apagar o texto/resumo bons já gravados.
+    if (
+      devePreservarTextoOcr({
+        existenteDadosExtras: atual?.dados_extras,
+        existenteTexto: atual?.texto_completo
+      })
+    ) {
+      let extrasAtual = null;
+      try {
+        extrasAtual = atual.dados_extras ? JSON.parse(atual.dados_extras) : null;
+      } catch {
+        extrasAtual = null;
+      }
+      payload.texto_completo = atual.texto_completo;
+      payload.resumo = atual.resumo;
+      payload.status_coleta = 'ok';
+      payload.dados_extras = serializeJson({
+        ...(documento.dados_extras || {}),
+        texto_origem: extrasAtual?.texto_origem ?? documento.dados_extras?.texto_origem,
+        ocr_dpi: extrasAtual?.ocr_dpi ?? documento.dados_extras?.ocr_dpi
+      });
+    }
+
+    // Nunca apagar um `ano` já derivado com uma coleta que veio sem ano.
+    payload.ano = documento.ano || atual?.ano || null;
+
     db.prepare(
       `UPDATE documentos SET
         fonte = @fonte,
@@ -2989,7 +3021,7 @@ function listLicitacoes({ fonte, ano, status, termo, categoria, fornecedor, pagi
        LEFT JOIN licitacoes_detalhes ld ON ld.documento_id = d.id
        LEFT JOIN licitacoes_categorias lc ON lc.documento_id = d.id
        ${whereClause}
-       ORDER BY COALESCE(d.data_abertura, d.data_publicacao, d.atualizado_em) DESC, d.id DESC`
+       ORDER BY COALESCE(d.ano, 0) DESC, COALESCE(d.data_abertura, d.data_publicacao, d.atualizado_em) DESC, d.id DESC`
     )
     .all(params)
     .map(normalizeLicitacao)
