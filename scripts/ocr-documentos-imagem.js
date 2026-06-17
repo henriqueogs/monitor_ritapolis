@@ -20,6 +20,7 @@ const { setupDatabase } = require('../src/db/setup');
 const { db } = require('../src/db');
 const { ocrPdfBuffer, encerrarWorker } = require('../src/parsers/ocr');
 const { resumirTextoLimpo } = require('../src/utils/text');
+const { criarProgresso } = require('../src/utils/progress');
 const config = require('../src/config');
 
 const MIN_CHARS_OCR = 200;
@@ -79,10 +80,13 @@ async function main() {
   // versão "limpa" pula o ruído de cabeçalho do OCR.
   const resumirTexto = resumirTextoLimpo;
 
+  const prog = criarProgresso('ocr-documentos-imagem', { total: docs.length });
   const cont = { ok: 0, ilegivel: 0, erro: 0 };
   for (let i = 0; i < docs.length; i += 1) {
     const d = docs[i];
     const tag = `[${i + 1}/${docs.length}] #${d.id} (${d.tipo} / ${d.ano})`;
+    let categoria = 'ok';
+    let info = `#${d.id}`;
     try {
       const buf = await baixar(d.url_pdf);
       const r = await ocrPdfBuffer(buf, { maxPaginas: opts.maxPaginas });
@@ -90,19 +94,27 @@ async function main() {
       if (texto.length >= MIN_CHARS_OCR) {
         update.run({ id: d.id, texto, resumo: resumirTexto(texto) });
         cont.ok += 1;
+        info = `#${d.id} OK ${r.paginas}p`;
         console.warn(`${tag} OK — ${r.paginas}p, ${texto.length} chars`);
       } else {
         cont.ilegivel += 1;
+        categoria = 'ilegivel';
+        info = `#${d.id} ilegível (${texto.length})`;
         console.warn(`${tag} ILEGÍVEL — ${texto.length} chars`);
       }
     } catch (err) {
       cont.erro += 1;
+      categoria = 'erro';
+      info = `#${d.id} ERRO: ${err.message.slice(0, 60)}`;
       console.error(`${tag} ERRO: ${err.message}`);
     }
+    prog.tick(info, categoria);
   }
 
   await encerrarWorker();
-  console.warn(`\nAplicado — texto OCR ok: ${cont.ok} · ilegíveis: ${cont.ilegivel} · erros: ${cont.erro}`);
+  const resumo = `texto OCR ok: ${cont.ok} · ilegíveis: ${cont.ilegivel} · erros: ${cont.erro}`;
+  prog.finish(resumo);
+  console.warn(`\nAplicado — ${resumo}`);
   console.warn('Próximo: resumo IA (scheduler/`npm run ai:resumir`) e análise (`ai:correlacionar:lote`).');
 }
 

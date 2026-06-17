@@ -18,6 +18,7 @@ const { setupDatabase } = require('../src/db/setup');
 const { db } = require('../src/db');
 const { correlateLicitation, CONTRACT_VERSION } = require('../src/ai/correlate-licitation');
 const { createAiProvider } = require('../src/ai/providers');
+const { criarProgresso } = require('../src/utils/progress');
 
 const DELAY_PADRAO_MS = 5000;
 
@@ -101,6 +102,7 @@ async function main() {
   );
 
   const provider = createAiProvider();
+  const prog = criarProgresso('correlacionar-licitacoes', { total: docs.length });
   const inicio = Date.now();
   let ok = 0;
   let reutilizados = 0;
@@ -109,29 +111,38 @@ async function main() {
   for (let i = 0; i < docs.length; i += 1) {
     const doc = docs[i];
     const progresso = `[${i + 1}/${docs.length}]`;
+    let categoria = 'erro';
+    let info = `#${doc.id}`;
 
     try {
       const result = await correlateLicitation(doc.id, { provider, force: options.force });
       if (result.reutilizado) {
         reutilizados += 1;
+        categoria = 'cache';
+        info = `#${doc.id} cache`;
         console.warn(`${progresso} doc #${doc.id} (${doc.ano}) — reutilizado (cache)`);
       } else {
         ok += 1;
+        categoria = 'ok';
+        info = `#${doc.id} ok`;
         console.warn(
           `${progresso} doc #${doc.id} (${doc.ano}) — ok (confianca ${result.confianca ?? '—'})`
         );
       }
     } catch (err) {
       erros += 1;
+      info = `#${doc.id} ERRO: ${err.message.slice(0, 60)}`;
       console.error(`${progresso} doc #${doc.id} (${doc.ano}) — ERRO: ${err.message}`);
     }
 
+    prog.tick(info, categoria);
     if (i < docs.length - 1) {
       await aguardar(options.delayMs);
     }
   }
 
   const minutos = ((Date.now() - inicio) / 60000).toFixed(1);
+  prog.finish(`geradas: ${ok} · cache: ${reutilizados} · erros: ${erros}`);
   console.warn(
     `\nLote concluído em ${minutos} min — geradas: ${ok} · cache: ${reutilizados} · erros: ${erros}`
   );

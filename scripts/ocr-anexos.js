@@ -26,6 +26,7 @@ const axios = require('axios');
 const { setupDatabase } = require('../src/db/setup');
 const { db, saveDocumentoAnexoTexto } = require('../src/db');
 const { ocrPdfBuffer, ocrImagemBuffer, encerrarWorker } = require('../src/parsers/ocr');
+const { criarProgresso } = require('../src/utils/progress');
 const config = require('../src/config');
 
 const MIN_CHARS_OCR = 80; // abaixo disso, o scan é ilegível — segue requer_ocr
@@ -78,10 +79,13 @@ async function main() {
     return;
   }
 
+  const prog = criarProgresso('ocr-anexos', { total: anexos.length });
   const cont = { ok: 0, ilegivel: 0, erro: 0, chars: 0 };
   for (let i = 0; i < anexos.length; i += 1) {
     const a = anexos[i];
     const tag = `[${i + 1}/${anexos.length}] #${a.id}`;
+    let categoria = 'ok';
+    let info = `#${a.id}`;
     try {
       const buf = await baixar(a.url);
       const r = ehImagem(a.nome)
@@ -101,21 +105,27 @@ async function main() {
         });
         cont.ok += 1;
         cont.chars += texto.length;
+        info = `#${a.id} OK ${r.paginas}p`;
         console.warn(`${tag} OK — ${r.paginas}p, ${texto.length} chars (${a.tipo})`);
       } else {
         cont.ilegivel += 1;
+        categoria = 'ilegivel';
+        info = `#${a.id} ilegível (${texto.length})`;
         console.warn(`${tag} ILEGÍVEL — ${texto.length} chars, segue requer_ocr`);
       }
     } catch (err) {
       cont.erro += 1;
+      categoria = 'erro';
+      info = `#${a.id} ERRO: ${err.message.slice(0, 60)}`;
       console.error(`${tag} ERRO: ${err.message}`);
     }
+    prog.tick(info, categoria);
   }
 
   await encerrarWorker();
-  console.warn(
-    `\nAplicado — OCR ok: ${cont.ok} · ilegíveis: ${cont.ilegivel} · erros: ${cont.erro} · ${cont.chars} chars extraídos`
-  );
+  const resumo = `OCR ok: ${cont.ok} · ilegíveis: ${cont.ilegivel} · erros: ${cont.erro} · ${cont.chars} chars extraídos`;
+  prog.finish(resumo);
+  console.warn(`\nAplicado — ${resumo}`);
 }
 
 main().catch(async (e) => {

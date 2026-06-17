@@ -18,6 +18,7 @@ const { db } = require('../src/db');
 const { setProdutoStatusRevisao } = require('../src/db/produtos-revisao-repo');
 const { createAiProvider } = require('../src/ai/providers');
 const { validarProdutoComIA } = require('../src/ai/validate-produto');
+const { criarProgresso } = require('../src/utils/progress');
 
 function parseArgs(argv) {
   const o = { apply: false, limite: null, delayMs: 600, amostra: 8 };
@@ -63,13 +64,18 @@ async function main() {
 
   const provider = createAiProvider();
   const contagem = { validado: 0, rejeitado: 0, pendente: 0, erro: 0 };
+  const prog = criarProgresso('validar-produtos-ia', { total: pendentes.length });
 
   for (let i = 0; i < pendentes.length; i += 1) {
     const p = pendentes[i];
     const tag = `[${i + 1}/${pendentes.length}] #${p.id}`;
+    let categoria = 'erro';
+    let info = `#${p.id}`;
     try {
       const veredito = await validarProdutoComIA(p, { provider });
       contagem[veredito.status] += 1;
+      categoria = veredito.status;
+      info = `#${p.id} ${veredito.status}`;
       console.warn(`${tag} ${veredito.status.toUpperCase()} — ${(p.descricao || '').slice(0, 40)} :: ${veredito.motivo.slice(0, 60)}`);
       // Integridade: só AUTO-VALIDA. "rejeitado"/"parcial" ficam pendentes para
       // revisão humana — rejeitar é decisão destrutiva (descartar dado real) e a
@@ -79,10 +85,13 @@ async function main() {
       }
     } catch (err) {
       contagem.erro += 1;
+      info = `#${p.id} ERRO: ${err.message.slice(0, 60)}`;
       console.error(`${tag} ERRO: ${err.message}`);
     }
+    prog.tick(info, categoria);
     if (i < pendentes.length - 1) {await aguardar(opts.delayMs);}
   }
+  prog.finish(`validados: ${contagem.validado} · rejeitados: ${contagem.rejeitado} · pendentes: ${contagem.pendente} · erros: ${contagem.erro}`);
 
   console.warn(
     `\n${opts.apply ? 'Aplicado' : 'Dry-run'} — auto-validados: ${contagem.validado} · suspeitos p/ revisão humana: ${contagem.rejeitado} · ambíguos (pendente): ${contagem.pendente} · erros: ${contagem.erro}`
