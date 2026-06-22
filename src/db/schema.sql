@@ -363,3 +363,91 @@ CREATE TRIGGER IF NOT EXISTS documentos_fts_au AFTER UPDATE ON documentos BEGIN
   INSERT INTO documentos_fts(rowid, titulo, resumo, texto_completo)
   VALUES (new.id, new.titulo, new.resumo, new.texto_completo);
 END;
+
+-- Tabela de detalhes estruturados de emendas parlamentares
+-- Referencia documentos WHERE tipo = 'emenda_parlamentar'
+-- Campos extraidos pelo parser src/parsers/emenda-parlamentar.js
+CREATE TABLE IF NOT EXISTS emendas_detalhes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  documento_id INTEGER NOT NULL REFERENCES documentos(id) ON DELETE CASCADE,
+  esfera TEXT,                    -- 'estadual' | 'federal'
+  numero_emenda TEXT,
+  nome_parlamentar TEXT,
+  cargo_parlamentar TEXT,
+  partido TEXT,
+  tipo_emenda TEXT,               -- 'Individual' | 'Bancada'
+  tipo_transferencia TEXT,
+  objeto TEXT,
+  objeto_detalhado TEXT,
+  valor_repasse REAL,
+  valor_repasse_raw TEXT,
+  valor_contrapartida REAL,
+  orgao_transferidor TEXT,
+  instrumento_legal TEXT,
+  categoria_economica TEXT,
+  unidade_executora TEXT,
+  gestor_responsavel TEXT,
+  data_inicio TEXT,               -- ISO YYYY-MM-DD
+  data_termino TEXT,
+  data_recebimento TEXT,
+  dados_despesa TEXT,
+  atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (documento_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_emendas_detalhes_esfera ON emendas_detalhes(esfera);
+CREATE INDEX IF NOT EXISTS idx_emendas_detalhes_parlamentar ON emendas_detalhes(nome_parlamentar);
+CREATE INDEX IF NOT EXISTS idx_emendas_detalhes_partido ON emendas_detalhes(partido);
+
+-- ── Alertas de Inteligência (insights recorrentes sobre os resumos IA) ──────────
+CREATE TABLE IF NOT EXISTS alertas (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tipo TEXT NOT NULL,                          -- 'tematico' | 'processo'
+  categoria TEXT,
+  subcategoria TEXT,
+  severidade TEXT NOT NULL DEFAULT 'info',     -- 'info' | 'atencao' | 'critico'
+  titulo TEXT NOT NULL,
+  narrativa TEXT,
+  metadados_json TEXT,
+  periodo_inicio TEXT,
+  periodo_fim TEXT,
+  valor_total REAL,
+  valor_periodo_label TEXT,
+  documentos_ids_json TEXT,
+  questionamentos_json TEXT,
+  confianca REAL,
+  status TEXT NOT NULL DEFAULT 'ativo',         -- 'ativo' | 'arquivado' | 'suprimido'
+  chave_unica TEXT NOT NULL UNIQUE,
+  ultima_publicacao_documento TEXT,
+  criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_alertas_status_pub ON alertas(status, ultima_publicacao_documento DESC);
+CREATE INDEX IF NOT EXISTS idx_alertas_categoria ON alertas(categoria, severidade);
+
+CREATE TABLE IF NOT EXISTS alertas_documentos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  alerta_id INTEGER NOT NULL REFERENCES alertas(id) ON DELETE CASCADE,
+  documento_id INTEGER NOT NULL REFERENCES documentos(id) ON DELETE CASCADE,
+  papel TEXT NOT NULL DEFAULT 'relacionado',
+  trecho_fonte TEXT,
+  UNIQUE (alerta_id, documento_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_alertas_documentos_doc ON alertas_documentos(documento_id);
+
+CREATE TABLE IF NOT EXISTS alertas_watermark (
+  chave TEXT PRIMARY KEY,
+  ultimo_processado_em TEXT,
+  total_gerados INTEGER DEFAULT 0,
+  atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS alertas_config (
+  chave TEXT PRIMARY KEY,
+  valor_json TEXT NOT NULL,
+  descricao TEXT,
+  editavel INTEGER NOT NULL DEFAULT 1,
+  atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP
+);
