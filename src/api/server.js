@@ -58,6 +58,8 @@ const { scheduleResumoAiJobWorker } = require('../ai/summary-job-worker');
 const { getAiOperationPlan } = require('../ai/operation-policy');
 const { extractEntitiesFromResumes } = require('../ai/extract-entities');
 const { gerarNarrativaAnomalias } = require('../ai/anomaly-narrative');
+const alertasRepo = require('../db/alertas-repo');
+const { generateAlerts } = require('../alertas/alert-generator');
 const { getCollectionUpdateStatus, startCollectionUpdate } = require('../coletas/update-runner');
 const { listCredores, getCredorProfile } = require('../db/credores-repo');
 const { searchDocumentos, ensureFtsIndex, rebuildFtsIndex } = require('../db/fts-repo');
@@ -436,6 +438,96 @@ function createServer() {
     } catch (err) {
       return res.status(500).json({ error: err.message });
     }
+  });
+
+  // ── Alertas de inteligência ──────────────────────────────────────────────
+
+  // GET /api/alertas — lista paginada (filtros: tipo, categoria, severidade, status, periodo)
+  app.get('/api/alertas', (req, res) => {
+    const { tipo, categoria, severidade, status, periodoInicio, periodoFim, pagina, limite } = req.query;
+    return res.json(alertasRepo.listarAlertas({
+      tipo: tipo || undefined,
+      categoria: categoria || undefined,
+      severidade: severidade || undefined,
+      status: status || undefined,
+      periodoInicio: periodoInicio || undefined,
+      periodoFim: periodoFim || undefined,
+      pagina: pagina ? Number(pagina) : 1,
+      limite: limite ? Number(limite) : 20,
+    }));
+  });
+
+  // GET /api/alertas/destaques — top N para home (ativos, mais recentes)
+  app.get('/api/alertas/destaques', (req, res) => {
+    const limite = req.query.limite ? Number(req.query.limite) : 5;
+    return res.json(alertasRepo.listarDestaques(limite));
+  });
+
+  // GET /api/alertas/stats — contagem por severidade
+  app.get('/api/alertas/stats', (req, res) => {
+    const status = req.query.status || 'ativo';
+    return res.json(alertasRepo.contarPorSeveridade(status));
+  });
+
+  // GET /api/alertas/config — ler configurações
+  app.get('/api/alertas/config', (_req, res) => {
+    return res.json(alertasRepo.getAllConfig());
+  });
+
+  // PATCH /api/alertas/config — atualizar thresholds (admin)
+  app.patch('/api/alertas/config', (req, res) => {
+    const { chave, valor, descricao } = req.body || {};
+    if (!chave || valor === undefined) {
+      return res.status(400).json({ error: 'chave e valor são obrigatórios' });
+    }
+    try {
+      alertasRepo.setConfig(chave, valor, descricao || null);
+      return res.json({ ok: true, chave, valor });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/alertas/gerar — dispara geração manual (admin)
+  app.post('/api/alertas/gerar', async (req, res) => {
+    const { since, dryRun, limite } = req.body || {};
+    try {
+      const resultado = await generateAlerts({
+        since: since || undefined,
+        dryRun: Boolean(dryRun),
+        limite: limite ? Number(limite) : 200,
+      });
+      return res.json(resultado);
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/alertas/:id — detalhe com documentos vinculados
+  app.get('/api/alertas/:id', (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'id inválido' });
+    }
+    const alerta = alertasRepo.getAlerta(id);
+    if (!alerta) {
+      return res.status(404).json({ error: 'Alerta não encontrado' });
+    }
+    return res.json(alerta);
+  });
+
+  // PATCH /api/alertas/:id — alterar status (arquivar/suprimir/reativar)
+  app.patch('/api/alertas/:id', (req, res) => {
+    const id = Number(req.params.id);
+    const { status } = req.body || {};
+    if (!['ativo', 'arquivado', 'suprimido'].includes(status)) {
+      return res.status(400).json({ error: 'status deve ser ativo, arquivado ou suprimido' });
+    }
+    const ok = alertasRepo.setAlertaStatus(id, status);
+    if (!ok) {
+      return res.status(404).json({ error: 'Alerta não encontrado' });
+    }
+    return res.json({ ok: true, id, status });
   });
 
   // ── Credores ─────────────────────────────────────────────────────────────
