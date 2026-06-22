@@ -1,6 +1,45 @@
 'use strict';
 
-const { inferTipo } = require('./site-prefeitura');
+const ColetorSitePrefeitura = require('./site-prefeitura');
+const { inferTipo, normalizarNumeroBusca } = require('./site-prefeitura');
+
+// Fragmento real devolvido por ws_consulta/Conteudo_Generico.php (busca por número).
+const FRAGMENTO_BUSCA = `
+<DIV id='contenedor_registro_generico'><div class='cadgen-flex-container'>
+  <div class='informacao_generica'><span class='titulo_generico'>Processo nº</span><span class='valor_generico'>0054/2026&nbsp;</span></div>
+  <div class='informacao_generica'><span class='titulo_generico'>Modalidade nº</span><span class='valor_generico'>Pregão Presencial Filmado nº 009/2026&nbsp;</span></div>
+  <div class='informacao_generica'><span class='titulo_generico'>Data</span><span class='valor_generico'>19/06/2026&nbsp;</span></div>
+  <div class='informacao_generica'><span class='titulo_generico'>Objeto</span><span class='valor_generico'>Aquisição de Artefatos de Cimento.&nbsp;</span></div>
+  <div class='informacao_generica'><span class='titulo_generico'>Link do processo</span><span class='valor_generico'><a href='http://'>http://</a>&nbsp;</span></div>
+</div>
+<DIV class='informacao_generica'><span class='titulo_generico'>Anexos</span>
+  <div class='cadgen-container-anexos'><DIV class='cadgen-arquivo-item'>
+    <span>PDF</span>
+    <span id='nome_arquivo_registro_generico' onClick='javascript:obterArquivoCadastroGenerico(246934)'>Edital_Cimento_2026.pdf</span>
+    <span id='datahora_arquivo_registro_generico'>(10/06/2026 07:46:39)</span>
+  </DIV></div></DIV></DIV>`;
+
+describe('site-prefeitura · normalizarNumeroBusca', () => {
+  it('iguala número com zeros à esquerda e espaços', () => {
+    expect(normalizarNumeroBusca('0054/2026')).toBe(normalizarNumeroBusca('54/2026'));
+    expect(normalizarNumeroBusca(' 0054 / 2026 ')).toBe(normalizarNumeroBusca('54/2026'));
+  });
+
+  it('mantém números distintos diferentes', () => {
+    expect(normalizarNumeroBusca('0054/2026')).not.toBe(normalizarNumeroBusca('0055/2026'));
+  });
+});
+
+describe('site-prefeitura · parseRecords (fragmento de busca)', () => {
+  it('extrai número, data de publicação (datahora do anexo) e sessão', () => {
+    const coletor = new ColetorSitePrefeitura();
+    const [rec] = coletor.parseRecords('https://ritapolis.mg.gov.br/pagina/6668/editais', 'Editais', FRAGMENTO_BUSCA);
+    expect(rec.numero).toBe('0054/2026');
+    expect(rec.dataPublicacao).toBe('2026-06-10'); // datahora do anexo
+    expect(rec.dataSessao).toBe('2026-06-19'); // campo "Data" = sessão futura
+    expect(rec.attachments[0].fileId).toBe('246934');
+  });
+});
 
 describe('site-prefeitura · inferTipo', () => {
   describe('modalidades de contratação já suportadas', () => {

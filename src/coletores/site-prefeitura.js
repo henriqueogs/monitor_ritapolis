@@ -72,6 +72,16 @@ function toIsoDate(value) {
   return `${match[3]}-${match[2]}-${match[1]}`;
 }
 
+// Normaliza um número de processo/edital para comparação tolerante a espaços e
+// zeros à esquerda ("0054/2026" ≈ "54/2026").
+function normalizarNumeroBusca(numero) {
+  return String(numero || '')
+    .replace(/\s+/g, '')
+    .replace(/^0+/, '')
+    .replace(/\/0+/, '/')
+    .toLowerCase();
+}
+
 function inferTipo(title, text, modalidade = '') {
   const mod = String(modalidade || '');
   // Usar apenas título + modalidade para classificação — o texto completo do PDF
@@ -201,6 +211,55 @@ class ColetorSitePrefeitura extends ColetorBase {
       }
     });
     return decodeHttpBody(response.data, response.headers['content-type']);
+  }
+
+  // Busca um registro específico do cadastro pelo número (STR_BSC_CAD_GEN).
+  async fetchCadastroBusca(cadastroId, termo) {
+    const url = `${BASE_URL}/ws_consulta/Conteudo_Generico.php?DataHora=${Date.now()}`;
+    const payload = new URLSearchParams({
+      INT_CAD_GEN: String(cadastroId),
+      STR_BSC_CAD_GEN: String(termo || ''),
+      LG_ADM: 'false',
+      INT_PAG: '0'
+    }).toString();
+    const response = await this.postComRetry(url, payload, {
+      responseType: 'arraybuffer',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    });
+    return decodeHttpBody(response.data, response.headers['content-type']);
+  }
+
+  // Verifica a procedência de um documento da Prefeitura pelo número do processo:
+  // consulta a fonte ao vivo e devolve o registro oficial (datas, objeto, anexos)
+  // + a "última atualização" do cadastro. Não é permalink — é verificação por
+  // número (o CMS não expõe URL por processo).
+  async verificarProcedenciaPorNumero(numero, pageId) {
+    const area = PREFEITURA_AREAS.find((a) => a.pageId === Number(pageId));
+    const technicalUrl = area
+      ? area.technicalUrl
+      : `${BASE_URL}/ws_consulta/Pagina.php?INT_PAG=${pageId}`;
+    const publicUrl = area ? area.publicUrl : `${BASE_URL}/pagina/${pageId}`;
+
+    const resp = await this.buscarComRetry(technicalUrl, { responseType: 'arraybuffer' });
+    const pageHtml = decodeHttpBody(resp.data, resp.headers['content-type']);
+    const cadastroIds = this.extractCadastroGenericoIds(pageHtml);
+    const alvo = normalizarNumeroBusca(numero);
+
+    for (const cadastroId of cadastroIds) {
+      const html = await this.fetchCadastroBusca(cadastroId, numero);
+      const meta = await this.fetchCadastroMeta(cadastroId).catch(() => ({}));
+      const records = this.parseRecords(publicUrl, meta.title || '', html);
+      const match = records.find((r) => normalizarNumeroBusca(r.numero) === alvo);
+      if (match) {
+        return {
+          encontrado: true,
+          cadastroId,
+          atualizadoEmFonte: meta.updatedAt || null,
+          registro: match
+        };
+      }
+    }
+    return { encontrado: false };
   }
 
   getTotalPages(html) {
@@ -442,3 +501,4 @@ ColetorSitePrefeitura.AREAS = PREFEITURA_AREAS;
 
 module.exports = ColetorSitePrefeitura;
 module.exports.inferTipo = inferTipo;
+module.exports.normalizarNumeroBusca = normalizarNumeroBusca;
