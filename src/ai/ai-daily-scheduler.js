@@ -1,6 +1,8 @@
 const config = require('../config');
 const logger = require('../logger');
 const { summarizePendingDocuments } = require('./summarize-pending-documents');
+const { extractEntitiesFromResumes } = require('./extract-entities');
+const { generateAlerts } = require('../alertas/alert-generator');
 
 let timer = null;
 let cycleRunning = false;
@@ -40,6 +42,34 @@ async function runCycle() {
     };
 
     logger.info('AI scheduler: ciclo concluido', lastRunStats);
+
+    // Pós-ciclo: extrair entidades dos resumos novos (idempotente)
+    if (resultado.total_ok > 0) {
+      try {
+        const entidades = extractEntitiesFromResumes();
+        logger.info('AI scheduler: entidades extraidas pós-ciclo', {
+          com_vencedor: entidades.com_vencedor,
+          com_valor_final: entidades.com_valor_final,
+        });
+      } catch (errEntidades) {
+        logger.warn('AI scheduler: falha na extração pós-ciclo', { erro: errEntidades.message });
+      }
+
+      // Pós-ciclo: gerar alertas de inteligência a partir dos resumos novos
+      if (config.alertasEnabled && config.alertasSchedulerEnabled) {
+        try {
+          const alertasResult = await generateAlerts({ limite: config.alertasLimitePorCiclo });
+          logger.info('AI scheduler: alertas gerados pós-ciclo', {
+            total_docs: alertasResult.total,
+            gerados: alertasResult.gerados,
+            atualizados: alertasResult.atualizados,
+            erros: alertasResult.erros,
+          });
+        } catch (errAlertas) {
+          logger.warn('AI scheduler: falha na geração de alertas pós-ciclo', { erro: errAlertas.message });
+        }
+      }
+    }
   } catch (error) {
     lastRunStats = { total_selecionados: 0, total_ok: 0, total_erro: 1, erro: error.message };
     logger.error('AI scheduler: ciclo falhou', { erro: error.message });
@@ -54,7 +84,7 @@ function start() {
     return;
   }
 
-  if (timer) return;
+  if (timer) {return;}
 
   const intervalHoras = Math.round(config.aiSchedulerIntervalMs / 3600000);
   const estimativaDias = Math.ceil(430 / (config.aiSchedulerDocsPerCycle * (24 / intervalHoras)));
@@ -99,4 +129,4 @@ function getStatus() {
   };
 }
 
-module.exports = { start, stop, getStatus };
+module.exports = { start, stop, getStatus, runCycle };

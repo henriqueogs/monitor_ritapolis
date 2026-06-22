@@ -68,5 +68,12 @@ module.exports = {
   // Delay entre documentos no mesmo ciclo (ms) — evita rate limit
   aiSchedulerDelayBetweenDocsMs: Number(process.env.AI_SCHEDULER_DELAY_BETWEEN_DOCS_MS || 10_000),
   // Intervalo entre ciclos (ms) — padrão 4h → 6 ciclos/dia × 30 docs = 180 docs/dia
-  aiSchedulerIntervalMs: Number(process.env.AI_SCHEDULER_INTERVAL_MS || 4 * 60 * 60 * 1000)
+  aiSchedulerIntervalMs: Number(process.env.AI_SCHEDULER_INTERVAL_MS || 4 * 60 * 60 * 1000),
+
+  // Gerador de alertas de inteligência
+  alertasEnabled: String(process.env.ALERTAS_ENABLED || 'true').toLowerCase() !== 'false',
+  alertasSchedulerEnabled: String(process.env.ALERTAS_SCHEDULER_ENABLED || 'true').toLowerCase() !== 'false',
+  alertasMinRepeticao: Number(process.env.ALERTAS_MIN_REPETICAO || 2),
+  alertasValorThreshold: Number(process.env.ALERTAS_VALOR_THRESHOLD || 500000),
+  alertasLimitePorCiclo: Number(process.env.ALERTAS_LIMITE_POR_CICLO || 200)
 };
