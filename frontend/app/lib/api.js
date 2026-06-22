@@ -468,6 +468,10 @@ export function triggerAdminAction(acao) {
   return fetch(`${apiUrl}/admin/trigger/${acao}`, { method: 'POST' }).then((r) => r.json());
 }
 
+export function fetchAdminFerramentas() {
+  return fetchJson('/admin/ferramentas', { revalidate: 0 });
+}
+
 // ── Revisão de produtos extraídos (curadoria de qualidade) ────────────────────
 
 export function fetchProdutosRevisaoResumo() {
@@ -501,4 +505,22 @@ export function fetchEvolucaoPrecoGrupo(id) {
 
 export function fetchCoberturaPorAno() {
   return fetchJson('/inteligencia/cobertura').catch(() => ({ dados: [] }));
+}
+
+// ── Emendas Parlamentares ─────────────────────────────────────────────────────
+
+export function fetchEmendas(params = {}) {
+  return fetchJson(`/emendas${buildQuery(params)}`).catch(() => ({ emendas: [], total: 0 }));
+}
+
+export function fetchEmendaTotaisPorAno() {
+  return fetchJson('/emendas/totais-por-ano').catch(() => []);
+}
+
+export function fetchEmendaParlamentares(params = {}) {
+  return fetchJson(`/emendas/parlamentares${buildQuery(params)}`).catch(() => []);
+}
+
+export function fetchEmenda(id) {
+  return fetchJson(`/emendas/${id}`).catch(() => null);
 }

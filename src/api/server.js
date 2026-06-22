@@ -61,7 +61,15 @@ const { gerarNarrativaAnomalias } = require('../ai/anomaly-narrative');
 const { getCollectionUpdateStatus, startCollectionUpdate } = require('../coletas/update-runner');
 const { listCredores, getCredorProfile } = require('../db/credores-repo');
 const { searchDocumentos, ensureFtsIndex, rebuildFtsIndex } = require('../db/fts-repo');
+const {
+  listarEmendas,
+  contarEmendas,
+  getEmendaById,
+  totaisPorAno,
+  parlamentaresComTotais,
+} = require('../db/emendas-repo');
 const { getAdminSnapshot } = require('../db/admin-repo');
+const { listarFerramentas, executarFerramenta, lerStatusProgresso } = require('./admin-tarefas');
 const {
   contarProdutosRevisao,
   listProdutosParaRevisao,
@@ -486,6 +494,39 @@ function createServer() {
     return res.json(dailyScheduler.getStatus());
   });
 
+  // ── Emendas Parlamentares ──────────────────────────────────────────────────
+
+  app.get('/api/emendas', (req, res) => {
+    const limit = Math.min(Math.max(Number(req.query.limite || 20), 1), 100);
+    const offset = Math.max(Number(req.query.offset || 0), 0);
+    const filtros = {
+      esfera: req.query.esfera || undefined,
+      partido: req.query.partido || undefined,
+      nome_parlamentar: req.query.parlamentar || undefined,
+      ano: req.query.ano || undefined,
+    };
+    const emendas = listarEmendas({ ...filtros, limit, offset });
+    const total = contarEmendas(filtros);
+    res.json({ emendas, total, limit, offset });
+  });
+
+  app.get('/api/emendas/totais-por-ano', (_req, res) => {
+    res.json(totaisPorAno());
+  });
+
+  app.get('/api/emendas/parlamentares', (req, res) => {
+    res.json(parlamentaresComTotais({
+      esfera: req.query.esfera || undefined,
+      ano: req.query.ano || undefined,
+    }));
+  });
+
+  app.get('/api/emendas/:id', (req, res) => {
+    const emenda = getEmendaById(Number(req.params.id));
+    if (!emenda) { return res.status(404).json({ error: 'Emenda nao encontrada' }); }
+    return res.json(emenda);
+  });
+
   // ─────────────────────────────────────────────────────────────────────────
 
   app.get('/api/documentos/:id', (req, res) => {
@@ -750,9 +791,25 @@ function createServer() {
     });
   });
 
+  // GET /api/admin/ferramentas — catálogo de ferramentas + tarefas em andamento
+  app.get('/api/admin/ferramentas', (_req, res) => {
+    return res.json({
+      ferramentas: listarFerramentas(),
+      tarefas: lerStatusProgresso(),
+      timestamp: new Date().toISOString(),
+    });
+  });
+
   // POST /api/admin/trigger/:acao — dispara ação manual
   app.post('/api/admin/trigger/:acao', async (req, res) => {
     const { acao } = req.params;
+
+    // Ferramentas de manutenção (catálogo em admin-tarefas.js)
+    if (listarFerramentas().some((f) => f.id === acao)) {
+      const resultado = await executarFerramenta(acao);
+      const status = resultado.ok ? 200 : resultado.jaRodando ? 409 : 400;
+      return res.status(status).json({ ok: resultado.ok, acao, ...resultado });
+    }
 
     if (acao === 'ai-cycle') {
       // Dispara ciclo IA em background — não bloqueia resposta
@@ -832,7 +889,7 @@ function createServer() {
   // ─────────────────────────────────────────────────────────────────────────
 
   app.use((error, _req, res, _next) => {
-    logger.error('Erro inesperado na API', { erro: error.message, stack: error.stack });
+    logger.error('Erro inespeed na API', { erro: error.message, stack: error.stack });
     res.status(500).json({ error: 'Erro interno do servidor' });
   });
 

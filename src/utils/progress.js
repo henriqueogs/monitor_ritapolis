@@ -109,4 +109,31 @@ function criarProgresso(nome, { total = null, dir = config.logDir } = {}) {
   };
 }
 
-module.exports = { criarProgresso, fmtDuracao };
+const LIMITE_TRAVADO_S = 180;
+
+// Lê todos os status de progresso em `dir` e anota idade e estado
+// (ativo / concluido / travado). Compartilhado pelo CLI e pela API admin.
+function lerStatusProgresso(dir = config.logDir, { travadoS = LIMITE_TRAVADO_S } = {}) {
+  let arquivos = [];
+  try {
+    arquivos = fs.readdirSync(dir).filter((f) => f.endsWith('.status.json'));
+  } catch {
+    return [];
+  }
+  const agora = Date.now();
+  return arquivos
+    .map((f) => {
+      try {
+        const j = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
+        const idadeS = Math.round((agora - new Date(j.atualizado_em).getTime()) / 1000);
+        const estado = j.concluido ? 'concluido' : idadeS > travadoS ? 'travado' : 'ativo';
+        return { ...j, idade_s: idadeS, estado };
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => String(b.atualizado_em).localeCompare(String(a.atualizado_em)));
+}
+
+module.exports = { criarProgresso, fmtDuracao, lerStatusProgresso, LIMITE_TRAVADO_S };
