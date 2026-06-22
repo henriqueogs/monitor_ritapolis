@@ -149,6 +149,26 @@ Interface em `/admin/pncp` para confirmar/rejeitar sugestões de correspondênci
 **Busca com inteligência IA (v0.9+)**
 Interpretação semântica de consultas em linguagem natural — "quais obras foram contratadas em 2024?" — cruzando múltiplas tabelas com contexto. Depende de cobertura IA >80% e índice semântico dos resumos. Não implementado na v0.8; o campo de busca atual é uma busca textual simples direcionada para `/acervo`.
 
+**Origem por processo na Prefeitura (origem rastreável — §11.3)**
+Investigado em 2026-06-17. O CMS da Prefeitura (ritapolis.mg.gov.br, SH3) **não
+expõe permalink por processo**: a listagem `/pagina/<RPID>/Editais` carrega os
+itens via AJAX (`ws_consulta/Conteudo_Generico.php`, POST), sem aceitar params na
+URL — não dá para deep-linkar uma busca. O CMS tem um campo "Link do processo",
+mas vem **vazio** (`http://`). Conclusões e plano:
+- A **URL do arquivo oficial** (`Obter_Arquivo_Cadastro_Generico.php?INT_ARQ=…`,
+  já em `url_pdf`) é a origem mais específica e estável que existe — é *onde o
+  documento está publicado*. A UI deve tratá-la como fonte oficial primária; a
+  listagem genérica é contexto de último recurso (`source-links.js` já prioriza
+  o arquivo).
+- O endpoint de busca (`INT_CAD_GEN=612`, `STR_BSC_CAD_GEN=<numero>`, cookie
+  `INT_RPID=<rpid>`) devolve o registro específico (campos Data/sessão, Objeto,
+  anexos com datahora). **Não é permalink** (POST → fragmento HTML), mas serve
+  para **verificar/enriquecer** um doc pelo número: confirmar que segue no ar e
+  reextrair a datahora de publicação. Candidato a um verificador de procedência
+  sob demanda.
+- Se algum dia a Prefeitura preencher "Link do processo", capturá-lo como
+  `url_origem` (hoje ignorar quando for `http://`/vazio).
+
 ### Decisões técnicas permanentes
 
 - SQLite no curto e médio prazo
