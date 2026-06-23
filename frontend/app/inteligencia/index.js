@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import SectionBlock from '../components/SectionBlock';
 import CategoriaBadge from '../components/CategoriaBadge';
-import { fetchInteligenciaPanorama, fetchCoberturaPorAno } from '../lib/api';
+import { fetchInteligenciaPanorama, fetchCoberturaPorAno, fetchAlertasDestaques } from '../lib/api';
 import { formatMoney } from '../lib/format';
 import FornecedoresRanking from '../estatisticas/components/FornecedoresRanking';
 
@@ -75,9 +75,10 @@ function CoberturaCell({ pct }) {
 }
 
 export default async function InteligenciaPage() {
-  const [panorama, cobertura] = await Promise.all([
+  const [panorama, cobertura, alertasInteligencia] = await Promise.all([
     fetchInteligenciaPanorama().catch(() => null),
     fetchCoberturaPorAno().catch(() => ({ dados: [] })),
+    fetchAlertasDestaques(5).catch(() => []),
   ]);
 
   if (!panorama) {
@@ -133,6 +134,41 @@ export default async function InteligenciaPage() {
           />
         </div>
       </SectionBlock>
+
+      {/* ── Alertas de inteligência ── */}
+      {alertasInteligencia?.length > 0 && (
+        <SectionBlock
+          title="Alertas de inteligência"
+          description="Padrões detectados automaticamente nos resumos: repetição temática, valores relevantes, riscos e questionamentos."
+          aside={<Link href="/alertas" style={{ fontSize: 13, color: 'var(--text-muted)' }}>Ver todos →</Link>}
+        >
+          {alertasInteligencia.map((a) => {
+            const cor = a.severidade === 'critico' ? 'var(--error)' : a.severidade === 'atencao' ? 'var(--warning)' : 'var(--accent)';
+            return (
+              <Link
+                key={a.id}
+                href={`/alertas/${a.id}`}
+                className="quality-row"
+                style={{ borderLeft: `4px solid ${cor}`, paddingLeft: 12 }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{a.titulo}</p>
+                  <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
+                    <span style={{ color: cor, fontWeight: 600 }}>{a.severidade}</span>
+                    {a.categoria ? ` · ${a.categoria}` : ''}
+                    {a.valor_total ? ` · ${a.valor_periodo_label || formatMoney(a.valor_total)}` : ''}
+                  </p>
+                </div>
+                {a.valor_total ? (
+                  <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 700, flexShrink: 0 }}>
+                    {formatMoney(a.valor_total)}
+                  </span>
+                ) : null}
+              </Link>
+            );
+          })}
+        </SectionBlock>
+      )}
 
       {/* ── Categorias ── */}
       {por_categoria?.length > 0 && (

@@ -16,7 +16,7 @@ Plano em `New_work.md`. ✅ feito · 🔄 em andamento · ⬜ pendente.
 - ✅ **Fase 4 — Orquestrador + CLI** (`alert-generator.js`, `scripts/gerar-alertas.js`, `npm run alertas:gerar[:dry]`).
 - ✅ **Fase 5 — Scheduler + config** (integrado ao `ai-daily-scheduler`).
 - ✅ **Fase 6 — API REST** (`/api/alertas`, `/destaques`, `/:id`, `/stats`, `/config`, `POST /gerar`).
-- 🔄 **Fase 7 — Frontend**: ✅ destaques na home · ✅ `/alertas` (lista) · ✅ `/alertas/[id]` (detalhe) · ✅ link na navbar · ✅ painel no admin (`/admin/alertas`: stats, config, gerar, arquivar/suprimir) · ⬜ seção em `/inteligencia`.
+- ✅ **Fase 7 — Frontend**: destaques na home · `/alertas` (lista) · `/alertas/[id]` (detalhe) · link na navbar · painel no admin (`/admin/alertas`) · seção em `/inteligencia`.
 - 🔄 **Fase 8 — Verificação + docs**: ✅ unit/integração (repo, detectores, consolidador) · ✅ `DEVELOPMENT_PLAN.md` · ✅ validação manual (26 alertas reais) · ⬜ E2E Playwright · ⬜ `README.md`.
 
 Validado em dados reais: 195 docs → 38 sinais → 26 alertas com narrativa IA, valores por ano.
