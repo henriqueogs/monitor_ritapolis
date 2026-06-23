@@ -15,11 +15,31 @@
 
 process.loadEnvFile?.() || require('dotenv').config();
 
+const axios = require('axios');
 const { setupDatabase } = require('../src/db/setup');
 const { db } = require('../src/db');
 const ColetorSitePrefeitura = require('../src/coletores/site-prefeitura');
 const { naoFutura } = require('../src/utils/datas');
 const { criarProgresso } = require('../src/utils/progress');
+const config = require('../src/config');
+
+// Procedência via arquivo: quando a busca por número não acha na listagem de
+// editais (ex.: concursos ficam em outro cadastro), mas o PDF oficial está vivo.
+async function urlPdfVivo(url) {
+  if (!url || !/^https?:/.test(url)) {
+    return false;
+  }
+  try {
+    const r = await axios.get(url, {
+      responseType: 'arraybuffer',
+      timeout: config.collectorTimeoutMs * 2,
+      headers: { 'user-agent': config.collectorUserAgent, accept: '*/*' },
+    });
+    return r.status === 200 && r.data && r.data.byteLength > 1000;
+  } catch {
+    return false;
+  }
+}
 
 function parseArgs(argv) {
   const o = { apply: false, documentoId: null, tipo: null, limite: null };
@@ -39,13 +59,13 @@ function pageIdDeOrigem(urlOrigem) {
 
 function listar(opts) {
   if (opts.documentoId) {
-    return db.prepare('SELECT id, numero, tipo, data_publicacao, url_origem, dados_extras FROM documentos WHERE id = ?').all(opts.documentoId);
+    return db.prepare('SELECT id, numero, tipo, data_publicacao, url_origem, url_pdf, dados_extras FROM documentos WHERE id = ?').all(opts.documentoId);
   }
   const limit = Number.isFinite(opts.limite) && opts.limite > 0 ? `LIMIT ${Math.floor(opts.limite)}` : '';
   const filtroTipo = opts.tipo ? 'AND tipo = @tipo' : '';
   return db
     .prepare(
-      `SELECT id, numero, tipo, data_publicacao, url_origem, dados_extras FROM documentos
+      `SELECT id, numero, tipo, data_publicacao, url_origem, url_pdf, dados_extras FROM documentos
         WHERE fonte = 'site_prefeitura' AND numero IS NOT NULL
           AND url_origem LIKE '%/pagina/%' ${filtroTipo}
         ORDER BY id DESC ${limit}`
@@ -81,7 +101,7 @@ async function main() {
   );
 
   const prog = criarProgresso('verificar-procedencia', { total: docs.length });
-  const cont = { confirmados: 0, data_reconciliada: 0, nao_encontrados: 0, sem_pagina: 0, erro: 0 };
+  const cont = { confirmados: 0, confirmado_arquivo: 0, data_reconciliada: 0, nao_encontrados: 0, sem_pagina: 0, erro: 0 };
 
   for (let i = 0; i < docs.length; i += 1) {
     const d = docs[i];
@@ -101,12 +121,24 @@ async function main() {
       }
       const r = await coletor.verificarProcedenciaPorNumero(d.numero, pageId);
       if (!r.encontrado) {
+        // Busca por número não achou — mas se o arquivo oficial está vivo, a
+        // procedência existe (concursos ficam em outro cadastro, etc.).
+        if (await urlPdfVivo(d.url_pdf)) {
+          cont.confirmado_arquivo += 1;
+          categoria = 'confirmado_arquivo';
+          if (opts.apply) {
+            marcarProcedencia.run({ id: d.id, status: 'confirmado_arquivo', agora: new Date().toISOString() });
+          }
+          console.warn(`${tag} confirmado via ARQUIVO (não está na listagem de editais)`);
+          prog.tick(`#${d.id} via arquivo`, categoria);
+          continue;
+        }
         cont.nao_encontrados += 1;
         categoria = 'nao_encontrado';
         if (opts.apply) {
           marcarProcedencia.run({ id: d.id, status: 'nao_encontrado', agora: new Date().toISOString() });
         }
-        console.warn(`${tag} NÃO encontrado na fonte (pode ter saído do ar)`);
+        console.warn(`${tag} NÃO encontrado na fonte (sem arquivo vivo)`);
         prog.tick(`#${d.id} não encontrado`, categoria);
         continue;
       }
@@ -134,10 +166,10 @@ async function main() {
   }
 
   prog.finish(
-    `confirmados: ${cont.confirmados} · data reconciliada: ${cont.data_reconciliada} · não encontrados: ${cont.nao_encontrados} · sem página: ${cont.sem_pagina} · erros: ${cont.erro}`
+    `confirmados: ${cont.confirmados} · via arquivo: ${cont.confirmado_arquivo} · data reconciliada: ${cont.data_reconciliada} · não encontrados: ${cont.nao_encontrados} · sem página: ${cont.sem_pagina} · erros: ${cont.erro}`
   );
   console.warn(
-    `\n${opts.apply ? 'Aplicado' : 'Dry-run'} — confirmados: ${cont.confirmados} · data reconciliada: ${cont.data_reconciliada} · não encontrados: ${cont.nao_encontrados} · sem página: ${cont.sem_pagina} · erros: ${cont.erro}`
+    `\n${opts.apply ? 'Aplicado' : 'Dry-run'} — confirmados: ${cont.confirmados} · via arquivo: ${cont.confirmado_arquivo} · data reconciliada: ${cont.data_reconciliada} · não encontrados: ${cont.nao_encontrados} · sem página: ${cont.sem_pagina} · erros: ${cont.erro}`
   );
 }
 
