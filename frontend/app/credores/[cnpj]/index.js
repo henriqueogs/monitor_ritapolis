@@ -157,16 +157,16 @@ export default async function CredorProfilePage({ params }) {
         <SectionBlock title="Recebimentos por área de governo">
           <div className="table-scroll-x">
             <div className="simple-table" style={{ minWidth: 400 }}>
-              <div className="table-row table-row-header">
+              <div className="table-row table-row-header" style={{ display: 'grid', gridTemplateColumns: '1fr 100px 130px', gap: 12, alignItems: 'center' }}>
                 <span>Área</span>
-                <span>Empenhos</span>
-                <span>Total</span>
+                <span style={{ textAlign: 'center' }}>Empenhos</span>
+                <span style={{ textAlign: 'right' }}>Total</span>
               </div>
               {por_funcao.map((f) => (
-                <div key={f.funcao} className="table-row">
+                <div key={f.funcao} className="table-row" style={{ display: 'grid', gridTemplateColumns: '1fr 100px 130px', gap: 12, alignItems: 'center' }}>
                   <span style={{ fontSize: 13 }}>{f.funcao}</span>
-                  <span style={{ fontVariantNumeric: 'tabular-nums', fontSize: 13 }}>{f.n_empenhos}</span>
-                  <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{formatMoney(f.valor_total)}</span>
+                  <span style={{ fontVariantNumeric: 'tabular-nums', fontSize: 13, textAlign: 'center' }}>{f.n_empenhos}</span>
+                  <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>{formatMoney(f.valor_total)}</span>
                 </div>
               ))}
             </div>
@@ -179,18 +179,25 @@ export default async function CredorProfilePage({ params }) {
         <SectionBlock title="Licitações vencidas">
           <div className="table-scroll-x">
             <div className="simple-table" style={{ minWidth: 500 }}>
-              <div className="table-row table-row-header">
+              <div className="table-row table-row-header" style={{ display: 'grid', gridTemplateColumns: '60px 1fr 150px 120px', gap: 12, alignItems: 'center' }}>
                 <span>Ano</span>
                 <span>Processo</span>
                 <span>Modalidade</span>
-                <span>Valor final</span>
+                <span style={{ textAlign: 'right' }}>Valor final</span>
               </div>
               {licitacoes_ganhas.map((l) => (
                 <Link
                   key={l.documento_id}
                   href={`/documento/${l.documento_id}`}
                   className="table-row"
-                  style={{ textDecoration: 'none', color: 'inherit' }}
+                  style={{
+                    textDecoration: 'none',
+                    color: 'inherit',
+                    display: 'grid',
+                    gridTemplateColumns: '60px 1fr 150px 120px',
+                    gap: 12,
+                    alignItems: 'center'
+                  }}
                 >
                   <span style={{ fontSize: 13 }}>{l.ano}</span>
                   <span style={{ minWidth: 0 }}>
@@ -200,7 +207,7 @@ export default async function CredorProfilePage({ params }) {
                     <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{l.numero}</span>
                   </span>
                   <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{l.modalidade || '—'}</span>
-                  <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                  <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>
                     {l.valor_final ? formatMoney(l.valor_final) : '—'}
                   </span>
                 </Link>
@@ -215,14 +222,14 @@ export default async function CredorProfilePage({ params }) {
         <SectionBlock title="Empenhos recentes">
           <div className="table-scroll-x">
             <div className="simple-table" style={{ minWidth: 520 }}>
-              <div className="table-row table-row-header">
+              <div className="table-row table-row-header" style={{ display: 'grid', gridTemplateColumns: '90px 1fr 150px 110px', gap: 12, alignItems: 'center' }}>
                 <span>Data</span>
                 <span>Empenho</span>
                 <span>Área</span>
-                <span>Valor</span>
+                <span style={{ textAlign: 'right' }}>Valor</span>
               </div>
               {empenhos_recentes.map((e) => (
-                <div key={`${e.empenho}-${e.ano}`} className="table-row">
+                <div key={`${e.empenho}-${e.ano}`} className="table-row" style={{ display: 'grid', gridTemplateColumns: '90px 1fr 150px 110px', gap: 12, alignItems: 'center' }}>
                   <span style={{ fontSize: 12, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
                     {e.data_empenho || e.ano}
                   </span>
@@ -237,7 +244,7 @@ export default async function CredorProfilePage({ params }) {
                   <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                     {e.funcao?.replace(/^\d+\s*-\s*/, '') || '—'}
                   </span>
-                  <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{formatMoney(e.valor)}</span>
+                  <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>{formatMoney(e.valor)}</span>
                 </div>
               ))}
             </div>
