@@ -58,13 +58,13 @@ function compactText(value, maxLength = 900) {
     .replace(/\s+/g, ' ')
     .trim();
 
-  if (!text) return null;
+  if (!text) {return null;}
   return text.length > maxLength ? `${text.slice(0, maxLength - 1).trim()}...` : text;
 }
 
 function normalizeUnit(value) {
   const text = compactText(value, 120);
-  if (!text) return null;
+  if (!text) {return null;}
 
   return text
     .replace(/Embal\s*agem/gi, 'Embalagem')
@@ -79,7 +79,7 @@ function normalizeUnit(value) {
 }
 
 function parseNumber(value) {
-  if (value == null || value === '') return null;
+  if (value === null || value === '') {return null;}
   const parsed = Number(String(value).replace(/\./g, '').replace(',', '.'));
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
@@ -97,10 +97,10 @@ function removeTableNoise(value) {
 function getTableRegion(text) {
   const source = String(text || '');
   const startMatch = source.match(TABLE_HEADER_PATTERN);
-  if (!startMatch) return null;
+  if (!startMatch) {return null;}
 
   const start = source.search(TABLE_HEADER_PATTERN);
-  if (start < 0) return null;
+  if (start < 0) {return null;}
 
   const afterStart = source.slice(start);
   const endMatch = afterStart.search(/\b2\.\s+DA\s+JUSTIFICATIVA\b/i);
@@ -116,7 +116,7 @@ function splitItemSegments(region) {
 
   while ((match = itemRe.exec(region))) {
     const itemNumber = Number(match[1]);
-    if (!Number.isInteger(itemNumber) || itemNumber < 1) continue;
+    if (!Number.isInteger(itemNumber) || itemNumber < 1) {continue;}
     markers.push({
       item_numero: String(itemNumber),
       start: match.index,
@@ -132,7 +132,7 @@ function splitItemSegments(region) {
 
 function parseItemSegment(segment) {
   const textoLimpo = removeTableNoise(segment.texto);
-  if (!textoLimpo) return null;
+  if (!textoLimpo) {return null;}
 
   let match = textoLimpo.match(UNIT_START_RE);
   let unidade;
@@ -145,7 +145,7 @@ function parseItemSegment(segment) {
     descricao = match[3];
   } else {
     match = textoLimpo.match(UNIT_INSIDE_RE);
-    if (!match) return null;
+    if (!match) {return null;}
 
     unidade = match[2];
     quantidade = match[3];
@@ -183,7 +183,7 @@ function parseItemSegment(segment) {
 
 function parseProdutosLicitados(text) {
   const region = getTableRegion(text);
-  if (!region) return [];
+  if (!region) {return [];}
 
   return splitItemSegments(removeTableNoise(region))
     .map(parseItemSegment)

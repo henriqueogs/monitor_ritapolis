@@ -14,17 +14,17 @@ function inferPapel(documento, modelo = {}) {
   const resumo = String(documento?.resumo || '').toLowerCase();
   const texto = `${titulo} ${resumo}`;
 
-  if (/(republic|retific|republica)/i.test(texto)) return 'republicacao';
-  if (/(homolog)/i.test(texto)) return 'homologacao';
-  if (modelo.tem_contrato || /contrato/i.test(texto)) return 'contrato';
-  if (/\bata\b|resultado|classifica/i.test(texto)) return 'ata';
+  if (/(republic|retific|republica)/i.test(texto)) {return 'republicacao';}
+  if (/(homolog)/i.test(texto)) {return 'homologacao';}
+  if (modelo.tem_contrato || /contrato/i.test(texto)) {return 'contrato';}
+  if (/\bata\b|resultado|classifica/i.test(texto)) {return 'ata';}
   if (
     modelo.tem_edital ||
     /edital|preg[aã]o|dispensa|concorr[eê]ncia|chamamento|credenciamento|ades[aã]o/i.test(texto)
   ) {
     return 'edital';
   }
-  if (modelo.tem_ata) return 'ata';
+  if (modelo.tem_ata) {return 'ata';}
 
   return 'publicacao';
 }
@@ -36,14 +36,14 @@ function papelLabel(papel) {
 function pickDocumentoCanonico(itens) {
   const ordenados = [...itens].sort((a, b) => {
     const peso = (item) => {
-      if (item.papel === 'edital') return 0;
-      if (item.papel === 'publicacao') return 1;
-      if (item.papel === 'republicacao') return 3;
+      if (item.papel === 'edital') {return 0;}
+      if (item.papel === 'publicacao') {return 1;}
+      if (item.papel === 'republicacao') {return 3;}
       return 2;
     };
 
     const diff = peso(a) - peso(b);
-    if (diff !== 0) return diff;
+    if (diff !== 0) {return diff;}
 
     const dataA = a.data_publicacao || a.data_abertura || '';
     const dataB = b.data_publicacao || b.data_abertura || '';
@@ -58,7 +58,7 @@ function buildGrupoKey(documento, modelo = {}) {
   const ano = Number(documento?.ano);
   const chave = normalizeProcessoChave(processo);
 
-  if (!chave || !Number.isFinite(ano)) return null;
+  if (!chave || !Number.isFinite(ano)) {return null;}
 
   return {
     processo_chave: chave,
@@ -72,7 +72,7 @@ function agruparDocumentosLicitacao(documentos) {
 
   documentos.forEach((item) => {
     const key = buildGrupoKey(item.documento, item.modelo);
-    if (!key) return;
+    if (!key) {return;}
 
     const id = `${key.processo_chave}|${key.ano}`;
     const atual = mapa.get(id) || {

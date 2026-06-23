@@ -10,7 +10,7 @@ function compactText(value, maxLength = 1200) {
     .replace(/\s+/g, ' ')
     .trim();
 
-  if (!text) return null;
+  if (!text) {return null;}
   return text.length > maxLength ? `${text.slice(0, maxLength - 1).trim()}...` : text;
 }
 
@@ -45,7 +45,7 @@ function parseMoney(value) {
 
 function cleanFornecedorNome(value) {
   const text = compactText(value, 180);
-  if (!text) return null;
+  if (!text) {return null;}
 
   return text
     .replace(/\bFornecedor\b/gi, ' ')
@@ -69,7 +69,7 @@ function parseFornecedorCnpjMap(text) {
 
   while ((match = cnpjRe.exec(clean))) {
     const cnpj = match[0];
-    if (cnpj === CNPJ_PREFEITURA) continue;
+    if (cnpj === CNPJ_PREFEITURA) {continue;}
 
     const before = clean.slice(Math.max(0, match.index - 160), match.index);
     const nameMatch = before.match(/([A-ZÀ-Ú0-9][A-ZÀ-Ú0-9\s.&'/-]{3,130}?(?:LTDA|EIRELI|EPP|ME|S\/A|SA))\s*$/i);
@@ -85,16 +85,16 @@ function parseFornecedorCnpjMap(text) {
 
 function findFornecedorCnpj(cnpjMap, fornecedorNome) {
   const key = normalizeKey(fornecedorNome);
-  if (cnpjMap.has(key)) return cnpjMap.get(key);
+  if (cnpjMap.has(key)) {return cnpjMap.get(key);}
 
   for (const [candidate, cnpj] of cnpjMap.entries()) {
-    if (candidate.includes(key) || key.includes(candidate)) return cnpj;
+    if (candidate.includes(key) || key.includes(candidate)) {return cnpj;}
   }
 
   const raizMatch = String(fornecedorNome || '').match(/^\s*(\d{2}\.\d{3}\.\d{3})\b/);
   if (raizMatch) {
     for (const cnpj of cnpjMap.values()) {
-      if (String(cnpj).startsWith(raizMatch[1])) return cnpj;
+      if (String(cnpj).startsWith(raizMatch[1])) {return cnpj;}
     }
   }
 
@@ -104,11 +104,11 @@ function findFornecedorCnpj(cnpjMap, fornecedorNome) {
 function findSection(text, headingPattern, endPattern) {
   const clean = removeAtaNoise(text);
   const startMatch = clean.match(headingPattern);
-  if (!startMatch || startMatch.index == null) return null;
+  if (!startMatch || startMatch.index === null) {return null;}
 
   const afterStart = clean.slice(startMatch.index);
   const endMatch = endPattern ? afterStart.slice(startMatch[0].length).match(endPattern) : null;
-  const end = endMatch?.index == null
+  const end = endMatch?.index === null
     ? clean.length
     : startMatch.index + startMatch[0].length + endMatch.index;
 
@@ -151,9 +151,9 @@ function buildTrechoFonte(itemNumero, descricao, fornecedor, valorFinal, tipo) {
 
 function inferValorFinalTipo(descricao) {
   const key = normalizeKey(descricao);
-  if (!key) return null;
-  if (/\bvalor global\b|\bglobal\b/.test(key)) return 'global';
-  if (/\blote\b/.test(key)) return 'lote';
+  if (!key) {return null;}
+  if (/\bvalor global\b|\bglobal\b/.test(key)) {return 'global';}
+  if (/\blote\b/.test(key)) {return 'lote';}
   return 'unitario';
 }
 
@@ -164,14 +164,14 @@ function parseNegociacaoSegment(segment, cnpjMap) {
     'i'
   );
   const match = body.match(rowRe);
-  if (!match) return null;
+  if (!match) {return null;}
 
   const headerIndex = body.search(/Fornecedor\s+Valor\s+Negociado\s+Valor\s+Vencedor\s+Situa\S*o/i);
   const descricao = compactText(headerIndex >= 0 ? body.slice(0, headerIndex) : body, 500);
   const fornecedorNome = cleanFornecedorNome(match[1]);
   const valorFinal = parseMoney(match[3]);
 
-  if (!descricao || !fornecedorNome || !valorFinal) return null;
+  if (!descricao || !fornecedorNome || !valorFinal) {return null;}
 
   return {
     item_numero: segment.item_numero,
@@ -195,14 +195,14 @@ function parseClassificacaoSegment(segment, cnpjMap) {
     'i'
   );
   const match = body.match(rowRe);
-  if (!match) return null;
+  if (!match) {return null;}
 
   const headerIndex = body.search(/Fornecedor\s+Valor\s+Classifica\S*o/i);
   const descricao = compactText(headerIndex >= 0 ? body.slice(0, headerIndex) : body, 500);
   const fornecedorNome = cleanFornecedorNome(match[1]);
   const valorFinal = parseMoney(match[2]);
 
-  if (!descricao || !fornecedorNome || !valorFinal) return null;
+  if (!descricao || !fornecedorNome || !valorFinal) {return null;}
 
   return {
     item_numero: segment.item_numero,
@@ -226,7 +226,7 @@ function parseNegociacao(text, cnpjMap) {
     /\b(?:HABILITA\S*O|RECURSOS|OCORR\S*NCIAS|ENCERRAMENTO|ASSINAM)\b/i
   );
 
-  if (!section) return [];
+  if (!section) {return [];}
 
   return splitItemSegments(section)
     .map((segment) => parseNegociacaoSegment(segment, cnpjMap))
@@ -240,7 +240,7 @@ function parseClassificacao(text, cnpjMap) {
     /\b(?:NEGOCIA\S*O|HABILITA\S*O|RECURSOS|OCORR\S*NCIAS|ENCERRAMENTO|ASSINAM)\b/i
   );
 
-  if (!section) return [];
+  if (!section) {return [];}
 
   return splitItemSegments(section)
     .map((segment) => parseClassificacaoSegment(segment, cnpjMap))
@@ -250,7 +250,7 @@ function parseClassificacao(text, cnpjMap) {
 function parseResultadosItensLicitacao(text) {
   const cnpjMap = parseFornecedorCnpjMap(text);
   const negociacao = parseNegociacao(text, cnpjMap);
-  if (negociacao.length) return negociacao;
+  if (negociacao.length) {return negociacao;}
 
   return parseClassificacao(text, cnpjMap);
 }
