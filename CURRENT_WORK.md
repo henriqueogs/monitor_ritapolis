@@ -2,7 +2,24 @@
 
 Foco operacional imediato. Atualizar sempre que uma fase for concluída ou a prioridade mudar.
 
-Atualizado em: 2026-06-10 — Plano de melhoria de conteúdo (v0.9). Foco: integridade, unificação com IA e redução de redundância **antes** de publicar.
+Atualizado em: 2026-06-23 — Gerador de Alertas de Inteligência (New_work.md).
+
+---
+
+## Gerador de Alertas de Inteligência — checklist por fase
+
+Plano em `New_work.md`. ✅ feito · 🔄 em andamento · ⬜ pendente.
+
+- ✅ **Fase 1 — Schema + repositório** (`alertas`, `alertas_documentos`, `alertas_watermark`, `alertas_config`; `alertas-repo.js` + testes :memory:).
+- ✅ **Fase 2 — Detectores + agrupador + consolidador** (puros, TDD): repetição temática, risco-alto (`alertas[].nivel`), valor-relevante (por ano §11.1), anomalia-temporal, questionamentos (`lacunas`/`consistencia`).
+- ✅ **Fase 3 — Narrativa IA** (`src/ai/alert-narrative.js` + prompt + Zod, provider mockado no teste).
+- ✅ **Fase 4 — Orquestrador + CLI** (`alert-generator.js`, `scripts/gerar-alertas.js`, `npm run alertas:gerar[:dry]`).
+- ✅ **Fase 5 — Scheduler + config** (integrado ao `ai-daily-scheduler`).
+- ✅ **Fase 6 — API REST** (`/api/alertas`, `/destaques`, `/:id`, `/stats`, `/config`, `POST /gerar`).
+- 🔄 **Fase 7 — Frontend**: ✅ destaques na home · ✅ `/alertas` (lista) · ✅ `/alertas/[id]` (detalhe) · ✅ link na navbar · ⬜ seção em `/inteligencia` · ⬜ painel no admin (status/config/arquivar).
+- 🔄 **Fase 8 — Verificação + docs**: ✅ unit/integração (repo, detectores, consolidador) · ✅ `DEVELOPMENT_PLAN.md` · ✅ validação manual (26 alertas reais) · ⬜ E2E Playwright · ⬜ `README.md`.
+
+Validado em dados reais: 195 docs → 38 sinais → 26 alertas com narrativa IA, valores por ano.
 
 ---
 

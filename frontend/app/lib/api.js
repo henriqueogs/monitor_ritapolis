@@ -278,10 +278,10 @@ export function fetchEstatisticas() {
       valor_estimado_total: 0,
       ultima_coleta: logs[0]
         ? {
-            fonte: logs[0].fonte,
-            fim: logs[0].fim,
-            status: logs[0].status
-          }
+          fonte: logs[0].fonte,
+          fim: logs[0].fim,
+          status: logs[0].status
+        }
         : null,
       por_fonte: [],
       por_ano: [],
@@ -404,6 +404,63 @@ export function fetchFornecedoresRanking(params = {}) {
 
 export function fetchInteligenciaPanorama() {
   return fetchJson('/inteligencia/panorama');
+}
+
+// ── Alertas de inteligência ──────────────────────────────────────────────
+export function fetchAlertas(params = {}) {
+  return fetchJson(`/alertas${buildQuery(params)}`);
+}
+
+export function fetchAlertasDestaques(limite = 5) {
+  return fetchJson(`/alertas/destaques?limite=${limite}`);
+}
+
+export function fetchAlerta(id) {
+  return fetchJson(`/alertas/${id}`);
+}
+
+export function fetchAlertasStats() {
+  return fetchJson('/alertas/stats');
+}
+
+export function fetchAlertasConfig() {
+  return fetchJson('/alertas/config');
+}
+
+export async function updateAlertaStatus(id, status) {
+  const response = await fetch(`${apiUrl}/alertas/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status }),
+  });
+  if (!response.ok) {
+    throw new Error(`Falha ao atualizar alerta ${id}`);
+  }
+  return response.json();
+}
+
+export async function updateAlertaConfig(chave, valor, descricao = null) {
+  const response = await fetch(`${apiUrl}/alertas/config`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chave, valor, descricao }),
+  });
+  if (!response.ok) {
+    throw new Error(`Falha ao atualizar configuração ${chave}`);
+  }
+  return response.json();
+}
+
+export async function gerarAlertasManual({ since, dryRun, limite } = {}) {
+  const response = await fetch(`${apiUrl}/alertas/gerar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ since, dryRun, limite }),
+  });
+  if (!response.ok) {
+    throw new Error('Falha ao gerar alertas');
+  }
+  return response.json();
 }
 
 export function fetchSchedulerStatus() {

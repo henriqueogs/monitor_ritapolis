@@ -1,6 +1,7 @@
 import IntelligenceBrief from '../components/IntelligenceBrief';
-import { fetchAnalisesResumos, fetchPainelCidadao } from '../lib/api';
+import { fetchAlertasDestaques, fetchAnalisesResumos, fetchPainelCidadao } from '../lib/api';
 import { formatMoney, labelTipo } from '../lib/format';
+import AlertasDestaque from './components/AlertasDestaque';
 import HomeCharts from './components/HomeCharts';
 import HomeHero from './components/HomeHero';
 import LimitsAndSources from './components/LimitsAndSources';
@@ -65,9 +66,10 @@ function buildChartItems(painel) {
 }
 
 export default async function HomePage() {
-  const [painel, analises] = await Promise.all([
+  const [painel, analises, alertas] = await Promise.all([
     fetchPainelCidadao(),
-    fetchAnalisesResumos({ limite: 6 }).catch(() => ({ itens: [], por_tipo: [], totais: {} }))
+    fetchAnalisesResumos({ limite: 6 }).catch(() => ({ itens: [], por_tipo: [], totais: {} })),
+    fetchAlertasDestaques(4).catch(() => []),
   ]);
   const resumo = painel.resumo || {};
   const analisesItens = analises.itens || [];
@@ -89,6 +91,7 @@ export default async function HomePage() {
         publicacao={ultimaPublicacao}
         licitacao={licitacaoDestaque}
       />
+      <AlertasDestaque alertas={alertas} />
       <HomeCharts analisesItens={analisesItens} charts={charts} />
       <UpdatesSection documentos={atualizacoesRecentes} anoPadrao={resumo.ano_padrao} />
       <LimitsAndSources fontes={painel.fontes || []} />

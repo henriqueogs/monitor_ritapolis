@@ -8,7 +8,9 @@ const links = [
   { href: '/', label: 'Início', exact: true },
   { href: '/licitacoes', label: 'Licitações' },
   { href: '/credores', label: 'Fornecedores' },
+  { href: '/emendas', label: 'Emendas' },
   { href: '/transparencia', label: 'Dinheiro público' },
+  { href: '/alertas', label: 'Alertas' },
   { href: '/acervo', label: 'Acervo' },
   { href: '/sobre', label: 'Sobre' },
 ];
