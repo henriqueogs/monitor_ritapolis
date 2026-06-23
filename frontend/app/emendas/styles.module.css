@@ -1,0 +1,253 @@
+/* ── Layout ─────────────────────────────────────────────────────────────────── */
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+.pageHeader {
+  margin-bottom: 2rem;
+}
+
+.pageTitle {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--foreground);
+  margin: 0 0 0.4rem;
+}
+
+.pageSubtitle {
+  color: var(--muted);
+  font-size: 1rem;
+  margin: 0;
+}
+
+/* ── Totais por esfera ───────────────────────────────────────────────────────── */
+.totaisGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.totaisCard {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.totaisLabel {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.totaisValor {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.totaisPeriodo {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.totaisQtd {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-top: 0.25rem;
+}
+
+/* ── Filtros ─────────────────────────────────────────────────────────────────── */
+.filtrosSection {
+  margin-bottom: 1.5rem;
+}
+
+.filtrosForm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.filtroSelect,
+.filtroInput {
+  height: 2.25rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 0.9rem;
+}
+
+.filtroInput { min-width: 180px; }
+
+.filtroBtn {
+  height: 2.25rem;
+  padding: 0 1.25rem;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.resultadoCount {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0;
+}
+
+/* ── Grid de emendas ─────────────────────────────────────────────────────────── */
+.emendasGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1rem;
+}
+
+/* ── Card de emenda ──────────────────────────────────────────────────────────── */
+.emendaCard {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.emendaCardHeader { display: flex; flex-direction: column; gap: 0.4rem; }
+
+.emendaCardMeta { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+
+.emendaCardTitulo {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--foreground);
+  margin: 0;
+  line-height: 1.3;
+}
+
+.emendaCardCargo {
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.emendaCardValor {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.emendaCardValorLabel {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.emendaCardValorNum {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.emendaCardValorAno {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.emendaCardObjeto {
+  font-size: 0.875rem;
+  color: var(--muted);
+  margin: 0;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.emendaCardFooter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: auto;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.emendaCardLegal,
+.emendaCardExecutora {
+  font-size: 0.78rem;
+  color: var(--muted);
+  flex: 1 1 100%;
+}
+
+.emendaCardFonte,
+.emendaCardPdf {
+  font-size: 0.8rem;
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.emendaCardFonte:hover,
+.emendaCardPdf:hover { text-decoration: underline; }
+
+/* ── Badges ──────────────────────────────────────────────────────────────────── */
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.badge_estadual { background: #e0f2fe; color: #0369a1; }
+.badge_federal  { background: #fef3c7; color: #92400e; }
+
+.badgePartido {
+  composes: badge;
+  background: var(--muted-bg, #f3f4f6);
+  color: var(--muted);
+}
+
+.badgeAno {
+  composes: badge;
+  background: var(--muted-bg, #f3f4f6);
+  color: var(--muted);
+}
+
+/* ── Empty / Rodapé ──────────────────────────────────────────────────────────── */
+.emptyState {
+  text-align: center;
+  padding: 3rem;
+  color: var(--muted);
+}
+
+.fonteRodape {
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.fonteRodape a { color: var(--primary); }
