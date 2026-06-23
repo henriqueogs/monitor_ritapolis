@@ -34,3 +34,12 @@ redesign/
 
 # Testes de validação local (contém perfis de browser)
 validation/
+# Cobertura e resultados de teste
+coverage/
+test-results/
+
+# Modelos OCR baixados (regeneráveis)
+*.traineddata
+
+# Artefatos de FS
+.fuse_hidden*
