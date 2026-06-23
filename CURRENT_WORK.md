@@ -22,7 +22,7 @@ Plano em `New_work.md`. ✅ feito · 🔄 em andamento · ⬜ pendente.
 - ✅ **Fase 5 — Scheduler + config** (integrado ao `ai-daily-scheduler`).
 - ✅ **Fase 6 — API REST** (`/api/alertas`, `/destaques`, `/:id`, `/stats`, `/config`, `POST /gerar`).
 - ✅ **Fase 7 — Frontend**: destaques na home · `/alertas` (lista) · `/alertas/[id]` (detalhe) · link na navbar · painel no admin (`/admin/alertas`) · seção em `/inteligencia`.
-- ✅ **Fase 8 — Verificação + docs**: ✅ unit/integração (repo, detectores, consolidador) · ✅ `DEVELOPMENT_PLAN.md` + `README.md` · ✅ validação manual (26 alertas reais, rotas HTTP 200) · ⏸️ E2E Playwright **adiado** (projeto não tem Playwright instalado/config — lacuna de infra geral, não específica de alertas; caminho feliz coberto por unit/integração + verificação manual).
+- ✅ **Fase 8 — Verificação + docs**: ✅ unit/integração (repo, detectores, consolidador) · ✅ `DEVELOPMENT_PLAN.md` + `README.md` · ✅ validação manual (26 descobertas reais, rotas HTTP 200) · ✅ **E2E Playwright** configurado (`playwright.config.js` + `tests/e2e/descobertas.spec.js`, 3 testes verdes: navbar, lista→detalhe com fonte, 404 sem quebrar).
 
 Validado em dados reais: 195 docs → 38 sinais → 26 alertas com narrativa IA, valores por ano.
 
