@@ -9,9 +9,11 @@ import {
   updateAlertaConfig,
   gerarAlertasManual,
 } from '../../lib/api';
+import { nivelLabel } from '../../lib/descobertas';
 import styles from './styles.module.css';
 
-const SEV_COR = { critico: '#dc2626', atencao: '#d97706', info: '#2563eb' };
+// Paleta calma (sem vermelho de pânico) — coerente com o tom de "descobertas".
+const SEV_COR = { critico: '#d97706', atencao: '#2563eb', info: '#64748b' };
 
 function valorParaInput(valor) {
   if (typeof valor === 'boolean') return valor;
@@ -92,13 +94,14 @@ export default function AdminAlertasPanel({ initialStats, initialConfig, initial
     <div className={styles.panel}>
       <div className={styles.header}>
         <div>
-          <h1>Alertas de Inteligência</h1>
+          <h1>Descobertas</h1>
           <p>
-            {stats.total} ativos · {stats.critico || 0} críticos · {stats.atencao || 0} atenção · {stats.info || 0} info
+            {stats.total} ativas · {stats.critico || 0} merecem atenção · {stats.atencao || 0} valem conferir ·{' '}
+            {stats.info || 0} curiosidades
           </p>
         </div>
         <button className="button" onClick={handleGerar} disabled={loading === 'gerar'}>
-          {loading === 'gerar' ? '⟳ Gerando...' : '▶ Gerar alertas agora'}
+          {loading === 'gerar' ? '⟳ Gerando...' : '▶ Gerar descobertas agora'}
         </button>
       </div>
 
@@ -131,12 +134,12 @@ export default function AdminAlertasPanel({ initialStats, initialConfig, initial
               <div className={styles.alertaInfo}>
                 <strong>{a.titulo}</strong>
                 <span className={styles.alertaMeta}>
-                  {a.severidade} · {a.categoria || '—'} · {a.ultima_publicacao_documento || 's/ data'}
+                  {nivelLabel(a.severidade)} · {a.categoria || '—'} · {a.ultima_publicacao_documento || 's/ data'}
                   {a.valor_total ? ` · ${a.valor_periodo_label || ''}` : ''}
                 </span>
               </div>
               <div className={styles.alertaAcoes}>
-                <a className="button button-secondary" href={`/alertas/${a.id}`} target="_blank" rel="noreferrer">
+                <a className="button button-secondary" href={`/descobertas/${a.id}`} target="_blank" rel="noreferrer">
                   ver
                 </a>
                 <button className="button button-secondary" disabled={loading === `alerta-${a.id}`} onClick={() => handleStatus(a.id, 'arquivado')}>

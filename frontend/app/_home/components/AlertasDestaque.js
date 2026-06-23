@@ -1,18 +1,7 @@
 import Link from 'next/link';
 import SectionBlock from '../../components/SectionBlock';
 import { formatMoney } from '../../lib/format';
-
-const SEVERIDADE_LABEL = {
-  critico: 'Crítico',
-  atencao: 'Atenção',
-  info: 'Informação',
-};
-
-const SEVERIDADE_CLASSE = {
-  critico: 'badge-critical',
-  atencao: 'badge-warning',
-  info: 'badge-info',
-};
+import { nivelLabel, nivelClasse } from '../../lib/descobertas';
 
 export default function AlertasDestaque({ alertas }) {
   if (!alertas || alertas.length === 0) {
@@ -22,16 +11,16 @@ export default function AlertasDestaque({ alertas }) {
   return (
     <div className="content-stack">
       <SectionBlock
-        title="Sinais de atenção"
-        description="Padrões detectados pela análise de inteligência a partir dos documentos publicados."
-        aside={<Link href="/alertas">Ver todos &rarr;</Link>}
+        title="Descobertas nos dados"
+        description="Curiosidades e padrões que a análise encontrou nos documentos públicos — para explorar, não para alarmar."
+        aside={<Link href="/descobertas">Ver todas &rarr;</Link>}
       >
         <div className="citizen-list">
           {alertas.map((alerta) => (
-            <Link key={alerta.id} href={`/alertas/${alerta.id}`} className="citizen-card">
+            <Link key={alerta.id} href={`/descobertas/${alerta.id}`} className="citizen-card">
               <div className="citizen-card-head">
-                <span className={`badge ${SEVERIDADE_CLASSE[alerta.severidade] || 'badge-info'}`}>
-                  {SEVERIDADE_LABEL[alerta.severidade] || alerta.severidade}
+                <span className={`badge ${nivelClasse(alerta.severidade)}`}>
+                  {nivelLabel(alerta.severidade)}
                 </span>
                 <span className="muted">{alerta.categoria || 'Geral'}</span>
               </div>

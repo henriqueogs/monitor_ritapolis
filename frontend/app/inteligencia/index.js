@@ -138,16 +138,16 @@ export default async function InteligenciaPage() {
       {/* ── Alertas de inteligência ── */}
       {alertasInteligencia?.length > 0 && (
         <SectionBlock
-          title="Alertas de inteligência"
-          description="Padrões detectados automaticamente nos resumos: repetição temática, valores relevantes, riscos e questionamentos."
-          aside={<Link href="/alertas" style={{ fontSize: 13, color: 'var(--text-muted)' }}>Ver todos →</Link>}
+          title="Descobertas nos dados"
+          description="Curiosidades e padrões encontrados nos resumos: repetição temática, valores que somam, e pontos para investigar."
+          aside={<Link href="/descobertas" style={{ fontSize: 13, color: 'var(--text-muted)' }}>Ver todas →</Link>}
         >
           {alertasInteligencia.map((a) => {
             const cor = a.severidade === 'critico' ? 'var(--error)' : a.severidade === 'atencao' ? 'var(--warning)' : 'var(--accent)';
             return (
               <Link
                 key={a.id}
-                href={`/alertas/${a.id}`}
+                href={`/descobertas/${a.id}`}
                 className="quality-row"
                 style={{ borderLeft: `4px solid ${cor}`, paddingLeft: 12 }}
               >

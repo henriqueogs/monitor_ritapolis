@@ -10,6 +10,11 @@ Atualizado em: 2026-06-23 — Gerador de Alertas de Inteligência (New_work.md).
 
 Plano em `New_work.md`. ✅ feito · 🔄 em andamento · ⬜ pendente.
 
+> **Nomenclatura (público):** "Alertas" → **"Descobertas"** (rota `/descobertas`),
+> tom de curiosidade, sem sensacionalismo. Severidade reenquadrada na UI:
+> crítico→"Merece atenção", atenção→"Vale conferir", info→"Curiosidade"
+> (sem vermelho de pânico). Backend/tabelas seguem `alertas` (interno).
+
 - ✅ **Fase 1 — Schema + repositório** (`alertas`, `alertas_documentos`, `alertas_watermark`, `alertas_config`; `alertas-repo.js` + testes :memory:).
 - ✅ **Fase 2 — Detectores + agrupador + consolidador** (puros, TDD): repetição temática, risco-alto (`alertas[].nivel`), valor-relevante (por ano §11.1), anomalia-temporal, questionamentos (`lacunas`/`consistencia`).
 - ✅ **Fase 3 — Narrativa IA** (`src/ai/alert-narrative.js` + prompt + Zod, provider mockado no teste).

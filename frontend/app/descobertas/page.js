@@ -1,20 +1,14 @@
 import Link from 'next/link';
 import { fetchAlertas } from '../lib/api';
 import { formatMoney, formatDate } from '../lib/format';
+import { nivelLabel, nivelClasse } from '../lib/descobertas';
 
-const SEVERIDADE_LABEL = {
-  critico: 'Crítico',
-  atencao: 'Atenção',
-  info: 'Informação',
+export const metadata = {
+  title: 'Descobertas — Monitor Ritápolis',
+  description: 'Curiosidades e padrões encontrados nos documentos públicos de Ritápolis/MG.',
 };
 
-const SEVERIDADE_CLASSE = {
-  critico: 'badge-critical',
-  atencao: 'badge-warning',
-  info: 'badge-info',
-};
-
-export default async function AlertasPage({ searchParams }) {
+export default async function DescobertasPage({ searchParams }) {
   const params = searchParams || {};
   const resultado = await fetchAlertas({
     tipo: params.tipo || undefined,
@@ -30,32 +24,33 @@ export default async function AlertasPage({ searchParams }) {
   return (
     <main className="page-container page-observatory">
       <header className="page-head">
-        <h1>Alertas de inteligência</h1>
+        <h1>Descobertas nos dados</h1>
         <p className="section-note">
-          Padrões e sinais de atenção detectados pela análise dos documentos públicos.
+          Curiosidades e padrões que a análise encontrou nos documentos públicos. São pontos para
+          explorar e entender — a maioria é normal; o objetivo é dar visibilidade, não alarmar.
         </p>
       </header>
 
       <div className="filter-bar">
-        <Link href="/alertas?severidade=critico" className="badge badge-critical">Críticos</Link>
-        <Link href="/alertas?severidade=atencao" className="badge badge-warning">Atenção</Link>
-        <Link href="/alertas?tipo=tematico" className="badge badge-info">Temáticos</Link>
-        <Link href="/alertas?tipo=processo" className="badge badge-info">Por processo</Link>
-        <Link href="/alertas" className="badge">Todos</Link>
+        <Link href="/descobertas?severidade=critico" className="badge badge-warning">Merece atenção</Link>
+        <Link href="/descobertas?severidade=atencao" className="badge badge-info">Vale conferir</Link>
+        <Link href="/descobertas?tipo=tematico" className="badge">Padrões</Link>
+        <Link href="/descobertas?tipo=processo" className="badge">Por processo</Link>
+        <Link href="/descobertas" className="badge">Todas</Link>
       </div>
 
       {alertas.length === 0 ? (
-        <p className="empty-state">Nenhum alerta ativo no momento.</p>
+        <p className="empty-state">Nenhuma descoberta ativa no momento.</p>
       ) : (
         <div className="citizen-list">
           {alertas.map((alerta) => (
-            <Link key={alerta.id} href={`/alertas/${alerta.id}`} className="citizen-card">
+            <Link key={alerta.id} href={`/descobertas/${alerta.id}`} className="citizen-card">
               <div className="citizen-card-head">
-                <span className={`badge ${SEVERIDADE_CLASSE[alerta.severidade] || 'badge-info'}`}>
-                  {SEVERIDADE_LABEL[alerta.severidade] || alerta.severidade}
+                <span className={`badge ${nivelClasse(alerta.severidade)}`}>
+                  {nivelLabel(alerta.severidade)}
                 </span>
                 <span className="muted">{alerta.categoria || 'Geral'}</span>
-                <span className="muted">{alerta.tipo}</span>
+                <span className="muted">{alerta.tipo === 'processo' ? 'por processo' : 'padrão'}</span>
               </div>
               <h3 className="citizen-card-title">{alerta.titulo}</h3>
               {alerta.narrativa ? (
@@ -81,7 +76,7 @@ export default async function AlertasPage({ searchParams }) {
       )}
 
       <div className="pagination">
-        <span className="muted">{resultado.total} alerta(s)</span>
+        <span className="muted">{resultado.total} descoberta(s)</span>
       </div>
     </main>
   );

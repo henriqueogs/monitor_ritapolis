@@ -1,20 +1,9 @@
 import Link from 'next/link';
-import { fetchAlerta } from '../../../lib/api';
-import { formatMoney, formatDate, labelTipo } from '../../../lib/format';
+import { fetchAlerta } from '../../lib/api';
+import { formatMoney, formatDate, labelTipo } from '../../lib/format';
+import { nivelLabel, nivelClasse } from '../../lib/descobertas';
 
-const SEVERIDADE_LABEL = {
-  critico: 'Crítico',
-  atencao: 'Atenção',
-  info: 'Informação',
-};
-
-const SEVERIDADE_CLASSE = {
-  critico: 'badge-critical',
-  atencao: 'badge-warning',
-  info: 'badge-info',
-};
-
-export default async function AlertaDetalhePage({ params }) {
+export default async function DescobertaDetalhePage({ params }) {
   const id = Number(params.id);
   let alerta = null;
   let erro = null;
@@ -29,10 +18,10 @@ export default async function AlertaDetalhePage({ params }) {
     return (
       <main className="page-container page-observatory">
         <header className="page-head">
-          <h1>Alerta não encontrado</h1>
-          <Link href="/alertas" className="link">&larr; Voltar para alertas</Link>
+          <h1>Descoberta não encontrada</h1>
+          <Link href="/descobertas" className="link">&larr; Voltar para descobertas</Link>
         </header>
-        <p className="empty-state">{erro || 'O alerta solicitado não existe ou foi removido.'}</p>
+        <p className="empty-state">{erro || 'A descoberta solicitada não existe ou foi removida.'}</p>
       </main>
     );
   }
@@ -42,14 +31,14 @@ export default async function AlertaDetalhePage({ params }) {
   return (
     <main className="page-container page-observatory">
       <header className="page-head">
-        <Link href="/alertas" className="link">&larr; Todos os alertas</Link>
+        <Link href="/descobertas" className="link">&larr; Todas as descobertas</Link>
         <h1>{alerta.titulo}</h1>
         <div className="badge-row">
-          <span className={`badge ${SEVERIDADE_CLASSE[alerta.severidade] || 'badge-info'}`}>
-            {SEVERIDADE_LABEL[alerta.severidade] || alerta.severidade}
+          <span className={`badge ${nivelClasse(alerta.severidade)}`}>
+            {nivelLabel(alerta.severidade)}
           </span>
           {alerta.categoria ? <span className="badge badge-info">{alerta.categoria}</span> : null}
-          <span className="badge">{alerta.tipo}</span>
+          <span className="badge">{alerta.tipo === 'processo' ? 'por processo' : 'padrão'}</span>
         </div>
       </header>
 
@@ -91,7 +80,7 @@ export default async function AlertaDetalhePage({ params }) {
 
       {alerta.questionamentos?.length ? (
         <section className="section-block">
-          <h2>Questionamentos em aberto</h2>
+          <h2>Pontos para investigar</h2>
           <ul className="questionamentos-list">
             {alerta.questionamentos.map((q, i) => (
               <li key={i}>{q}</li>

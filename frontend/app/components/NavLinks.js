@@ -10,7 +10,7 @@ const links = [
   { href: '/credores', label: 'Fornecedores' },
   { href: '/emendas', label: 'Emendas' },
   { href: '/transparencia', label: 'Dinheiro público' },
-  { href: '/alertas', label: 'Alertas' },
+  { href: '/descobertas', label: 'Descobertas' },
   { href: '/acervo', label: 'Acervo' },
   { href: '/sobre', label: 'Sobre' },
 ];

@@ -58,7 +58,7 @@ npm start   # API na porta 3001 + Next.js dev na porta 3000
 | `/temas` | Navegação por categoria |
 | `/transparencia` | Indicadores públicos da base |
 | `/inteligencia` | Dashboard cruzado — fornecedores, categorias, gastos |
-| `/alertas` | Alertas de inteligência (padrões/risco/valor) + detalhe `/alertas/:id` |
+| `/descobertas` | Descobertas (curiosidades/padrões nos dados) + detalhe `/descobertas/:id` |
 | `/sobre` | Como a plataforma funciona e suas limitações |
 
 ## Área administrativa
@@ -69,7 +69,7 @@ npm start   # API na porta 3001 + Next.js dev na porta 3000
 | `/admin/ia` | Cobertura, fila e jobs de resumos IA |
 | `/admin/cobertura` | Cobertura das fontes monitoradas |
 | `/admin/coletas` | Ações e status de coleta (inclui schedulers) |
-| `/admin/alertas` | Alertas: stats, gatilhos/config, gerar, arquivar/suprimir |
+| `/admin/alertas` | Descobertas: stats, gatilhos/config, gerar, arquivar/suprimir |
 | `/admin/jobs` | Jobs & schedulers + ferramentas de manutenção e progresso |
 | `/admin/qualidade` | Score de qualidade por documento |
 
