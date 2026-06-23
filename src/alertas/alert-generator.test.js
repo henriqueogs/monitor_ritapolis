@@ -76,7 +76,7 @@ describe('generateAlerts', () => {
       questionamentos: true,
     };
     repo.getConfig.mockImplementation((chave, fallback) => {
-      if (chave === 'alertas:gatilhos_ativos') {return gatilhos;}
+      if (chave === 'alertas:gatilhos_ativos') { return gatilhos; }
       return fallback;
     });
     dbIndex.getCategoriasDocumentoId.mockReturnValue({ categoria: 'Meio Ambiente' });
@@ -170,7 +170,7 @@ describe('generateAlerts', () => {
       questionamentos: false,
     };
     repo.getConfig.mockImplementation((chave, fallback) => {
-      if (chave === 'alertas:gatilhos_ativos') {return gatilhosOff;}
+      if (chave === 'alertas:gatilhos_ativos') { return gatilhosOff; }
       return fallback;
     });
     const docs = [mockDocumentoRow(1), mockDocumentoRow(2)];

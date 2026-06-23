@@ -122,11 +122,11 @@ function enriquecerDocumento(row) {
     url_origem: row.url_origem || null,
     resumo: resumo
       ? {
-          alertas: resumo.alertas || [],
-          lacunas: resumo.lacunas || [],
-          consistencia: resumo.consistencia || [],
-          confianca: typeof resumo.confianca === 'number' ? resumo.confianca : null,
-        }
+        alertas: resumo.alertas || [],
+        lacunas: resumo.lacunas || [],
+        consistencia: resumo.consistencia || [],
+        confianca: typeof resumo.confianca === 'number' ? resumo.confianca : null,
+      }
       : null,
   };
 }
