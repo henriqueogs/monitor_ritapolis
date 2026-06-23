@@ -1,7 +1,8 @@
 import DocumentPreviewPane from '../../components/DocumentPreviewPane';
-import { fetchDocumento, fetchDocumentoProdutos } from '../../lib/api';
+import { fetchDocumento, fetchDocumentoProdutos, fetchDocumentoEmpenhos } from '../../lib/api';
 import AiSummarySection from './components/AiSummarySection';
 import DocumentHeader from './components/DocumentHeader';
+import EmpenhoSection from './components/EmpenhoSection';
 import ExtractedTextSections from './components/ExtractedTextSections';
 import IdentityAndLimits from './components/IdentityAndLimits';
 import IntegratedReadingSection from './components/IntegratedReadingSection';
@@ -27,6 +28,10 @@ export default async function DocumentoPage({ params }) {
   ]);
   const licitacao = documento.licitacao_detalhes || documento.dados_extras?.licitacao || null;
 
+  const empenhos = documento.tipo === 'edital'
+    ? await fetchDocumentoEmpenhos(params.id)
+    : null;
+
   return (
     <main className="page-container">
       <DocumentHeader documento={documento} licitacao={licitacao} />
@@ -41,6 +46,7 @@ export default async function DocumentoPage({ params }) {
         <LicitationGroup grupo={documento.licitacao_grupo} />
       ) : null}
       {documento.tipo === 'edital' ? <LicitationProducts produtos={produtos} /> : null}
+      {documento.tipo === 'edital' ? <EmpenhoSection empenhos={empenhos} /> : null}
       {documento.tipo === 'edital' ? (
         <LicitationRelatedSources fontes={documento.licitacao_fontes_relacionadas} />
       ) : null}

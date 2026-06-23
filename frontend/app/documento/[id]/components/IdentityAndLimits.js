@@ -1,7 +1,18 @@
 import KeyValueList from '../../../components/KeyValueList';
+import OrigemBadge from '../../../components/OrigemBadge';
 import SectionBlock from '../../../components/SectionBlock';
 import { formatDate, formatMoney, labelFonte, labelTipo } from '../../../lib/format';
 import styles from '../styles.module.css';
+
+/**
+ * Resolve a URL de verificação para a origem de um dado financeiro.
+ * PNCP: usa url_origem do documento. Portal Transparência: URL padrão.
+ */
+function resolveOrigemUrl(origem, documento) {
+  if (!origem) return undefined;
+  if (origem === 'pncp') return documento?.url_origem || undefined;
+  return undefined; // deixar o OrigemBadge usar a URL padrão da origem
+}
 
 export default function IdentityAndLimits({ documento, licitacao }) {
   const modelo = documento.licitacao_modelo || {};
@@ -11,6 +22,8 @@ export default function IdentityAndLimits({ documento, licitacao }) {
   const vencedorNome = licitacao?.vencedor_nome || null;
   const valorFinal = licitacao?.valor_final ?? null;
   const valorEstimado = modelo.valor_estimado ?? documento.valor_estimado ?? null;
+  const origemFinanceira = licitacao?.origem || null;
+  const origemUrl = resolveOrigemUrl(origemFinanceira, documento);
 
   return (
     <div className={styles.contentGrid}>
@@ -36,8 +49,18 @@ export default function IdentityAndLimits({ documento, licitacao }) {
             { label: 'Sessão', value: formatDate(modelo.data_sessao || documento.data_abertura) },
             { label: 'Valor estimado', value: formatMoney(valorEstimado) },
             { label: 'Status', value: licitacao?.status || null },
-            { label: 'Vencedor', value: vencedorNome || 'Não identificado' },
-            { label: 'Valor final', value: valorFinal != null ? formatMoney(valorFinal) : 'Não disponível' }
+            {
+              label: 'Vencedor',
+              value: vencedorNome
+                ? <>{vencedorNome}<OrigemBadge origem={origemFinanceira} url={origemUrl} /></>
+                : null
+            },
+            {
+              label: 'Valor final',
+              value: valorFinal != null
+                ? <>{formatMoney(valorFinal)}<OrigemBadge origem={origemFinanceira} url={origemUrl} /></>
+                : null
+            }
           ].filter(item => item.value && item.value !== 'null' && item.value !== 'undefined')} />
         </SectionBlock>
       ) : null}

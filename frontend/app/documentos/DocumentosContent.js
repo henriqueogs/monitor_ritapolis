@@ -1,7 +1,7 @@
 import DocumentList from '../components/DocumentList';
 import Pagination from '../components/Pagination';
 import SectionBlock from '../components/SectionBlock';
-import { fetchDocumentos, fetchEstatisticas } from '../lib/api';
+import { fetchBusca, fetchDocumentos, fetchEstatisticas } from '../lib/api';
 import DocumentFilters from './components/DocumentFilters';
 import YearFilter from './components/YearFilter';
 
@@ -35,7 +35,9 @@ function preservedFilters(filters) {
 
 export default async function DocumentosContent({ searchParams, basePath = '/acervo' }) {
   const filters = buildFilters(searchParams);
-  const [data, estatisticas] = await Promise.all([fetchDocumentos(filters), fetchEstatisticas()]);
+  // Usar FTS5 quando há termo de busca — resultados ordenados por relevância com snippets
+  const fetchFn = filters.q && filters.q.length >= 2 ? fetchBusca : fetchDocumentos;
+  const [data, estatisticas] = await Promise.all([fetchFn(filters), fetchEstatisticas()]);
 
   return (
     <main className="page-container">
