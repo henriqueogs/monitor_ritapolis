@@ -78,8 +78,8 @@ function truncateText(value, maxChars = 500) {
     .replace(/\s+/g, ' ')
     .trim();
 
-  if (!text) return null;
-  if (text.length <= maxChars) return text;
+  if (!text) {return null;}
+  if (text.length <= maxChars) {return text;}
 
   return `${text.slice(0, Math.max(1, maxChars - 3)).trim()}...`;
 }
@@ -90,12 +90,12 @@ function uniqueBy(items, keyFn, maxItems) {
 
   for (const item of items || []) {
     const key = normalizeKey(keyFn(item));
-    if (!key || seen.has(key)) continue;
+    if (!key || seen.has(key)) {continue;}
 
     seen.add(key);
     output.push(item);
 
-    if (output.length >= maxItems) break;
+    if (output.length >= maxItems) {break;}
   }
 
   return output;
@@ -245,7 +245,7 @@ function chooseMostFrequent(values, fallback = 'outro') {
 
   for (const value of values || []) {
     const key = normalizeKey(value);
-    if (!key || key === 'outro') continue;
+    if (!key || key === 'outro') {continue;}
     counts.set(value, (counts.get(value) || 0) + 1);
   }
 
@@ -266,7 +266,7 @@ function averageConfidence(summaries) {
     .map((summary) => Number(summary?.confianca))
     .filter((value) => Number.isFinite(value));
 
-  if (!values.length) return 0.55;
+  if (!values.length) {return 0.55;}
 
   const average = values.reduce((sum, value) => sum + value, 0) / values.length;
   return Number(Math.min(0.72, Math.max(0.35, average - 0.08)).toFixed(2));

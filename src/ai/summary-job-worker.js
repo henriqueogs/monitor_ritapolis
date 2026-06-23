@@ -74,9 +74,10 @@ async function runPendingResumoAiJobs() {
       logger.info('Jobs de resumo IA presos foram recuperados', recovered);
     }
 
+    // eslint-disable-next-line no-constant-condition
     while (true) {
       const job = getNextPendingResumoAiJob();
-      if (!job) break;
+      if (!job) {break;}
       await processJob(job);
     }
   } finally {

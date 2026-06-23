@@ -7,19 +7,19 @@ function getAiDirectCharLimit() {
 
 function classifyAiError(error) {
   const message = String(error || '');
-  if (!message) return 'sem_erro';
-  if (/timeout|timed out/i.test(message)) return 'timeout';
-  if (/429|rate limit|too many requests/i.test(message)) return 'limite_provider';
-  if (/contrato|zod|invalid|expected|required/i.test(message)) return 'contrato_invalido';
-  if (/api key|unauthorized|401|403/i.test(message)) return 'credencial';
-  if (/network|fetch|connect|econn|enotfound|eai_again/i.test(message)) return 'rede';
-  if (/chunks/i.test(message)) return 'limite_tamanho';
+  if (!message) {return 'sem_erro';}
+  if (/timeout|timed out/i.test(message)) {return 'timeout';}
+  if (/429|rate limit|too many requests/i.test(message)) {return 'limite_provider';}
+  if (/contrato|zod|invalid|expected|required/i.test(message)) {return 'contrato_invalido';}
+  if (/api key|unauthorized|401|403/i.test(message)) {return 'credencial';}
+  if (/network|fetch|connect|econn|enotfound|eai_again/i.test(message)) {return 'rede';}
+  if (/chunks/i.test(message)) {return 'limite_tamanho';}
   return 'outro';
 }
 
 function getAiOperationPlan({ texto = '', caracteres = null } = {}) {
   const text = String(texto || '');
-  const totalChars = caracteres == null ? text.length : Number(caracteres || 0);
+  const totalChars = caracteres === null ? text.length : Number(caracteres || 0);
   const directLimit = getAiDirectCharLimit();
 
   if (!totalChars) {

@@ -73,13 +73,13 @@ function estimateIntegratedReadingConfidence(payload) {
   const produtosResumo = payload?.produtos_resumo || {};
   const detalhes = payload?.licitacao_detalhes || {};
 
-  if (Number(produtosResumo.total || 0) > 0) score += 0.12;
-  if (Number(produtosResumo.com_preco_final || 0) > 0) score += 0.16;
-  if (Number(produtosResumo.com_fornecedor || 0) > 0) score += 0.12;
-  if (detalhes.valor_final != null) score += 0.12;
-  if (detalhes.vencedor_nome || detalhes.vencedor_cnpj) score += 0.1;
-  if (payload?.grupo) score += 0.06;
-  if (Array.isArray(payload?.fontes_pncp) && payload.fontes_pncp.length) score += 0.1;
+  if (Number(produtosResumo.total || 0) > 0) {score += 0.12;}
+  if (Number(produtosResumo.com_preco_final || 0) > 0) {score += 0.16;}
+  if (Number(produtosResumo.com_fornecedor || 0) > 0) {score += 0.12;}
+  if (detalhes.valor_final !== null) {score += 0.12;}
+  if (detalhes.vencedor_nome || detalhes.vencedor_cnpj) {score += 0.1;}
+  if (payload?.grupo) {score += 0.06;}
+  if (Array.isArray(payload?.fontes_pncp) && payload.fontes_pncp.length) {score += 0.1;}
 
   return Number(Math.min(score, 0.86).toFixed(2));
 }
@@ -104,7 +104,7 @@ function findIntegratedReadingQualityIssues(reading, payload) {
   }
 
   if (
-    payload?.licitacao_detalhes?.valor_final != null &&
+    payload?.licitacao_detalhes?.valor_final !== null &&
     /valor final (nao|sem|ausente|nao informado)/.test(text)
   ) {
     issues.push('Ha valor final local consolidado em licitacao_detalhes.valor_final; nao marque valor_final como ausente.');
@@ -177,21 +177,21 @@ function normalizeIntegratedReadingQuality(reading, payload) {
     .map(normalizeGap)
     .filter((item) => {
       const field = normalizeFieldName(item?.campo);
-      if (hiddenGapFields.has(field)) return false;
+      if (hiddenGapFields.has(field)) {return false;}
       if (payload?.licitacao_detalhes?.vencedor_nome && ['fornecedor_nome', 'vencedor_nome'].includes(field)) {
         return false;
       }
       if (payload?.licitacao_detalhes?.vencedor_cnpj && ['fornecedor_cnpj', 'vencedor_cnpj'].includes(field)) {
         return false;
       }
-      if (payload?.licitacao_detalhes?.valor_final != null && field === 'valor_final') {
+      if (payload?.licitacao_detalhes?.valor_final !== null && field === 'valor_final') {
         return false;
       }
       return true;
     });
   normalized.consistencia = (Array.isArray(normalized.consistencia) ? normalized.consistencia : [])
     .map((item) => {
-      const field = normalizeFieldName(item?.campo);
+      const _field = normalizeFieldName(item?.campo);
       if (
         item?.status === 'divergente' &&
         isMissingDescription(`${item.campo} ${item.descricao}`) &&
@@ -206,7 +206,7 @@ function normalizeIntegratedReadingQuality(reading, payload) {
     })
     .filter((item) => {
       const field = normalizeFieldName(item?.campo);
-      if (hiddenGapFields.has(field) || lowSignalConsistencyFields.has(field)) return false;
+      if (hiddenGapFields.has(field) || lowSignalConsistencyFields.has(field)) {return false;}
       if (
         ['numero_pncp', 'pncp'].includes(field) &&
         !hasPncp &&

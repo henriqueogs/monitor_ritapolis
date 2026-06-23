@@ -41,7 +41,7 @@ function parseSummaryResponse(rawContent) {
 }
 
 function normalizeEnumValue(value, allowedValues, fallback = 'outro') {
-  if (value == null || value === '') {
+  if (value === null || value === '') {
     return fallback;
   }
 
@@ -58,48 +58,48 @@ function normalizeEnumValue(value, allowedValues, fallback = 'outro') {
   }
 
   if (allowedValues === enumValues.tipo_documento) {
-    if (/edital|licitacao|pregao|concorrencia|dispensa|inexigibilidade/.test(text)) return 'edital';
-    if (/decreto/.test(text)) return 'decreto';
-    if (/portaria/.test(text)) return 'portaria';
-    if (/lei/.test(text)) return 'lei';
-    if (/contrato|termo_aditivo/.test(text)) return 'contrato';
-    if (/despesa|empenho|pagamento/.test(text)) return 'despesa';
-    if (/ata/.test(text)) return 'ata';
+    if (/edital|licitacao|pregao|concorrencia|dispensa|inexigibilidade/.test(text)) {return 'edital';}
+    if (/decreto/.test(text)) {return 'decreto';}
+    if (/portaria/.test(text)) {return 'portaria';}
+    if (/lei/.test(text)) {return 'lei';}
+    if (/contrato|termo_aditivo/.test(text)) {return 'contrato';}
+    if (/despesa|empenho|pagamento/.test(text)) {return 'despesa';}
+    if (/ata/.test(text)) {return 'ata';}
   }
 
   if (allowedValues === enumValues.papel) {
-    if (/contratante|prefeitura|municipio|municipal|orgao/.test(text)) return 'contratante';
-    if (/contratad|empresa|vencedor|fornecedor/.test(text)) return 'contratado';
-    if (/autoridade|prefeito|secretari|pregoeir|presidente/.test(text)) return 'autoridade';
+    if (/contratante|prefeitura|municipio|municipal|orgao/.test(text)) {return 'contratante';}
+    if (/contratad|empresa|vencedor|fornecedor/.test(text)) {return 'contratado';}
+    if (/autoridade|prefeito|secretari|pregoeir|presidente/.test(text)) {return 'autoridade';}
   }
 
   if (allowedValues === enumValues.data_tipo) {
-    if (/abertura|sessao|certame/.test(text)) return 'abertura';
-    if (/publica/.test(text)) return 'publicacao';
-    if (/vigencia|validade/.test(text)) return 'vigencia';
-    if (/homologa/.test(text)) return 'homologacao';
-    if (/assinatura|assinado/.test(text)) return 'assinatura';
+    if (/abertura|sessao|certame/.test(text)) {return 'abertura';}
+    if (/publica/.test(text)) {return 'publicacao';}
+    if (/vigencia|validade/.test(text)) {return 'vigencia';}
+    if (/homologa/.test(text)) {return 'homologacao';}
+    if (/assinatura|assinado/.test(text)) {return 'assinatura';}
   }
 
   if (allowedValues === enumValues.valor_tipo) {
-    if (/estimad|referencia/.test(text)) return 'estimado';
-    if (/final|homologad|contratad/.test(text)) return 'final';
-    if (/global|total/.test(text)) return 'global';
-    if (/mensal/.test(text)) return 'mensal';
-    if (/unit/.test(text)) return 'unitario';
+    if (/estimad|referencia/.test(text)) {return 'estimado';}
+    if (/final|homologad|contratad/.test(text)) {return 'final';}
+    if (/global|total/.test(text)) {return 'global';}
+    if (/mensal/.test(text)) {return 'mensal';}
+    if (/unit/.test(text)) {return 'unitario';}
   }
 
   if (allowedValues === enumValues.valor_final_tipo) {
-    if (/unit/.test(text)) return 'unitario';
-    if (/total|item_total/.test(text)) return 'total_item';
-    if (/lote/.test(text)) return 'lote';
-    if (/global/.test(text)) return 'global';
+    if (/unit/.test(text)) {return 'unitario';}
+    if (/total|item_total/.test(text)) {return 'total_item';}
+    if (/lote/.test(text)) {return 'lote';}
+    if (/global/.test(text)) {return 'global';}
     return 'indefinido';
   }
 
   if (allowedValues === enumValues.nivel_risco) {
-    if (/alto|grave/.test(text)) return 'alto';
-    if (/medio|moderado/.test(text)) return 'medio';
+    if (/alto|grave/.test(text)) {return 'alto';}
+    if (/medio|moderado/.test(text)) {return 'medio';}
     return 'baixo';
   }
 
@@ -107,7 +107,7 @@ function normalizeEnumValue(value, allowedValues, fallback = 'outro') {
 }
 
 function normalizeDateValue(value) {
-  if (value == null || value === '') {
+  if (value === null || value === '') {
     return null;
   }
 
@@ -130,7 +130,7 @@ function normalizeDateValue(value) {
 }
 
 function normalizeOptionalText(value) {
-  if (value == null) return null;
+  if (value === null) {return null;}
 
   const text = String(value)
     .replace(/[\u200B-\u200D\uFEFF]/g, '')
@@ -144,14 +144,14 @@ function normalizeRequiredText(value) {
 }
 
 function normalizeNumberValue(value) {
-  if (value == null || value === '') return null;
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (value === null || value === '') {return null;}
+  if (typeof value === 'number') {return Number.isFinite(value) ? value : null;}
 
   const text = String(value)
     .replace(/[^\d,.-]/g, '')
     .trim();
 
-  if (!text) return null;
+  if (!text) {return null;}
 
   const normalized = text.includes(',')
     ? text.replace(/\./g, '').replace(',', '.')

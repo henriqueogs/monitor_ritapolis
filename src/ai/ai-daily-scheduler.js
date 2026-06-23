@@ -84,7 +84,7 @@ function start() {
     return;
   }
 
-  if (timer) {return;}
+  if (timer) { return; }
 
   const intervalHoras = Math.round(config.aiSchedulerIntervalMs / 3600000);
   const estimativaDias = Math.ceil(430 / (config.aiSchedulerDocsPerCycle * (24 / intervalHoras)));

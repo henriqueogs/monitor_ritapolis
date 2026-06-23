@@ -22,14 +22,14 @@ function normalizeSourceType(value) {
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '');
 
-  if (!text) return 'outro';
-  if (['prefeitura', 'site_prefeitura', 'municipio', 'cadastro_oficial'].includes(text)) return 'prefeitura';
-  if (['pncp', 'portal_nacional'].includes(text)) return 'pncp';
-  if (text.includes('ata')) return 'ata';
-  if (text.includes('contrato')) return 'contrato';
-  if (text.includes('produto') || text.includes('item') || text.includes('licitacoes_produtos')) return 'produto';
-  if (text.includes('grupo') || text.includes('processo')) return 'grupo';
-  if (text.includes('documento') || text.includes('pdf') || text.includes('edital')) return 'documento';
+  if (!text) {return 'outro';}
+  if (['prefeitura', 'site_prefeitura', 'municipio', 'cadastro_oficial'].includes(text)) {return 'prefeitura';}
+  if (['pncp', 'portal_nacional'].includes(text)) {return 'pncp';}
+  if (text.includes('ata')) {return 'ata';}
+  if (text.includes('contrato')) {return 'contrato';}
+  if (text.includes('produto') || text.includes('item') || text.includes('licitacoes_produtos')) {return 'produto';}
+  if (text.includes('grupo') || text.includes('processo')) {return 'grupo';}
+  if (text.includes('documento') || text.includes('pdf') || text.includes('edital')) {return 'documento';}
   return text;
 }
 
@@ -38,7 +38,7 @@ const sourceRefSchema = z.object({
   campo: z.string().trim().min(1),
   identificador: z
     .preprocess(
-      (value) => (value == null || value === '' ? null : String(value)),
+      (value) => (value === null || value === '' ? null : String(value)),
       z.string().trim().min(1).nullable()
     )
     .default(null)
