@@ -58,6 +58,7 @@ npm start   # API na porta 3001 + Next.js dev na porta 3000
 | `/temas` | Navegação por categoria |
 | `/transparencia` | Indicadores públicos da base |
 | `/inteligencia` | Dashboard cruzado — fornecedores, categorias, gastos |
+| `/alertas` | Alertas de inteligência (padrões/risco/valor) + detalhe `/alertas/:id` |
 | `/sobre` | Como a plataforma funciona e suas limitações |
 
 ## Área administrativa
@@ -68,6 +69,8 @@ npm start   # API na porta 3001 + Next.js dev na porta 3000
 | `/admin/ia` | Cobertura, fila e jobs de resumos IA |
 | `/admin/cobertura` | Cobertura das fontes monitoradas |
 | `/admin/coletas` | Ações e status de coleta (inclui schedulers) |
+| `/admin/alertas` | Alertas: stats, gatilhos/config, gerar, arquivar/suprimir |
+| `/admin/jobs` | Jobs & schedulers + ferramentas de manutenção e progresso |
 | `/admin/qualidade` | Score de qualidade por documento |
 
 Aliases: `/documentos` → `/acervo`, `/estatisticas` → `/transparencia`, `/ia` → `/admin/ia`, `/cobertura` → `/admin/cobertura`.
@@ -104,6 +107,10 @@ npm run pncp:diagnostico                 # Busca fuzzy por data+modalidade (fall
 npm run inteligencia:auditar             # score de qualidade por documento
 npm run inteligencia:fornecedores        # consolida perfis de fornecedor
 npm run inteligencia:categorizar         # classifica licitações por categoria
+
+# Alertas de inteligência (insights recorrentes sobre os resumos IA)
+npm run alertas:gerar                     # gera/atualiza alertas (narrativa IA)
+npm run alertas:gerar:dry                 # prévia sem gravar
 
 # Build
 npm run build --prefix frontend
