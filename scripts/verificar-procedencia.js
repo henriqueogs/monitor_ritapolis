@@ -61,11 +61,22 @@ async function main() {
   console.warn(`Documentos a verificar: ${docs.length}${opts.apply ? '' : ' (dry-run)'}`);
 
   const coletor = new ColetorSitePrefeitura();
+  // Confirmado: reconcilia data + marca status/data de verificação.
   const update = db.prepare(
     `UPDATE documentos
         SET data_publicacao = @dp,
-            dados_extras = json_set(IFNULL(dados_extras, '{}'), '$.procedencia_verificada_em', @agora),
+            dados_extras = json_set(
+              json_set(IFNULL(dados_extras, '{}'), '$.procedencia_status', 'confirmado'),
+              '$.procedencia_verificada_em', @agora),
             atualizado_em = CURRENT_TIMESTAMP
+      WHERE id = @id`
+  );
+  // Registro durável do resultado para os demais casos (não-encontrado etc.).
+  const marcarProcedencia = db.prepare(
+    `UPDATE documentos
+        SET dados_extras = json_set(
+              json_set(IFNULL(dados_extras, '{}'), '$.procedencia_status', @status),
+              '$.procedencia_verificada_em', @agora)
       WHERE id = @id`
   );
 
@@ -82,6 +93,9 @@ async function main() {
       if (!pageId) {
         cont.sem_pagina += 1;
         categoria = 'sem_pagina';
+        if (opts.apply) {
+          marcarProcedencia.run({ id: d.id, status: 'sem_pagina', agora: new Date().toISOString() });
+        }
         prog.tick(`#${d.id} sem pageId`, categoria);
         continue;
       }
@@ -89,6 +103,9 @@ async function main() {
       if (!r.encontrado) {
         cont.nao_encontrados += 1;
         categoria = 'nao_encontrado';
+        if (opts.apply) {
+          marcarProcedencia.run({ id: d.id, status: 'nao_encontrado', agora: new Date().toISOString() });
+        }
         console.warn(`${tag} NÃO encontrado na fonte (pode ter saído do ar)`);
         prog.tick(`#${d.id} não encontrado`, categoria);
         continue;
