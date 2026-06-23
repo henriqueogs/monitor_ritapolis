@@ -169,6 +169,20 @@ mas vem **vazio** (`http://`). Conclusões e plano:
 - Se algum dia a Prefeitura preencher "Link do processo", capturá-lo como
   `url_origem` (hoje ignorar quando for `http://`/vazio).
 
+**Alertas de Inteligência (implementado)**
+Pipeline recorrente que analisa os resumos IA, agrupa por (categoria, ano) e por
+processo, e gera alertas com narrativa em linguagem natural + metadados. Detectores
+puros em `src/alertas/detectores/` (repetição temática, risco alto via
+`alertas[].nivel`, valor relevante por ano §11.1, anomalia temporal,
+questionamentos via `lacunas`/`consistencia`); consolidação idempotente por
+`chave_unica`; narrativa via NVIDIA (`src/ai/alert-narrative.js`). Persistência em
+`alertas`/`alertas_documentos`/`alertas_watermark`/`alertas_config`. API em
+`/api/alertas*`; CLI `npm run alertas:gerar[:dry]`; integrado ao ai-daily-scheduler.
+Frontend: destaques na home, `/alertas` (lista) e `/alertas/[id]` (detalhe com
+documentos e `url_origem`). Validado em dados reais (26 alertas, ex.: "Equipamentos
+e Materiais — R$ 2,7 mi em 2026"). Futuro: notificação por e-mail/WhatsApp,
+assinatura por cidadão, seletor de intervalo nas telas de valores.
+
 ### Decisões técnicas permanentes
 
 - SQLite no curto e médio prazo
