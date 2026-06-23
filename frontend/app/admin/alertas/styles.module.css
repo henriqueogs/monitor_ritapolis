@@ -1,0 +1,118 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.header h1 {
+  margin: 0;
+}
+
+.header p {
+  margin: 0.25rem 0 0;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.section {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  background: #fff;
+}
+
+.section h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+}
+
+.log {
+  font-size: 0.82rem;
+  font-family: ui-monospace, monospace;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+}
+
+.logTime {
+  color: #94a3b8;
+}
+
+.configGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.75rem;
+}
+
+.configRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border: 1px solid #eef2f7;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+}
+
+.configRow label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.configChave {
+  font-size: 0.82rem;
+  color: #334155;
+  font-weight: 600;
+}
+
+.configRow input[type='text'] {
+  width: 90px;
+  padding: 0.2rem 0.4rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+}
+
+.lista {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.alertaRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 1px solid #eef2f7;
+  border-left: 4px solid #2563eb;
+  border-radius: 8px;
+  padding: 0.6rem 0.85rem;
+}
+
+.alertaInfo {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.alertaMeta {
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.alertaAcoes {
+  display: flex;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}

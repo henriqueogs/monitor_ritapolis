@@ -2,6 +2,8 @@ import Link from 'next/link';
 
 const adminLinks = [
   { href: '/admin', label: 'Visao geral' },
+  { href: '/admin/jobs', label: 'Jobs & Schedulers' },
+  { href: '/admin/alertas', label: 'Alertas' },
   { href: '/admin/ia', label: 'IA' },
   { href: '/admin/coletas', label: 'Coletas' },
   { href: '/admin/cobertura', label: 'Cobertura' },
