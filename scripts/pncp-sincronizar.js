@@ -18,12 +18,10 @@
 process.loadEnvFile?.() || require('dotenv').config();
 
 const {
-  buscarContratacoes,
   verificarCoberturaMunicipio,
   gerarContratacoesPorCnpj,
   extrairNumeroPncp,
   extrairVencedor,
-  MODALIDADES
 } = require('../src/integracoes/pncp-orgaos');
 const db = require('../src/db');
 const config = require('../src/config');
@@ -67,14 +65,14 @@ async function sincronizarCnpj(cnpj) {
 
   for await (const { modalidade, items } of gerarContratacoesPorCnpj(cnpj, ANO)) {
     stats.total += items.length;
-    if (VERBOSE) console.log(`  Modalidade ${modalidade}: ${items.length} contrataç${items.length === 1 ? 'ão' : 'ões'}`);
+    if (VERBOSE) {console.log(`  Modalidade ${modalidade}: ${items.length} contrataç${items.length === 1 ? 'ão' : 'ões'}`);}
 
     for (const item of items) {
       const numeroPncp = extrairNumeroPncp(item);
-      if (!numeroPncp) continue;
+      if (!numeroPncp) {continue;}
 
       const doc = db.getDocumentoByNumeroPncp(numeroPncp);
-      if (!doc) continue;
+      if (!doc) {continue;}
 
       stats.correspondencias++;
       const vencedor = extrairVencedor(item);
@@ -91,7 +89,7 @@ async function sincronizarCnpj(cnpj) {
           numero_pncp: numeroPncp,
           data_resultado: item.dataResultadoCompra || item.dataPublicacaoPncp || null
         });
-        if (changed > 0) stats.atualizadas++;
+        if (changed > 0) {stats.atualizadas++;}
       } else if (DRY_RUN && vencedor) {
         stats.atualizadas++;
       }
@@ -107,7 +105,7 @@ async function main() {
     return;
   }
 
-  if (DRY_RUN) console.log('[PNCP] Modo dry-run — nenhum dado será salvo.\n');
+  if (DRY_RUN) {console.log('[PNCP] Modo dry-run — nenhum dado será salvo.\n');}
 
   // Verificação rápida antes de sincronizar
   const cobertura = await verificarCoberturaMunicipio({ codigoMunicipioIbge: config.ibgeCode, ano: ANO });
@@ -134,7 +132,7 @@ async function main() {
 
   console.log(`\n[PNCP] Resumo:`);
   console.log(`  Total PNCP: ${totais.total} | Correspondências locais: ${totais.correspondencias} | ${DRY_RUN ? 'Seriam atualizadas' : 'Atualizadas'}: ${totais.atualizadas}`);
-  if (totais.erros) console.log(`  Erros: ${totais.erros}`);
+  if (totais.erros) {console.log(`  Erros: ${totais.erros}`);}
 }
 
 main().catch((err) => {

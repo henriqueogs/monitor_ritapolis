@@ -23,25 +23,25 @@ function parseArgs(argv) {
 
     if (arg.startsWith('--ano=')) {
       const ano = Number(arg.split('=')[1]);
-      if (Number.isFinite(ano)) options.ano = ano;
+      if (Number.isFinite(ano)) {options.ano = ano;}
       return;
     }
 
     if (arg.startsWith('--documento=')) {
       const documentoId = Number(arg.split('=')[1]);
-      if (Number.isFinite(documentoId)) options.documentoId = documentoId;
+      if (Number.isFinite(documentoId)) {options.documentoId = documentoId;}
       return;
     }
 
     if (arg.startsWith('--tolerancia-abs=')) {
       const toleranciaAbs = Number(arg.split('=')[1]);
-      if (Number.isFinite(toleranciaAbs) && toleranciaAbs >= 0) options.toleranciaAbs = toleranciaAbs;
+      if (Number.isFinite(toleranciaAbs) && toleranciaAbs >= 0) {options.toleranciaAbs = toleranciaAbs;}
       return;
     }
 
     if (arg.startsWith('--tolerancia-pct=')) {
       const toleranciaPct = Number(arg.split('=')[1]);
-      if (Number.isFinite(toleranciaPct) && toleranciaPct >= 0) options.toleranciaPct = toleranciaPct;
+      if (Number.isFinite(toleranciaPct) && toleranciaPct >= 0) {options.toleranciaPct = toleranciaPct;}
     }
   });
 

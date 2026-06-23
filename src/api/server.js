@@ -364,7 +364,7 @@ function createServer() {
   app.get('/api/documentos/:id/empenhos', (req, res) => {
     const id = Number(req.params.id);
     const documento = getDocumentoById(id);
-    if (!documento) {return res.status(404).json({ error: 'Documento nao encontrado' });}
+    if (!documento) { return res.status(404).json({ error: 'Documento nao encontrado' }); }
 
     const resumo = getResumoFinanceiroPorDocumento(id);
     const empenhos = getDespesasPorDocumento(id);
@@ -389,7 +389,7 @@ function createServer() {
 
   app.get('/api/transparencia/receitas/:exercicio', (req, res) => {
     const exercicio = Number(req.params.exercicio);
-    if (!exercicio) {return res.status(400).json({ error: 'exercicio inválido' });}
+    if (!exercicio) { return res.status(400).json({ error: 'exercicio inválido' }); }
     return res.json(getReceitasDetalheExercicio(exercicio));
   });
 
@@ -404,7 +404,7 @@ function createServer() {
   // GET /api/inteligencia/concentracao?exercicio=2025 — B1 concentração
   app.get('/api/inteligencia/concentracao', (req, res) => {
     const exercicio = req.query.exercicio ? Number(req.query.exercicio) : undefined;
-    if (exercicio) {return res.json(getConcentracaoCredores(exercicio));}
+    if (exercicio) { return res.json(getConcentracaoCredores(exercicio)); }
     return res.json(getConcentracaoHistorico());
   });
 
@@ -546,9 +546,9 @@ function createServer() {
   // GET /api/credores/:cnpj — perfil completo de um credor
   app.get('/api/credores/:cnpj', (req, res) => {
     const cnpj = String(req.params.cnpj).replace(/\D/g, '');
-    if (cnpj.length !== 14) {return res.status(400).json({ error: 'CNPJ inválido' });}
+    if (cnpj.length !== 14) { return res.status(400).json({ error: 'CNPJ inválido' }); }
     const perfil = getCredorProfile(cnpj);
-    if (!perfil) {return res.status(404).json({ error: 'Credor não encontrado' });}
+    if (!perfil) { return res.status(404).json({ error: 'Credor não encontrado' }); }
     return res.json(perfil);
   });
 

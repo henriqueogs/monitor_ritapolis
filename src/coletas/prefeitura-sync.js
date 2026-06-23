@@ -15,7 +15,7 @@ function parsePrefeituraUpdatedAt(text) {
     /(?:[\u00daU\u00c3\u0161]ltima atualiza[c\u00e7\u00c3\u00a7][a\u00e3\u00c3\u00a3]o em:\s*)?(\d{2})\/(\d{2})\/(\d{4})\s*(?:\u00e0s|as|\u00c3\u00a0s)\s*(\d{2}):(\d{2})/i
   );
 
-  if (!match) return null;
+  if (!match) {return null;}
 
   const [, day, month, year, hour, minute] = match;
   return `${year}-${month}-${day}T${hour}:${minute}:00-03:00`;
@@ -71,21 +71,21 @@ async function fetchAreaUpdatedAt(coletor, area) {
 }
 
 function compareDates(remoteIso, localIso) {
-  if (!remoteIso) return 'sem_referencia';
-  if (!localIso) return 'desatualizado';
+  if (!remoteIso) {return 'sem_referencia';}
+  if (!localIso) {return 'desatualizado';}
 
   const remoteTime = new Date(remoteIso).getTime();
   const localTime = new Date(localIso).getTime();
-  if (!Number.isFinite(remoteTime) || !Number.isFinite(localTime)) return 'sem_referencia';
+  if (!Number.isFinite(remoteTime) || !Number.isFinite(localTime)) {return 'sem_referencia';}
 
   return remoteTime > localTime ? 'desatualizado' : 'atualizado';
 }
 
 function shouldUseCachedResult(now) {
   const intervalMs = config.prefeituraSyncCheckIntervalMs;
-  if (!state.lastCheckedAt || !state.lastResult) return false;
-  if (state.lastResult.coleta?.started && !getCollectionUpdateStatus().running) return false;
-  if (state.lastResult.status === 'desatualizado' && !getCollectionUpdateStatus().running) return false;
+  if (!state.lastCheckedAt || !state.lastResult) {return false;}
+  if (state.lastResult.coleta?.started && !getCollectionUpdateStatus().running) {return false;}
+  if (state.lastResult.status === 'desatualizado' && !getCollectionUpdateStatus().running) {return false;}
   return now - new Date(state.lastCheckedAt).getTime() < intervalMs;
 }
 

@@ -87,8 +87,8 @@ function summarizeByYear(dados) {
   }
 
   return Array.from(porAno.values()).sort((a, b) => {
-    if (a.ano === 'sem_ano') return 1;
-    if (b.ano === 'sem_ano') return -1;
+    if (a.ano === 'sem_ano') {return 1;}
+    if (b.ano === 'sem_ano') {return -1;}
     return Number(b.ano) - Number(a.ano);
   });
 }

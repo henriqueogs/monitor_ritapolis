@@ -1,14 +1,14 @@
 const { normalizeNumeroPncpChave } = require('../licitacoes/processo');
 
 function parseNumber(value) {
-  if (value == null || value === '') return null;
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (value === null || value === '') {return null;}
+  if (typeof value === 'number') {return Number.isFinite(value) ? value : null;}
 
   const text = String(value)
     .replace(/[^\d,.-]/g, '')
     .trim();
 
-  if (!text) return null;
+  if (!text) {return null;}
   const normalized = text.includes(',')
     ? text.replace(/\./g, '').replace(',', '.')
     : text;
@@ -18,18 +18,18 @@ function parseNumber(value) {
 }
 
 function compareValores(local, remoto) {
-  if (local == null || remoto == null) {
+  if (local === null || remoto === null) {
     return { status: 'ausente', divergencia_abs: null, divergencia_pct: null };
   }
 
   const diff = Math.abs(local - remoto);
   const pct = remoto ? diff / Math.abs(remoto) : null;
 
-  if (diff <= 1 || (pct != null && pct <= 0.01)) {
+  if (diff <= 1 || (pct !== null && pct <= 0.01)) {
     return { status: 'confirmado', divergencia_abs: diff, divergencia_pct: pct };
   }
 
-  if (pct != null && pct <= 0.1) {
+  if (pct !== null && pct <= 0.1) {
     return { status: 'aproximado', divergencia_abs: diff, divergencia_pct: pct };
   }
 

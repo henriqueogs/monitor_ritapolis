@@ -9,7 +9,7 @@ function absolutize(baseUrl, href) {
 }
 
 function resolveSh3Href(baseUrl, href) {
-  if (!href) return null;
+  if (!href) {return null;}
   const jsMatch = href.match(/ObterContenedor\("([^"]+)"\)/i);
   if (jsMatch) {
     return absolutize(baseUrl, jsMatch[1]);
@@ -41,7 +41,7 @@ function parseHtmlTable(baseUrl, html) {
       .get()
       .filter(Boolean);
 
-    if (!cells.length) return;
+    if (!cells.length) {return;}
 
     const links = $(row)
       .find('a[href]')
@@ -68,8 +68,8 @@ function findModuleLinks(baseUrl, html, keywords) {
       const href = $(link).attr('href');
       const fullUrl = resolveSh3Href(baseUrl, href);
       const candidate = `${text} ${href || ''}`.toLowerCase();
-      if (!fullUrl) return null;
-      if (!lowered.some((word) => candidate.includes(word))) return null;
+      if (!fullUrl) {return null;}
+      if (!lowered.some((word) => candidate.includes(word))) {return null;}
       return { text, href: fullUrl };
     })
     .get()

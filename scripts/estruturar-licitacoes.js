@@ -15,13 +15,13 @@ function parseArgs(argv) {
 
     if (arg.startsWith('--ano=')) {
       const ano = Number(arg.split('=')[1]);
-      if (Number.isFinite(ano)) options.ano = ano;
+      if (Number.isFinite(ano)) {options.ano = ano;}
       return;
     }
 
     if (arg.startsWith('--limite=')) {
       const limite = Number(arg.split('=')[1]);
-      if (Number.isFinite(limite) && limite > 0) options.limite = limite;
+      if (Number.isFinite(limite) && limite > 0) {options.limite = limite;}
     }
   });
 

@@ -158,7 +158,7 @@ async function main() {
       console.log(`ERRO: ${r.erro}`);
     } else {
       stats.textos++;
-      if (r.vencedor_extraido) stats.vencedores++;
+      if (r.vencedor_extraido) {stats.vencedores++;}
       stats.produtos += r.produtos_salvos;
       const flags = [r.vencedor_extraido ? '✓ vencedor' : '', r.produtos_salvos ? `✓ ${r.produtos_salvos} produtos` : ''].filter(Boolean).join(' ') || 'texto ok';
       console.log(flags);

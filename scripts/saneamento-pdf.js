@@ -12,7 +12,7 @@ function parseArgs(argv) {
   const options = {};
 
   for (const arg of argv) {
-    if (!arg.startsWith('--')) continue;
+    if (!arg.startsWith('--')) {continue;}
     const [key, value] = arg.slice(2).split('=');
     options[key] = value === undefined ? true : value;
   }

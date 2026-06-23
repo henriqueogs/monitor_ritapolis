@@ -45,19 +45,19 @@ function normalizeCnpj(value) {
 function normalizeProcesso(value) {
   const text = normalizeKey(value);
   const digits = onlyDigits(text);
-  if (digits.length >= 5) return digits;
+  if (digits.length >= 5) {return digits;}
   return text.replace(/\s+/g, '');
 }
 
 function parseNumber(value) {
-  if (value == null || value === '') return null;
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (value === null || value === '') {return null;}
+  if (typeof value === 'number') {return Number.isFinite(value) ? value : null;}
 
   const text = String(value)
     .replace(/[^\d,.-]/g, '')
     .trim();
 
-  if (!text) return null;
+  if (!text) {return null;}
   const normalized = text.includes(',')
     ? text.replace(/\./g, '').replace(',', '.')
     : text;
@@ -67,8 +67,8 @@ function parseNumber(value) {
 }
 
 function parseDateValue(value) {
-  if (!value) return null;
-  if (value instanceof Date && Number.isFinite(value.getTime())) return value;
+  if (!value) {return null;}
+  if (value instanceof Date && Number.isFinite(value.getTime())) {return value;}
 
   const text = String(value).trim();
   const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -111,8 +111,8 @@ function buildDateWindow({ data, ano, dias = 90 }) {
     const year = Number(ano);
     const start = new Date(year, 0, 1);
     let end = new Date(year, 11, 31);
-    if (end > today) end = today;
-    if (start > end) return null;
+    if (end > today) {end = today;}
+    if (start > end) {return null;}
 
     return {
       dataInicial: formatPncpDate(start),
@@ -121,7 +121,7 @@ function buildDateWindow({ data, ano, dias = 90 }) {
     };
   }
 
-  if (!parsed) return null;
+  if (!parsed) {return null;}
 
   let start = addDays(parsed, -Math.abs(Number(dias || 0)));
   let end = addDays(parsed, Math.abs(Number(dias || 0)));
@@ -129,12 +129,12 @@ function buildDateWindow({ data, ano, dias = 90 }) {
   if (ano) {
     const min = new Date(Number(ano), 0, 1);
     const max = new Date(Number(ano), 11, 31);
-    if (start < min) start = min;
-    if (end > max) end = max;
+    if (start < min) {start = min;}
+    if (end > max) {end = max;}
   }
 
-  if (end > today) end = today;
-  if (start > end) start = end;
+  if (end > today) {end = today;}
+  if (start > end) {start = end;}
 
   return {
     dataInicial: formatPncpDate(start),
@@ -145,21 +145,21 @@ function buildDateWindow({ data, ano, dias = 90 }) {
 
 function resolveModalidadeCodes(value) {
   const text = normalizeKey(value);
-  if (!text) return DEFAULT_MODALIDADE_CODES;
-  if (text.includes('pregao') && text.includes('eletron')) return [MODALIDADE_CODES.pregao_eletronico];
-  if (text.includes('pregao') && text.includes('presenc')) return [MODALIDADE_CODES.pregao_presencial];
-  if (text.includes('pregao')) return [MODALIDADE_CODES.pregao_eletronico, MODALIDADE_CODES.pregao_presencial];
-  if (text.includes('dispensa')) return [MODALIDADE_CODES.dispensa];
-  if (text.includes('inexig')) return [MODALIDADE_CODES.inexigibilidade];
-  if (text.includes('credenciamento') || text.includes('chamamento')) return [MODALIDADE_CODES.credenciamento];
-  if (text.includes('concorr')) return [MODALIDADE_CODES.concorrencia_eletronica, MODALIDADE_CODES.concorrencia_presencial];
+  if (!text) {return DEFAULT_MODALIDADE_CODES;}
+  if (text.includes('pregao') && text.includes('eletron')) {return [MODALIDADE_CODES.pregao_eletronico];}
+  if (text.includes('pregao') && text.includes('presenc')) {return [MODALIDADE_CODES.pregao_presencial];}
+  if (text.includes('pregao')) {return [MODALIDADE_CODES.pregao_eletronico, MODALIDADE_CODES.pregao_presencial];}
+  if (text.includes('dispensa')) {return [MODALIDADE_CODES.dispensa];}
+  if (text.includes('inexig')) {return [MODALIDADE_CODES.inexigibilidade];}
+  if (text.includes('credenciamento') || text.includes('chamamento')) {return [MODALIDADE_CODES.credenciamento];}
+  if (text.includes('concorr')) {return [MODALIDADE_CODES.concorrencia_eletronica, MODALIDADE_CODES.concorrencia_presencial];}
 
   return DEFAULT_MODALIDADE_CODES;
 }
 
 function extractItems(payload) {
-  if (Array.isArray(payload)) return payload;
-  if (!payload || typeof payload !== 'object') return [];
+  if (Array.isArray(payload)) {return payload;}
+  if (!payload || typeof payload !== 'object') {return [];}
 
   const candidates = [
     payload.data,
@@ -184,7 +184,7 @@ function buildPncpEditalUrl(candidato) {
 
   const controle = String(candidato?.numeroControlePNCP || '').trim();
   const match = controle.match(/^(\d{14})-\d+-(\d+)\/(\d{4})$/);
-  if (!match) return null;
+  if (!match) {return null;}
 
   return `https://pncp.gov.br/app/editais/${match[1]}/${match[3]}/${Number(match[2])}`;
 }
@@ -306,11 +306,11 @@ function tokenize(value) {
 function overlapRatio(a, b) {
   const tokensA = new Set(tokenize(a));
   const tokensB = new Set(tokenize(b));
-  if (!tokensA.size || !tokensB.size) return 0;
+  if (!tokensA.size || !tokensB.size) {return 0;}
 
   let matches = 0;
   tokensA.forEach((token) => {
-    if (tokensB.has(token)) matches += 1;
+    if (tokensB.has(token)) {matches += 1;}
   });
 
   return matches / Math.min(tokensA.size, tokensB.size);
@@ -319,12 +319,12 @@ function overlapRatio(a, b) {
 function hasModalidadeMatch(local, candidato) {
   const localText = normalizeKey(local?.modalidade);
   const remoteText = normalizeKey(candidato?.modalidadeNome || candidato?.modalidade || '');
-  if (!localText || !remoteText) return false;
-  if (localText.includes('pregao') && remoteText.includes('pregao')) return true;
-  if (localText.includes('dispensa') && remoteText.includes('dispensa')) return true;
-  if (localText.includes('inexig') && remoteText.includes('inexig')) return true;
-  if (localText.includes('credenciamento') && remoteText.includes('credenciamento')) return true;
-  if (localText.includes('concorr') && remoteText.includes('concorr')) return true;
+  if (!localText || !remoteText) {return false;}
+  if (localText.includes('pregao') && remoteText.includes('pregao')) {return true;}
+  if (localText.includes('dispensa') && remoteText.includes('dispensa')) {return true;}
+  if (localText.includes('inexig') && remoteText.includes('inexig')) {return true;}
+  if (localText.includes('credenciamento') && remoteText.includes('credenciamento')) {return true;}
+  if (localText.includes('concorr') && remoteText.includes('concorr')) {return true;}
   return localText === remoteText;
 }
 
@@ -388,13 +388,13 @@ function scoreContratacaoPncp(local, candidato) {
 
   const localValor = parseNumber(local?.valor_final) ?? parseNumber(local?.valor_estimado);
   const remoteValor = getCandidateValor(candidato);
-  if (localValor != null && remoteValor != null) {
+  if (localValor !== null && remoteValor !== null) {
     const diff = Math.abs(localValor - remoteValor);
     const pct = remoteValor ? diff / Math.abs(remoteValor) : null;
-    if (diff <= 1 || (pct != null && pct <= 0.01)) {
+    if (diff <= 1 || (pct !== null && pct <= 0.01)) {
       score += 10;
       motivos.push('valor_proximo');
-    } else if (pct != null && pct <= 0.1) {
+    } else if (pct !== null && pct <= 0.1) {
       score += 5;
       motivos.push('valor_aproximado');
     }
@@ -408,9 +408,9 @@ function scoreContratacaoPncp(local, candidato) {
 }
 
 function getStatusCorrespondencia(score, minScore = 60) {
-  if (score >= 80) return 'forte';
-  if (score >= Number(minScore)) return 'sugerida';
-  if (score >= 40) return 'fraca';
+  if (score >= 80) {return 'forte';}
+  if (score >= Number(minScore)) {return 'sugerida';}
+  if (score >= 40) {return 'fraca';}
   return 'baixa_confianca';
 }
 
@@ -419,9 +419,9 @@ function dedupeCandidatos(candidatos) {
 
   candidatos.forEach((item) => {
     const id = getCandidateIdentifier(item.candidato);
-    if (!id) return;
+    if (!id) {return;}
     const current = byId.get(id);
-    if (!current || item.score > current.score) byId.set(id, item);
+    if (!current || item.score > current.score) {byId.set(id, item);}
   });
 
   return Array.from(byId.values()).sort((a, b) => b.score - a.score);
@@ -530,8 +530,8 @@ async function buscarCandidatosPncp(local, {
             });
           });
 
-          if (consulta.items.length < Number(tamanhoPagina || 50)) break;
-          if (consulta.total_paginas && pagina >= Number(consulta.total_paginas)) break;
+          if (consulta.items.length < Number(tamanhoPagina || 50)) {break;}
+          if (consulta.total_paginas && pagina >= Number(consulta.total_paginas)) {break;}
         } catch (error) {
           erros.push({
             codigoModalidadeContratacao,
@@ -547,7 +547,7 @@ async function buscarCandidatosPncp(local, {
       }
     }
 
-    if (candidatos.length > encontradosAntes || !retrySemCnpj) break;
+    if (candidatos.length > encontradosAntes || !retrySemCnpj) {break;}
   }
 
   const ordenados = dedupeCandidatos(candidatos).slice(0, Number(limiteCandidatos || 10));

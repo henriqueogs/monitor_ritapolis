@@ -57,37 +57,37 @@ function parseArgs(argv) {
 
     if (arg.startsWith('--ano=')) {
       const ano = Number(arg.split('=')[1]);
-      if (Number.isFinite(ano)) options.ano = ano;
+      if (Number.isFinite(ano)) {options.ano = ano;}
       return;
     }
 
     if (arg.startsWith('--documento=')) {
       const documentoId = Number(arg.split('=')[1]);
-      if (Number.isFinite(documentoId)) options.documentoId = documentoId;
+      if (Number.isFinite(documentoId)) {options.documentoId = documentoId;}
       return;
     }
 
     if (arg.startsWith('--limite=')) {
       const limite = Number(arg.split('=')[1]);
-      if (Number.isFinite(limite) && limite > 0) options.limite = limite;
+      if (Number.isFinite(limite) && limite > 0) {options.limite = limite;}
       return;
     }
 
     if (arg.startsWith('--dias=')) {
       const dias = Number(arg.split('=')[1]);
-      if (Number.isFinite(dias) && dias >= 0) options.dias = dias;
+      if (Number.isFinite(dias) && dias >= 0) {options.dias = dias;}
       return;
     }
 
     if (arg.startsWith('--min-score=')) {
       const minScore = Number(arg.split('=')[1]);
-      if (Number.isFinite(minScore) && minScore >= 0) options.minScore = minScore;
+      if (Number.isFinite(minScore) && minScore >= 0) {options.minScore = minScore;}
       return;
     }
 
     if (arg.startsWith('--max-paginas=')) {
       const maxPaginas = Number(arg.split('=')[1]);
-      if (Number.isFinite(maxPaginas) && maxPaginas > 0) options.maxPaginas = maxPaginas;
+      if (Number.isFinite(maxPaginas) && maxPaginas > 0) {options.maxPaginas = maxPaginas;}
       return;
     }
 
@@ -101,19 +101,19 @@ function parseArgs(argv) {
 
     if (arg.startsWith('--timeout-ms=')) {
       const timeoutMs = Number(arg.split('=')[1]);
-      if (Number.isFinite(timeoutMs) && timeoutMs > 0) options.timeoutMs = timeoutMs;
+      if (Number.isFinite(timeoutMs) && timeoutMs > 0) {options.timeoutMs = timeoutMs;}
       return;
     }
 
     if (arg.startsWith('--uf=')) {
       const uf = arg.split('=')[1];
-      if (uf) options.uf = uf.toUpperCase();
+      if (uf) {options.uf = uf.toUpperCase();}
       return;
     }
 
     if (arg.startsWith('--cnpj=')) {
       const cnpj = normalizeCnpj(arg.split('=')[1]);
-      if (cnpj) options.cnpj = cnpj;
+      if (cnpj) {options.cnpj = cnpj;}
       return;
     }
 
@@ -129,9 +129,9 @@ function parseArgs(argv) {
 }
 
 function cnpjForLicitacao(licitacao, options) {
-  if (!options.usarCnpj) return null;
-  if (options.cnpj) return options.cnpj;
-  if (licitacao.fonte === 'camara') return config.cnpjCamara;
+  if (!options.usarCnpj) {return null;}
+  if (options.cnpj) {return options.cnpj;}
+  if (licitacao.fonte === 'camara') {return config.cnpjCamara;}
   return config.cnpjPrefeitura;
 }
 

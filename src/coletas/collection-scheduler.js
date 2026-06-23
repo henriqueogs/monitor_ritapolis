@@ -16,14 +16,14 @@ function getLastCollectionAt() {
 
 function isCollectionDue() {
   const last = getLastCollectionAt();
-  if (!last) return true;
+  if (!last) {return true;}
 
   const intervalMs = config.collectionSchedulerIntervalHours * 60 * 60 * 1000;
   return Date.now() - last.getTime() >= intervalMs;
 }
 
 function tick() {
-  if (!config.collectionSchedulerEnabled) return;
+  if (!config.collectionSchedulerEnabled) {return;}
 
   const status = getCollectionUpdateStatus();
   if (status.running) {
@@ -55,7 +55,7 @@ function start() {
     return;
   }
 
-  if (timer) return;
+  if (timer) {return;}
 
   logger.info('Scheduler de coleta: iniciado', {
     intervalo_verificacao_min: Math.round(config.collectionSchedulerCheckMs / 60000),

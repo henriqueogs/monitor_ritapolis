@@ -4,9 +4,9 @@
  * ATENÇÃO: A API /pncp-api/v1/orgaos/ é para ESCRITA (órgãos submetendo dados).
  * Para leitura pública, usamos /api/consulta/v1/ — sem autenticação.
  *
- * Limitação conhecida: municípios que não publicam no PNCP retornam 204 em
- * todas as buscas. Ritápolis publica no site próprio, não no portal nacional.
- * Esta integração funciona quando/se o município começar a publicar no PNCP.
+ * Ritápolis publica majoritariamente no site próprio. O PNCP tem dados pontuais:
+ * pelo menos 1 Pregão Eletrônico (2025/1) da Prefeitura foi publicado lá.
+ * O ColetorPncp (src/coletores/pncp.js) busca via /orgaos/{cnpj}/compras/{ano}/{seq}.
  */
 
 const axios = require('axios');
@@ -34,7 +34,7 @@ async function get(path, params = {}) {
       'user-agent': config.collectorUserAgent
     }
   });
-  if (response.status === 204) return null;
+  if (response.status === 204) {return null;}
   return response.data;
 }
 
@@ -50,11 +50,11 @@ async function buscarContratacoes({ cnpj, codigoMunicipioIbge, codigoModalidadeC
     pagina,
     tamanhoPagina: Math.max(tamanhoPagina, 10)
   };
-  if (cnpj) params.cnpj = String(cnpj).replace(/\D/g, '');
-  if (codigoMunicipioIbge) params.codigoMunicipioIbge = codigoMunicipioIbge;
+  if (cnpj) {params.cnpj = String(cnpj).replace(/\D/g, '');}
+  if (codigoMunicipioIbge) {params.codigoMunicipioIbge = codigoMunicipioIbge;}
 
   const data = await get('/v1/contratacoes/publicacao', params);
-  if (!data) return null;
+  if (!data) {return null;}
 
   const items = data.data || data.content || [];
   return {
@@ -84,7 +84,7 @@ async function verificarCoberturaMunicipio({ codigoMunicipioIbge, cnpj, ano } = 
         pagina: 1,
         tamanhoPagina: 10
       });
-      if (result?.totalRegistros > 0) totalEncontrado += result.totalRegistros;
+      if (result?.totalRegistros > 0) {totalEncontrado += result.totalRegistros;}
     } catch {
       // modalidade sem dados ou API instável
     }
@@ -109,11 +109,11 @@ async function* gerarContratacoesPorCnpj(cnpj, ano) {
       } catch {
         break;
       }
-      if (!resp || !resp.items.length) break;
+      if (!resp || !resp.items.length) {break;}
 
       yield { modalidade, items: resp.items };
 
-      if (pagina >= resp.totalPaginas) break;
+      if (pagina >= resp.totalPaginas) {break;}
       pagina++;
     }
   }
@@ -129,7 +129,7 @@ function extrairVencedor(item) {
   const nome = item?.nomeRazaoSocialFornecedor || item?.nomeVencedor || null;
   const cnpj = item?.niFornecedor || item?.cnpjVencedor || null;
   const valor = item?.valorTotalHomologado ?? item?.valorFinal ?? null;
-  if (!nome) return null;
+  if (!nome) {return null;}
   return { nome, cnpj, valor };
 }
 

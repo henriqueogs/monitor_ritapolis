@@ -35,7 +35,6 @@ function sleep(ms) {
 
 async function main() {
   const { DatabaseSync } = require('node:sqlite');
-  const path = require('path');
   const config = require('../src/config');
   const db = new DatabaseSync(config.dbPath);
 
@@ -47,7 +46,7 @@ async function main() {
   const anos = ANOS_PARAM || anosDisponiveis;
 
   console.log(`[IA] Resumo por ano — ${anos.length} anos, ${LIMITE_POR_ANO} docs/ano, ${DELAY_ENTRE_DOCS_S}s entre docs, ${DELAY_ENTRE_ANOS_S}s entre anos`);
-  if (DRY_RUN) console.log('[IA] Modo dry-run — nenhuma chamada de IA será feita.\n');
+  if (DRY_RUN) {console.log('[IA] Modo dry-run — nenhuma chamada de IA será feita.\n');}
 
   const totais = { anos: 0, selecionados: 0, ok: 0, erro: 0, pulados: 0 };
 
