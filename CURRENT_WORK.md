@@ -2,6 +2,24 @@
 
 Foco operacional imediato. Atualizar sempre que uma fase for concluída ou a prioridade mudar.
 
+## Qualidade da informação — achados (2026-06-23)
+
+Cobertura está saudável: texto/resumo/análise ~100% do que a fonte oferece
+(os 6 sem resumo são `sem_pdf` — fonte sem arquivo). Vencedor 87%.
+
+**`valor_final` (46%) é o gargalo — e é LACUNA DE FONTE, não de processamento.**
+Esgotadas 3 vias de recuperação (todas ~0): (a) re-derivar de atas já extraídas
+(0 de 265 — atas tabulares não trazem total no texto), (b) somar itens de
+produtos (1 doc), (c) extrair recuperáveis (propostas + resultados mal-
+classificados: 76 textos, 2 vencedores, 0 valores). A Prefeitura não publica
+valor homologado extraível dos anos antigos e Ritápolis não está no PNCP. →
+**Não tratar como pendente; rotular honestamente (§11.3 / cobertura honesta).**
+Não derivar valor de propostas (são lances ≠ valor final).
+
+Ferramentas: `extrair-texto-anexos.js --rederivar` e `--recuperaveis`.
+
+---
+
 Atualizado em: 2026-06-23 — Gerador de Alertas de Inteligência (New_work.md).
 
 ---
