@@ -150,6 +150,15 @@ async function main() {
         SET dados_extras = json_set(IFNULL(dados_extras, '{}'), '$.ocr_checado', 1)
       WHERE id = ?`
   );
+  // Marca docs que falharam (pdftoppm corrompido, OCR ilegível) como checados
+  // com motivo — para a varredura CONVERGIR e não retentar infinitamente.
+  const marcarFalha = db.prepare(
+    `UPDATE documentos
+        SET dados_extras = json_set(
+              json_set(IFNULL(dados_extras, '{}'), '$.ocr_checado', 1),
+              '$.ocr_falha', @motivo)
+      WHERE id = @id`
+  );
 
   // Processa um documento e devolve {categoria, info} — a categoria alimenta o
   // contador e o heartbeat de progresso.
@@ -179,6 +188,9 @@ async function main() {
     const texto = (r.texto || '').trim();
     if (texto.length < MIN_CHARS_OCR) {
       console.warn(`${tag} texto curto/ilegível (${texto.length} chars) — mantém`);
+      if (opts.apply) {
+        marcarFalha.run({ id: d.id, motivo: `ocr_ilegivel:${texto.length}` });
+      }
       return { categoria: 'curto', info: `#${d.id} curto (${texto.length})` };
     }
     console.warn(`${tag} OK — ${r.paginas}p, ${texto.length} chars`);
@@ -198,6 +210,10 @@ async function main() {
       resultado = await processarDoc(d, tag);
     } catch (err) {
       console.error(`${tag} ERRO: ${err.message}`);
+      // Marca a falha para a varredura convergir (não retentar PDFs corrompidos).
+      if (opts.apply && (d.url_pdf || '').startsWith('http')) {
+        marcarFalha.run({ id: d.id, motivo: err.message.slice(0, 80) });
+      }
       resultado = { categoria: 'erro', info: `#${d.id} ERRO: ${err.message.slice(0, 60)}` };
     }
     cont[resultado.categoria] += 1;
