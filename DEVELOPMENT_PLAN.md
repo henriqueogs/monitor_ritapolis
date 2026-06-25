@@ -169,19 +169,36 @@ mas vem **vazio** (`http://`). Conclusões e plano:
 - Se algum dia a Prefeitura preencher "Link do processo", capturá-lo como
   `url_origem` (hoje ignorar quando for `http://`/vazio).
 
-**Alertas de Inteligência (implementado)**
+**Alertas de Inteligência → "Descobertas" (implementado)**
 Pipeline recorrente que analisa os resumos IA, agrupa por (categoria, ano) e por
-processo, e gera alertas com narrativa em linguagem natural + metadados. Detectores
+processo, e gera descobertas com narrativa em linguagem natural + metadados. Detectores
 puros em `src/alertas/detectores/` (repetição temática, risco alto via
 `alertas[].nivel`, valor relevante por ano §11.1, anomalia temporal,
 questionamentos via `lacunas`/`consistencia`); consolidação idempotente por
 `chave_unica`; narrativa via NVIDIA (`src/ai/alert-narrative.js`). Persistência em
-`alertas`/`alertas_documentos`/`alertas_watermark`/`alertas_config`. API em
-`/api/alertas*`; CLI `npm run alertas:gerar[:dry]`; integrado ao ai-daily-scheduler.
-Frontend: destaques na home, `/alertas` (lista) e `/alertas/[id]` (detalhe com
-documentos e `url_origem`). Validado em dados reais (26 alertas, ex.: "Equipamentos
-e Materiais — R$ 2,7 mi em 2026"). Futuro: notificação por e-mail/WhatsApp,
-assinatura por cidadão, seletor de intervalo nas telas de valores.
+`alertas`/`alertas_documentos`/`alertas_watermark`/`alertas_config` (tabelas seguem
+`alertas` por dentro; o público é "Descobertas").
+
+**Thresholds afináveis** em `/admin/alertas`: as 5 chaves de `alertas_config`
+(`min_repeticao`, `valor_threshold`, `anomalia_multiplicador`,
+`anomalia_min_absoluto`, `gatilhos_ativos`) são semeadas por
+`scripts/seed-alertas-config.js` e editáveis no painel. O gerador
+(`generateAlerts`) tem dois modos: **incremental** (por watermark, usado pelo
+scheduler diário) e **full** (`--full` / botão "Gerar descobertas agora") que
+varre todo o acervo e **reconcilia** o feed — remove ativos abaixo do threshold
+via `repo.removerAtivosNaoListados`, preservando decisões humanas
+(arquivado/suprimido).
+
+API em `/api/alertas*` (`/config` GET/PATCH, `POST /gerar` aceita `full`); CLI
+`npm run alertas:gerar[:dry]` e `node scripts/gerar-alertas.js --full`. Frontend:
+destaques na home, **`/descobertas`** (lista) e **`/descobertas/[id]`** (detalhe
+com documentos e `url_origem`) — CSS Module próprio
+(`frontend/app/descobertas/styles.module.css`), tom de curiosidade, paleta calma
+(nível como ponto+rótulo, sem vermelho de pânico). Validado em dados reais (539
+docs → 50 descobertas: 13 "Vale conferir" + 37 "Curiosidade"). Futuro:
+notificação por e-mail/WhatsApp, assinatura por cidadão, seletor de intervalo nas
+telas de valores, e ajustar prompt da narrativa para não usar "Alerta:" no título
+(briga com o tom de "Descobertas").
 
 ### Decisões técnicas permanentes
 

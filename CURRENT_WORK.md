@@ -20,7 +20,32 @@ Ferramentas: `extrair-texto-anexos.js --rederivar` e `--recuperaveis`.
 
 ---
 
-Atualizado em: 2026-06-23 — Gerador de Alertas de Inteligência (New_work.md).
+Atualizado em: 2026-06-24 — Descobertas: thresholds afináveis + reconciliação + redesign da UI.
+
+---
+
+## ▶ Como retomar (próxima sessão) — leia primeiro
+
+**Onde paramos (24/06/2026):** as "Descobertas" estão completas e validadas em
+dados reais (539 docs → 50 descobertas). Nesta sessão: (1) thresholds ficaram
+editáveis em `/admin/alertas` + rebuild com reconciliação; (2) a página
+`/descobertas` (lista + detalhe) foi **reescrita** num CSS Module próprio
+(antes usava classes inexistentes → renderizava sem estilo). Tudo verificado no
+browser, testes verdes, lint limpo.
+
+**Pendências em aberto (próximos passos sugeridos, em ordem):**
+1. **Narrativa diz "Alerta:" no título** — briga com o tom de "Descobertas/
+   curiosidade". Ajustar o prompt em `src/ai/alert-narrative.js` (proibir
+   "Alerta!/atenção" sensacionalista) e regerar com `node scripts/gerar-alertas.js --full`.
+2. **Fase 5 — Publicação** (ver abaixo): Basic Auth em `/admin/*` (hoje público),
+   testes de parser pendentes, build de produção + deploy.
+3. **Fila de OCR** (141 anexos escaneados) — destrava vencedores/valores antigos
+   (ver ⭐ DESTAQUE na Fase 2). Tentativa futura: tesseract local já existe no
+   pipeline (300 DPI + modelos "best").
+
+**Setup rápido da sessão:** `npm start` (API 3001 + frontend 3000). Páginas:
+`/descobertas`, `/admin/alertas` (painel de thresholds). Caveman instalado como
+plugin (ativa só em nova sessão, via `/caveman`).
 
 ---
 
@@ -41,8 +66,20 @@ Plano em `New_work.md`. ✅ feito · 🔄 em andamento · ⬜ pendente.
 - ✅ **Fase 6 — API REST** (`/api/alertas`, `/destaques`, `/:id`, `/stats`, `/config`, `POST /gerar`).
 - ✅ **Fase 7 — Frontend**: destaques na home · `/alertas` (lista) · `/alertas/[id]` (detalhe) · link na navbar · painel no admin (`/admin/alertas`) · seção em `/inteligencia`.
 - ✅ **Fase 8 — Verificação + docs**: ✅ unit/integração (repo, detectores, consolidador) · ✅ `DEVELOPMENT_PLAN.md` + `README.md` · ✅ validação manual (26 descobertas reais, rotas HTTP 200) · ✅ **E2E Playwright** configurado (`playwright.config.js` + `tests/e2e/descobertas.spec.js`, 3 testes verdes: navbar, lista→detalhe com fonte, 404 sem quebrar).
+- ✅ **Fase 9 — Afinar thresholds em `/admin/alertas`** (24/06/2026):
+  - `alertas_config` estava VAZIO → painel mostrava "usando defaults" sem linhas editáveis. Criado `scripts/seed-alertas-config.js` (idempotente, `--reset`) que semeia as 5 chaves com descrição → aparecem editáveis no admin.
+  - **Tuning** (tom curiosidade, município pequeno): `min_repeticao` 2→**4** (corta clusters triviais de 2-3 processos; controla tamanho do feed) · `valor_threshold` 500k→**1M** (reserva "Vale conferir" p/ gasto grande; só re-rotula, não remove) · anomalia 3×/min 3 · todos gatilhos on.
+  - **Reconciliação**: `generateAlerts({ full: true })` varre todo o acervo e remove ativos abaixo do threshold (`repo.removerAtivosNaoListados`, preserva arquivado/suprimido humano). Botão "Gerar descobertas agora" agora faz rebuild completo; ciclo diário segue incremental. CLI `--full`.
+  - Resultado: 539 docs → 50 descobertas ativas (**13 "Vale conferir" + 37 "Curiosidade", 0 alarmante**), 6 obsoletas reconciliadas. Testes verdes (repo reconcile + generator full/incremental).
 
-Validado em dados reais: 195 docs → 38 sinais → 26 alertas com narrativa IA, valores por ano.
+- ✅ **Fase 10 — Redesign da UI de `/descobertas`** (24/06/2026):
+  - **Bug raiz:** a página referenciava classes globais inexistentes (`citizen-card`, `citizen-card-title`, `filter-bar`, `page-head`) → cards renderizavam como `<a>` cru, sem estilo. (As classes definidas eram `citizen-row`, etc.)
+  - Criado `frontend/app/descobertas/styles.module.css` (sobre os tokens v2 de `globals.css`); **lista** e **detalhe** reescritas para o módulo.
+  - Lista: header (eyebrow/título/subtítulo) · filtros em chips com ponto colorido por nível · grade responsiva de cards (nível = ponto+rótulo, paleta calma; valor em algarismos tabulares com período §11.1; nº docs + data com ícones SVG; line-clamp no título/resumo).
+  - Detalhe: back link · título · badges calmos · seções Análise/Valores (metric cards)/Período/Pontos a investigar/Documentos vinculados (com link de fonte §11.3).
+  - A11y: foco visível, `prefers-reduced-motion`, cor nunca é o único indicador. Verificado no browser (lista, "Vale conferir" com valor, detalhe com 10 fontes); lint limpo, 0 erro de console.
+
+Validado em dados reais: 539 docs → 50 descobertas com narrativa IA, valores por ano (thresholds afináveis no admin).
 
 ---
 
