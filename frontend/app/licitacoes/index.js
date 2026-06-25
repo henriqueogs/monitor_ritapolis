@@ -4,7 +4,6 @@ import { fetchEstatisticas, fetchLicitacaoAnaliseAnual, fetchLicitacoes } from '
 import LicitacaoFilters from './components/LicitacaoFilters';
 import LicitacaoList from './components/LicitacaoList';
 import LicitacaoProductsTable from './components/LicitacaoProductsTable';
-import LicitacaoProductSummary from './components/LicitacaoProductSummary';
 import LicitacaoYearNav from './components/LicitacaoYearNav';
 import LicitacaoYearSummary from './components/LicitacaoYearSummary';
 
@@ -74,10 +73,9 @@ export default async function LicitacoesPage({ searchParams }) {
       <LicitacaoYearSummary row={activeYear} currentYear={currentYear} />
 
       <SectionBlock
-        title="Produtos licitados no ano"
-        description="Itens estruturados apenas quando ha descricao e evidencia textual. Validacoes externas ficam separadas da extracao original."
+        title={`O que foi comprado em ${filters.ano}`}
+        description="Itens das licitações com preço e fornecedor, quando a fonte oficial informa."
       >
-        <LicitacaoProductSummary analise={analiseAnual} />
         <LicitacaoProductsTable produtos={analiseAnual.produtos_recentes || []} />
       </SectionBlock>
 
