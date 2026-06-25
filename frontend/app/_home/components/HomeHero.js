@@ -7,9 +7,6 @@ const CATEGORIAS = ['Saúde', 'Alimentação', 'Educação', 'Obras e Infraestru
 
 export default function HomeHero({ resumo, licitacoesAno }) {
   const anoCorrente = licitacoesAno?.ano || new Date().getFullYear();
-  const comResumoAno = licitacoesAno?.com_resumo_ai || 0;
-  const totalAno = licitacoesAno?.total || 0;
-  const pctResumo = totalAno > 0 ? Math.round((comResumoAno / totalAno) * 100) : 0;
 
   return (
     <section className={styles.hero}>
@@ -58,11 +55,6 @@ export default function HomeHero({ resumo, licitacoesAno }) {
           <div className={styles.heroStat}>
             <strong>{(resumo?.total_licitacoes || 0).toLocaleString('pt-BR')}</strong>
             <span>Licitações</span>
-          </div>
-          <div className={styles.heroStatDivider} />
-          <div className={styles.heroStat}>
-            <strong>{pctResumo > 0 ? `${pctResumo}%` : `${comResumoAno}`}</strong>
-            <span>Com resumo IA em {anoCorrente}</span>
           </div>
           <div className={styles.heroStatDivider} />
           <div className={styles.heroStat}>

@@ -539,7 +539,7 @@ function listResumoAnalises({ tipo, limite = 50 } = {}) {
            ORDER BY datetime(r2.criado_em) DESC, r2.id DESC
            LIMIT 1
          )
-       ORDER BY datetime(r.criado_em) DESC, r.id DESC
+       ORDER BY COALESCE(d.data_publicacao, d.data_abertura, '') DESC, d.id DESC
        LIMIT @limite`
     )
     .all(params);

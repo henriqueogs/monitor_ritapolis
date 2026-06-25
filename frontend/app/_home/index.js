@@ -1,6 +1,5 @@
 import IntelligenceBrief from '../components/IntelligenceBrief';
 import { fetchAlertasDestaques, fetchAnalisesResumos, fetchPainelCidadao } from '../lib/api';
-import { formatMoney, labelTipo } from '../lib/format';
 import AlertasDestaque from './components/AlertasDestaque';
 import HomeCharts from './components/HomeCharts';
 import HomeHero from './components/HomeHero';
@@ -21,50 +20,6 @@ function buildDestaqueIa(analisesItens) {
   };
 }
 
-function buildChartItems(painel) {
-  const atividadePorAno = (painel.anos || [])
-    .slice(0, 8)
-    .map((item) => ({
-      label: String(item.ano),
-      value: item.total,
-      valueLabel: `${item.total} atos`
-    }));
-
-  const temasPorTipo = (painel.qualidade_por_tipo || [])
-    .slice(0, 6)
-    .map((item) => ({
-      label: item.tipo_nome || labelTipo(item.tipo),
-      value: item.total,
-      valueLabel: `${item.total}`
-    }));
-
-  const comprasComValor = (painel.licitacoes_recentes || [])
-    .filter((item) => Number(item.valor_estimado) > 0)
-    .slice(0, 5)
-    .map((item) => ({
-      label: item.numero || item.titulo?.slice(0, 28) || 'Compra publica',
-      value: Number(item.valor_estimado || 0),
-      valueLabel: formatMoney(item.valor_estimado)
-    }));
-
-  const licitacoesAno = painel.licitacoes_ano_corrente || {};
-  const modalidadesAno = (licitacoesAno.modalidades || [])
-    .slice(0, 6)
-    .map((item) => ({
-      label: item.modalidade,
-      value: item.total,
-      valueLabel: `${item.total}`
-    }));
-
-  return {
-    atividadePorAno,
-    temasPorTipo,
-    comprasComValor,
-    modalidadesAno,
-    licitacoesAno
-  };
-}
-
 export default async function HomePage() {
   const [painel, analises, alertas] = await Promise.all([
     fetchPainelCidadao(),
@@ -74,7 +29,6 @@ export default async function HomePage() {
   const resumo = painel.resumo || {};
   const analisesItens = analises.itens || [];
   const atualizacoesRecentes = painel.publicacoes_recentes || [];
-  const charts = buildChartItems(painel);
   const destaqueIa = buildDestaqueIa(analisesItens);
   const ultimaPublicacao = atualizacoesRecentes[0] || null;
   const licitacaoDestaque =
@@ -92,7 +46,7 @@ export default async function HomePage() {
         licitacao={licitacaoDestaque}
       />
       <AlertasDestaque alertas={alertas} />
-      <HomeCharts analisesItens={analisesItens} charts={charts} />
+      <HomeCharts analisesItens={analisesItens} />
       <UpdatesSection documentos={atualizacoesRecentes} anoPadrao={resumo.ano_padrao} />
       <LimitsAndSources fontes={painel.fontes || []} />
     </main>

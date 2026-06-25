@@ -1,6 +1,4 @@
 import Link from 'next/link';
-import QualitySignals from '../../components/QualitySignals';
-import StatusBadge from '../../components/StatusBadge';
 import { cleanDocumentTitle, cleanDocumentSummary, formatDate, labelFonte, labelTipo } from '../../lib/format';
 
 export default function DocumentPreview({ documento }) {
@@ -10,15 +8,15 @@ export default function DocumentPreview({ documento }) {
         <div className="document-row-meta">
           <span>{documento.tipo_nome || labelTipo(documento.tipo)}</span>
           <span>{documento.fonte_nome || labelFonte(documento.fonte)}</span>
-          <span>{formatDate(documento.data_publicacao || documento.atualizado_em, 'Sem data')}</span>
+          {documento.data_publicacao ? (
+            <span>{formatDate(documento.data_publicacao, 'Sem data')}</span>
+          ) : null}
         </div>
         <strong>{cleanDocumentTitle(documento)}</strong>
         <p>{cleanDocumentSummary(documento)}</p>
-        <QualitySignals documento={documento} compact />
       </div>
       <div className="citizen-row-side">
-        {documento.numero ? <span>Nº {documento.numero}</span> : <span>Sem numero</span>}
-        <StatusBadge value={documento.status_coleta} />
+        {documento.numero ? <span>Nº {documento.numero}</span> : null}
       </div>
     </Link>
   );
