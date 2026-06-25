@@ -65,19 +65,31 @@ function EmendaCard({ emenda }) {
 
   const ano = emenda.ano || (emenda.data_inicio ? emenda.data_inicio.slice(0, 4) : null);
 
+  // Fonte às vezes despeja o registro inteiro em cargo/partido (260+ chars).
+  // Cargo real é curto ("Deputado Federal"); ignora quando vier poluído.
+  const cargo =
+    emenda.cargo_parlamentar && emenda.cargo_parlamentar.length <= 40
+      ? emenda.cargo_parlamentar
+      : null;
+  const partido = emenda.partido && emenda.partido.length <= 20 ? emenda.partido : null;
+  // instrumento_legal / unidade_executora também vêm poluídos com o registro
+  // inteiro às vezes — só exibe quando curto o bastante para ser o valor real.
+  const instrumentoLegal =
+    emenda.instrumento_legal && emenda.instrumento_legal.length <= 80 ? emenda.instrumento_legal : null;
+  const unidadeExecutora =
+    emenda.unidade_executora && emenda.unidade_executora.length <= 80 ? emenda.unidade_executora : null;
+
   return (
     <article className={styles.emendaCard}>
       <header className={styles.emendaCardHeader}>
         <div className={styles.emendaCardMeta}>
           <BadgeEsfera esfera={emenda.esfera} />
-          {emenda.partido && <span className={styles.badgePartido}>{emenda.partido}</span>}
+          {partido && <span className={styles.badgePartido}>{partido}</span>}
           {ano && <span className={styles.badgeAno}>{ano}</span>}
         </div>
         <h3 className={styles.emendaCardTitulo}>
           {emenda.nome_parlamentar || emenda.titulo || 'Emenda parlamentar'}
-          {emenda.cargo_parlamentar && (
-            <span className={styles.emendaCardCargo}> — {emenda.cargo_parlamentar}</span>
-          )}
+          {cargo && <span className={styles.emendaCardCargo}> — {cargo}</span>}
         </h3>
       </header>
 
@@ -92,11 +104,11 @@ function EmendaCard({ emenda }) {
       )}
 
       <footer className={styles.emendaCardFooter}>
-        {emenda.instrumento_legal && (
-          <span className={styles.emendaCardLegal}>{emenda.instrumento_legal}</span>
+        {instrumentoLegal && (
+          <span className={styles.emendaCardLegal}>{instrumentoLegal}</span>
         )}
-        {emenda.unidade_executora && (
-          <span className={styles.emendaCardExecutora}>{emenda.unidade_executora}</span>
+        {unidadeExecutora && (
+          <span className={styles.emendaCardExecutora}>{unidadeExecutora}</span>
         )}
         {emenda.url_origem && (
           <a
