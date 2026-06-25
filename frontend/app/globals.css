@@ -171,6 +171,17 @@ h1, h2, h3, h4, p {
   margin: 0 auto;
 }
 
+.site-footer-disclaimer {
+  width: min(var(--container), calc(100% - 48px));
+  margin: 16px auto 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: var(--text-muted);
+  max-width: 80ch;
+}
+
 .topbar-inner {
   display: flex;
   min-height: 64px;

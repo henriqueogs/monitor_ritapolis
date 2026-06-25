@@ -4,6 +4,7 @@ import EvidenceDrawer from '../../../components/EvidenceDrawer';
 import KeyValueList from '../../../components/KeyValueList';
 import StatusBadge from '../../../components/StatusBadge';
 import { formatDate, formatMoney } from '../../../lib/format';
+import { DISCLAIMER_IA } from '../../../lib/disclaimer';
 import styles from '../styles.module.css';
 
 function bestEstimatedValue(item) {
@@ -95,7 +96,7 @@ export default function AiSummarySection({ resumoAi, operacao }) {
 
       <div className={`${styles.aiNotice} ${styles.aiNoticeCompact}`}>
         <Shield size={14} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'middle' }} />
-        Este resumo foi gerado por IA a partir do texto extraído do arquivo oficial. Confira a fonte antes de tomar decisão.
+        {DISCLAIMER_IA}
       </div>
 
       {staleSummary ? (

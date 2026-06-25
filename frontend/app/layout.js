@@ -1,6 +1,7 @@
 import './globals.css';
 import Link from 'next/link';
 import TopNav from './components/TopNav';
+import { DISCLAIMER_RODAPE } from './lib/disclaimer';
 
 export const metadata = {
   title: 'Monitor Ritápolis — Inteligência Pública com IA',
@@ -27,6 +28,7 @@ export default function RootLayout({ children }) {
                 <Link href="/sobre">Sobre o projeto</Link>
               </div>
             </div>
+            <p className="site-footer-disclaimer">{DISCLAIMER_RODAPE}</p>
           </footer>
         </div>
       </body>

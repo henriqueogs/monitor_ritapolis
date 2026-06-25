@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { fetchAlerta } from '../../lib/api';
 import { formatMoney, formatDate, labelTipo } from '../../lib/format';
 import { nivelLabel } from '../../lib/descobertas';
+import { DISCLAIMER_DESCOBERTAS } from '../../lib/disclaimer';
 import styles from '../styles.module.css';
 
 const BADGE_NIVEL = {
@@ -47,6 +48,7 @@ export default async function DescobertaDetalhePage({ params }) {
           {alerta.categoria ? <span className={styles.badge}>{alerta.categoria}</span> : null}
           <span className={styles.badge}>{alerta.tipo === 'processo' ? 'por processo' : 'padrão'}</span>
         </div>
+        <p className={styles.disclaimer}>{DISCLAIMER_DESCOBERTAS}</p>
       </header>
 
       {alerta.narrativa ? (

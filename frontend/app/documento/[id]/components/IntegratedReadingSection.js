@@ -1,6 +1,7 @@
 import SectionBlock from '../../../components/SectionBlock';
 import StatusBadge from '../../../components/StatusBadge';
 import { formatDate } from '../../../lib/format';
+import { DISCLAIMER_IA } from '../../../lib/disclaimer';
 import styles from '../styles.module.css';
 import IntegratedReadingAction from './IntegratedReadingAction';
 
@@ -76,6 +77,7 @@ export default function IntegratedReadingSection({ leitura, documentoId }) {
       aside={<StatusBadge value={Number(dados.confianca || 0) < 0.6 ? 'revisar' : 'ok'} />}
     >
       <div className={styles.integratedReading}>
+        <p className="section-note" style={{ marginTop: 0, marginBottom: '16px' }}>{DISCLAIMER_IA}</p>
         <div className={styles.integratedHeader}>
           <div>
             <h3>{dados.titulo}</h3>

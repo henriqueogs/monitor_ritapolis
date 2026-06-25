@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { fetchAlertas } from '../lib/api';
 import { formatMoney, formatDate } from '../lib/format';
 import { nivelLabel } from '../lib/descobertas';
+import { DISCLAIMER_DESCOBERTAS } from '../lib/disclaimer';
 import styles from './styles.module.css';
 
 export const metadata = {
@@ -149,6 +150,7 @@ export default async function DescobertasPage({ searchParams }) {
           explorar e entender — a maioria é perfeitamente normal. O objetivo é dar visibilidade, não
           alarmar.
         </p>
+        <p className={styles.disclaimer}>{DISCLAIMER_DESCOBERTAS}</p>
       </header>
 
       <nav className={styles.filters} aria-label="Filtrar descobertas">
