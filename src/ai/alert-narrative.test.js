@@ -1,6 +1,11 @@
 'use strict';
 
-const { gerarNarrativaAlerta, validateNarrative, extractJsonObject } = require('./alert-narrative');
+const {
+  gerarNarrativaAlerta,
+  validateNarrative,
+  extractJsonObject,
+  sanitizarTitulo,
+} = require('./alert-narrative');
 
 function mockProvider(response) {
   return {
@@ -77,6 +82,48 @@ describe('gerarNarrativaAlerta', () => {
     jest.dontMock('../config');
     jest.dontMock('../logger');
     jest.resetModules();
+  });
+});
+
+describe('sanitizarTitulo', () => {
+  it('remove prefixo alarmista (tom de descoberta, nao alarme)', () => {
+    expect(sanitizarTitulo('Alerta: Equipamentos em 2026')).toBe('Equipamentos em 2026');
+    expect(sanitizarTitulo('ATENÇÃO - Saúde 2025')).toBe('Saúde 2025');
+    expect(sanitizarTitulo('Urgente: Obras')).toBe('Obras');
+    expect(sanitizarTitulo('Importante! Cultura')).toBe('Cultura');
+  });
+
+  it('mantem titulo neutro intacto', () => {
+    expect(sanitizarTitulo('Equipamentos: 10 processos em 2026')).toBe(
+      'Equipamentos: 10 processos em 2026'
+    );
+  });
+
+  it('nao deixa string vazia ao remover prefixo', () => {
+    expect(sanitizarTitulo('Alerta')).toBe('Alerta');
+  });
+
+  it('tolera valores vazios', () => {
+    expect(sanitizarTitulo('')).toBe('');
+    expect(sanitizarTitulo(null)).toBe('');
+  });
+});
+
+describe('gerarNarrativaAlerta — saneia titulo alarmista', () => {
+  beforeEach(() => {
+    process.env.AI_SUMMARY_ENABLED = 'true';
+  });
+
+  it('remove "Alerta:" do titulo retornado pela IA', async () => {
+    const provider = mockProvider(
+      JSON.stringify({
+        titulo: 'Alerta: Cortes de arvores em 2026',
+        narrativa: 'N',
+        questionamentos: [],
+      })
+    );
+    const result = await gerarNarrativaAlerta(alertaBase, { provider });
+    expect(result.titulo).toBe('Cortes de arvores em 2026');
   });
 });
 

@@ -53,6 +53,7 @@ Regras obrigatorias:
 - Quando houver valor_total, sempre cite o ${'`valor_periodo_label`'} ao lado (regra de produto: valores sempre escopados por periodo).
 - Escreva em portugues claro para cidadaos, em linguagem acessivel.
 - O titulo deve ser curto (maximo 90 caracteres) e informativo.
+- TOM DO TITULO: enquadre como descoberta/curiosidade, NUNCA como alarme. Proibido comecar com "Alerta", "Atencao", "Urgente", "Importante" ou usar ponto de exclamacao. Descreva o padrao de forma neutra (ex.: "Equipamentos: 10 processos em 2026", nao "Alerta: gastos com equipamentos").
 - A narrativa deve explicar o padrao detectado, citar o periodo e os documentos envolvidos.
 - Os questionamentos devem ser perguntas genuinas em aberto, ancoradas nos dados — nunca afirmacoes. Se nao houver lacunas, retorne lista vazia.
 - Se houver questionamentos estruturados na entrada, transforme-os em perguntas claras.

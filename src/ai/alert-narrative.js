@@ -29,6 +29,20 @@ function extractJsonObject(raw) {
   }
 }
 
+// Remove prefixo alarmista do titulo ("Alerta:", "Atencao -", "Urgente!", etc.).
+// "Descobertas" tem tom de curiosidade, nunca de alarme. Defesa adicional ao
+// prompt: se a IA escorregar, o titulo ainda chega neutro. Nao esvazia o titulo.
+const RE_PREFIXO_ALARMISTA = /^\s*(alerta|aten[cç][aã]o|urgente|importante|aviso)\s*[:!.\-–—]+\s*/i;
+
+function sanitizarTitulo(titulo) {
+  const texto = String(titulo || '').trim();
+  if (!texto) {
+    return '';
+  }
+  const limpo = texto.replace(RE_PREFIXO_ALARMISTA, '').trim();
+  return limpo || texto;
+}
+
 function validateNarrative(value) {
   const parsed = AlertNarrativeContract.safeParse(value);
   if (!parsed.success) {
@@ -61,6 +75,7 @@ async function gerarNarrativaAlerta(alerta, { provider } = {}) {
 
   const rawResponse = await aiProvider.generateJson({ prompt, temperature: 0.2 });
   const validated = validateNarrative(extractJsonObject(rawResponse));
+  validated.titulo = sanitizarTitulo(validated.titulo);
 
   logger.info('Narrativa de alerta gerada', {
     categoria: alerta.categoria,
@@ -73,4 +88,4 @@ async function gerarNarrativaAlerta(alerta, { provider } = {}) {
   return validated;
 }
 
-module.exports = { gerarNarrativaAlerta, validateNarrative, extractJsonObject };
+module.exports = { gerarNarrativaAlerta, validateNarrative, extractJsonObject, sanitizarTitulo };
