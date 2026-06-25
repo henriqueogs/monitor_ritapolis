@@ -37,7 +37,13 @@ const PROXIMO_ROTULO =
 
 function extrairCampo(texto, rotulo) {
   const escaped = rotulo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const pattern = new RegExp(escaped + '[:\\s]+(.{1,300}?)' + PROXIMO_ROTULO, 'i');
+  // Exige ':' logo após o rótulo (com espaços opcionais). Sem isto, 'OBJETO'
+  // casava dentro de 'OBJETO DETALHADO' (separador aceitava só espaço).
+  // {0,800}: campo pode ser vazio (federais "OBJETO :" seguido do próximo rótulo)
+  // e objetos longos passam dos 300 chars. \\s* no lookahead porque os espaços
+  // após o ':' já foram consumidos.
+  const stop = PROXIMO_ROTULO.replace('(?=\\s+(?:', '(?=\\s*(?:');
+  const pattern = new RegExp(escaped + '\\s*:\\s*(.{0,800}?)' + stop, 'i');
   const match = String(texto || '').match(pattern);
   if (!match) { return null; }
   return match[1].trim().replace(/\s{2,}/g, ' ') || null;

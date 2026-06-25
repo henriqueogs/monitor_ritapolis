@@ -86,10 +86,28 @@ describe('parseEmendaParlamentar — federal em linha única (caso real)', () =>
     expect(r.instrumento_legal.length).toBeLessThan(40);
   });
 
+  it('objeto vazio na fonte vira null (não captura o valor seguinte)', () => {
+    expect(r.objeto).toBeNull();
+  });
+
   it('campos não estouram (nenhum > 80 chars)', () => {
     for (const campo of ['nome_parlamentar', 'cargo_parlamentar', 'partido', 'instrumento_legal', 'orgao_transferidor']) {
       if (r[campo]) { expect(r[campo].length).toBeLessThanOrEqual(80); }
     }
+  });
+});
+
+describe('extrairCampo — rótulo não casa prefixo de rótulo maior', () => {
+  const { extrairCampo } = require('./emenda-parlamentar');
+
+  it('OBJETO não captura o conteúdo de OBJETO DETALHADO', () => {
+    const txt =
+      'OBJETO : Autoriza o repasse de recursos financeiros para aquisicao de veiculos ' +
+      'conforme programacao da Lei Orcamentaria Anual aprovada para o exercicio corrente do municipio ' +
+      'OBJETO DETALHADO: aquisicao de 01 veiculo';
+    expect(extrairCampo(txt, 'OBJETO')).toMatch(/^Autoriza o repasse/);
+    expect(extrairCampo(txt, 'OBJETO')).not.toMatch(/DETALHADO/);
+    expect(extrairCampo(txt, 'OBJETO DETALHADO')).toBe('aquisicao de 01 veiculo');
   });
 });
 
