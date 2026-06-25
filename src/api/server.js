@@ -490,12 +490,15 @@ function createServer() {
 
   // POST /api/alertas/gerar — dispara geração manual (admin)
   app.post('/api/alertas/gerar', async (req, res) => {
-    const { since, dryRun, limite } = req.body || {};
+    const { since, dryRun, limite, full } = req.body || {};
+    const ehFull = Boolean(full);
     try {
       const resultado = await generateAlerts({
         since: since || undefined,
         dryRun: Boolean(dryRun),
-        limite: limite ? Number(limite) : 200,
+        full: ehFull,
+        // Rebuild completo precisa varrer todo o acervo, não só uma página.
+        limite: limite ? Number(limite) : ehFull ? 5000 : 200,
       });
       return res.json(resultado);
     } catch (err) {

@@ -116,6 +116,28 @@ function upsertAlerta(alerta, documentos = []) {
   return { id, action: existing ? 'updated' : 'inserted' };
 }
 
+// Reconciliação de rebuild completo: remove descobertas ATIVAS cuja chave não
+// está mais entre as geradas (caíram abaixo do threshold ajustado). Preserva
+// decisões humanas — só toca status='ativo' (arquivado/suprimido ficam). Sem
+// chaves, não remove nada (evita zerar o feed por engano).
+function removerAtivosNaoListados(chaves = []) {
+  if (!chaves.length) {
+    return 0;
+  }
+  const placeholders = chaves.map(() => '?').join(',');
+  const alvos = db
+    .prepare(`SELECT id FROM alertas WHERE status = 'ativo' AND chave_unica NOT IN (${placeholders})`)
+    .all(...chaves);
+  if (!alvos.length) {
+    return 0;
+  }
+  const ids = alvos.map((a) => a.id);
+  const idPlaceholders = ids.map(() => '?').join(',');
+  db.prepare(`DELETE FROM alertas_documentos WHERE alerta_id IN (${idPlaceholders})`).run(...ids);
+  db.prepare(`DELETE FROM alertas WHERE id IN (${idPlaceholders})`).run(...ids);
+  return ids.length;
+}
+
 function listarAlertas({
   tipo,
   categoria,
@@ -247,6 +269,7 @@ function setConfig(chave, valor, descricao = null) {
 module.exports = {
   ORDEM_SEVERIDADE,
   upsertAlerta,
+  removerAtivosNaoListados,
   listarAlertas,
   listarDestaques,
   getAlerta,

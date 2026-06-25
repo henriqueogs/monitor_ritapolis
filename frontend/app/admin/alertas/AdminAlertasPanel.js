@@ -44,8 +44,12 @@ export default function AdminAlertasPanel({ initialStats, initialConfig, initial
   const handleGerar = useCallback(async () => {
     setLoading('gerar');
     try {
-      const r = await gerarAlertasManual({ limite: 200 });
-      registrar(`Geração: ${r.gerados ?? 0} gerados, ${r.atualizados ?? 0} atualizados, ${r.erros ?? 0} erros`);
+      // Rebuild completo: reflete os thresholds atuais e reconcilia o feed
+      // (remove descobertas que caíram abaixo do limite ajustado).
+      const r = await gerarAlertasManual({ full: true });
+      registrar(
+        `Geração: ${r.gerados ?? 0} novas, ${r.atualizados ?? 0} atualizadas, ${r.removidos ?? 0} removidas, ${r.erros ?? 0} erros`
+      );
       await recarregar();
     } catch (e) {
       registrar(`Erro ao gerar: ${e.message}`, true);

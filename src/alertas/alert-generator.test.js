@@ -22,6 +22,7 @@ jest.mock('../db/alertas-repo', () => ({
   getWatermark: jest.fn(() => null),
   setWatermark: jest.fn(),
   upsertAlerta: jest.fn(),
+  removerAtivosNaoListados: jest.fn(() => 0),
 }));
 
 const { db } = require('../db/connection');
@@ -159,6 +160,33 @@ describe('generateAlerts', () => {
     const result = await generateAlerts({});
     expect(result.total).toBe(0);
     expect(result.gerados).toBe(0);
+  });
+
+  it('rebuild completo (full) reconcilia ativos fora da lista regerada', async () => {
+    const docs = [
+      mockDocumentoRow(1, { titulo: 'Corte de arvores 1' }),
+      mockDocumentoRow(2, { titulo: 'Corte de arvores 2' }),
+    ];
+    mockDbPrepare(docs);
+    aiJobsRepo.getLatestResumoAiByDocumentoId.mockReturnValue(mockResumo());
+    repo.removerAtivosNaoListados.mockReturnValue(3);
+
+    const result = await generateAlerts({ full: true });
+
+    // Reconciliação recebe as chaves geradas e o retorno expõe removidos.
+    expect(repo.removerAtivosNaoListados).toHaveBeenCalledTimes(1);
+    const chaves = repo.removerAtivosNaoListados.mock.calls[0][0];
+    expect(Array.isArray(chaves)).toBe(true);
+    expect(result.removidos).toBe(3);
+  });
+
+  it('ciclo incremental (sem full) nao reconcilia', async () => {
+    const docs = [mockDocumentoRow(1), mockDocumentoRow(2)];
+    mockDbPrepare(docs);
+    aiJobsRepo.getLatestResumoAiByDocumentoId.mockReturnValue(mockResumo());
+
+    await generateAlerts({});
+    expect(repo.removerAtivosNaoListados).not.toHaveBeenCalled();
   });
 
   it('respeita gatilhos desativados', async () => {

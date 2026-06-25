@@ -451,11 +451,11 @@ export async function updateAlertaConfig(chave, valor, descricao = null) {
   return response.json();
 }
 
-export async function gerarAlertasManual({ since, dryRun, limite } = {}) {
+export async function gerarAlertasManual({ since, dryRun, limite, full } = {}) {
   const response = await fetch(`${apiUrl}/alertas/gerar`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ since, dryRun, limite }),
+    body: JSON.stringify({ since, dryRun, limite, full }),
   });
   if (!response.ok) {
     throw new Error('Falha ao gerar alertas');

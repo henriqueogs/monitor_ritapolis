@@ -76,6 +76,46 @@ describe('alertas-repo', () => {
     });
   });
 
+  describe('removerAtivosNaoListados', () => {
+    it('remove ativos fora da lista, preserva os listados e os arquivados', () => {
+      const r1 = repo.upsertAlerta({ tipo: 'tematico', titulo: 'Mantém', chave_unica: 'keep', severidade: 'info' }, []);
+      repo.upsertAlerta({ tipo: 'tematico', titulo: 'Some', chave_unica: 'drop', severidade: 'info' }, []);
+      const arq = repo.upsertAlerta({ tipo: 'tematico', titulo: 'Arquivado', chave_unica: 'arch', severidade: 'info' }, []);
+      repo.setAlertaStatus(arq.id, 'arquivado');
+
+      const removidos = repo.removerAtivosNaoListados(['keep']);
+
+      expect(removidos).toBe(1);
+      expect(repo.getAlerta(r1.id)).not.toBeNull();
+      // arquivado pelo humano não é tocado, mesmo fora da lista
+      expect(repo.getAlerta(arq.id).status).toBe('arquivado');
+      const ativos = repo.listarAlertas({ status: 'ativo' });
+      expect(ativos.dados.map((a) => a.chave_unica).sort()).toEqual(['keep']);
+    });
+
+    it('sem chaves não remove nada (proteção contra zerar o feed)', () => {
+      repo.upsertAlerta({ tipo: 'tematico', titulo: 'A', chave_unica: 'k', severidade: 'info' }, []);
+      expect(repo.removerAtivosNaoListados([])).toBe(0);
+      expect(repo.listarAlertas({ status: 'ativo' }).total).toBe(1);
+    });
+
+    it('remove também os vínculos de documentos do alerta removido', () => {
+      seedDocumento(1, '2026-03-01');
+      const drop = repo.upsertAlerta(
+        { tipo: 'tematico', titulo: 'Some', chave_unica: 'drop', severidade: 'info', documentos_ids: [1] },
+        [{ documento_id: 1, papel: 'origem' }]
+      );
+      repo.upsertAlerta({ tipo: 'tematico', titulo: 'Mantém', chave_unica: 'keep', severidade: 'info' }, []);
+
+      repo.removerAtivosNaoListados(['keep']);
+
+      const vinculos = mockConn
+        .prepare('SELECT COUNT(*) AS n FROM alertas_documentos WHERE alerta_id = ?')
+        .get(drop.id).n;
+      expect(vinculos).toBe(0);
+    });
+  });
+
   describe('listarAlertas / destaques', () => {
     beforeEach(() => {
       repo.upsertAlerta({ tipo: 'tematico', titulo: 'Crítico recente', chave_unica: 'c1', severidade: 'critico', ultima_publicacao_documento: '2026-05-01' }, []);

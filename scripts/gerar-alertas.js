@@ -3,15 +3,20 @@
 
 // CLI para disparar a geração de alertas manualmente.
 // Uso:
-//   node scripts/gerar-alertas.js [--since=ISO] [--dry-run] [--limite=N]
+//   node scripts/gerar-alertas.js [--since=ISO] [--dry-run] [--limite=N] [--full]
+//   --full: rebuild completo (varre todo o acervo + reconcilia o feed com os
+//           thresholds atuais). Use após ajustar configs em /admin/alertas.
 
 const { generateAlerts } = require('../src/alertas/alert-generator');
 
 function parseArgs(argv) {
-  const out = { since: null, dryRun: false, limite: 200 };
+  const out = { since: null, dryRun: false, limite: 200, full: false };
   for (const arg of argv.slice(2)) {
     if (arg === '--dry-run') {
       out.dryRun = true;
+    } else if (arg === '--full') {
+      out.full = true;
+      out.limite = 5000;
     } else if (arg.startsWith('--since=')) {
       out.since = arg.slice('--since='.length);
     } else if (arg.startsWith('--limite=')) {
@@ -29,6 +34,7 @@ async function main() {
     total: resultado.total,
     gerados: resultado.gerados,
     atualizados: resultado.atualizados,
+    removidos: resultado.removidos || 0,
     erros: resultado.erros,
     dryRun: resultado.dryRun || false,
   });

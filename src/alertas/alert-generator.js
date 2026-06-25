@@ -148,16 +148,20 @@ function lerConfig() {
 }
 
 // Gera alertas a partir dos resumos IA novos. Idempotente via watermark.
-// Retorna { total, gerados, atualizados, erros, alertas }.
-async function generateAlerts({ since, limite = 200, dryRun = false } = {}) {
+// `full`: rebuild completo (varre todo o acervo, ignora watermark e reconcilia o
+// feed removendo descobertas ativas que caíram abaixo dos thresholds atuais).
+// Usado pelo painel admin após ajustar thresholds; o ciclo diário fica incremental.
+// Retorna { total, gerados, atualizados, erros, removidos, alertas }.
+async function generateAlerts({ since, limite = 200, dryRun = false, full = false } = {}) {
   const cfg = lerConfig();
   const watermark = repo.getWatermark(WATERMARK_KEY);
-  const sinceDate = since || (watermark ? watermark.ultimo_processado_em : null);
+  const sinceDate = full ? null : since || (watermark ? watermark.ultimo_processado_em : null);
 
   logger.info('Gerador de alertas: iniciando ciclo', {
     since: sinceDate,
     limite,
     dryRun,
+    full,
   });
 
   const rows = buscarDocumentosRecentes(sinceDate, limite);
@@ -265,6 +269,13 @@ async function generateAlerts({ since, limite = 200, dryRun = false } = {}) {
     }
   }
 
+  // Rebuild completo: reconcilia o feed retirando ativos que não foram regerados
+  // (caíram abaixo dos thresholds). Decisões humanas (arquivado/suprimido) ficam.
+  let removidos = 0;
+  if (full) {
+    removidos = repo.removerAtivosNaoListados(candidatos.map((c) => c.chave_unica));
+  }
+
   const agora = new Date().toISOString();
   repo.setWatermark(WATERMARK_KEY, { ultimoProcessadoEm: agora, totalGerados: gerados });
 
@@ -273,6 +284,7 @@ async function generateAlerts({ since, limite = 200, dryRun = false } = {}) {
     gerados,
     atualizados,
     erros,
+    removidos,
   });
 
   return {
@@ -280,6 +292,7 @@ async function generateAlerts({ since, limite = 200, dryRun = false } = {}) {
     gerados,
     atualizados,
     erros,
+    removidos,
     alertas: alertasSalvos,
   };
 }
