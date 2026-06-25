@@ -28,30 +28,64 @@ function finalValueLabel(item) {
   return 'Final';
 }
 
-function originLabel(value) {
-  const labels = {
-    ia_resumo: 'Extraido por IA',
-    texto_tabela: 'Tabela oficial',
-    ata_resultado: 'Ata de resultado',
-    'texto_tabela+ata_resultado': 'Tabela oficial + ata',
-    'ia_resumo+ata_resultado': 'IA + ata'
-  };
-
-  return labels[value] || value || 'Origem nao informada';
+// Item "útil" tem ao menos um dado concreto além da descrição: quantidade,
+// fornecedor ou algum valor. Os demais (só descrição) colapsam — não enchem a
+// tela de "Não informado".
+function temDadoUtil(item) {
+  return (
+    item.quantidade != null ||
+    Boolean(item.fornecedor_nome) ||
+    bestEstimatedValue(item) != null ||
+    bestFinalValue(item) != null
+  );
 }
 
-function validationLabel(item) {
-  if (!item.validacoes_total) return 'Sem validacao';
+function ProductRow({ item }) {
+  const estimado = bestEstimatedValue(item);
+  const final = bestFinalValue(item);
+  const lote = item.lote_numero ? `Lote ${item.lote_numero}` : null;
+  const itemNum = item.item_numero ? `Item ${item.item_numero}` : null;
 
-  const labels = {
-    pendente: 'Pendente',
-    validado: 'Validado',
-    divergente: 'Divergente',
-    sem_correspondencia: 'Sem correspondencia',
-    revisar: 'Revisar'
-  };
-
-  return labels[item.validacao_status] || item.validacao_status || 'Revisar';
+  return (
+    <article className="product-row">
+      <div className="product-row-main">
+        {lote || itemNum ? (
+          <div className="document-row-meta">
+            {lote ? <span>{lote}</span> : null}
+            {itemNum ? <span>{itemNum}</span> : null}
+          </div>
+        ) : null}
+        <h3>{item.descricao}</h3>
+        {item.quantidade != null ? (
+          <p>
+            Quantidade {item.quantidade}
+            {item.unidade ? ` ${item.unidade}` : ''}
+          </p>
+        ) : null}
+        {item.trecho_fonte ? <span className="product-source-line">{item.trecho_fonte}</span> : null}
+      </div>
+      <div className="product-row-side">
+        {estimado != null ? (
+          <div className="document-row-field">
+            <span>Estimado</span>
+            <strong>{formatMoney(estimado)}</strong>
+          </div>
+        ) : null}
+        {final != null ? (
+          <div className="document-row-field">
+            <span>{finalValueLabel(item)}</span>
+            <strong>{formatMoney(final)}</strong>
+          </div>
+        ) : null}
+        {item.fornecedor_nome ? (
+          <div className="document-row-field">
+            <span>Fornecedor</span>
+            <strong>{item.fornecedor_nome}</strong>
+          </div>
+        ) : null}
+      </div>
+    </article>
+  );
 }
 
 export default function LicitationProducts({ produtos }) {
@@ -60,55 +94,44 @@ export default function LicitationProducts({ produtos }) {
   if (!itens.length) {
     return (
       <SectionBlock
-        title="Produtos licitados"
-        description="Produtos aparecem aqui quando o documento ou o resumo IA trazem itens com evidencia textual."
+        title="Itens deste processo"
+        description="Produtos, preços e fornecedores citados nos documentos — quando a fonte oficial informa."
       >
-        <p className="empty-state">Nenhum produto estruturado para este documento.</p>
+        <p className="empty-state">Nenhum item estruturado para este documento.</p>
       </SectionBlock>
     );
   }
+
+  const comDados = itens.filter(temDadoUtil);
+  const semDados = itens.filter((item) => !temDadoUtil(item));
 
   return (
     <SectionBlock
       title="Itens deste processo"
       description="Produtos, preços e fornecedores citados nos documentos — quando a fonte oficial informa."
     >
-      <div className="products-table">
-        {itens.map((item) => (
-          <article key={item.id} className="product-row">
-            <div className="product-row-main">
-              <div className="document-row-meta">
-                <span>{item.lote_numero ? `Lote ${item.lote_numero}` : 'Sem lote'}</span>
-                <span>{item.item_numero ? `Item ${item.item_numero}` : 'Sem item'}</span>
-                <span>{originLabel(item.origem)}</span>
-              </div>
-              <h3>{item.descricao}</h3>
-              <p>
-                {item.quantidade ? `Quantidade ${item.quantidade}` : 'Quantidade nao informada'}
-                {item.unidade ? ` ${item.unidade}` : ''}
-              </p>
-              {item.trecho_fonte ? <span className="product-source-line">{item.trecho_fonte}</span> : null}
-            </div>
-            <div className="product-row-side">
-              <div className="document-row-field">
-                <span>Estimado</span>
-                <strong>{formatMoney(bestEstimatedValue(item))}</strong>
-              </div>
-              <div className="document-row-field">
-                <span>{finalValueLabel(item)}</span>
-                <strong>{formatMoney(bestFinalValue(item))}</strong>
-              </div>
-              <div className="document-row-field">
-                <span>Fornecedor</span>
-                <strong>{item.fornecedor_nome || 'Nao informado'}</strong>
-              </div>
-              <div className="product-origin-status">
-                <span>{validationLabel(item)}</span>
-              </div>
-            </div>
-          </article>
-        ))}
-      </div>
+      {comDados.length ? (
+        <div className="products-table">
+          {comDados.map((item) => (
+            <ProductRow key={item.id} item={item} />
+          ))}
+        </div>
+      ) : (
+        <p className="empty-state">Os itens deste processo ainda não têm preço ou fornecedor na fonte.</p>
+      )}
+
+      {semDados.length ? (
+        <details className="details-block" style={{ marginTop: comDados.length ? '16px' : '0' }}>
+          <summary>
+            {semDados.length} {semDados.length === 1 ? 'item citado sem preço/fornecedor' : 'itens citados sem preço/fornecedor'}
+          </summary>
+          <ul className="plain-list" style={{ marginTop: '12px' }}>
+            {semDados.map((item) => (
+              <li key={item.id}>{item.descricao}</li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
     </SectionBlock>
   );
 }
