@@ -36,6 +36,36 @@ function IconCalendar() {
   );
 }
 
+// Ano da descoberta: 3ª parte da chave (tematico|cat|2026) ou ano do fim do
+// período / última publicação. Sem ano → null (vai pro fim).
+function anoDescoberta(alerta) {
+  const daChave = String(alerta.chave_unica || '').split('|')[2];
+  if (/^\d{4}$/.test(daChave)) {
+    return Number(daChave);
+  }
+  const dataFonte = alerta.periodo_fim || alerta.ultima_publicacao_documento || '';
+  const m = String(dataFonte).match(/^(\d{4})/);
+  return m ? Number(m[1]) : null;
+}
+
+// Agrupa por ano, mais recente primeiro (ano corrente no topo). Sem ano por último.
+function agruparPorAno(alertas) {
+  const grupos = new Map();
+  for (const a of alertas) {
+    const ano = anoDescoberta(a);
+    const chave = ano ?? 'sem-ano';
+    if (!grupos.has(chave)) {
+      grupos.set(chave, { ano, itens: [] });
+    }
+    grupos.get(chave).itens.push(a);
+  }
+  return [...grupos.values()].sort((x, y) => {
+    if (x.ano === null) return 1;
+    if (y.ano === null) return -1;
+    return y.ano - x.ano;
+  });
+}
+
 function chipAtivo(filtro, params) {
   if (filtro.nivel) {
     return params.severidade === filtro.nivel;
@@ -49,6 +79,53 @@ function chipAtivo(filtro, params) {
   return !params.severidade && !params.tipo;
 }
 
+function DescobertaCard({ alerta }) {
+  return (
+    <Link
+      href={`/descobertas/${alerta.id}`}
+      className={styles.card}
+      data-nivel={alerta.severidade || 'info'}
+    >
+      <div className={styles.cardTop}>
+        <span className={styles.nivel}>
+          <span className={styles.nivelDot} />
+          {nivelLabel(alerta.severidade)}
+        </span>
+        <span className={styles.tag}>{alerta.categoria || 'Geral'}</span>
+        <span className={styles.tagSep}>•</span>
+        <span className={styles.tag}>{alerta.tipo === 'processo' ? 'por processo' : 'padrão'}</span>
+      </div>
+
+      <h3 className={styles.cardTitle}>{alerta.titulo}</h3>
+
+      {alerta.narrativa ? <p className={styles.cardSummary}>{alerta.narrativa}</p> : null}
+
+      <div className={styles.cardFooter}>
+        {alerta.valor_total ? (
+          <span className={styles.value}>
+            {formatMoney(alerta.valor_total)}
+            {alerta.valor_periodo_label ? (
+              <span className={styles.valuePeriod}> · {alerta.valor_periodo_label}</span>
+            ) : null}
+          </span>
+        ) : null}
+        {alerta.documentos_ids?.length ? (
+          <span className={styles.footMeta}>
+            <IconDoc />
+            {alerta.documentos_ids.length} doc{alerta.documentos_ids.length > 1 ? 's' : ''}
+          </span>
+        ) : null}
+        {alerta.ultima_publicacao_documento ? (
+          <span className={styles.footMeta}>
+            <IconCalendar />
+            {formatDate(alerta.ultima_publicacao_documento)}
+          </span>
+        ) : null}
+      </div>
+    </Link>
+  );
+}
+
 export default async function DescobertasPage({ searchParams }) {
   const params = searchParams || {};
   const resultado = await fetchAlertas({
@@ -57,8 +134,8 @@ export default async function DescobertasPage({ searchParams }) {
     severidade: params.severidade || undefined,
     status: params.status || 'ativo',
     pagina: params.pagina || 1,
-    limite: params.limite || 30,
-  }).catch(() => ({ total: 0, dados: [], pagina: 1, limite: 30 }));
+    limite: params.limite || 200,
+  }).catch(() => ({ total: 0, dados: [], pagina: 1, limite: 200 }));
 
   const alertas = resultado.dados || [];
 
@@ -97,55 +174,21 @@ export default async function DescobertasPage({ searchParams }) {
           <p>Nenhum padrão corresponde a este filtro no momento.</p>
         </div>
       ) : (
-        <div className={styles.grid}>
-          {alertas.map((alerta) => (
-            <Link
-              key={alerta.id}
-              href={`/descobertas/${alerta.id}`}
-              className={styles.card}
-              data-nivel={alerta.severidade || 'info'}
-            >
-              <div className={styles.cardTop}>
-                <span className={styles.nivel}>
-                  <span className={styles.nivelDot} />
-                  {nivelLabel(alerta.severidade)}
-                </span>
-                <span className={styles.tag}>{alerta.categoria || 'Geral'}</span>
-                <span className={styles.tagSep}>•</span>
-                <span className={styles.tag}>{alerta.tipo === 'processo' ? 'por processo' : 'padrão'}</span>
-              </div>
-
-              <h2 className={styles.cardTitle}>{alerta.titulo}</h2>
-
-              {alerta.narrativa ? (
-                <p className={styles.cardSummary}>{alerta.narrativa}</p>
-              ) : null}
-
-              <div className={styles.cardFooter}>
-                {alerta.valor_total ? (
-                  <span className={styles.value}>
-                    {formatMoney(alerta.valor_total)}
-                    {alerta.valor_periodo_label ? (
-                      <span className={styles.valuePeriod}> · {alerta.valor_periodo_label}</span>
-                    ) : null}
-                  </span>
-                ) : null}
-                {alerta.documentos_ids?.length ? (
-                  <span className={styles.footMeta}>
-                    <IconDoc />
-                    {alerta.documentos_ids.length} doc{alerta.documentos_ids.length > 1 ? 's' : ''}
-                  </span>
-                ) : null}
-                {alerta.ultima_publicacao_documento ? (
-                  <span className={styles.footMeta}>
-                    <IconCalendar />
-                    {formatDate(alerta.ultima_publicacao_documento)}
-                  </span>
-                ) : null}
-              </div>
-            </Link>
-          ))}
-        </div>
+        agruparPorAno(alertas).map((grupo) => (
+          <section key={grupo.ano ?? 'sem-ano'} className={styles.yearSection}>
+            <div className={styles.yearHead}>
+              <h2 className={styles.yearTitle}>{grupo.ano ?? 'Sem ano'}</h2>
+              <span className={styles.yearCount}>
+                {grupo.itens.length} descoberta{grupo.itens.length === 1 ? '' : 's'}
+              </span>
+            </div>
+            <div className={styles.grid}>
+              {grupo.itens.map((alerta) => (
+                <DescobertaCard key={alerta.id} alerta={alerta} />
+              ))}
+            </div>
+          </section>
+        ))
       )}
 
       <p className={styles.count}>

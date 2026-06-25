@@ -54,6 +54,7 @@ Regras obrigatorias:
 - Escreva em portugues claro para cidadaos, em linguagem acessivel.
 - O titulo deve ser curto (maximo 90 caracteres) e informativo.
 - TOM DO TITULO: enquadre como descoberta/curiosidade, NUNCA como alarme. Proibido comecar com "Alerta", "Atencao", "Urgente", "Importante" ou usar ponto de exclamacao. Descreva o padrao de forma neutra (ex.: "Equipamentos: 10 processos em 2026", nao "Alerta: gastos com equipamentos").
+- NUNCA inclua valores em R$ no titulo (o valor aparece separado no card). O titulo usa so tema, contagem de processos e ano (ex.: "Saude: 10 processos em 2026", nao "Saude: 10 processos e R$ 1.136.897,90 em 2026").
 - A narrativa deve explicar o padrao detectado, citar o periodo e os documentos envolvidos.
 - Os questionamentos devem ser perguntas genuinas em aberto, ancoradas nos dados — nunca afirmacoes. Se nao houver lacunas, retorne lista vazia.
 - Se houver questionamentos estruturados na entrada, transforme-os em perguntas claras.
