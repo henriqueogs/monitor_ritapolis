@@ -56,6 +56,7 @@ Regras obrigatorias:
 - TOM DO TITULO: enquadre como descoberta/curiosidade, NUNCA como alarme. Proibido comecar com "Alerta", "Atencao", "Urgente", "Importante" ou usar ponto de exclamacao. Descreva o padrao de forma neutra (ex.: "Equipamentos: 10 processos em 2026", nao "Alerta: gastos com equipamentos").
 - NUNCA inclua valores em R$ no titulo (o valor aparece separado no card). O titulo usa so tema, contagem de processos e ano (ex.: "Saude: 10 processos em 2026", nao "Saude: 10 processos e R$ 1.136.897,90 em 2026").
 - A narrativa deve explicar o padrao detectado, citar o periodo e os documentos envolvidos.
+- FORMATO DE VALORES na narrativa: sempre em reais no padrao brasileiro, com prefixo "R$ ", ponto como separador de milhar e virgula com 2 casas decimais (ex.: "R$ 1.136.897,90", nunca "1.136.897,90" sem prefixo nem "R$ 1,136,897,90"). Para milhoes pode usar forma curta "R$ 2,7 milhoes".
 - Os questionamentos devem ser perguntas genuinas em aberto, ancoradas nos dados — nunca afirmacoes. Se nao houver lacunas, retorne lista vazia.
 - Se houver questionamentos estruturados na entrada, transforme-os em perguntas claras.
 
