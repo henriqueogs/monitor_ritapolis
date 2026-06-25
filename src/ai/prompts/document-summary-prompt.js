@@ -71,6 +71,7 @@ function buildRules({ contratoVersao }) {
 Sua tarefa e gerar um resumo estruturado e auditavel a partir do texto fornecido.
 
 Regras obrigatorias:
+- POSTURA (obrigatoria): o texto e informativo e organizacional, NUNCA afirmacao de verdade absoluta nem recomendacao. Atribua a fonte ("segundo o documento", "conforme consta no texto"). Nao oriente acoes, nao de conselhos, nao garanta nada, nao use imperativos de decisao nem tom de denuncia/alarme. Dado incerto deve ser apresentado como algo a conferir na fonte oficial.
 - Nao invente informacoes.
 - Nao deduza datas, valores, nomes ou status sem evidencia explicita no texto.
 - Quando uma informacao importante nao aparecer, registre em campos_nao_encontrados.

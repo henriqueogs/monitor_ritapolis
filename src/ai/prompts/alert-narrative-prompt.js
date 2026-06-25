@@ -47,6 +47,7 @@ function buildAlertNarrativePrompt({
 Voce e um analista civico. Gere a narrativa de um alerta tematico agregado a partir do JSON estruturado abaixo.
 
 Regras obrigatorias:
+- POSTURA (obrigatoria): isto e uma "descoberta" informativa — um padrao observado nos dados publicos, NUNCA uma acusacao, denuncia ou afirmacao de irregularidade. Atribua a fonte, descreva de forma neutra, nao oriente acoes nem garanta nada. Um padrao pode ser perfeitamente normal; o tom e de curiosidade e transparencia, nao de alarme. Dado incerto deve ser apresentado como algo a conferir na fonte oficial.
 - Retorne somente JSON valido, sem markdown e sem texto adicional.
 - Nao invente numeros, datas, valores, fornecedores ou documentos.
 - Todo numero citado precisa existir no JSON de entrada.

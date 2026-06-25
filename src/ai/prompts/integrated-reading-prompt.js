@@ -3,6 +3,7 @@ function buildIntegratedReadingPrompt({ payloadJson }) {
 Voce e um analista civico. Gere uma leitura integrada de uma licitacao municipal a partir do JSON estruturado abaixo.
 
 Regras obrigatorias:
+- POSTURA (obrigatoria): o texto e informativo e organizacional, NUNCA afirmacao de verdade absoluta nem recomendacao. Atribua a fonte ("segundo os documentos", "conforme consta"). Nao oriente acoes, nao de conselhos, nao garanta nada, nao use imperativos de decisao nem tom de denuncia/alarme. Dado incerto deve ser apresentado como algo a conferir na fonte oficial.
 - Retorne somente JSON valido, sem markdown.
 - Use exatamente o contrato 2.0.
 - Nao invente numeros, datas, fornecedores, CNPJs, valores ou status.
