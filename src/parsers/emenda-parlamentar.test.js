@@ -52,6 +52,47 @@ const TEXTO_FEDERAL = [
   'DATA DE RECEBIMENTO DO RECURSO: 15/03/2025',
 ].join('\n');
 
+// Caso REAL das emendas federais: a fonte vem em LINHA ÚNICA (sem \n entre
+// campos). Antes do fix, cada campo engolia o resto da linha (registro inteiro).
+const TEXTO_FEDERAL_LINHA_UNICA =
+  'EMENDAS FEDERAIS 1 – DADOS DA INDICAÇÃO N.º DA EMENDA : 202540290015 ' +
+  'NOME DO PARLAMENTAR : Lafayette de Andrada – Deputado Federal ' +
+  'PARTIDO DO PARLAMENTAR : Republicanos UNIDADE PARLAMENTAR : Câmara dos Deputados ou Senado Federal ' +
+  'TIPO DE TRANSFERÊNCIA : FNAS TIPO DE EMENDA : Individual ' +
+  'OBJETO : VALOR DO REPASSE: R$ 100.000,00 ' +
+  'ÓRGÃO TRANSFERIDOR: Fundo Nacional de Assistência Social ' +
+  'INSTRUMENTO LEGAL: Emenda 202540290015 ' +
+  'CATEGORIA ECONÔMICA: Custeio';
+
+describe('parseEmendaParlamentar — federal em linha única (caso real)', () => {
+  let r;
+  beforeEach(() => { r = parseEmendaParlamentar(TEXTO_FEDERAL_LINHA_UNICA); });
+
+  it('nome e cargo limpos, sem engolir o resto do registro', () => {
+    expect(r.nome_parlamentar).toBe('Lafayette de Andrada');
+    expect(r.cargo_parlamentar).toBe('Deputado Federal');
+  });
+
+  it('partido sem despejo do registro', () => {
+    expect(r.partido).toBe('Republicanos');
+  });
+
+  it('valor do repasse correto', () => {
+    expect(r.valor_repasse).toBe(100000);
+  });
+
+  it('instrumento legal curto, não o registro inteiro', () => {
+    expect(r.instrumento_legal).toBe('Emenda 202540290015');
+    expect(r.instrumento_legal.length).toBeLessThan(40);
+  });
+
+  it('campos não estouram (nenhum > 80 chars)', () => {
+    for (const campo of ['nome_parlamentar', 'cargo_parlamentar', 'partido', 'instrumento_legal', 'orgao_transferidor']) {
+      if (r[campo]) { expect(r[campo].length).toBeLessThanOrEqual(80); }
+    }
+  });
+});
+
 describe('parseEmendaParlamentar', () => {
   describe('emenda estadual completa', () => {
     let resultado;

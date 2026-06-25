@@ -7,9 +7,37 @@
 
 const ESFERA = { ESTADUAL: 'estadual', FEDERAL: 'federal' };
 
+// Rótulos conhecidos do formulário de emenda. A fonte federal vem em LINHA ÚNICA
+// (sem \n entre campos), então o valor de um campo precisa parar quando começa o
+// PRÓXIMO rótulo — não no fim da linha (senão engole o registro inteiro). Parar só
+// em rótulos conhecidos evita cortar no meio de um valor (datas, números, nomes).
+const ROTULOS = [
+  'N.o DA EMENDA', 'No DA EMENDA', 'Nº DA EMENDA', 'N.º DA EMENDA',
+  'NOME DO PARLAMENTAR', 'PARTIDO DO PARLAMENTAR', 'UNIDADE PARLAMENTAR',
+  'TIPO DE TRANSFERÊNCIA', 'TIPO DE TRANSFERENCIA', 'TIPO DE EMENDA',
+  'OBJETO DETALHADO', 'OBJETO', 'VALOR DO REPASSE', 'VALOR DA CONTRAPARTIDA',
+  'ÓRGÃO TRANSFERIDOR', 'ORGAO TRANSFERIDOR', 'INSTRUMENTO LEGAL',
+  'CATEGORIA ECONÔMICA', 'CATEGORIA ECONOMICA', 'UNIDADE EXECUTORA',
+  'GESTOR RESPONSÁVEL', 'GESTOR RESPONSAVEL', 'DATA DE RECEBIMENTO DO RECURSO',
+  'DADOS DA DESPESA', 'INÍCIO', 'INICIO', 'TÉRMINO', 'TERMINO',
+];
+
+// Alternância ordenada do mais longo p/ o mais curto (evita "OBJETO" casar antes
+// de "OBJETO DETALHADO").
+const PROXIMO_ROTULO =
+  '(?=\\s+(?:' +
+  ROTULOS.slice()
+    .sort((a, b) => b.length - a.length)
+    .map((r) => r.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('|') +
+  ')\\s*[:]' +
+  // ...ou um cabeçalho de seção do formulário ("2 – PLANO DE APLICAÇÃO").
+  '|\\s+\\d{1,2}\\s*[\\u2013\\u2014-]\\s*[A-ZÀ-Ÿ]' +
+  '|\\n|$)';
+
 function extrairCampo(texto, rotulo) {
   const escaped = rotulo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const pattern = new RegExp(escaped + '[:\\s]+([^\\n]{1,300})', 'i');
+  const pattern = new RegExp(escaped + '[:\\s]+(.{1,300}?)' + PROXIMO_ROTULO, 'i');
   const match = String(texto || '').match(pattern);
   if (!match) { return null; }
   return match[1].trim().replace(/\s{2,}/g, ' ') || null;
