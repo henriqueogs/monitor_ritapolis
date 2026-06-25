@@ -1,16 +1,17 @@
 import SectionBlock from '../../../components/SectionBlock';
 import { formatDate, formatMoney } from '../../../lib/format';
 
+// Portal da Transparência não aceita ?exercicio= (retorna 404) — usa só a base.
 const PORTAL_BASE = 'https://pt.ritapolis.mg.gov.br/Tempo_Real_Despesa';
 
-function portalUrl(exercicio) {
-  return exercicio ? `${PORTAL_BASE}?exercicio=${exercicio}` : PORTAL_BASE;
+function portalUrl() {
+  return PORTAL_BASE;
 }
 
-function PortalLink({ exercicio, label = 'Ver no Portal ↗' }) {
+function PortalLink({ label = 'Ver no Portal ↗' }) {
   return (
     <a
-      href={portalUrl(exercicio)}
+      href={portalUrl()}
       target="_blank"
       rel="noopener noreferrer"
       className="availability-badge is-gov origin-badge"
@@ -55,12 +56,7 @@ export default function EmpenhoSection({ empenhos: data }) {
   const resumo = data?.resumo || null;
   const empenhos = data?.empenhos || [];
 
-  // Exercício predominante para filtro no portal
-  const exercicioPredominante = resumo?.primeiro_empenho
-    ? new Date(resumo.primeiro_empenho).getFullYear()
-    : empenhos[0]?.exercicio_orcamento || null;
-
-  const portalAside = <PortalLink exercicio={exercicioPredominante} label="Ver no Portal ↗" />;
+  const portalAside = <PortalLink label="Ver no Portal ↗" />;
 
   if (!empenhos.length) {
     return (

@@ -29,6 +29,12 @@ function formatConfidence(value) {
   return `${Math.round(Number(value) * 100)}%`;
 }
 
+// Nome técnico (valor_estimado) → rótulo legível (Valor estimado).
+function humanizarCampo(campo) {
+  if (!campo) return '';
+  return String(campo).replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
+}
+
 export default function AiSummarySection({ resumoAi, operacao }) {
   const dados = resumoAi?.dados;
   const job = resumoAi?.job;
@@ -211,8 +217,8 @@ export default function AiSummarySection({ resumoAi, operacao }) {
 
       {dados.campos_nao_encontrados?.length ? (
         <div className={styles.aiSummaryGroup}>
-          <h4>Campos não encontrados</h4>
-          <p className="lead-text">{dados.campos_nao_encontrados.join(', ')}</p>
+          <h4>O que não constava no documento</h4>
+          <p className="lead-text">{dados.campos_nao_encontrados.map(humanizarCampo).join(', ')}</p>
         </div>
       ) : null}
 

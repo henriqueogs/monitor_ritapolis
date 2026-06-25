@@ -70,8 +70,8 @@ export default function LicitationProducts({ produtos }) {
 
   return (
     <SectionBlock
-      title="Produtos licitados"
-      description="Precos e fornecedores extraidos ficam separados da validacao por integracoes externas."
+      title="Itens deste processo"
+      description="Produtos, preços e fornecedores citados nos documentos — quando a fonte oficial informa."
     >
       <div className="products-table">
         {itens.map((item) => (

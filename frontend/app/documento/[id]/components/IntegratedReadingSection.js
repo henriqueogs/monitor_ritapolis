@@ -9,6 +9,18 @@ function confidenceLabel(value) {
   return `${Math.round(Number(value) * 100)}%`;
 }
 
+// Converte nome técnico de campo (valor_global_final) em rótulo legível
+// (Valor global final) — nunca expõe nome de variável ao público.
+function humanizarCampo(campo) {
+  if (!campo) return 'Informação';
+  return String(campo).replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
+}
+
+const NIVEL_ALERTA = { alto: 'Requer atenção', medio: 'Moderado', baixo: 'Observação' };
+function nivelAlertaLabel(nivel) {
+  return NIVEL_ALERTA[String(nivel || '').toLowerCase()] || humanizarCampo(nivel);
+}
+
 function sourceLabel(source) {
   const labels = {
     prefeitura: 'Prefeitura',
@@ -32,7 +44,7 @@ function SourceRefs({ fontes }) {
     <div className={styles.integratedSources}>
       {items.map((fonte, index) => (
         <span key={`${fonte.fonte}-${fonte.campo}-${fonte.identificador || index}`}>
-          {sourceLabel(fonte.fonte)}: {fonte.campo}
+          {sourceLabel(fonte.fonte)}: {humanizarCampo(fonte.campo)}
           {fonte.identificador ? ` (${fonte.identificador})` : ''}
         </span>
       ))}
@@ -60,7 +72,7 @@ export default function IntegratedReadingSection({ leitura, documentoId }) {
   return (
     <SectionBlock
       title="Leitura integrada"
-      description="Sintese gerada a partir de dados estruturados da Prefeitura, produtos, grupo do processo e PNCP quando disponivel."
+      description="Visão do processo completo: cruza este edital com atas, contratos, produtos e o PNCP para mostrar como o processo terminou — não só o que o edital previa."
       aside={<StatusBadge value={Number(dados.confianca || 0) < 0.6 ? 'revisar' : 'ok'} />}
     >
       <div className={styles.integratedReading}>
@@ -95,12 +107,12 @@ export default function IntegratedReadingSection({ leitura, documentoId }) {
         ) : null}
 
         {dados.consistencia?.length ? (
-          <div className={styles.integratedBlock}>
+          <div className={`${styles.integratedBlock} admin-only`}>
             <h4>Consistencia dos dados</h4>
             <div className={styles.integratedList}>
               {dados.consistencia.map((item) => (
                 <article key={`${item.campo}-${item.descricao}`}>
-                  <strong>{item.campo}</strong>
+                  <strong>{humanizarCampo(item.campo)}</strong>
                   <span>{item.status}</span>
                   <p>{item.descricao}</p>
                   <SourceRefs fontes={item.fontes} />
@@ -112,11 +124,11 @@ export default function IntegratedReadingSection({ leitura, documentoId }) {
 
         {dados.alertas?.length ? (
           <div className={styles.integratedBlock}>
-            <h4>Alertas</h4>
+            <h4>Pontos de atenção</h4>
             <div className={styles.integratedList}>
               {dados.alertas.map((item) => (
                 <article key={`${item.nivel}-${item.descricao}`}>
-                  <strong>{item.nivel}</strong>
+                  <strong>{nivelAlertaLabel(item.nivel)}</strong>
                   <p>{item.descricao}</p>
                   <SourceRefs fontes={item.fonte ? [item.fonte] : []} />
                 </article>
@@ -127,11 +139,11 @@ export default function IntegratedReadingSection({ leitura, documentoId }) {
 
         {dados.lacunas?.length ? (
           <div className={styles.integratedBlock}>
-            <h4>Lacunas conhecidas</h4>
+            <h4>O que ainda falta na fonte</h4>
             <div className={styles.integratedList}>
               {dados.lacunas.map((item) => (
                 <article key={`${item.campo}-${item.descricao}`}>
-                  <strong>{item.campo}</strong>
+                  <strong>{humanizarCampo(item.campo)}</strong>
                   <p>{item.descricao}</p>
                 </article>
               ))}
