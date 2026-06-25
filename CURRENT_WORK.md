@@ -34,9 +34,10 @@ editáveis em `/admin/alertas` + rebuild com reconciliação; (2) a página
 browser, testes verdes, lint limpo.
 
 **Pendências em aberto (próximos passos sugeridos, em ordem):**
-1. **Narrativa diz "Alerta:" no título** — briga com o tom de "Descobertas/
-   curiosidade". Ajustar o prompt em `src/ai/alert-narrative.js` (proibir
-   "Alerta!/atenção" sensacionalista) e regerar com `node scripts/gerar-alertas.js --full`.
+1. **Valor mal formatado em alguns títulos IA** (`R$ 1,136,897,90` — vírgula como
+   milhar). Vem da narrativa (`src/ai/alert-narrative.js` / prompt), não da UI.
+   Baixa prioridade. (O tom "Alerta:" no título já foi resolvido — sanitizado no
+   código + regra no prompt, commit `a0fc8b7`.)
 2. **Fase 5 — Publicação** (ver abaixo): Basic Auth em `/admin/*` (hoje público),
    testes de parser pendentes, build de produção + deploy.
 3. **Fila de OCR** (141 anexos escaneados) — destrava vencedores/valores antigos
