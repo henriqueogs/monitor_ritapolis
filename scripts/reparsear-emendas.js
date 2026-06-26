@@ -27,14 +27,18 @@ function main() {
   const apply = process.argv.includes('--apply');
   setupDatabase();
 
+  // Todos os documentos de emenda com texto — inclusive os que NUNCA geraram
+  // linha em emendas_detalhes (parse falhava antes / nunca rodou). LEFT JOIN só
+  // para saber se os campos estavam sujos.
   const alvos = db
     .prepare(
-      `SELECT e.documento_id, e.esfera, e.cargo_parlamentar, e.instrumento_legal,
+      `SELECT d.id AS documento_id, e.cargo_parlamentar, e.instrumento_legal,
               d.titulo, d.texto_completo
-         FROM emendas_detalhes e
-         JOIN documentos d ON d.id = e.documento_id
-        WHERE IFNULL(d.texto_completo, '') <> ''
-        ORDER BY e.documento_id`
+         FROM documentos d
+         LEFT JOIN emendas_detalhes e ON e.documento_id = d.id
+        WHERE d.tipo = 'emenda_parlamentar'
+          AND IFNULL(d.texto_completo, '') <> ''
+        ORDER BY d.id`
     )
     .all();
 

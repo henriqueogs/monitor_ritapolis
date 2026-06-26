@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { fetchEmendas, fetchEmendaTotaisPorAno, fetchEmendaParlamentares } from '../lib/api';
 import { formatMoney, formatDate } from '../lib/format';
 import styles from './styles.module.css';
@@ -109,6 +110,11 @@ function EmendaCard({ emenda }) {
         )}
         {unidadeExecutora && (
           <span className={styles.emendaCardExecutora}>{unidadeExecutora}</span>
+        )}
+        {emenda.id && (
+          <Link href={`/documento/${emenda.id}`} className={styles.emendaCardFonte}>
+            Ver detalhes →
+          </Link>
         )}
         {emenda.url_origem && (
           <a
