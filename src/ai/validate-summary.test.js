@@ -65,7 +65,6 @@ describe('parseSummaryResponse', () => {
 
 describe('normalizeEnumValue', () => {
   const tipos = ['edital', 'decreto', 'portaria', 'lei', 'contrato', 'despesa', 'ata', 'outro'];
-  const papeis = ['contratante', 'contratado', 'autoridade', 'fornecedor', 'orgao_publico', 'outro'];
 
   // Nota: a inferência por padrão de texto só funciona quando o array passado é
   // a referência interna enumValues.tipo_documento / enumValues.papel.
