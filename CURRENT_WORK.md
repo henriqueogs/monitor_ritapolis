@@ -2,6 +2,245 @@
 
 Foco operacional imediato. Atualizar sempre que uma fase for concluída ou a prioridade mudar.
 
+## ▶ Próxima tarefa — Qualidade de conteúdo: resumos + descobertas (2026-07-01)
+
+Pedido do usuário após revisar `/anexo/3284` e `/descobertas/57` ao vivo.
+Quatro frentes (1–4 abaixo). Ordem sugerida: **1 → 2 → 3 → 4** (a rotina de
+resumo de anexo destrava qualidade em cascata: anexos melhores → fatos
+melhores → descobertas melhores; modelo de IA pode ser decidido em paralelo).
+
+> ⚠️ **Risco transversal:** a árvore de trabalho já está grande e sem commit
+> (ver seção "▶ Como retomar" mais abaixo). Cada item novo aqui **aumenta**
+> esse diff. Recomendado: commitar o que já está pronto (Descobertas v1 +
+> handoff) **antes** de começar a mexer em prompt/contrato/schema — evita
+> misturar "trabalho já validado" com "experimento em andamento" no mesmo
+> commit grande e dificultar reverter se um experimento não funcionar.
+
+### 1. Resumo de anexos é heurística, não IA — criar rotina de regeneração
+
+**Causa raiz confirmada:** `resumirAnexoLocal()` em
+[`src/inteligencia/fatos-extractor.js:248`](src/inteligencia/fatos-extractor.js:248)
+não chama nenhum provedor de IA — pega mecanicamente "a primeira frase com mais
+de 40 caracteres" do texto extraído (`provider: 'local'`,
+`modelo: 'heuristico-anexo'`). É por isso que o resumo em `/anexo/3284` (e em
+todos os anexos) é pobre: não há compreensão nenhuma do conteúdo, só recorte de
+texto corrido, que geralmente é ruído de OCR/formatação de PDF.
+
+Também confirmado: **não existe rota admin nem botão para regenerar** o resumo
+de um anexo — a única via é o CLI `npm run inteligencia:extrair-fatos -- --apply
+--documentos=<id>`, que roda por *documento* (não por anexo) e sempre chama a
+mesma heurística.
+
+- [ ] Trocar `resumirAnexoLocal` por uma chamada real de IA (segue o padrão de
+      `src/ai/discovery-investigation.js` / providers em `src/ai/providers/`) —
+      prompt curto e focado: resumo do anexo + pontos relevantes, com o mesmo
+      contrato de saída atual (`resumo_curto`, `pontos_relevantes`, `lacunas`,
+      `confianca`) para não quebrar `frontend/app/anexo/[id]/page.js`.
+      TDD: mockar provider, cobrir texto vazio/curto (fallback heurístico) e
+      texto normal (fallback nunca falha silenciosamente).
+- [ ] Endpoint admin `POST /api/anexos/:id/resumir` (força regeneração de 1
+      anexo) — reaproveitar `salvarResumoAnexo` de
+      [`src/db/inteligencia-fatos-repo.js`](src/db/inteligencia-fatos-repo.js).
+- [ ] Botão "Regenerar resumo" em `/anexo/[id]` (área `admin-only`, mesmo
+      padrão de `AiSummaryAction`/`IntegratedReadingAction` já usados em
+      `documento/[id]`).
+- [ ] Rotina em lote para reprocessar os anexos **já existentes** com a lógica
+      nova (todos os `status_extracao='ok'` têm resumo heurístico hoje — flag
+      de versão de contrato tipo `anexo-2.0` para saber quais já foram
+      atualizados e permitir reentrância).
+
+**Pontos adicionais (revisão 2026-07-01):**
+- [ ] **Não tornar síncrono.** Hoje `resumirAnexoLocal` roda inline dentro do
+      loop de `fatos-runner.js:processarDocumento` (é local, instantâneo). Uma
+      chamada de IA real ali **explode o tempo de execução** de
+      `inteligencia:extrair-fatos` (documentos têm vários anexos cada). Seguir
+      o padrão **já existente** de job assíncrono (`documentos_resumos_ai`
+      com status pendente/processando/erro, como em `AiSummaryAction`) em vez
+      de bloquear o batch — o botão "Regenerar" enfileira, não chama a IA
+      na hora.
+- [ ] **Gate de qualidade de texto antes de mandar para a IA.** Muitos anexos
+      são PDF-imagem/OCR ruim; mandar ruído de OCR para o LLM produz resumo
+      "confiante" e plausível mas falso. Reaproveitar os heurísticos que já
+      existem (`isPalavraReal`/`limparRuidoOcr` em `src/utils/text.js`,
+      `isImageBasedPdf` em `src/parsers/pdf.js`) para decidir se o texto do
+      anexo é bom o suficiente antes da chamada — senão, manter o fallback
+      heurístico atual com aviso explícito (não esconder a limitação).
+- [ ] **Dedupe por `texto_hash`.** Vários anexos repetem texto idêntico
+      (boilerplate do mesmo edital-modelo) — não gerar resumo de IA duas
+      vezes para o mesmo hash; reaproveitar resultado.
+- [ ] Isso soma chamadas de IA ao orçamento de 40 req/min (ver item 4) — o
+      volume de anexos é maior que o de documentos; medir antes de rodar em
+      lote todos de uma vez.
+
+### 2. Página `/descobertas` — consolidar texto disperso (avaliação `/ui-ux-pro-max`, 2026-07-01)
+
+**Correção importante face à v1 deste item:** a "Descobertas" tem duas etapas
+distintas — **(1) agrupamento por tema**, feito por inferência/regras (não IA:
+`src/alertas/discovery-candidates.js` + `detectores/fatos-agregados.js`), e
+**(2) investigação IA** do pacote de documentos do mesmo tema, buscando falhas
+e inconsistências (contrato `discovery-investigation-v2`). O exemplo de
+árvores/R$-por-unidade **não é um template universal** — descobertas de outras
+áreas (saúde, contratos recorrentes, eventos) têm formas diferentes de conteúdo
+e **não devem ser forçadas num formato numérico fixo**. A recomendação abaixo é
+sobre **estrutura adaptável de conteúdo**, não uma fórmula única.
+
+**Achado de causa raiz (código já lido):** o contrato
+(`src/ai/contracts/discovery-investigation-contract.js`) e o prompt
+(`src/ai/prompts/discovery-investigation-prompt.js`) pedem `hipotese_publica`
+(1 frase) e `o_que_os_dados_mostram` (array de **fatos atômicos**, 1 a 8 itens)
+como campos **separados** — isso empurra o modelo a listar fatos soltos em vez
+de escrever uma narrativa corrida que já soma/computa quando fizer sentido. Ao
+mesmo tempo, o contrato **já tem** `metricas` e `comparativos` como
+`z.record(string, any)` — **schema livre, pronto para qualquer formato de
+métrica por tema** — mas o frontend (`descobertas/[id]/page.js`) **ignora os
+dois campos** e só lê `alerta.valor_total` + `metadados.unidade` (o card fixo
+"Métrica principal"). Ou seja: o backend já é flexível; quem está rígido é o
+prompt (pede fatos soltos) e o frontend (não usa o campo livre que existe).
+
+- [ ] **Prompt/contrato:** pedir um **parágrafo narrativo único** consolidado
+      (2–4 frases) como conteúdo principal, que incorpore os fatos relevantes
+      e a lacuna relevante na mesma prosa — cálculo de razão (R$/unidade,
+      taxa, etc.) **só quando os dados numéricos permitirem e fizerem
+      sentido para o tema**, nunca forçado. Manter `o_que_os_dados_mostram[]`
+      e `lacunas_encontradas[]` no contrato como **evidência de apoio**
+      (auditável, admin), não como o texto que o público lê em destaque.
+- [ ] **Frontend:** renderizar `discovery.metricas`/`comparativos` (já
+      existem no contrato, hoje mortos) como um componente **genérico** capaz
+      de mostrar 0, 1 ou N métricas — sem herança de layout fixo tipo
+      "Total + Período" para todo tipo de investigação. Quando a investigação
+      não tiver métrica numérica relevante (ex.: qualitativa em saúde), a
+      seção simplesmente não aparece — sem card vazio nem template forçado.
+- [ ] Demover "Período coberto" para legenda/metadado leve junto da narrativa
+      (não seção própria com H2), mantendo o link pros documentos como
+      elemento de primeira classe (rastreabilidade §11.3 nunca é secundária).
+- [ ] Após ajustar prompt/contrato/frontend, **regenerar** com
+      `descobertas:investigar` / rebuild `--full` e comparar um exemplo de
+      cada tema (árvores, saúde, compras, contratos recorrentes) — não só
+      `/descobertas/57` — para confirmar que a estrutura se adapta e não
+      quebra em temas sem métrica numérica.
+
+**Pontos adicionais (revisão 2026-07-01):**
+- [ ] **Nem toda descoberta tem `discovery_v2`.** A investigação IA (etapa 2)
+      é opcional/rodada à parte (`descobertas:investigar`); descobertas sem
+      ela caem no fallback `alerta.narrativa` + `valor_total` (caminho
+      determinístico antigo, já funciona). O redesign tem que cobrir **os
+      dois casos bem** — não otimizar só o caso "com discovery_v2" e deixar
+      o outro pior por comparação.
+- [ ] **Compatibilidade com registros já gerados.** Mudar o contrato quebra a
+      leitura de investigações já salvas em `metadados.discovery_v2` (schema
+      antigo). Usar `contrato_versao` (campo já existe) para o frontend saber
+      renderizar o formato antigo OU o novo — não forçar re-geração em massa
+      de tudo antes de validar o novo formato em produção.
+- [ ] **O guard anti-acusatório precisa valer no texto fundido.**
+      `assertPublicoCauteloso` (contrato atual) varre `hipotese_publica` +
+      arrays; se virar um parágrafo único, o teste/regex tem que continuar
+      cobrindo o campo novo — atualizar `discovery-investigation.test.js`
+      junto (TDD: teste primeiro, por `CLAUDE.md`).
+- [ ] Reaproveitar o padrão de `alertas_config` (chave/valor editável no
+      admin, já existe) para uma flag de formato de narrativa — permite
+      reverter para o formato antigo sem deploy caso o novo saia pior.
+
+### 3. Redundância "Resumo" vs "Análise do processo" (página de documento)
+
+Na página `/documento/[id]` (que é para onde os links de descoberta apontam),
+para editais existem **três blocos narrativos de IA em sequência**, com
+sobreposição de conteúdo:
+
+1. "Resumo do documento" — `SummaryAndSource.js` (`bestResumo`, texto cru).
+2. "Leitura simples" — `AiSummarySection.js` (`resumo_ai`: objeto, valores,
+   alertas estruturados).
+3. "Análise do processo" — `IntegratedReadingSection.js` (`leitura_integrada_ai`,
+   é a "leitura integrada" que cruza edital + resultado + produtos).
+
+- [ ] Mapear exatamente a sobreposição de conteúdo entre os três (o resumo cru
+      vs. a leitura simples estruturada vs. a leitura integrada) e decidir:
+      fundir 2 em 1, ou manter 3 mas com escopos claramente distintos e sem
+      repetir a mesma frase-síntese em mais de um bloco.
+- [ ] Esta decisão é **anterior** a qualquer mudança de UI nessas seções —
+      não redesenhar o layout antes de decidir o que cada bloco deve conter
+      exclusivamente.
+- [ ] **Ponto adicional:** antes de renomear/fundir seções, checar
+      `tests/e2e/*.spec.js` por texto fixo (ex.: heading exato) que dependa da
+      estrutura atual — evita quebrar E2E silenciosamente.
+
+### 4. Modelo de IA — o Nemotron Nano é o mais indicado? (análise 2026-07-01)
+
+Pedido do usuário: avaliar o catálogo gratuito da NVIDIA
+([build.nvidia.com/models](https://build.nvidia.com/models?filters=nimType%3Anim_type_preview&label=text-to-text))
+contra o modelo em uso.
+
+**Hoje:** `.env` define `NVIDIA_MODEL=nvidia/nemotron-3-nano-30b-a3b`
+(sobrepõe o default de `src/config.js`, que é `meta/llama-3.1-70b-instruct`) —
+usado para **tudo**: resumo, leitura integrada e a investigação de descobertas
+(um único `nvidiaModel` para todas as chamadas via `src/ai/providers/index.js`).
+
+**O que é o Nano:** MoE híbrido Mamba-Transformer, 31,6B parâmetros totais mas
+só **~3,2B ativos por token** — desenhado pela NVIDIA para *throughput*
+(3,3x mais rápido que um Qwen3-30B equivalente), não para profundidade de
+raciocínio. Idiomas oficialmente listados: en/es/fr/de/ja/it — **português
+não consta** (pode funcionar por generalização multilíngue, mas não é
+uma garantia documentada).
+
+**Comparação (mesma API/conta NVIDIA, troca é só o valor de `NVIDIA_MODEL`):**
+
+| Modelo | Ativos/Total | Foco | Observação |
+|---|---|---|---|
+| `nvidia/nemotron-3-nano-30b-a3b` (atual) | 3,2B / 31,6B | velocidade | PT não confirmado; bom p/ tarefas simples em volume |
+| `nvidia/nemotron-3-super-120b-a12b` | 12B / 120B | *agentic reasoning* (posicionamento oficial NVIDIA) | mesma família/API; PT possivelmente nos "+19 idiomas" não individualizados |
+| `meta/llama-3.1-70b-instruct` (default do `config.js`) | 70B denso | geral | português historicamente forte na família Llama |
+| `meta/llama-3.3-70b-instruct` | 70B denso | geral, ~nível 405B | idem acima, mais recente |
+| `qwen3-235b-a22b-thinking` | 22B / 235B | modo de raciocínio dedicado | 201 idiomas (PT incluso); maior/mais lento |
+
+Limite do tier gratuito: **~40 requisições/min** (pode pedir aumento para
+~200 no painel NVIDIA) — importa mais para o volume de resumos em lote do
+que para a investigação de descobertas (menor volume, maior exigência de
+julgamento).
+
+**Recomendação — não trocar tudo, rotear por tarefa:**
+- [ ] Manter (ou confirmar) um modelo rápido/barato tipo Nano para tarefas de
+      alto volume e baixo risco (resumo simples de documento/anexo).
+- [ ] Introduzir um **override de modelo por chamada** (não só o
+      `NVIDIA_MODEL` global) para a investigação de descobertas
+      (`src/ai/discovery-investigation.js`) — é a tarefa que mais exige
+      julgamento (achar inconsistência, não só resumir) e roda em volume
+      bem menor, então vale usar um modelo mais forte mesmo sendo mais lento.
+      Candidatos: `nemotron-3-super-120b-a12b` (mesma stack) ou
+      `llama-3.3-70b-instruct` (português historicamente mais confiável).
+- [ ] **Testar os dois candidatos em casos reais em português antes de
+      fixar** — nenhuma fonte confirma qualidade de PT-BR para o Super; não
+      trocar às cegas. Comparar: taxa de sucesso no schema Zod
+      (`discovery-investigation-contract.js`), qualidade da narrativa em PT,
+      e latência sob o rate-limit de 40 RPM.
+
+**Pontos adicionais (revisão 2026-07-01):**
+- [ ] **O limite de RPM pode variar por modelo** — a fonte NVIDIA diz que os
+      ~40 req/min "dependem do modelo e do tráfego atual"; não assumir que o
+      Super tem o mesmo teto do Nano sem checar na conta real (painel
+      NVIDIA) antes de rotear tráfego de produção para ele.
+- [ ] **Latência do Super/Llama-70B vai ser bem maior** (mais parâmetros
+      ativos) — isso estica o tempo do lote de `descobertas:investigar` /
+      `descobertas-scheduler`. Já tivemos dor de cabeça com processos longos
+      sem heartbeat matando silenciosamente (ver `src/utils/progress.js`,
+      criado justamente por isso) — reusar esse instrumental ao rodar lotes
+      com o modelo novo, não assumir que vai terminar rápido.
+- [ ] **Fallback obrigatório.** `alert-generator.js` já tem try/catch com
+      narrativa-template quando a IA falha; a investigação de descobertas
+      (`discovery-investigation.js`) precisa da mesma resiliência — modelo
+      mais pesado/lento tem mais chance de timeout, então erro não pode
+      travar o pipeline nem deixar a descoberta sem conteúdo.
+- [ ] **Protocolo de comparação, não swap às cegas:** rodar a investigação
+      para uma amostra pequena (5–10 descobertas, cobrindo os temas
+      diferentes) com cada modelo candidato, salvar lado a lado, e avaliar
+      manualmente antes de mudar o `.env` de produção.
+- [ ] **Gemini/Groq não são alternativa viável agora:** `.env` não tem
+      `GEMINI_API_KEY`/`GROQ_API_KEY` configuradas, e
+      `src/ai/providers/index.js` **rejeita** qualquer `AI_PROVIDER` que não
+      seja `nvidia` (`throw` explícito). Ficar só nos modelos NVIDIA por ora;
+      considerar Gemini/Groq como opção futura separada, não parte deste
+      plano.
+
+---
+
 ## Qualidade da informação — achados (2026-06-23)
 
 Cobertura está saudável: texto/resumo/análise ~100% do que a fonte oferece
@@ -20,33 +259,70 @@ Ferramentas: `extrair-texto-anexos.js --rederivar` e `--recuperaveis`.
 
 ---
 
-Atualizado em: 2026-06-24 — Descobertas: thresholds afináveis + reconciliação + redesign da UI.
+Atualizado em: 2026-07-01 — HANDOFF. Descobertas v1 (thresholds + redesign)
+prontos; **subsistema Descobertas v2 (investigação IA + fatos)** e **MVP de
+publicação** em andamento; árvore de trabalho grande **sem commit**.
 
 ---
 
-## ▶ Como retomar (próxima sessão) — leia primeiro
+## ▶ Como retomar (próxima sessão) — LEIA PRIMEIRO
 
-**Onde paramos (24/06/2026):** as "Descobertas" estão completas e validadas em
-dados reais (539 docs → 50 descobertas). Nesta sessão: (1) thresholds ficaram
-editáveis em `/admin/alertas` + rebuild com reconciliação; (2) a página
-`/descobertas` (lista + detalhe) foi **reescrita** num CSS Module próprio
-(antes usava classes inexistentes → renderizava sem estilo). Tudo verificado no
-browser, testes verdes, lint limpo.
+### 0. Estado do Git — AÇÃO #1: triar e commitar
 
-**Pendências em aberto (próximos passos sugeridos, em ordem):**
-1. **Valor mal formatado em alguns títulos IA** (`R$ 1,136,897,90` — vírgula como
-   milhar). Vem da narrativa (`src/ai/alert-narrative.js` / prompt), não da UI.
-   Baixa prioridade. (O tom "Alerta:" no título já foi resolvido — sanitizado no
-   código + regra no prompt, commit `a0fc8b7`.)
-2. **Fase 5 — Publicação** (ver abaixo): Basic Auth em `/admin/*` (hoje público),
-   testes de parser pendentes, build de produção + deploy.
-3. **Fila de OCR** (141 anexos escaneados) — destrava vencedores/valores antigos
-   (ver ⭐ DESTAQUE na Fase 2). Tentativa futura: tesseract local já existe no
-   pipeline (300 DPI + modelos "best").
+- **HEAD:** `c115b77` (emendas). Descobertas v1, subsistema `alertas` e o app já
+  estão commitados em ancestrais (ex.: `a0fc8b7` sanitizou o tom "Alerta:").
+- **Não commitado:** ~50 arquivos **modificados** + ~40 **novos** (subsistemas
+  inteiros). Nada foi perdido, mas é **o maior risco de continuidade**.
+  → **Primeiro passo: revisar e commitar em blocos coerentes** (agrupamento
+  sugerido no fim desta seção). Rode `git status` e `git diff --stat` para o todo.
 
-**Setup rápido da sessão:** `npm start` (API 3001 + frontend 3000). Páginas:
-`/descobertas`, `/admin/alertas` (painel de thresholds). Caveman instalado como
-plugin (ativa só em nova sessão, via `/caveman`).
+### 1. Descobertas v1 — UI + thresholds ✅ pronto, SEM COMMIT
+
+Thresholds editáveis em `/admin/alertas` + rebuild com reconciliação
+(`generateAlerts({ full: true })` → `repo.removerAtivosNaoListados`, preserva
+decisão humana). Página `/descobertas` (lista + detalhe) **reescrita** num CSS
+Module próprio (antes usava classes globais inexistentes → renderizava sem
+estilo). Verificado no browser, testes verdes, lint limpo. Resultado: 539 docs →
+50 descobertas (13 "Vale conferir" + 37 "Curiosidade").
+Arquivos: `src/db/alertas-repo.js`, `src/alertas/alert-generator.js` (+testes),
+`src/api/server.js`, `scripts/seed-alertas-config.js`, `scripts/gerar-alertas.js`,
+`frontend/app/descobertas/*`, `.../admin/alertas/AdminAlertasPanel.js`, `lib/api.js`.
+
+### 2. Descobertas v2 — investigação IA + inteligência de fatos ⏳ NOVO, sem commit, FALTA VALIDAR
+
+Subsistema novo (não commitado) que aprofunda as Descobertas. **Suíte completa
+verde (462 testes / 43 suites, 01/07)** incluindo os testes do v2 → falta só
+**validar em dados reais** (rodar `descobertas:investigar` + conferir a UI) antes
+de commitar:
+- `src/ai/discovery-investigation.js` (+ prompt + contrato `discovery-investigation-v2` + teste) — investiga uma descoberta com IA (hipótese pública, o que os dados mostram, lacunas, perguntas abertas, análise admin).
+- `src/inteligencia/` — `fatos-extractor`/`fatos-runner` (extrai fatos de texto/produtos/anexos), `discovery-investigation-runner`, `descobertas-scheduler`.
+- `src/alertas/discovery-candidates.js` + detector `detectores/fatos-agregados.js` — candidatos por tema (supressão de árvores, preços de itens, recorrência fornecedor↔objeto, gastos de eventos).
+- `src/db/inteligencia-fatos-repo.js`, `src/db/produtos-repo.js` (+testes).
+- Frontend: `/descobertas` e `[id]` já renderizam `metadados.discovery_v2` (hipótese, fatos, lacunas, evidências, box admin) + `lib/disclaimer.js`.
+- npm: `descobertas:investigar`, `inteligencia:extrair-fatos[:dry]`, `inteligencia:auditar`. Já wired em `src/api/server.js`.
+
+### 3. Publicação (MVP) — spec-driven `.specs/` ⏳ rascunho, AGUARDANDO VOCÊ
+
+- Milestone `publicacao-mvp` (`.specs/features/publicacao-mvp/spec.md` + `.specs/STATE.md`, fluxo do skill `tlc-spec-driven`).
+- **Status: spec em rascunho, aguardando sua confirmação** das premissas (alvo de deploy, política de credenciais admin, frescor dos dados) antes de Design/Tasks.
+- Basic Auth `/admin/*` já implementado (`src/auth/admin-basic-auth.js` + `frontend/middleware.js`). Falta build de produção + Docker + deploy (Fase 5.3).
+
+### Outros itens não commitados
+- **Parsers:** melhorias em `document-file.js`, `licitacao-produtos.js`, `licitacao-resultados-itens.js` (+ novos testes) e `technical-visual.js` (classifica anexos técnicos/visuais).
+- **PNCP:** `scripts/pncp-*.js` + npm `pncp:sincronizar` (reavaliar — Ritápolis não constava no PNCP).
+- Vários scripts de backfill/diagnóstico/auditoria; configs de IDE (`.cursor/`, `.windsurf/`).
+
+### Sugestão de agrupamento de commits
+1. Descobertas: thresholds + reconciliação (backend + testes + seed + admin).
+2. Descobertas: redesign da UI (CSS Module + páginas lista/detalhe).
+3. Descobertas v2: investigação IA + inteligência de fatos (**após** validar suíte).
+4. Parsers + PNCP + scripts de dados.
+5. Auth/middleware + specs de publicação.
+
+### Setup + verificação
+- `npm start` (API 3001 + frontend 3000). Páginas: `/descobertas`, `/admin/alertas`.
+- `npm test` (suíte completa) **antes de commitar o v2**.
+- Caveman: plugin instalado; ativa em nova sessão via `/caveman`.
 
 ---
 
@@ -153,8 +429,8 @@ Validado em dados reais: 539 docs → 50 descobertas com narrativa IA, valores p
 - [ ] (opcional, baixa prioridade) `/temas` → filtro de `/licitacoes`; `/analises` redirecionar (órfãs, já fora da nav)
 
 ### Fase 5 — Publicação
-- [ ] 5.1 Basic Auth `/admin/*`
-- [ ] 5.2 Testes de parser pendentes (Prioridade 1 do CLAUDE.md) antes do deploy
+- [x] 5.1 Basic Auth `/admin/*` com `ADMIN_AUTH_USER` + `ADMIN_AUTH_PASSWORD` e fallback aberto para desenvolvimento local
+- [x] 5.2 Testes de parser/contratos verificados antes do deploy: `npm test` passou com 40 suites e 451 testes
 - [ ] 5.3 Build de produção + Docker + deploy (Railway/Fly + Vercel)
 
 ---

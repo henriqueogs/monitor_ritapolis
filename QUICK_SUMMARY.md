@@ -1,95 +1,34 @@
-# 📋 Resumo das Melhorias — Detecção Automática de PDFs de Imagem
+# ▶ COMECE AQUI — Monitor Ritápolis
 
-## ✅ O que foi feito
+Ponto de entrada para retomar o projeto. Leia nesta ordem:
 
-### **Problema:** 
-Documento 648 com texto corrompido — resultado de PDF escaneado sendo extraído como texto.
+1. **[`CURRENT_WORK.md`](CURRENT_WORK.md)** — foco imediato + **handoff** (seção
+   "▶ Como retomar"): estado do Git, o que está pronto sem commit, o que falta
+   validar, próximos passos. **É a fonte da verdade do que fazer agora.**
+2. **[`.specs/STATE.md`](.specs/STATE.md)** — milestone de publicação
+   (`publicacao-mvp`), fluxo spec-driven. Rascunho aguardando sua confirmação.
+3. **[`DEVELOPMENT_PLAN.md`](DEVELOPMENT_PLAN.md)** — roadmap e histórico de versões.
+4. **[`CLAUDE.md`](CLAUDE.md)** — padrões de desenvolvimento (DDD, TDD, limites de
+   arquivo, regras de produto §11). Obrigatório antes de codar.
 
-### **Solução em 3 partes:**
+## Estado em uma frase (2026-07-01)
 
-#### 1️⃣ **Detecção Inteligente** 
-- `src/parsers/pdf.js` — Nova função `isImageBasedPdf()` que reconhece "lixo" de OCR/encoding baseado em:
-  - Densidade baixa de caracteres (< 100 chars/página)
-  - Proporção baixa de alfanuméricos (< 70%)
-  - Padrões de caracteres aleatórios
+Descobertas v1 (thresholds afináveis em `/admin/alertas` + redesign da UI) **prontas
+sem commit**; subsistema **Descobertas v2** (investigação IA + inteligência de
+fatos) e **MVP de publicação** em andamento; **árvore de trabalho grande sem
+commit** — triar e commitar é a ação #1 (ver `CURRENT_WORK.md`).
 
-#### 2️⃣ **Script de Marcação Automática**
-- `scripts/detectar-pdfs-imagem.js` — Varre documentos e marca "lixo" para OCR
-  - Uso: `npm run ocr:detectar -- --apply --limite=50`
-  - Marca com flag `auto_detect_imagem=1` para rastreabilidade
-
-#### 3️⃣ **Expansão do OCR**
-- `scripts/ocr-documentos-imagem.js` — Agora processa **todos os tipos** de documento, não apenas editais
-- `src/parsers/auto-detect-image-pdf.js` — Helper para integração futura
-
----
-
-## 📊 Resultado: Documento 648
-
-| Métrica | Antes | Depois |
-|---------|-------|--------|
-| **Texto extraído** | `a,r   t   B  B   !4tS...` (lixo) | 1.164 caracteres legíveis |
-| **Status** | ❌ Erro ao analisar | ✅ Pronto para IA (se licitação) |
-| **Interface** | Gibberish no "Texto completo" | Conteúdo legível |
-
----
-
-## 🛠️ Novos Comandos
+## Setup
 
 ```bash
-# Detectar PDFs de imagem (visualizar o que seria marcado)
-npm run ocr:detectar
-
-# Marcar até 50 documentos "lixo" para OCR
-npm run ocr:detectar -- --apply --limite=50
-
-# Processar OCR nesses documentos (agora: todos os tipos)
-npm run ocr:documentos -- --apply --limite=20
+npm start     # API :3001 + frontend :3000
+npm test      # 462 testes / 43 suites (verde em 01/07)
 ```
 
----
-
-## 📈 Impacto Esperado
-
-✅ **Cobertura:** Adiciona capacidade de recuperar 40-50 documentos com texto extraído corruptamente  
-✅ **Qualidade:** Automático — não requer revisão manual em primeira instância  
-✅ **Rastreabilidade:** Flag `auto_detect_imagem` em `dados_extras` para auditoria  
+Páginas-chave: `/descobertas`, `/admin/alertas`.
 
 ---
 
-## 🎯 Próximos Passos (v0.9+)
-
-1. Integrar detecção **durante coleta** (em tempo real, não pós-processamento)
-2. Scheduler periódico para rodar detecção automaticamente
-3. Interface em `/admin` para revisar/ajustar marcações
-4. Testes unitários para `isImageBasedPdf()`
-
----
-
-## 📁 Arquivos Modificados
-
-| Arquivo | Mudança |
-|---------|---------|
-| `src/parsers/pdf.js` | ➕ `isImageBasedPdf()` |
-| `src/parsers/auto-detect-image-pdf.js` | ➕ Novo (helper) |
-| `scripts/ocr-documentos-imagem.js` | 🔄 Expandido para todos os tipos |
-| `scripts/detectar-pdfs-imagem.js` | ➕ Novo (detecção automática) |
-| `package.json` | ➕ Comando `npm run ocr:detectar` |
-| `IMPROVEMENTS_IMAGE_PDF_DETECTION.md` | ➕ Documentação completa |
-
----
-
-## ✨ Status Atual
-
-- ✅ Documento 648 restaurado (texto legível)
-- ✅ Código de detecção implementado e testado
-- ✅ Scripts funcionando
-- ⏳ Próximo: Testes unitários + integração no coletor
-
-**Pronto para produção?** Sim — com recomendação de testes automatizados antes de schedulers em produção.
-
----
-
-**Versão:** v0.8.1 (melhoria no v0.8)  
-**Data:** 2026-06-16  
-**Implementado por:** GitHub Copilot (Modo Agente)
+> Docs de tópico único (histórico): `IMPROVEMENTS_IMAGE_PDF_DETECTION.md`,
+> `TODO_IMAGE_PDF_DETECTION.md`, `COBERTURA.md`, `New_work.md`. Consulte só se o
+> assunto for relevante — o estado atual vive em `CURRENT_WORK.md`.

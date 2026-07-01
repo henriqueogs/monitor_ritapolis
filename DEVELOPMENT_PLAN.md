@@ -127,7 +127,10 @@ A "Análise do Processo" é gerada por IA (contrato v2.0) e aparece na página d
 ### Prioridade alta
 
 **Autenticação administrativa**
-Proteger `/admin/*` com HTTP Basic Auth (usuário/senha em variável de ambiente). Sem banco de usuários, sem OAuth — proteção mínima antes de publicar amplamente.
+Implementado em 2026-06-30: `/admin/*` usa HTTP Basic Auth quando
+`ADMIN_AUTH_USER` e `ADMIN_AUTH_PASSWORD` estão definidos. Sem banco de usuários,
+sem OAuth — proteção mínima antes de publicar amplamente, com fallback aberto
+para desenvolvimento local quando as variáveis não existem.
 
 **Cobertura PNCP anos anteriores** *(parcialmente concluído)*
 Coletor ativo desde 2023. Confirmado: Prefeitura publica apenas pontualmente no PNCP (1 edital em 2025). Monitorar crescimento — executar `npm run coletar -- --fonte=pncp` periodicamente.

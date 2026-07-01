@@ -73,6 +73,10 @@ npm start   # API na porta 3001 + Next.js dev na porta 3000
 | `/admin/jobs` | Jobs & schedulers + ferramentas de manutenção e progresso |
 | `/admin/qualidade` | Score de qualidade por documento |
 
+`/admin` e subrotas usam HTTP Basic Auth quando `ADMIN_AUTH_USER` e
+`ADMIN_AUTH_PASSWORD` estão definidos no ambiente. Sem essas variáveis, a
+proteção fica desativada para desenvolvimento local.
+
 Aliases: `/documentos` → `/acervo`, `/estatisticas` → `/transparencia`, `/ia` → `/admin/ia`, `/cobertura` → `/admin/cobertura`.
 
 ## Comandos principais
@@ -116,23 +120,27 @@ npm run alertas:gerar:dry                 # prévia sem gravar
 npm run build --prefix frontend
 ```
 
-## Estado atual (v0.7 — junho 2026)
+## Estado atual (gerado automaticamente)
 
-- 545 documentos: 532 da Prefeitura, 13 da Câmara
-- 25/25 editais de 2026 com resumo IA (status ok)
-- 26/26 licitações 2026 com leitura integrada
-- 219 produtos estruturados, 217 com preço final e fornecedor
-- R$ 1,66M identificados em 14 licitações com vencedor
-- 495 licitações classificadas em 7 categorias (Equipamentos, Serviços, Saúde, Obras, Educação, Alimentação, Outros)
-- 25 CNPJs de fornecedores consolidados
-- Schedulers automáticos ativos: coleta (12h) e resumos IA (2 ciclos/dia × 15 docs)
-- Todas as rotas validadas em desktop (1280px) e mobile (375px)
+Atualizado em: 2026-06-26. Gere novamente com `npm run docs:dados`.
+
+- 553 documentos: 549 de site_prefeitura, 3 de camara, 1 de pncp
+- 519 editais; 550/553 documentos com texto extraido (99%)
+- 1472 resumos IA ok; 0 resumo(s) exigem revalidacao por falta de texto-fonte atual
+- 465/519 editais com vencedor (90%)
+- 251/519 editais com valor final (48%)
+- 4656 produtos estruturados em 377 documento(s); 149 editais ainda sem produtos
+- 13 edital(is) do mandato atual com produtos sem preço final por item: preco_item_nao_aplicavel=5, resultado_final_nao_publicado=4, valor_global_sem_rateio=2, fonte_sem_detalhamento_por_item=2
+- 494 fornecedores consolidados; 7 categorias ativas
+- 49 descobertas/alertas ativos; automação ligada; pendente=não
+- 0 anexo(s) aguardando OCR; 37 edital(is) sem PDF (0 sem texto, 37 com texto oficial da pagina)
+- Diretório `data/`: 2.0 GB, incluindo 15 backup(s) SQLite (1.8 GB)
 
 ## Limitações conhecidas
 
 - Resumos IA anos anteriores: 407 pendentes — scheduler processa gradualmente (30/dia)
 - PNCP: Ritápolis não publica no Portal Nacional de Contratações Públicas (API retorna 204 para todas as modalidades). Os dados vêm exclusivamente do portal próprio da Prefeitura. O script `pncp:sincronizar` funciona automaticamente quando o município começar a publicar.
-- Sem autenticação administrativa: `/admin` é público nesta fase
+- Área administrativa protegida por Basic Auth quando `ADMIN_AUTH_USER` e `ADMIN_AUTH_PASSWORD` estão configurados
 - Banco SQLite local, sem replicação com servidor externo
 - Câmara usa certificado expirado — o coletor já trata automaticamente
 
