@@ -66,6 +66,27 @@ CREATE TABLE IF NOT EXISTS documentos_anexos_resumos_ai (
   UNIQUE (anexo_id, texto_hash, contrato_versao)
 );
 
+-- Fila assíncrona de regeneração de resumo de anexo (mesmo padrão de
+-- documentos_resumos_ai_jobs) — o botão "Regenerar" e a rotina em lote
+-- enfileiram aqui; um worker em background processa um por vez.
+CREATE TABLE IF NOT EXISTS documentos_anexos_resumos_ai_jobs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  anexo_id INTEGER NOT NULL REFERENCES documentos_anexos(id) ON DELETE CASCADE,
+  provider TEXT NOT NULL,
+  modelo TEXT NOT NULL,
+  contrato_versao TEXT NOT NULL,
+  texto_hash TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pendente',
+  force INTEGER NOT NULL DEFAULT 0,
+  erro TEXT,
+  resumo_ai_id INTEGER REFERENCES documentos_anexos_resumos_ai(id) ON DELETE SET NULL,
+  tentativas INTEGER NOT NULL DEFAULT 0,
+  criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+  iniciado_em TEXT,
+  finalizado_em TEXT,
+  atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS inteligencia_fatos (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   documento_id INTEGER NOT NULL REFERENCES documentos(id) ON DELETE CASCADE,
@@ -345,6 +366,10 @@ CREATE INDEX IF NOT EXISTS idx_documentos_anexos_tipo ON documentos_anexos(tipo)
 CREATE INDEX IF NOT EXISTS idx_documentos_anexos_status ON documentos_anexos(status_extracao);
 CREATE INDEX IF NOT EXISTS idx_anexos_resumos_anexo ON documentos_anexos_resumos_ai(anexo_id);
 CREATE INDEX IF NOT EXISTS idx_anexos_resumos_status ON documentos_anexos_resumos_ai(status);
+CREATE INDEX IF NOT EXISTS idx_anexos_resumos_ai_jobs_anexo_hash
+  ON documentos_anexos_resumos_ai_jobs(anexo_id, texto_hash, contrato_versao, status);
+CREATE INDEX IF NOT EXISTS idx_anexos_resumos_ai_jobs_status
+  ON documentos_anexos_resumos_ai_jobs(status, atualizado_em);
 CREATE INDEX IF NOT EXISTS idx_inteligencia_fatos_doc ON inteligencia_fatos(documento_id);
 CREATE INDEX IF NOT EXISTS idx_inteligencia_fatos_anexo ON inteligencia_fatos(anexo_id);
 CREATE INDEX IF NOT EXISTS idx_inteligencia_fatos_tipo ON inteligencia_fatos(tipo, subtipo);

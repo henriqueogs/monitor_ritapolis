@@ -77,6 +77,8 @@
     "dados:anexos-extrair": "node scripts/extrair-anexos-documentos.js --apply",
     "inteligencia:extrair-fatos": "node scripts/extrair-fatos-inteligencia.js --apply",
     "inteligencia:extrair-fatos:dry": "node scripts/extrair-fatos-inteligencia.js",
+    "inteligencia:regenerar-resumos-anexos": "node scripts/regenerar-resumos-anexos.js --apply",
+    "inteligencia:regenerar-resumos-anexos:dry": "node scripts/regenerar-resumos-anexos.js",
     "docs:dados": "node scripts/atualizar-docs-dados.js",
     "inteligencia:auditar": "node scripts/auditar-inteligencia.js",
     "inteligencia:fornecedores": "node scripts/consolidar-fornecedores.js",

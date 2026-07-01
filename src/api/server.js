@@ -65,6 +65,13 @@ const { gerarNarrativaAnomalias } = require('../ai/anomaly-narrative');
 const alertasRepo = require('../db/alertas-repo');
 const { generateAlerts, getAlertasStatus } = require('../alertas/alert-generator');
 const { extrairFatosInteligencia } = require('../inteligencia/fatos-runner');
+const {
+  createAnexoResumoJob,
+  getAnexoResumoJobById,
+  recoverStaleAnexoResumoJobs,
+} = require('../db/anexo-resumo-jobs-repo');
+const { scheduleAnexoResumoJobWorker } = require('../ai/anexo-summary-job-worker');
+const { CONTRACT_VERSION_IA: CONTRATO_ANEXO_IA } = require('../ai/summarize-anexo');
 const { getCollectionUpdateStatus, startCollectionUpdate } = require('../coletas/update-runner');
 const { listCredores, getCredorProfile } = require('../db/credores-repo');
 const { searchDocumentos, ensureFtsIndex, rebuildFtsIndex } = require('../db/fts-repo');
@@ -769,6 +776,59 @@ function createServer() {
     }
 
     return res.json(anexoPublico(anexo));
+  });
+
+  // POST /api/anexos/:id/resumir — enfileira regeneração de resumo via IA
+  // (assíncrono; não bloqueia a resposta — mesmo padrão de /documentos/:id/resumir).
+  app.post('/api/anexos/:id/resumir', (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'id inválido' });
+    }
+    try {
+      recoverStaleAnexoResumoJobs({ staleMinutes: 5 });
+      const force = req.body?.force === true || String(req.query.force || '').toLowerCase() === 'true';
+      const anexo = getAnexoById(id);
+      if (!anexo) {
+        return res.status(404).json({ error: 'Anexo nao encontrado' });
+      }
+      if (!anexo.texto_completo) {
+        return res.status(400).json({ error: `Anexo ${id} nao possui texto extraído para resumir` });
+      }
+
+      const textoHash = buildTextoHash(anexo.texto_completo);
+      if (anexo.resumo_ai?.contrato_versao === CONTRATO_ANEXO_IA && anexo.resumo_ai?.texto_hash === textoHash && !force) {
+        return res.json({ status: 'ok', resumo_ai: anexo.resumo_ai, mensagem: 'Resumo ja atualizado.' });
+      }
+
+      const provider = createAiProvider();
+      const job = createAnexoResumoJob({
+        anexo_id: id,
+        provider: provider.provider,
+        modelo: provider.model,
+        contrato_versao: CONTRATO_ANEXO_IA,
+        texto_hash: textoHash,
+        force,
+      });
+
+      scheduleAnexoResumoJobWorker();
+
+      return res.status(202).json({
+        status: job.status,
+        job,
+        mensagem: 'Resumo de anexo enfileirado para processamento assincrono.',
+      });
+    } catch (error) {
+      return res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get('/api/anexos/resumos/jobs/:id', (req, res) => {
+    const job = getAnexoResumoJobById(Number(req.params.id));
+    if (!job) {
+      return res.status(404).json({ error: 'Job de resumo de anexo nao encontrado' });
+    }
+    return res.json({ job });
   });
 
   app.get('/api/documentos/:id', (req, res) => {

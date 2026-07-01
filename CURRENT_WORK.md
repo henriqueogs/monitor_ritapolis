@@ -16,7 +16,7 @@ melhores → descobertas melhores; modelo de IA pode ser decidido em paralelo).
 > misturar "trabalho já validado" com "experimento em andamento" no mesmo
 > commit grande e dificultar reverter se um experimento não funcionar.
 
-### 1. Resumo de anexos é heurística, não IA — criar rotina de regeneração
+### 1. Resumo de anexos é heurística, não IA — criar rotina de regeneração ✅ CONCLUÍDO (2026-07-01)
 
 **Causa raiz confirmada:** `resumirAnexoLocal()` em
 [`src/inteligencia/fatos-extractor.js:248`](src/inteligencia/fatos-extractor.js:248)
@@ -31,46 +31,50 @@ de um anexo — a única via é o CLI `npm run inteligencia:extrair-fatos -- --a
 --documentos=<id>`, que roda por *documento* (não por anexo) e sempre chama a
 mesma heurística.
 
-- [ ] Trocar `resumirAnexoLocal` por uma chamada real de IA (segue o padrão de
-      `src/ai/discovery-investigation.js` / providers em `src/ai/providers/`) —
-      prompt curto e focado: resumo do anexo + pontos relevantes, com o mesmo
-      contrato de saída atual (`resumo_curto`, `pontos_relevantes`, `lacunas`,
-      `confianca`) para não quebrar `frontend/app/anexo/[id]/page.js`.
-      TDD: mockar provider, cobrir texto vazio/curto (fallback heurístico) e
-      texto normal (fallback nunca falha silenciosamente).
-- [ ] Endpoint admin `POST /api/anexos/:id/resumir` (força regeneração de 1
-      anexo) — reaproveitar `salvarResumoAnexo` de
-      [`src/db/inteligencia-fatos-repo.js`](src/db/inteligencia-fatos-repo.js).
-- [ ] Botão "Regenerar resumo" em `/anexo/[id]` (área `admin-only`, mesmo
-      padrão de `AiSummaryAction`/`IntegratedReadingAction` já usados em
-      `documento/[id]`).
-- [ ] Rotina em lote para reprocessar os anexos **já existentes** com a lógica
-      nova (todos os `status_extracao='ok'` têm resumo heurístico hoje — flag
-      de versão de contrato tipo `anexo-2.0` para saber quais já foram
-      atualizados e permitir reentrância).
+- [x] Trocar `resumirAnexoLocal` por uma chamada real de IA — feito em
+      [`src/ai/summarize-anexo.js`](src/ai/summarize-anexo.js) (contrato
+      [`anexo-resumo-contract.js`](src/ai/contracts/anexo-resumo-contract.js) +
+      prompt [`anexo-resumo-prompt.js`](src/ai/prompts/anexo-resumo-prompt.js),
+      contrato de saída compatível com `frontend/app/anexo/[id]/page.js`.
+      TDD: 9 testes de contrato + 5 de `summarizeAnexo` (texto ruim, IA falha,
+      fora do contrato, `AI_SUMMARY_ENABLED=false` → sempre cai pro heurístico
+      sem lançar erro).
+- [x] Endpoint admin `POST /api/anexos/:id/resumir` (enfileira job; 202 +
+      `job.id`) + `GET /api/anexos/resumos/jobs/:id` (polling de status).
+- [x] Botão "Regenerar resumo" — `frontend/app/components/AnexoResumoAction.js`
+      (mesmo padrão de `AiSummaryAction`: enfileira, faz polling, atualiza a
+      página), plugado em `/anexo/[id]` dentro de `admin-only`. Selo público
+      "resumo automático (sem IA)" vs "resumo gerado por IA" via `resumo.aviso`
+      (não depende de campo admin-only stripado pelo backend).
+- [x] Rotina em lote: `scripts/regenerar-resumos-anexos.js` (`npm run
+      inteligencia:regenerar-resumos-anexos[:dry]`) — reentrante por
+      `contrato_versao='anexo-2.0'` + `texto_hash`; `--force` para regenerar
+      mesmo os já atualizados; `--documento=N` para escopo.
 
-**Pontos adicionais (revisão 2026-07-01):**
-- [ ] **Não tornar síncrono.** Hoje `resumirAnexoLocal` roda inline dentro do
-      loop de `fatos-runner.js:processarDocumento` (é local, instantâneo). Uma
-      chamada de IA real ali **explode o tempo de execução** de
-      `inteligencia:extrair-fatos` (documentos têm vários anexos cada). Seguir
-      o padrão **já existente** de job assíncrono (`documentos_resumos_ai`
-      com status pendente/processando/erro, como em `AiSummaryAction`) em vez
-      de bloquear o batch — o botão "Regenerar" enfileira, não chama a IA
-      na hora.
-- [ ] **Gate de qualidade de texto antes de mandar para a IA.** Muitos anexos
-      são PDF-imagem/OCR ruim; mandar ruído de OCR para o LLM produz resumo
-      "confiante" e plausível mas falso. Reaproveitar os heurísticos que já
-      existem (`isPalavraReal`/`limparRuidoOcr` em `src/utils/text.js`,
-      `isImageBasedPdf` em `src/parsers/pdf.js`) para decidir se o texto do
-      anexo é bom o suficiente antes da chamada — senão, manter o fallback
-      heurístico atual com aviso explícito (não esconder a limitação).
-- [ ] **Dedupe por `texto_hash`.** Vários anexos repetem texto idêntico
-      (boilerplate do mesmo edital-modelo) — não gerar resumo de IA duas
-      vezes para o mesmo hash; reaproveitar resultado.
-- [ ] Isso soma chamadas de IA ao orçamento de 40 req/min (ver item 4) — o
-      volume de anexos é maior que o de documentos; medir antes de rodar em
-      lote todos de uma vez.
+**Pontos adicionais — todos resolvidos:**
+- [x] **Não tornar síncrono.** Fila própria
+      `documentos_anexos_resumos_ai_jobs` (mesmo padrão de
+      `documentos_resumos_ai_jobs`) + `src/ai/anexo-summary-job-worker.js`
+      (setTimeout 0, um job por vez, `recoverStaleAnexoResumoJobs` destrava
+      jobs presos). `fatos-runner.js` **não foi tocado** — continua usando o
+      heurístico inline (rápido, sem IA) para o pipeline de fatos em lote; a
+      IA só roda pelo caminho novo (botão ou script).
+- [x] **Gate de qualidade de OCR.** `textoConfiavelParaIa()` reaproveita
+      `isImageBasedPdf` (já existente) — **verificado ao vivo**: anexo 3284
+      (o exemplo original do usuário) foi corretamente detectado como OCR
+      ruim e manteve o heurístico em vez de mandar ruído pra IA.
+- [x] **Dedupe por `texto_hash`** — `UNIQUE(anexo_id, texto_hash,
+      contrato_versao)` na tabela + upsert; o script de lote pula anexos já
+      atualizados por padrão (só reprocessa com `--force`).
+- [x] Orçamento de IA: delay de 1,5s entre chamadas de IA no script de lote
+      (só quando a chamada realmente acontece, não no fallback heurístico).
+
+**Achado real ao testar contra a API de verdade:** o modelo às vezes devolve
+`quantidade` como string formatada BR (`"12.400,00"`) em vez de number —
+contrato rejeitava e caía pro heurístico à toa. Corrigido com coerção BR-aware
+no contrato (`coagirQuantidade`, testado com 3 casos: BR, simples, não-numérico
+→ null). Confirmado ao vivo: anexo #3285 (Chamamento 003/2026, exposição
+agropecuária) gerou resumo de IA real e correto após o fix.
 
 ### 2. Página `/descobertas` — consolidar texto disperso (avaliação `/ui-ux-pro-max`, 2026-07-01)
 

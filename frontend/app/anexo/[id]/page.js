@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { fetchAnexo } from '../../lib/api';
 import { formatDate } from '../../lib/format';
+import AnexoResumoAction from '../../components/AnexoResumoAction';
 import styles from '../../documento/[id]/styles.module.css';
 
 function statusLabel(status) {
@@ -83,8 +84,11 @@ export default async function AnexoPage({ params }) {
 
       {resumo && anexo.status_extracao !== 'tecnico_visual' ? (
         <section className={styles.aiCard}>
-          <div className={styles.aiHeader}>
+          <div className={styles.aiHeaderSpread}>
             <h2 className={styles.aiTitle}>Resumo do anexo</h2>
+            <span className={styles.aiMeta} title={resumo.aviso || ''}>
+              {resumo.aviso?.toLowerCase().includes('automático') ? 'resumo automático (sem IA)' : 'resumo gerado por IA'}
+            </span>
           </div>
           <p>{resumo.resumo_curto}</p>
           {resumo.pontos_relevantes?.length ? (
@@ -97,6 +101,16 @@ export default async function AnexoPage({ params }) {
               ))}
             </div>
           ) : null}
+          {resumo.lacunas?.length ? (
+            <ul className={`${styles.aiNoticeCompact} admin-only`}>
+              {resumo.lacunas.map((item, index) => (
+                <li key={index}>{item}</li>
+              ))}
+            </ul>
+          ) : null}
+          <div className="admin-only">
+            <AnexoResumoAction anexoId={anexo.id} />
+          </div>
         </section>
       ) : null}
 
