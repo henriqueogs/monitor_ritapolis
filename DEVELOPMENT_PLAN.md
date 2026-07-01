@@ -1,8 +1,10 @@
 # Plano de Desenvolvimento — Monitor Ritápolis
 
-Roadmap mestre do projeto. Registra o que o produto é, o que foi construído e o que vem a seguir.
+**Definições do produto + histórico de versões.** Não é o lugar de números
+ao vivo (isso é `COBERTURA.md`, auto-gerado) nem de tarefas em andamento
+(isso é `CURRENT_WORK.md`). Ver `QUICK_SUMMARY.md` para o mapa dos três.
 
-Atualizado em: 2026-06-08 (v0.8 — Qualidade de dados + coletor PNCP real).
+Atualizado em: 2026-07-01 (v0.9 — Qualidade de conteúdo: resumo de anexo via IA, narrativa de descobertas consolidada).
 
 ---
 
@@ -53,23 +55,13 @@ A IA só opera sobre dado já estruturado nas camadas 1 e 2. Nunca substitui a c
 
 ---
 
-## 3. Estado atual da base (junho 2026)
+## 3. Estado atual da base
 
-| Dado | Valor |
-|---|---|
-| Documentos cadastrados | ~626 |
-| Da Prefeitura | ~533 |
-| Da Câmara | ~13 |
-| Do PNCP | 1 |
-| Licitações/editais | 494 |
-| Resumos IA — editais 2026 | 25/25 (status ok) |
-| Leitura integrada — 2026 | 26/26 licitações com grupo |
-| Produtos estruturados | 219 em 8 licitações |
-| Com preço final + fornecedor | 217 |
-| Valores identificados | R$ 1,66M em 14 licitações com vencedor |
-| Fornecedores consolidados (CNPJs únicos) | 25 |
-| Licitações classificadas por categoria | 495 (7 categorias) |
-| Resumos IA pendentes (anos anteriores) | ~380 (scheduler ativo) |
+Números ao vivo ficam só em **[`COBERTURA.md`](COBERTURA.md)** (auto-gerado
+via `npm run docs:dados` — nunca editar à mão, evita números contraditórios
+entre documentos). PNCP: confirmado 1 Pregão Eletrônico da Prefeitura
+(2025/1, R$ 6,51M) via `src/coletores/pncp.js`; Ritápolis publica só
+pontualmente lá — a base principal é o portal próprio da Prefeitura.
 
 ---
 
@@ -93,6 +85,41 @@ Extração de texto de atas/contratos como anexos (14→124 vencedores, 219→25
 **Qualidade de dados (junho 2026):** Filtro `isDocumentoValido()` na câmara para rejeitar elementos de UI/filtros. Detecção de PDFs baseados em imagem (`status_coleta: 'imagem'`). Correção de preview genérico: URLs de lista da Prefeitura bloqueadas como source pages. Correção de duplicação no `findDocumentoByIdentity()` para `site_prefeitura`. Fix de SAPL: `url_pdf` aponta para página HTML do SAPL.
 
 **PNCP real:** `src/coletores/pncp.js` — busca por sequencial e por janela temporal. 1 Pregão confirmado (2025/1, Prefeitura). Integrado ao `update-runner.js`.
+
+### v0.9 — Descobertas v2 (investigação IA) + qualidade de conteúdo
+Segunda etapa das Descobertas: pacote de documentos do mesmo tema (agrupado
+por inferência) passa por investigação de IA (`src/ai/discovery-investigation.js`)
+buscando falhas/inconsistências, com narrativa pública cautelosa e análise
+admin — mais camada de **inteligência de fatos** (`src/inteligencia/`,
+`inteligencia_fatos`) extraída de documentos/anexos/produtos, alimentando
+detectores adicionais (supressão de árvores, preços, recorrência de
+fornecedor, gastos de eventos) independente de resumo de IA.
+
+**Qualidade de conteúdo (01/07/2026)**, a partir de feedback direto do
+usuário revisando `/anexo/3284` e `/descobertas/57`:
+- **Resumo de anexo via IA real** (`src/ai/summarize-anexo.js`), substituindo
+  a heurística antiga ("primeira frase >40 chars", sem IA nenhuma). Job
+  assíncrono próprio (`documentos_anexos_resumos_ai_jobs`), gate de qualidade
+  de OCR (reaproveita `isImageBasedPdf`) antes de mandar pra IA, botão
+  "Regenerar" em `/anexo/[id]`, rotina de lote
+  (`npm run inteligencia:regenerar-resumos-anexos[:dry]`).
+- **Narrativa de descobertas consolidada**: contrato/prompt de investigação
+  ganharam campo `narrativa_consolidada` — parágrafo único que soma fatos +
+  lacuna relevante em prosa, com cálculo de razão (R$/unidade, %, etc.) só
+  quando fizer sentido pro tema (não é template fixo — validado nos 4 temas
+  reais: árvores, compras, contratos recorrentes, eventos). Frontend ganhou
+  renderização genérica de `metricas`/`comparativos` (0/1/N métricas, sem
+  card vazio forçado). Flag `alertas:narrativa_consolidada_ativa` permite
+  reverter sem deploy.
+- **Redundância de conteúdo no documento resolvida**: "Resumo do documento"
+  e "Leitura simples" mostravam a mesma frase-síntese quando existe resumo
+  de IA — corrigido para não repetir.
+- **Modelo de IA analisado**: catálogo NVIDIA comparado (Nano atual vs.
+  Nemotron Super vs. Llama-3.3-70B). Mecanismo de override por tarefa
+  implementado (`NVIDIA_MODEL_INVESTIGACAO`), mas **modelo mantido no Nano**
+  — os dois candidatos testados falharam na prática com a conta atual
+  (Super quebra o contrato JSON; Llama-3.3 dá timeout, indício de acesso não
+  liberado). Ver `CURRENT_WORK.md` (arquivado após conclusão) para os dados.
 
 ---
 
@@ -139,6 +166,16 @@ Coletor ativo desde 2023. Confirmado: Prefeitura publica apenas pontualmente no 
 Testar `next build && next start` em produção. Dockerizar backend + SQLite. Deploy em Railway/Fly.io (backend) + Vercel (frontend).
 
 ### Prioridade média
+
+**Detecção de PDF-imagem — itens ainda abertos** *(resgatados do arquivo em
+`docs/archive/TODO_IMAGE_PDF_DETECTION.md` antes de arquivar)*
+- Testes unitários dedicados para `isImageBasedPdf()` (casos: texto legível,
+  texto curto, proporção baixa de alfanuméricos, padrões de lixo).
+- Scheduler periódico rodando detecção automaticamente (hoje é manual via
+  script) + trigger automático de OCR.
+- Interface admin para revisar/reverter documentos marcados como
+  `status_coleta: 'imagem'` (`GET/POST/DELETE /api/admin/ocr/mark/:id`,
+  página `/admin/ocr`).
 
 **Portal de transparência financeira**
 Despesas, empenhos e pagamentos — cruzar com licitações quando a fonte estiver estável.
@@ -200,14 +237,24 @@ com documentos e `url_origem`) — CSS Module próprio
 (nível como ponto+rótulo, sem vermelho de pânico). Validado em dados reais (539
 docs → 50 descobertas: 13 "Vale conferir" + 37 "Curiosidade"). Futuro:
 notificação por e-mail/WhatsApp, assinatura por cidadão, seletor de intervalo nas
-telas de valores, e ajustar prompt da narrativa para não usar "Alerta:" no título
-(briga com o tom de "Descobertas").
+telas de valores.
 
 ### Decisões técnicas permanentes
 
 - SQLite no curto e médio prazo
 - Frontend consome apenas a API própria
-- NVIDIA como provider padrão de IA; Gemini e Groq como fallback
+- NVIDIA é o único provider de IA operacional hoje (`src/ai/providers/index.js`
+  rejeita qualquer `AI_PROVIDER` diferente de `nvidia`). Gemini/Groq têm
+  config reservada em `src/config.js` mas **sem chave configurada e sem
+  suporte real** — não tratar como fallback ativo até serem implementados.
 - PNCP por CNPJ antes de busca fuzzy
 - Classificação por keyword antes de chamar IA
 - Mock nunca em produção
+
+---
+
+## 7. Documentos arquivados
+
+Planejamento/postmortem de features já concluídas fica em
+[`docs/archive/`](docs/archive/README.md) — histórico, não referência de
+estado atual.

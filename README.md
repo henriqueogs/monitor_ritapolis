@@ -120,26 +120,20 @@ npm run alertas:gerar:dry                 # prévia sem gravar
 npm run build --prefix frontend
 ```
 
-## Estado atual (gerado automaticamente)
+## Estado atual da base
 
-Atualizado em: 2026-06-26. Gere novamente com `npm run docs:dados`.
-
-- 553 documentos: 549 de site_prefeitura, 3 de camara, 1 de pncp
-- 519 editais; 550/553 documentos com texto extraido (99%)
-- 1472 resumos IA ok; 0 resumo(s) exigem revalidacao por falta de texto-fonte atual
-- 465/519 editais com vencedor (90%)
-- 251/519 editais com valor final (48%)
-- 4656 produtos estruturados em 377 documento(s); 149 editais ainda sem produtos
-- 13 edital(is) do mandato atual com produtos sem preço final por item: preco_item_nao_aplicavel=5, resultado_final_nao_publicado=4, valor_global_sem_rateio=2, fonte_sem_detalhamento_por_item=2
-- 494 fornecedores consolidados; 7 categorias ativas
-- 49 descobertas/alertas ativos; automação ligada; pendente=não
-- 0 anexo(s) aguardando OCR; 37 edital(is) sem PDF (0 sem texto, 37 com texto oficial da pagina)
-- Diretório `data/`: 2.0 GB, incluindo 15 backup(s) SQLite (1.8 GB)
+Números ao vivo (documentos, cobertura de IA, produtos, fornecedores,
+descobertas) ficam só em **[`COBERTURA.md`](COBERTURA.md)** — auto-gerado
+via `npm run docs:dados`, nunca editado à mão. Contexto de produto e
+histórico de versões: **[`DEVELOPMENT_PLAN.md`](DEVELOPMENT_PLAN.md)**.
+Pendências ativas: **[`CURRENT_WORK.md`](CURRENT_WORK.md)**.
 
 ## Limitações conhecidas
 
-- Resumos IA anos anteriores: 407 pendentes — scheduler processa gradualmente (30/dia)
-- PNCP: Ritápolis não publica no Portal Nacional de Contratações Públicas (API retorna 204 para todas as modalidades). Os dados vêm exclusivamente do portal próprio da Prefeitura. O script `pncp:sincronizar` funciona automaticamente quando o município começar a publicar.
+- PNCP: Ritápolis publica só pontualmente no Portal Nacional de Contratações
+  Públicas (1 Pregão confirmado, 2025/1) — a base principal vem do portal
+  próprio da Prefeitura. `pncp:sincronizar` roda automaticamente conforme o
+  município publicar mais.
 - Área administrativa protegida por Basic Auth quando `ADMIN_AUTH_USER` e `ADMIN_AUTH_PASSWORD` estão configurados
 - Banco SQLite local, sem replicação com servidor externo
 - Câmara usa certificado expirado — o coletor já trata automaticamente
