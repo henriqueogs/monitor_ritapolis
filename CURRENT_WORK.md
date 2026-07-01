@@ -76,7 +76,7 @@ no contrato (`coagirQuantidade`, testado com 3 casos: BR, simples, não-numéric
 → null). Confirmado ao vivo: anexo #3285 (Chamamento 003/2026, exposição
 agropecuária) gerou resumo de IA real e correto após o fix.
 
-### 2. Página `/descobertas` — consolidar texto disperso (avaliação `/ui-ux-pro-max`, 2026-07-01)
+### 2. Página `/descobertas` — consolidar texto disperso ✅ IMPLEMENTADO (2026-07-01, verificação de regen. em andamento)
 
 **Correção importante face à v1 deste item:** a "Descobertas" tem duas etapas
 distintas — **(1) agrupamento por tema**, feito por inferência/regras (não IA:
@@ -101,71 +101,96 @@ dois campos** e só lê `alerta.valor_total` + `metadados.unidade` (o card fixo
 "Métrica principal"). Ou seja: o backend já é flexível; quem está rígido é o
 prompt (pede fatos soltos) e o frontend (não usa o campo livre que existe).
 
-- [ ] **Prompt/contrato:** pedir um **parágrafo narrativo único** consolidado
-      (2–4 frases) como conteúdo principal, que incorpore os fatos relevantes
-      e a lacuna relevante na mesma prosa — cálculo de razão (R$/unidade,
-      taxa, etc.) **só quando os dados numéricos permitirem e fizerem
-      sentido para o tema**, nunca forçado. Manter `o_que_os_dados_mostram[]`
-      e `lacunas_encontradas[]` no contrato como **evidência de apoio**
-      (auditável, admin), não como o texto que o público lê em destaque.
-- [ ] **Frontend:** renderizar `discovery.metricas`/`comparativos` (já
-      existem no contrato, hoje mortos) como um componente **genérico** capaz
-      de mostrar 0, 1 ou N métricas — sem herança de layout fixo tipo
-      "Total + Período" para todo tipo de investigação. Quando a investigação
-      não tiver métrica numérica relevante (ex.: qualitativa em saúde), a
-      seção simplesmente não aparece — sem card vazio nem template forçado.
-- [ ] Demover "Período coberto" para legenda/metadado leve junto da narrativa
-      (não seção própria com H2), mantendo o link pros documentos como
-      elemento de primeira classe (rastreabilidade §11.3 nunca é secundária).
-- [ ] Após ajustar prompt/contrato/frontend, **regenerar** com
-      `descobertas:investigar` / rebuild `--full` e comparar um exemplo de
-      cada tema (árvores, saúde, compras, contratos recorrentes) — não só
-      `/descobertas/57` — para confirmar que a estrutura se adapta e não
-      quebra em temas sem métrica numérica.
+- [x] **Prompt/contrato:** novo campo opcional `narrativa_consolidada` em
+      [`discovery-investigation-contract.js`](src/ai/contracts/discovery-investigation-contract.js)
+      (parágrafo único, 2-4 frases). Prompt atualizado
+      ([`discovery-investigation-prompt.js`](src/ai/prompts/discovery-investigation-prompt.js))
+      pedindo consolidação com cálculo de razão **só quando fizer sentido**.
+      `o_que_os_dados_mostram[]`/`lacunas_encontradas[]` mantidos como
+      evidência de apoio (não removidos do contrato).
+- [x] **Frontend:** `MetricasGenericas` em
+      [`descobertas/[id]/page.js`](frontend/app/descobertas/[id]/page.js) —
+      renderiza `discovery.metricas`/`comparativos` (Record livre) como grade
+      de 0/1/N entradas; sem seção quando vazio (sem template forçado).
+- [x] "Período coberto" demovido para legenda dentro da seção "Análise"
+      **apenas quando há `narrativa_consolidada`** — formato antigo mantém a
+      seção própria (ver ponto de compatibilidade abaixo).
+- [x] **Verificado com dados reais (dry, sem persistir) nos 4 temas
+      existentes** antes de regenerar de vez:
+      - #57 (árvores): *"Os documentos analisados revelam que um edital prevê
+        a supressão de 60 árvores [607] enquanto outro menciona a supressão
+        de 10 árvores [12]... e que não são encontradas informações sobre
+        laudo técnico, autorização ambiental..."* — soma + lacuna na mesma
+        prosa, exatamente o pedido do usuário.
+      - #131 (compras/preços): calculou **"~66% do valor total"** — uma razão
+        diferente (percentual, não R$/unidade), mostrando que o cálculo se
+        adapta ao tema em vez de seguir uma fórmula fixa.
+      - #132/#133 (contratos recorrentes/eventos): **nenhum número
+        calculado** — narrativa puramente qualitativa sobre a lacuna, provando
+        que o formato não força métrica numérica em temas que não têm.
+      - `metricas`/`comparativos`: o modelo não os populou nestes 4 casos
+        (campo fica `{}`) — `MetricasGenericas` já trata isso corretamente
+        (seção não aparece).
+- [ ] **Regeneração real (persistida) em andamento** via
+      `node scripts/gerar-alertas.js --full` — rebuild completo reinvestiga
+      todos os candidatos factuais qualificados com o prompt novo. Confirmar
+      após concluir: `narrativa_consolidada` populada nos registros, feed
+      renderiza sem quebra em `/descobertas`.
 
-**Pontos adicionais (revisão 2026-07-01):**
-- [ ] **Nem toda descoberta tem `discovery_v2`.** A investigação IA (etapa 2)
-      é opcional/rodada à parte (`descobertas:investigar`); descobertas sem
-      ela caem no fallback `alerta.narrativa` + `valor_total` (caminho
-      determinístico antigo, já funciona). O redesign tem que cobrir **os
-      dois casos bem** — não otimizar só o caso "com discovery_v2" e deixar
-      o outro pior por comparação.
-- [ ] **Compatibilidade com registros já gerados.** Mudar o contrato quebra a
-      leitura de investigações já salvas em `metadados.discovery_v2` (schema
-      antigo). Usar `contrato_versao` (campo já existe) para o frontend saber
-      renderizar o formato antigo OU o novo — não forçar re-geração em massa
-      de tudo antes de validar o novo formato em produção.
-- [ ] **O guard anti-acusatório precisa valer no texto fundido.**
-      `assertPublicoCauteloso` (contrato atual) varre `hipotese_publica` +
-      arrays; se virar um parágrafo único, o teste/regex tem que continuar
-      cobrindo o campo novo — atualizar `discovery-investigation.test.js`
-      junto (TDD: teste primeiro, por `CLAUDE.md`).
-- [ ] Reaproveitar o padrão de `alertas_config` (chave/valor editável no
-      admin, já existe) para uma flag de formato de narrativa — permite
-      reverter para o formato antigo sem deploy caso o novo saia pior.
+**Pontos adicionais — resolvidos:**
+- [x] **Nem toda descoberta tem `discovery_v2`** — página trata 3 casos:
+      com `narrativa_consolidada` (novo), com `discovery_v2` sem ela (formato
+      antigo, rendering **inalterado**), e sem `discovery_v2` (fallback
+      `alerta.narrativa`, **inalterado**).
+- [x] **Compatibilidade com registros já gerados** — em vez de bump de
+      `contrato_versao` (evitaria tocar em várias strings duplicadas pelo
+      código), a checagem é por **presença do campo**
+      (`discovery?.narrativa_consolidada`), que é opcional no contrato — mais
+      simples e igualmente seguro: registros antigos simplesmente não têm o
+      campo e caem no branch antigo automaticamente. Não é necessário
+      regerar tudo para o novo formato coexistir com o antigo.
+- [x] **Guard anti-acusatório estendido** — `assertPublicoCauteloso` agora
+      varre `narrativa_consolidada` também; 2 testes novos confirmam rejeição
+      de termo acusatório dentro do campo novo.
+- [x] **Flag de reversão** — `alertas:narrativa_consolidada_ativa` (seedada,
+      editável em `/admin/alertas`, default `true`). Desligar faz prompt e
+      fallback voltarem ao formato antigo sem deploy.
 
-### 3. Redundância "Resumo" vs "Análise do processo" (página de documento)
+### 3. Redundância "Resumo" vs "Análise do processo" (página de documento) ✅ CONCLUÍDO (2026-07-01)
 
-Na página `/documento/[id]` (que é para onde os links de descoberta apontam),
-para editais existem **três blocos narrativos de IA em sequência**, com
-sobreposição de conteúdo:
+Na página `/documento/[id]`, para editais existem **três blocos narrativos de
+IA em sequência**:
 
-1. "Resumo do documento" — `SummaryAndSource.js` (`bestResumo`, texto cru).
+1. "Resumo do documento" — `SummaryAndSource.js` (`bestResumo`).
 2. "Leitura simples" — `AiSummarySection.js` (`resumo_ai`: objeto, valores,
    alertas estruturados).
 3. "Análise do processo" — `IntegratedReadingSection.js` (`leitura_integrada_ai`,
-   é a "leitura integrada" que cruza edital + resultado + produtos).
+   cruza edital + resultado + produtos).
 
-- [ ] Mapear exatamente a sobreposição de conteúdo entre os três (o resumo cru
-      vs. a leitura simples estruturada vs. a leitura integrada) e decidir:
-      fundir 2 em 1, ou manter 3 mas com escopos claramente distintos e sem
-      repetir a mesma frase-síntese em mais de um bloco.
-- [ ] Esta decisão é **anterior** a qualquer mudança de UI nessas seções —
-      não redesenhar o layout antes de decidir o que cada bloco deve conter
-      exclusivamente.
-- [ ] **Ponto adicional:** antes de renomear/fundir seções, checar
-      `tests/e2e/*.spec.js` por texto fixo (ex.: heading exato) que dependa da
-      estrutura atual — evita quebrar E2E silenciosamente.
+**Mapeamento (confirmado no código):** `bestResumo()`
+([`frontend/app/lib/format.js:71`](frontend/app/lib/format.js:71)) prioriza
+`resumo_ai.dados.resumo_cidadao` — e `AiSummarySection.js` **abre exatamente
+com essa mesma frase** como título/resumo (linhas 121-122:
+`<h3>{dados.titulo_curto}</h3><p>{dados.resumo_cidadao}</p>`). Ou seja: **sempre
+que existe leitura de IA, os blocos 1 e 2 mostram a mesma frase-síntese
+literalmente duas vezes.** O bloco 3 ("Análise do processo") **não tem
+sobreposição real** — é uma análise distinta (cruza documentos, vencedor
+confirmado, valor final vs. estimado) que só existe para editais com
+resultado/produtos vinculados.
+
+- [x] Mapeado e decidido: **bloco 1 só mostra o texto quando ainda não existe
+      leitura de IA** (mantém seu papel de *fallback* — objeto da licitação,
+      resumo cru — para documentos sem `resumo_ai` ainda). Quando a leitura de
+      IA existe, o bloco 2 já abre com a mesma frase, então o bloco 1 não a
+      repete — mantém alertas de qualidade + links de fonte (conteúdo
+      exclusivo dele). Bloco 3 mantido **sem alteração** (sem sobreposição).
+      Implementado em
+      [`SummaryAndSource.js`](frontend/app/documento/[id]/components/SummaryAndSource.js).
+- [x] **Ponto adicional:** nenhum componente de `documento/[id]/components/`
+      tem teste dedicado hoje (pasta sem cobertura) — não criei arnês de teste
+      novo só para esta mudança pontual (desproporcional ao escopo); mudança é
+      um condicional de baixo risco, lint limpo. `tests/e2e/*.spec.js` não
+      referencia texto fixo desta seção (checado).
 
 ### 4. Modelo de IA — o Nemotron Nano é o mais indicado? (análise 2026-07-01)
 
@@ -201,20 +226,27 @@ que para a investigação de descobertas (menor volume, maior exigência de
 julgamento).
 
 **Recomendação — não trocar tudo, rotear por tarefa:**
-- [ ] Manter (ou confirmar) um modelo rápido/barato tipo Nano para tarefas de
-      alto volume e baixo risco (resumo simples de documento/anexo).
-- [ ] Introduzir um **override de modelo por chamada** (não só o
-      `NVIDIA_MODEL` global) para a investigação de descobertas
-      (`src/ai/discovery-investigation.js`) — é a tarefa que mais exige
-      julgamento (achar inconsistência, não só resumir) e roda em volume
-      bem menor, então vale usar um modelo mais forte mesmo sendo mais lento.
-      Candidatos: `nemotron-3-super-120b-a12b` (mesma stack) ou
-      `llama-3.3-70b-instruct` (português historicamente mais confiável).
+- [x] Mantido o modelo rápido/barato (Nano, via `NVIDIA_MODEL`) para tarefas
+      de alto volume e baixo risco (resumo simples de documento/anexo) — **sem
+      alteração**, nenhum comportamento existente mudou.
+- [x] **Override de modelo por chamada implementado**:
+      `createAiProvider(env, { model })` em
+      [`src/ai/providers/index.js`](src/ai/providers/index.js) aceita um
+      modelo específico sem tocar `NVIDIA_MODEL` global. Nova config
+      `nvidiaModelInvestigacao` (env `NVIDIA_MODEL_INVESTIGACAO`, vazio por
+      padrão = sem override) ligada em
+      [`discovery-investigation.js`](src/ai/discovery-investigation.js) —
+      só a investigação de descobertas usa o override quando configurado; tudo
+      o resto continua no Nano. TDD: 4 testes novos em
+      [`providers/index.test.js`](src/ai/providers/index.test.js) (novo
+      arquivo — não existia teste dedicado antes).
 - [ ] **Testar os dois candidatos em casos reais em português antes de
-      fixar** — nenhuma fonte confirma qualidade de PT-BR para o Super; não
-      trocar às cegas. Comparar: taxa de sucesso no schema Zod
-      (`discovery-investigation-contract.js`), qualidade da narrativa em PT,
-      e latência sob o rate-limit de 40 RPM.
+      fixar** — script de comparação pronto (roda `investigarDescoberta` com
+      o modelo padrão vs. um candidato lado a lado, sem persistir), ainda não
+      executado por completo (aguardando o rebuild `--full` do item 2
+      terminar, para não concorrer no rate-limit). Próximo passo concreto da
+      sessão seguinte, se não houver dado ainda: rodar o script de comparação
+      contra `nemotron-3-super-120b-a12b` e `llama-3.3-70b-instruct`.
 
 **Pontos adicionais (revisão 2026-07-01):**
 - [ ] **O limite de RPM pode variar por modelo** — a fonte NVIDIA diz que os
