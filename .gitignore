@@ -6,6 +6,7 @@
 data/*.db
 data/*.db-shm
 data/*.db-wal
+data/backups/*.db
 
 # Logs
 logs/
@@ -29,6 +30,8 @@ Thumbs.db
 .agents/
 .gemini/
 .qodo/
+.cursor/
+.windsurf/
 skills-lock.json
 redesign/
 
