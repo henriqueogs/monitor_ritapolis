@@ -28,6 +28,7 @@ const PARES = [
   [517, 518],
   [513, 593],
   [373, 374],
+  [576, 583],
 ];
 
 function snapshot(id) {
@@ -39,6 +40,9 @@ function planejar() {
   return PARES.map(([keeper, loser]) => {
     const k = db.prepare('SELECT id, numero, ano FROM documentos WHERE id = ?').get(keeper);
     const l = db.prepare('SELECT id, numero, ano, fonte, url_origem, url_pdf, hash_conteudo FROM documentos WHERE id = ?').get(loser);
+    if (!k || !l) {
+      return { keeper: k, loser: l, ausente: { keeper, loser } };
+    }
     return { keeper: k, loser: l, snapKeeper: snapshot(keeper), snapLoser: snapshot(loser) };
   });
 }
@@ -82,8 +86,13 @@ function main() {
   setupDatabase();
 
   const plano = planejar();
-  console.warn(`Pares a fundir: ${plano.length}`);
-  for (const p of plano) {
+  const aplicaveis = plano.filter((p) => !p.ausente);
+  const ausentes = plano.filter((p) => p.ausente);
+  console.warn(`Pares a fundir: ${aplicaveis.length}`);
+  for (const p of ausentes) {
+    console.warn(`  pulando par já resolvido/ausente: #${p.ausente.keeper} ← #${p.ausente.loser}`);
+  }
+  for (const p of aplicaveis) {
     console.warn(
       `  keeper #${p.keeper.id} (${p.snapKeeper.anexos}ax/${p.snapKeeper.produtos}prod) ← loser #${p.loser.id} (${p.snapLoser.anexos}ax/${p.snapLoser.produtos}prod) [${p.loser.numero}/${p.loser.ano}]`
     );
@@ -96,7 +105,7 @@ function main() {
 
   db.exec('BEGIN');
   try {
-    for (const p of plano) {
+    for (const p of aplicaveis) {
       aplicarMerge(p);
     }
     db.exec('COMMIT');
@@ -105,7 +114,7 @@ function main() {
     throw err;
   }
 
-  console.warn(`\n${plano.length} duplicatas fundidas.`);
+  console.warn(`\n${aplicaveis.length} duplicatas fundidas.`);
 }
 
 main();
