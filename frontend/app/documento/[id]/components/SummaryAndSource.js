@@ -22,7 +22,7 @@ export default function SummaryAndSource({ documento }) {
         ) : null}
         <SourceLinks documento={documento} />
       </SectionBlock>
-      <SectionBlock title="Validação e fonte">
+      <SectionBlock title="Origem e limites">
         <ValidationStatus resumoAi={documento.resumo_ai} documento={documento} />
         <SourceTrace documento={documento} />
       </SectionBlock>

@@ -400,6 +400,68 @@
   color: var(--text-secondary);
 }
 
+.attachmentList {
+  display: grid;
+  gap: 12px;
+}
+
+.attachmentRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+  padding: 16px;
+}
+
+.attachmentMain {
+  min-width: 0;
+}
+
+.attachmentMain h3 {
+  margin: 8px 0 6px;
+  color: var(--text);
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.attachmentMain p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.factPills,
+.attachmentActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.factPills span,
+.attachmentActions a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  padding: 0 10px;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.attachmentActions a:hover {
+  border-color: var(--border-accent);
+  color: var(--accent);
+  text-decoration: none;
+}
+
 .correlacaoAlertas {
   margin: 10px 0 0;
   padding-left: 18px;
@@ -445,6 +507,7 @@
 
   .sourceRow,
   .externalSourceRow,
+  .attachmentRow,
   .statusRow {
     flex-direction: column;
     align-items: stretch;

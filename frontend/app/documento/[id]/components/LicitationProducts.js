@@ -62,7 +62,7 @@ function ProductRow({ item }) {
             {item.unidade ? ` ${item.unidade}` : ''}
           </p>
         ) : null}
-        {item.trecho_fonte ? <span className="product-source-line">{item.trecho_fonte}</span> : null}
+        {item.trecho_fonte ? <span className="product-source-line admin-only">{item.trecho_fonte}</span> : null}
       </div>
       <div className="product-row-side">
         {estimado != null ? (
@@ -95,7 +95,7 @@ export default function LicitationProducts({ produtos }) {
     return (
       <SectionBlock
         title="Itens deste processo"
-        description="Produtos, preços e fornecedores citados nos documentos — quando a fonte oficial informa."
+        description="Produtos, precos e fornecedores citados nos documentos, quando a fonte oficial informa."
       >
         <p className="empty-state">Nenhum item estruturado para este documento.</p>
       </SectionBlock>
@@ -108,7 +108,7 @@ export default function LicitationProducts({ produtos }) {
   return (
     <SectionBlock
       title="Itens deste processo"
-      description="Produtos, preços e fornecedores citados nos documentos — quando a fonte oficial informa."
+      description="Produtos, precos e fornecedores citados nos documentos, quando a fonte oficial informa."
     >
       {comDados.length ? (
         <div className="products-table">

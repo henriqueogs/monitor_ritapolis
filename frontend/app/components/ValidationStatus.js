@@ -16,23 +16,29 @@ export default function ValidationStatus({ resumoAi, documento }) {
     <div className={`validation-status is-${tone}`}>
       <strong>
         {dados && compatible
-          ? 'Analise com evidencia no texto extraido'
+          ? 'Leitura disponivel'
           : hasExtractedText
-            ? 'Pronto para analise'
-            : 'Validacao limitada'}
+            ? 'Conteudo pronto para leitura'
+            : 'Leitura limitada'}
       </strong>
       <p>
         {dados
-          ? `Resumo IA gerado em ${formatDate(resumoAi.criado_em)} com ${confidenceLabel(dados.confianca)}.`
+          ? 'Ha uma leitura em linguagem simples criada a partir do documento oficial.'
           : hasExtractedText
-            ? 'O texto oficial ja foi extraido, mas ainda nao ha resumo IA para este documento.'
-            : 'A fonte oficial existe, mas o texto ainda nao esta disponivel para analise automatica.'}
+            ? 'O documento ja pode ser lido pela plataforma, mas ainda nao recebeu leitura simples.'
+            : 'A fonte oficial existe, mas o conteudo ainda nao esta legivel para a plataforma.'}
       </p>
       <ul>
         <li>{hasOfficialFile ? 'Arquivo oficial vinculado' : 'Arquivo oficial nao vinculado'}</li>
-        <li>{hasExtractedText ? 'Texto extraido disponivel' : 'Texto extraido indisponivel'}</li>
-        <li>{compatible ? 'Resumo compativel com o texto atual' : 'Resumo precisa ser atualizado'}</li>
+        <li>{hasExtractedText ? 'Conteudo legivel pela plataforma' : 'Conteudo ainda limitado'}</li>
+        <li>{dados && compatible ? 'Leitura simples atualizada' : 'Leitura simples pendente'}</li>
       </ul>
+      <p className="admin-only">
+        {dados
+          ? `Resumo IA gerado em ${formatDate(resumoAi.criado_em)} com ${confidenceLabel(dados.confianca)}.`
+          : null}
+        {compatible ? ' Resumo compativel com o texto atual.' : ' Resumo precisa ser atualizado.'}
+      </p>
     </div>
   );
 }

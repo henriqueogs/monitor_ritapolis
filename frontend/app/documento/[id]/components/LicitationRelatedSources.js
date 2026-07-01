@@ -62,10 +62,10 @@ export default function LicitationRelatedSources({ fontes }) {
                   <div className={styles.externalSourceMeta}>
                     <span>{sourceLabel(item.fonte)}</span>
                     <span>{statusLabel(item.status_correspondencia)}</span>
-                    <span>Score {scoreLabel(item.score)}</span>
+                    <span className="admin-only">Score {scoreLabel(item.score)}</span>
                   </div>
                   <h3>{item.identificador}</h3>
-                  <p>{compactText(candidato.objeto || item.payload_json?.local?.objeto)}</p>
+                  <p>{compactText(candidato.objeto)}</p>
                   {item.correlacao?.alertas?.length ? (
                     <ul className={styles.correlacaoAlertas}>
                       {item.correlacao.alertas.map((alerta) => (
@@ -74,7 +74,7 @@ export default function LicitationRelatedSources({ fontes }) {
                     </ul>
                   ) : null}
                   {item.estrategia_busca ? (
-                    <p className={styles.correlacaoMeta}>Busca: {item.estrategia_busca}</p>
+                    <p className={`${styles.correlacaoMeta} admin-only`}>Busca: {item.estrategia_busca}</p>
                   ) : null}
                   <dl className={styles.externalSourceFacts}>
                     <div>

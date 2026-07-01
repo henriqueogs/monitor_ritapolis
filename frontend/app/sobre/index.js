@@ -192,8 +192,8 @@ export default async function SobrePage() {
           </div>
           <div className={styles.statusRow}>
             <div>
-              <strong>Sem autenticação administrativa</strong>
-              <p>A área /admin não exige login nesta fase. O projeto ainda não está publicado em servidor público.</p>
+              <strong>Administração protegida</strong>
+              <p>A área /admin usa Basic Auth quando as credenciais administrativas estão configuradas no ambiente.</p>
             </div>
           </div>
           <div className={styles.statusRow}>

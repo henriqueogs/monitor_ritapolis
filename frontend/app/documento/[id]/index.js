@@ -1,6 +1,7 @@
 import DocumentPreviewPane from '../../components/DocumentPreviewPane';
 import { fetchDocumento, fetchDocumentoProdutos, fetchDocumentoEmpenhos } from '../../lib/api';
 import AiSummarySection from './components/AiSummarySection';
+import AttachmentsSection from './components/AttachmentsSection';
 import DocumentHeader from './components/DocumentHeader';
 import EmpenhoSection from './components/EmpenhoSection';
 import ExtractedTextSections from './components/ExtractedTextSections';
@@ -37,6 +38,7 @@ export default async function DocumentoPage({ params }) {
       <DocumentHeader documento={documento} licitacao={licitacao} />
       <SummaryAndSource documento={documento} />
       <DocumentPreviewPane documento={documento} />
+      <AttachmentsSection documento={documento} />
       <IdentityAndLimits documento={documento} licitacao={licitacao} />
       <AiSummarySection resumoAi={buildResumoAi(documento)} operacao={documento.resumo_ai_operacao} />
       {documento.tipo === 'edital' ? (

@@ -65,15 +65,17 @@ export default function IntegratedReadingSection({ leitura, documentoId }) {
         <p className="section-note" style={{ marginBottom: '16px' }}>
           Ainda não há leitura integrada para este documento. A leitura cruza dados do processo, produtos, valores e fontes externas.
         </p>
-        <IntegratedReadingAction documentoId={documentoId} />
+        <div className="admin-only">
+          <IntegratedReadingAction documentoId={documentoId} />
+        </div>
       </SectionBlock>
     );
   }
 
   return (
     <SectionBlock
-      title="Leitura integrada"
-      description="Visão do processo completo: cruza este edital com atas, contratos, produtos e o PNCP para mostrar como o processo terminou — não só o que o edital previa."
+      title="Analise do processo"
+      description="Visao do processo completo: cruza edital, atas, contratos e produtos para mostrar como a compra terminou."
       aside={<StatusBadge value={Number(dados.confianca || 0) < 0.6 ? 'revisar' : 'ok'} />}
     >
       <div className={styles.integratedReading}>
@@ -85,14 +87,14 @@ export default function IntegratedReadingSection({ leitura, documentoId }) {
           </div>
           <dl>
             <div>
+              <dt>Atualizado em</dt>
+              <dd>{formatDate(leitura.criado_em)}</dd>
+            </div>
+            <div className="admin-only">
               <dt>Confianca</dt>
               <dd>{confidenceLabel(dados.confianca)}</dd>
             </div>
-            <div>
-              <dt>Gerado em</dt>
-              <dd>{formatDate(leitura.criado_em)}</dd>
-            </div>
-            <div>
+            <div className="admin-only">
               <dt>Contrato</dt>
               <dd>{leitura.contrato_versao}</dd>
             </div>
@@ -132,7 +134,9 @@ export default function IntegratedReadingSection({ leitura, documentoId }) {
                 <article key={`${item.nivel}-${item.descricao}`}>
                   <strong>{nivelAlertaLabel(item.nivel)}</strong>
                   <p>{item.descricao}</p>
-                  <SourceRefs fontes={item.fonte ? [item.fonte] : []} />
+                  <div className="admin-only">
+                    <SourceRefs fontes={item.fonte ? [item.fonte] : []} />
+                  </div>
                 </article>
               ))}
             </div>

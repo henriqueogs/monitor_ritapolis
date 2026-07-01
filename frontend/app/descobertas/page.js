@@ -37,6 +37,33 @@ function IconCalendar() {
   );
 }
 
+function discoveryV2(alerta) {
+  return alerta?.metadados?.discovery_v2 || null;
+}
+
+function metricLabel(alerta) {
+  const unidade = alerta?.metadados?.unidade;
+  if (unidade === 'R$' && alerta.valor_total != null) {
+    return formatMoney(alerta.valor_total);
+  }
+  if (unidade && alerta.valor_total != null) {
+    return `${Number(alerta.valor_total).toLocaleString('pt-BR')} ${unidade}`;
+  }
+  return alerta.valor_total ? formatMoney(alerta.valor_total) : null;
+}
+
+function investigationLabel(alerta) {
+  const tipo = alerta?.metadados?.discovery_v2?.tipo_investigacao || alerta?.metadados?.investigacao_tipo;
+  const labels = {
+    'meio_ambiente.supressao_arvores': 'meio ambiente',
+    supressao_arvores: 'meio ambiente',
+    'compras.precos_itens': 'compras/precos',
+    'contratos.recorrencia_fornecedor_objeto': 'contratos',
+    'eventos.gastos_eventos_publicos': 'eventos',
+  };
+  return labels[tipo] || tipo || null;
+}
+
 // Ano da descoberta: 3ª parte da chave (tematico|cat|2026) ou ano do fim do
 // período / última publicação. Sem ano → null (vai pro fim).
 function anoDescoberta(alerta) {
@@ -81,6 +108,12 @@ function chipAtivo(filtro, params) {
 }
 
 function DescobertaCard({ alerta }) {
+  const discovery = discoveryV2(alerta);
+  const summary = discovery?.hipotese_publica || alerta.narrativa;
+  const lacunas = discovery?.lacunas_encontradas || [];
+  const metric = metricLabel(alerta);
+  const investigation = investigationLabel(alerta);
+
   return (
     <Link
       href={`/descobertas/${alerta.id}`}
@@ -93,18 +126,26 @@ function DescobertaCard({ alerta }) {
           {nivelLabel(alerta.severidade)}
         </span>
         <span className={styles.tag}>{alerta.categoria || 'Geral'}</span>
+        {investigation ? <span className={styles.tag}>{investigation}</span> : null}
         <span className={styles.tagSep}>•</span>
         <span className={styles.tag}>{alerta.tipo === 'processo' ? 'por processo' : 'padrão'}</span>
       </div>
 
       <h3 className={styles.cardTitle}>{alerta.titulo}</h3>
 
-      {alerta.narrativa ? <p className={styles.cardSummary}>{alerta.narrativa}</p> : null}
+      {summary ? <p className={styles.cardSummary}>{summary}</p> : null}
+
+      {lacunas.length ? (
+        <div className={styles.lacunaPreview}>
+          <span>{lacunas.length} lacuna{lacunas.length === 1 ? '' : 's'} nos documentos analisados</span>
+          <small>{lacunas[0]}</small>
+        </div>
+      ) : null}
 
       <div className={styles.cardFooter}>
-        {alerta.valor_total ? (
+        {metric ? (
           <span className={styles.value}>
-            {formatMoney(alerta.valor_total)}
+            {metric}
             {alerta.valor_periodo_label ? (
               <span className={styles.valuePeriod}> · {alerta.valor_periodo_label}</span>
             ) : null}

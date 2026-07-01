@@ -267,6 +267,34 @@
   overflow: hidden;
 }
 
+.lacunaPreview {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-warm);
+}
+
+.lacunaPreview span {
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.lacunaPreview small {
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.evidenceText {
+  margin: 0.55rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
 .cardFooter {
   display: flex;
   flex-wrap: wrap;
@@ -449,6 +477,54 @@
   color: var(--accent);
   font-weight: 800;
   font-size: 0.75rem;
+}
+
+.findingsList,
+.lacunasList {
+  list-style: none;
+  display: grid;
+  gap: 0.6rem;
+  padding: 0;
+  margin: 0;
+  max-width: 76ch;
+}
+
+.findingsList li,
+.lacunasList li {
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  line-height: 1.55;
+}
+
+.lacunasList li {
+  background: var(--surface-warm);
+}
+
+.adminBox {
+  margin: 0.75rem 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.adminPayload {
+  max-height: 420px;
+  overflow: auto;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+  color: var(--text);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
 }
 
 .sectionNote {

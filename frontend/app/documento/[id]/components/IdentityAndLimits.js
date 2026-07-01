@@ -34,7 +34,7 @@ export default function IdentityAndLimits({ documento, licitacao }) {
           { label: 'Fonte', value: documento.fonte_nome || labelFonte(documento.fonte) },
           { label: 'Tipo', value: documento.tipo_nome || labelTipo(documento.tipo) },
           { label: 'Arquivo oficial', value: documento.indicadores?.tem_pdf ? 'Disponível' : 'Não vinculado' },
-          { label: 'Texto extraído', value: documento.indicadores?.tem_texto_extraido ? `${documento.texto_completo_chars?.toLocaleString('pt-BR') || 0} caracteres` : 'Não disponível' },
+          { label: 'Conteudo legivel', value: documento.indicadores?.tem_texto_extraido ? 'Disponivel' : 'Nao disponivel' },
           { label: 'Data de publicação', value: formatDate(documento.data_publicacao) },
           { label: 'Data de abertura', value: formatDate(documento.data_abertura) }
         ]} />

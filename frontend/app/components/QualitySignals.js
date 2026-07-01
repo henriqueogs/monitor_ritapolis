@@ -19,12 +19,12 @@ export default function QualitySignals({ documento, compact = false }) {
     },
     {
       key: 'texto',
-      label: indicadores.tem_texto_extraido ? 'Texto extraido' : 'Sem texto',
+      label: indicadores.tem_texto_extraido ? 'Conteudo legivel' : 'Conteudo limitado',
       tone: indicadores.tem_texto_extraido ? 'ok' : 'warn'
     },
     {
       key: 'ia',
-      label: indicadores.tem_resumo_ai ? 'Resumo automatico' : 'Sem resumo IA',
+      label: indicadores.tem_resumo_ai ? 'Leitura simples' : 'Sem leitura simples',
       tone: indicadores.tem_resumo_ai ? 'ok' : 'neutral'
     }
   ];

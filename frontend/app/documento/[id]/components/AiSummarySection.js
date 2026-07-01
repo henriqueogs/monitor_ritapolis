@@ -48,15 +48,15 @@ export default function AiSummarySection({ resumoAi, operacao }) {
         <div className={styles.aiHeader}>
           <Sparkles size={20} style={{ color: 'var(--ai-accent)' }} />
           <h3 className={styles.aiTitle}>
-            Análise da IA
+            Leitura simples
           </h3>
         </div>
         <p className="lead-text" style={{ marginBottom: '16px' }}>
-          Ainda não há resumo de IA para este documento. O arquivo oficial e o texto extraído seguem disponíveis abaixo.
+          Ainda nao ha leitura simples para este documento. O arquivo oficial segue disponivel para conferencia.
         </p>
         {jobAtivo ? (
           <div className={styles.aiNotice}>
-            Resumo {job.status === 'processando' ? 'em processamento' : 'na fila'}. Recarregue a página em alguns instantes para ver o resultado.
+            Leitura {job.status === 'processando' ? 'em processamento' : 'na fila'}. Recarregue a pagina em alguns instantes para ver o resultado.
           </div>
         ) : null}
         {jobErro ? (
@@ -67,8 +67,8 @@ export default function AiSummarySection({ resumoAi, operacao }) {
         <div className="admin-only">
           <AiSummaryAction documentoId={resumoAi?.documento_id} disabled={jobAtivo} />
         </div>
-        {!operacao?.recomendado_frontend ? (
-          <div className={styles.aiLargeDoc}>
+        {operacao && !operacao.recomendado_frontend ? (
+          <div className={`${styles.aiLargeDoc} admin-only`}>
             <p>Este documento tem {operacao?.caracteres?.toLocaleString('pt-BR') || 'muitos'} caracteres e será processado em background.</p>
           </div>
         ) : null}
@@ -85,7 +85,7 @@ export default function AiSummarySection({ resumoAi, operacao }) {
         <div className={styles.aiHeaderMain}>
           <Sparkles size={22} style={{ color: 'var(--ai-accent)' }} />
           <div>
-            <h3 className={styles.aiTitleLarge}>Análise da IA</h3>
+            <h3 className={styles.aiTitleLarge}>Leitura simples</h3>
             <span className={`${styles.aiMeta} admin-only`}>
               Gerado por {resumoAi.modelo || 'IA'} • {resumoAi.criado_em ? formatDate(resumoAi.criado_em) : ''}
             </span>
@@ -131,11 +131,11 @@ export default function AiSummarySection({ resumoAi, operacao }) {
         </div>
         <div className={styles.aiSummarySide}>
           <KeyValueList items={[
-            { label: 'Confiança', value: formatConfidence(dados.confianca) },
-            { label: 'Gerado em', value: formatDate(resumoAi.criado_em) }
+            { label: 'Atualizado em', value: formatDate(resumoAi.criado_em) }
           ]} />
           <div className="admin-only">
             <KeyValueList items={[
+              { label: 'Confianca', value: formatConfidence(dados.confianca) },
               { label: 'Compatibilidade', value: resumoAi.corresponde_ao_texto_atual ? 'Compatível' : 'Revisar' },
               { label: 'Modelo', value: resumoAi.modelo }
             ]} />
@@ -144,7 +144,7 @@ export default function AiSummarySection({ resumoAi, operacao }) {
       </div>
 
       {dados.resumo_tecnico ? (
-        <div className={styles.aiSummaryGroup}>
+        <div className={`${styles.aiSummaryGroup} admin-only`}>
           <h4>Leitura técnica</h4>
           <p className="lead-text">{dados.resumo_tecnico}</p>
         </div>
@@ -158,7 +158,7 @@ export default function AiSummarySection({ resumoAi, operacao }) {
         <div className={styles.aiEvidenceRow}>
           <strong>Objeto</strong>
           <p>{dados.objeto.descricao}</p>
-          {dados.objeto.trecho_fonte ? <span>{dados.objeto.trecho_fonte}</span> : null}
+          {dados.objeto.trecho_fonte ? <span className="admin-only">{dados.objeto.trecho_fonte}</span> : null}
         </div>
       ) : null}
 
@@ -171,7 +171,7 @@ export default function AiSummarySection({ resumoAi, operacao }) {
                 <div>
                   <strong>{item.data ? formatDate(item.data) : 'Data não identificada'}</strong>
                   <p>{item.descricao}</p>
-                  <span>{item.trecho_fonte}</span>
+                  <span className="admin-only">{item.trecho_fonte}</span>
                 </div>
                 <span>{item.tipo}</span>
               </div>
@@ -189,7 +189,7 @@ export default function AiSummarySection({ resumoAi, operacao }) {
                 <div>
                   <strong>{formatMoney(item.valor)}</strong>
                   <p>{item.descricao}</p>
-                  <span>{item.trecho_fonte}</span>
+                  <span className="admin-only">{item.trecho_fonte}</span>
                 </div>
                 <span>{item.tipo}</span>
               </div>
@@ -207,7 +207,7 @@ export default function AiSummarySection({ resumoAi, operacao }) {
                 <div>
                   <strong>{item.nome}</strong>
                   <p>{item.documento || 'Documento não informado'}</p>
-                  <span>{item.trecho_fonte}</span>
+                  <span className="admin-only">{item.trecho_fonte}</span>
                 </div>
                 <span>{item.papel}</span>
               </div>
@@ -223,7 +223,7 @@ export default function AiSummarySection({ resumoAi, operacao }) {
         </div>
       ) : null}
 
-      <details className={`details-block ${styles.aiSummaryGroup}`}>
+      <details className={`details-block ${styles.aiSummaryGroup} admin-only`}>
         <summary>Ver dados técnicos do resumo</summary>
         <KeyValueList items={[
           { label: 'Provider', value: resumoAi.provider },
