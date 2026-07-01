@@ -42,6 +42,10 @@ module.exports = {
   nvidiaApiKey: process.env.NVIDIA_API_KEY || '',
   nvidiaBaseUrl: process.env.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1',
   nvidiaModel: process.env.NVIDIA_MODEL || 'meta/llama-3.1-70b-instruct',
+  // Override opcional: modelo mais forte só para a investigação de
+  // descobertas (menor volume, mais exige julgamento) — sem mexer no modelo
+  // padrão usado por resumo/leitura simples/anexo. Vazio = usa nvidiaModel.
+  nvidiaModelInvestigacao: process.env.NVIDIA_MODEL_INVESTIGACAO || null,
   nvidiaEmbedModel: process.env.NVIDIA_EMBED_MODEL || 'baai/bge-m3',
   geminiApiKey: process.env.GEMINI_API_KEY || '',
   geminiModel: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
