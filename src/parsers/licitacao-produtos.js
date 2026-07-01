@@ -80,7 +80,11 @@ function normalizeUnit(value) {
 
 function parseNumber(value) {
   if (value === null || value === '') {return null;}
-  const parsed = Number(String(value).replace(/\./g, '').replace(',', '.'));
+  const text = String(value)
+    .replace(/[^\d,.-]/g, '')
+    .replace(/\.(?=\d{3}(?:\D|$))/g, '')
+    .replace(',', '.');
+  const parsed = Number(text);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
@@ -181,7 +185,122 @@ function parseItemSegment(segment) {
   };
 }
 
+function normalizeHeader(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function parseSpreadsheetLine(line) {
+  const match = String(line || '').match(/^LINHA\s+\d+\s*\|\s*(.+)$/i);
+  if (!match) {return null;}
+
+  return match[1]
+    .split(/\s+\|\s+/)
+    .map((cell) => cell.trim());
+}
+
+function findColumn(headers, patterns) {
+  return headers.findIndex((header) => patterns.some((pattern) => pattern.test(header)));
+}
+
+function getSpreadsheetHeader(cells) {
+  const headers = cells.map(normalizeHeader);
+  const item = findColumn(headers, [/^item$/, /^it$/, /^codigo$/, /^cod$/]);
+  const descricao = findColumn(headers, [
+    /descricao/,
+    /especificacao/,
+    /discriminacao/,
+    /produto/,
+    /material/,
+    /servico/,
+    /objeto/,
+    /insumo/
+  ]);
+  const unidade = findColumn(headers, [/^unid/, /^und$/, /^un$/, /unidade/]);
+  const quantidade = findColumn(headers, [/^quant/, /^qtd/, /quantidade/]);
+  const valorUnitario = findColumn(headers, [/unitario/, /vlr unit/, /valor unit/]);
+  const valorTotal = findColumn(headers, [/total/, /valor global/, /vlr total/]);
+
+  if (descricao < 0) {return null;}
+
+  const score = [item, unidade, quantidade, valorUnitario, valorTotal].filter((idx) => idx >= 0).length;
+  if (score < 2) {return null;}
+
+  return { item, descricao, unidade, quantidade, valorUnitario, valorTotal };
+}
+
+function looksLikeHeader(cells) {
+  return Boolean(getSpreadsheetHeader(cells));
+}
+
+function getCell(cells, index) {
+  return index >= 0 ? cells[index] : null;
+}
+
+function parseSpreadsheetRows(text) {
+  if (!String(text || '').includes('[PLANILHA')) {return [];}
+
+  const rows = String(text)
+    .split(/\n+/)
+    .map(parseSpreadsheetLine)
+    .filter(Boolean);
+  const produtos = [];
+  let header = null;
+
+  for (const cells of rows) {
+    const candidate = getSpreadsheetHeader(cells);
+    if (candidate) {
+      header = candidate;
+      continue;
+    }
+
+    if (!header || looksLikeHeader(cells)) {continue;}
+
+    const descricao = compactText(getCell(cells, header.descricao), 900);
+    if (!descricao || descricao.length < 4 || /^\d+(?:[,.]\d+)?$/.test(descricao)) {continue;}
+
+    const itemRaw = getCell(cells, header.item);
+    const itemNumero = parseNumber(itemRaw) || produtos.length + 1;
+    const quantidade = parseNumber(getCell(cells, header.quantidade));
+    const unidade = normalizeUnit(getCell(cells, header.unidade));
+    const valorUnitario = parseNumber(getCell(cells, header.valorUnitario));
+    const valorTotal = parseNumber(getCell(cells, header.valorTotal));
+
+    if (!quantidade && !valorUnitario && !valorTotal && !unidade) {continue;}
+
+    produtos.push({
+      item_numero: String(Math.trunc(itemNumero)),
+      lote_numero: null,
+      descricao,
+      unidade,
+      quantidade,
+      valor_unitario_estimado: valorUnitario,
+      valor_total_estimado: valorTotal,
+      valor_unitario_final: null,
+      valor_total_final: null,
+      fornecedor_nome: null,
+      fornecedor_cnpj: null,
+      origem: 'planilha',
+      origem_detalhe: 'documentos_anexos:planilha',
+      trecho_fonte: compactText(cells.join(' | '), 900),
+      resumo_ai_id: null,
+      confianca: 0.88,
+      status_revisao: 'pendente'
+    });
+  }
+
+  return produtos;
+}
+
 function parseProdutosLicitados(text) {
+  const planilha = parseSpreadsheetRows(text);
+  if (planilha.length) {return planilha;}
+
   const region = getTableRegion(text);
   if (!region) {return [];}
 

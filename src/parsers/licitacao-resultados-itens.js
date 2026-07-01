@@ -3,6 +3,7 @@ const PREFEITURA_HEADER_PATTERN =
 
 const CNPJ_PREFEITURA = '18.557.553/0001-05';
 const MONEY_RE = 'R\\$\\s*([\\d.]+,\\d{2})';
+const MONEY_OPTIONAL_SYMBOL_RE = '(?:R\\$\\s*)?([\\d.]+,\\d{2,4})';
 
 function compactText(value, maxLength = 1200) {
   const text = String(value || '')
@@ -34,13 +35,18 @@ function removeAtaNoise(value) {
       .replace(PREFEITURA_HEADER_PATTERN, ' ')
       .replace(/\b1854\s+1963\b/g, ' ')
       .replace(/\s+/g, ' '),
-    200000
+    2000000
   ) || '';
 }
 
 function parseMoney(value) {
   const parsed = Number(String(value || '').replace(/\./g, '').replace(',', '.'));
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function formatMoneySource(value) {
+  const text = String(value || '').trim();
+  return text.startsWith('R$') ? text : `R$ ${text}`;
 }
 
 function cleanFornecedorNome(value) {
@@ -56,6 +62,7 @@ function cleanFornecedorNome(value) {
     .replace(/^.*\bDOCUMENTO\s+DA\s+EMPRESA\s+/i, '')
     .replace(/^.*\b\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}\s+/i, '')
     .replace(/^.*\b\d{3}\.\d{3}\.\d{3}-\d{2}(?:\s*-\s*[\d.]+)?\s+/i, '')
+    .replace(/\s+\w?\]\s*$/g, '')
     .replace(/^\d+\s+/, '')
     .replace(/\s+/g, ' ')
     .trim() || null;
@@ -108,9 +115,9 @@ function findSection(text, headingPattern, endPattern) {
 
   const afterStart = clean.slice(startMatch.index);
   const endMatch = endPattern ? afterStart.slice(startMatch[0].length).match(endPattern) : null;
-  const end = endMatch?.index === null
-    ? clean.length
-    : startMatch.index + startMatch[0].length + endMatch.index;
+  const end = endMatch && endMatch.index !== undefined
+    ? startMatch.index + startMatch[0].length + endMatch.index
+    : clean.length;
 
   return clean.slice(startMatch.index, end);
 }
@@ -137,11 +144,11 @@ function splitItemSegments(section) {
 function buildTrechoFonte(itemNumero, descricao, fornecedor, valorFinal, tipo) {
   return compactText(
     [
-      tipo === 'negociacao' ? 'NEGOCIACAO' : 'CLASSIFICACAO',
+      tipo === 'negociacao' ? 'NEGOCIACAO' : tipo === 'resultado' ? 'RESULTADO' : 'CLASSIFICACAO',
       `Item ${itemNumero}`,
       descricao,
       fornecedor ? `Fornecedor ${fornecedor}` : null,
-      valorFinal ? `Valor final R$ ${valorFinal}` : null
+      valorFinal ? `Valor final ${formatMoneySource(valorFinal)}` : null
     ]
       .filter(Boolean)
       .join(' - '),
@@ -219,6 +226,124 @@ function parseClassificacaoSegment(segment, cnpjMap) {
   };
 }
 
+function parseResultadoDeclarado(text, cnpjMap) {
+  const section = findSection(
+    text,
+    /\bRESULTADO\b/i,
+    /\b(?:ENCERRAMENTO|ASSINAM|RECURSOS|OCORR\S*NCIAS)\b/i
+  );
+
+  if (!section) {return [];}
+
+  const clean = removeAtaNoise(section);
+  const markerRe = /\b(\d{1,4})\s*[-–]\s*/g;
+  const resultados = [];
+  let match;
+  const markers = [];
+
+  while ((match = markerRe.exec(clean))) {
+    markers.push({ numero: String(Number(match[1])), start: match.index, contentStart: markerRe.lastIndex });
+  }
+
+  for (let index = 0; index < markers.length; index += 1) {
+    const marker = markers[index];
+    const segment = clean.slice(marker.contentStart, markers[index + 1]?.start ?? clean.length);
+    if (!/\b[VN]ence\w*/i.test(segment)) {continue;}
+
+    const moneyMatch = segment.match(new RegExp(MONEY_RE, 'i'));
+    if (!moneyMatch) {continue;}
+
+    const beforeMoney = segment.slice(0, moneyMatch.index).replace(/\s*\|\s*/g, ' | ').trim();
+    const parts = beforeMoney
+      .split(/\s*(?:\||\.)\s*/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+    const descricao = compactText(parts.shift(), 500);
+    const fornecedorNome = cleanFornecedorNome(parts.join(' ') || beforeMoney);
+    const valorFinal = parseMoney(moneyMatch[1]);
+    if (!fornecedorNome || !valorFinal || !descricao) {continue;}
+
+    resultados.push({
+      item_numero: marker.numero,
+      descricao,
+      valor_unitario_final: valorFinal,
+      valor_total_final: null,
+      valor_final_tipo: inferValorFinalTipo(descricao),
+      fornecedor_nome: fornecedorNome,
+      fornecedor_cnpj: findFornecedorCnpj(cnpjMap, fornecedorNome),
+      origem: 'ata_resultado',
+      origem_detalhe: 'ata:resultado_declarado',
+      trecho_fonte: buildTrechoFonte(marker.numero, descricao, fornecedorNome, moneyMatch[1], 'resultado'),
+      confianca: 0.86
+    });
+  }
+
+  return resultados;
+}
+
+function splitPlataformaSegments(text) {
+  const clean = removeAtaNoise(text);
+  const markerRe = /\b(Item|Lote)\s+(\d{1,4})\s*(?:[-–]\s*([\s\S]{0,220}?))?\s+Status:\s*([A-Za-zÀ-ÿ]+)/gi;
+  const markers = [];
+  let match;
+
+  while ((match = markerRe.exec(clean))) {
+    markers.push({
+      tipo: normalizeKey(match[1]),
+      numero: String(Number(match[2])),
+      titulo: compactText(match[3] || '', 220),
+      status: normalizeKey(match[4]),
+      start: match.index,
+      contentStart: markerRe.lastIndex
+    });
+  }
+
+  return markers.map((marker, index) => ({
+    ...marker,
+    texto: clean.slice(marker.contentStart, markers[index + 1]?.start ?? clean.length)
+  }));
+}
+
+function parsePlataformaEletronicaSegment(segment, cnpjMap) {
+  if (segment.status && segment.status !== 'aprovado') {return null;}
+
+  const rowRe = new RegExp(
+    `1\\s*[°º]\\s+([A-ZÀ-Ú0-9][A-ZÀ-Ú0-9\\s.&'/-]{3,180}?)\\s+(\\d{11,14})\\s+${MONEY_OPTIONAL_SYMBOL_RE}\\s+Vencedor`,
+    'i'
+  );
+  const match = segment.texto.match(rowRe);
+  if (!match) {return null;}
+
+  const descricaoMatch = segment.texto.match(/Descri\S*o\s+complementar:\s*([\s\S]{2,700}?)(?:\s+Quantidade:|\s+Estimado:|\s+Unidade\s+de\s+medida:)/i);
+  const descricao = compactText(segment.titulo || descricaoMatch?.[1], 500);
+  const fornecedorNome = cleanFornecedorNome(match[1]);
+  const valorFinal = parseMoney(match[3]);
+
+  if (!descricao || !fornecedorNome || !valorFinal) {return null;}
+
+  const isLote = segment.tipo === 'lote';
+  return {
+    item_numero: segment.numero,
+    lote_numero: isLote ? segment.numero : null,
+    descricao,
+    valor_unitario_final: valorFinal,
+    valor_total_final: null,
+    valor_final_tipo: isLote ? 'lote' : inferValorFinalTipo(descricao),
+    fornecedor_nome: fornecedorNome,
+    fornecedor_cnpj: match[2] || findFornecedorCnpj(cnpjMap, fornecedorNome),
+    origem: 'ata_resultado',
+    origem_detalhe: isLote ? 'ata:plataforma_eletronica_lote' : 'ata:plataforma_eletronica_item',
+    trecho_fonte: buildTrechoFonte(segment.numero, descricao, fornecedorNome, match[3], 'classificacao'),
+    confianca: isLote ? 0.84 : 0.9
+  };
+}
+
+function parsePlataformaEletronica(text, cnpjMap) {
+  return splitPlataformaSegments(text)
+    .map((segment) => parsePlataformaEletronicaSegment(segment, cnpjMap))
+    .filter(Boolean);
+}
+
 function parseNegociacao(text, cnpjMap) {
   const section = findSection(
     text,
@@ -249,10 +374,33 @@ function parseClassificacao(text, cnpjMap) {
 
 function parseResultadosItensLicitacao(text) {
   const cnpjMap = parseFornecedorCnpjMap(text);
+  const plataforma = parsePlataformaEletronica(text, cnpjMap);
+  if (plataforma.length) {return plataforma;}
+
+  const byItem = new Map();
+  const addResults = (rows) => {
+    for (const row of rows) {
+      if (!row?.item_numero) {continue;}
+      const key = String(Number(row.item_numero));
+      if (!byItem.has(key)) {
+        byItem.set(key, row);
+      }
+    }
+  };
+
+  addResults(parseNegociacao(text, cnpjMap));
+  addResults(parseClassificacao(text, cnpjMap));
+  addResults(parseResultadoDeclarado(text, cnpjMap));
+
+  if (byItem.size) {return Array.from(byItem.values());}
+
   const negociacao = parseNegociacao(text, cnpjMap);
   if (negociacao.length) {return negociacao;}
 
-  return parseClassificacao(text, cnpjMap);
+  const classificacao = parseClassificacao(text, cnpjMap);
+  if (classificacao.length) {return classificacao;}
+
+  return parseResultadoDeclarado(text, cnpjMap);
 }
 
 module.exports = {

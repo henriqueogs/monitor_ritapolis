@@ -4,9 +4,9 @@
  * Lote de leitura integrada (contrato 2.0) — gera a "Análise do Processo" para
  * todos os editais elegíveis de um intervalo de anos.
  *
- * Elegível: tipo='edital', pertence a um grupo de processo e ainda não tem
- * leitura integrada (contrato 2.x) com status ok. O cache por texto_hash do
- * correlateLicitation evita retrabalho se o lote for interrompido e reiniciado.
+ * Elegível: tipo='edital', tem texto e ainda não tem leitura integrada
+ * (contrato 2.x) com status ok. Quando não há grupo/PNCP/produtos, a leitura
+ * integrada registra lacunas e baixa confiança em vez de excluir o documento.
  *
  * Uso:
  *   node scripts/correlacionar-licitacoes-lote.js --de=2023 --ate=2025
@@ -80,7 +80,7 @@ function listarElegiveis({ anoDe, anoAte, limite, force }) {
          FROM documentos d
         WHERE d.tipo = 'edital'
           AND d.ano BETWEEN @anoDe AND @anoAte
-          AND EXISTS (SELECT 1 FROM licitacoes_grupo_documentos g WHERE g.documento_id = d.id)
+          AND LENGTH(TRIM(IFNULL(d.texto_completo, ''))) > 0
           ${filtroLeitura}
         ORDER BY d.ano DESC, d.id DESC
         ${limitClause}`

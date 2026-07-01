@@ -4,12 +4,24 @@ const { estruturarProdutosLicitacoes } = require('../src/db');
 function parseArgs(argv) {
   const options = {
     ano: new Date().getFullYear(),
-    limite: null
+    limite: null,
+    semProdutos: false,
+    sintetico: false
   };
 
   argv.forEach((arg) => {
     if (arg === '--all') {
       options.ano = null;
+      return;
+    }
+
+    if (arg === '--sem-produtos') {
+      options.semProdutos = true;
+      return;
+    }
+
+    if (arg === '--sintetico') {
+      options.sintetico = true;
       return;
     }
 

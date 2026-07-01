@@ -28,6 +28,7 @@ const { setupDatabase } = require('../src/db/setup');
 const { db, saveDocumentoAnexoTexto } = require('../src/db');
 const { extractOfficialFileText } = require('../src/parsers/document-file');
 const { escolherMelhorTextoAnexo, MIN_CHARS_TEXTO_UTIL } = require('../src/parsers/anexo-texto');
+const { classificarArquivoTecnicoVisual, STATUS_TECNICO_VISUAL } = require('../src/parsers/technical-visual');
 const config = require('../src/config');
 
 const TIPOS_PROMOVIVEIS = "'edital', 'outro'";
@@ -74,27 +75,30 @@ async function extrairAnexoPendente(anexo) {
     const texto = (arquivo.text || '').trim();
 
     if (!texto) {
+      const statusSugerido = arquivo.info?.status_sugerido || STATUS_REQUER_OCR;
       saveDocumentoAnexoTexto({
         id: anexo.id,
         texto: null,
-        status: STATUS_REQUER_OCR,
-        erro: 'texto vazio',
-        parser: arquivo.parser,
+        status: statusSugerido,
+        erro: arquivo.error || 'texto vazio',
+        parser: arquivo.info?.parser || arquivo.parser,
         paginas: arquivo.pages,
       });
-      return { ...anexo, status_extracao: STATUS_REQUER_OCR, texto_completo: null };
+      return { ...anexo, status_extracao: statusSugerido, texto_completo: null };
     }
+
+    const tecnicoVisual = classificarArquivoTecnicoVisual({ nome: anexo.nome, texto, extension: anexo.url });
 
     saveDocumentoAnexoTexto({
       id: anexo.id,
       texto,
       textoHash: crypto.createHash('sha256').update(texto).digest('hex'),
-      status: 'ok',
+      status: tecnicoVisual.visual ? STATUS_TECNICO_VISUAL : 'ok',
       erro: null,
-      parser: arquivo.parser,
+      parser: arquivo.info?.parser || arquivo.parser,
       paginas: arquivo.pages,
     });
-    return { ...anexo, status_extracao: 'ok', texto_completo: texto };
+    return { ...anexo, status_extracao: tecnicoVisual.visual ? STATUS_TECNICO_VISUAL : 'ok', texto_completo: texto };
   } catch (err) {
     saveDocumentoAnexoTexto({ id: anexo.id, texto: null, status: 'erro_pdf', erro: err.message });
     return { ...anexo, status_extracao: 'erro_pdf', texto_completo: null };

@@ -27,6 +27,20 @@ function likeParam(value) {
   return `%${String(value).trim()}%`;
 }
 
+function buildDocumentoFtsQuery(value) {
+  const terms = String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .split(/\s+/)
+    .map((term) => term.replace(/[^a-zA-Z0-9_-]/g, '').trim())
+    .filter(Boolean)
+    .slice(0, 8);
+
+  if (!terms.length) { return null; }
+  if (terms.length === 1) { return `${terms[0]}*`; }
+  return terms.map((term) => `${term}*`).join(' AND ');
+}
+
 function buildTextoHash(textoCompleto) {
   return crypto.createHash('sha256').update(String(textoCompleto || ''), 'utf8').digest('hex');
 }
@@ -270,9 +284,17 @@ function buildDocumentoWhere({ fonte, tipo, ano, status, termo, qualidade }, par
   if (status) { filters.push('status_coleta = @status'); params.status = status; }
 
   if (termo) {
-    filters.push(
-      "(titulo LIKE @termo OR resumo LIKE @termo OR IFNULL(numero, '') LIKE @termo OR IFNULL(texto_completo, '') LIKE @termo)"
-    );
+    const ftsTerm = buildDocumentoFtsQuery(termo);
+    const textFilters = [
+      'titulo LIKE @termo',
+      'resumo LIKE @termo',
+      "IFNULL(numero, '') LIKE @termo",
+    ];
+    if (ftsTerm) {
+      textFilters.push('id IN (SELECT rowid FROM documentos_fts WHERE documentos_fts MATCH @ftsTerm)');
+      params.ftsTerm = ftsTerm;
+    }
+    filters.push(`(${textFilters.join(' OR ')})`);
     params.termo = likeParam(termo);
   }
 
@@ -385,6 +407,7 @@ module.exports = {
   parseJson,
   serializeJson,
   likeParam,
+  buildDocumentoFtsQuery,
   buildTextoHash,
   buildJsonHash,
   // Labels

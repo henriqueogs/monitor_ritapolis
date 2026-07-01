@@ -28,6 +28,12 @@ describe('parsers/anexo-texto · escolherMelhorTextoAnexo', () => {
     ).toBeNull();
   });
 
+  it('ignora anexos tecnicos visuais mesmo com muito texto extraido', () => {
+    expect(
+      escolherMelhorTextoAnexo([anexo({ status_extracao: 'tecnico_visual', texto_completo: 'x'.repeat(9000) })])
+    ).toBeNull();
+  });
+
   it('prefere anexo do tipo edital sobre outros tipos', () => {
     const escolhido = escolherMelhorTextoAnexo([
       anexo({ id: 1, tipo: 'outro', texto_completo: 'a'.repeat(9000) }),

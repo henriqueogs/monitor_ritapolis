@@ -13,6 +13,7 @@ const { extractOfficialFileText, inferFileExtension } = require('../src/parsers/
 function parseArgs(argv) {
   const options = {
     ano: new Date().getFullYear(),
+    anoInformado: false,
     documentoId: null,
     limite: null,
     force: false,
@@ -22,6 +23,7 @@ function parseArgs(argv) {
   argv.forEach((arg) => {
     if (arg === '--all') {
       options.ano = null;
+      options.anoInformado = true;
       return;
     }
 
@@ -37,7 +39,10 @@ function parseArgs(argv) {
 
     if (arg.startsWith('--ano=')) {
       const ano = Number(arg.split('=')[1]);
-      if (Number.isFinite(ano)) {options.ano = ano;}
+      if (Number.isFinite(ano)) {
+        options.ano = ano;
+        options.anoInformado = true;
+      }
       return;
     }
 
@@ -52,6 +57,11 @@ function parseArgs(argv) {
       if (Number.isFinite(limite) && limite > 0) {options.limite = limite;}
     }
   });
+
+  if (options.documentoId && !options.anoInformado) {
+    options.ano = null;
+  }
+  delete options.anoInformado;
 
   return options;
 }
@@ -107,6 +117,7 @@ async function main() {
     anexos_com_erro: 0,
     anexos_reutilizados: 0,
     itens_resultado_extraidos: 0,
+    itens_planilha_extraidos: 0,
     produtos_atualizados: 0,
     produtos_criados: 0,
     produtos_ignorados: 0,
@@ -189,6 +200,7 @@ async function main() {
     });
 
     resultado.itens_resultado_extraidos += enriquecimento.itens_resultado_extraidos;
+    resultado.itens_planilha_extraidos += enriquecimento.itens_planilha_extraidos || 0;
     resultado.produtos_atualizados += enriquecimento.produtos_atualizados;
     resultado.produtos_criados += enriquecimento.produtos_criados;
     resultado.produtos_ignorados += enriquecimento.produtos_ignorados;

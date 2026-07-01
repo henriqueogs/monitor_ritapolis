@@ -22,6 +22,7 @@ const axios = require('axios');
 const db = require('../src/db');
 const { extractOfficialFileText } = require('../src/parsers/document-file');
 const { parseLicitacaoDetalhes } = require('../src/parsers/licitacao-detalhes');
+const { classificarArquivoTecnicoVisual, STATUS_TECNICO_VISUAL } = require('../src/parsers/technical-visual');
 const { criarProgresso } = require('../src/utils/progress');
 const config = require('../src/config');
 const logger = require('../src/logger');
@@ -65,6 +66,7 @@ async function processarAnexo(anexo, { derivar = true } = {}) {
     nome: anexo.nome,
     tipo: anexo.tipo,
     texto_extraido: false,
+    tecnico_visual: false,
     vencedor_extraido: false,
     produtos_salvos: 0,
     erro: null
@@ -92,24 +94,37 @@ async function processarAnexo(anexo, { derivar = true } = {}) {
 
   if (extraction.error || !extraction.text?.trim()) {
     const err = extraction.error || 'texto vazio';
+    const statusSugerido = extraction.info?.status_sugerido || 'erro_pdf';
     resultado.erro = err;
-    db.saveDocumentoAnexoTexto({ id: anexo.id, status: 'erro_pdf', erro: err });
+    db.saveDocumentoAnexoTexto({
+      id: anexo.id,
+      status: statusSugerido,
+      erro: err,
+      parser: extraction.info?.parser,
+      paginas: extraction.pages
+    });
     return resultado;
   }
 
   const texto = extraction.text;
   const textoHash = crypto.createHash('sha256').update(texto, 'utf8').digest('hex');
+  const tecnicoVisual = classificarArquivoTecnicoVisual({ nome: anexo.nome, texto, extension: anexo.url });
 
   // 3. Salvar texto
   db.saveDocumentoAnexoTexto({
     id: anexo.id,
     texto,
     textoHash,
-    status: 'ok',
+    status: tecnicoVisual.visual ? STATUS_TECNICO_VISUAL : 'ok',
     parser: extraction.info?.parser,
     paginas: extraction.pages
   });
   resultado.texto_extraido = true;
+
+  if (tecnicoVisual.visual) {
+    resultado.tecnico_visual = true;
+    return resultado;
+  }
 
   // Propostas são lances (não resultados): extraímos só o texto (transparência),
   // sem derivar vencedor/valor — seria registrar preço de lance como final.
@@ -157,6 +172,7 @@ function listarRecuperaveis() {
         WHERE da.url LIKE 'http%'
           AND (da.status_extracao IS NULL OR da.status_extracao <> 'ok' OR IFNULL(da.texto_completo,'') = '')
           AND IFNULL(da.status_extracao,'') <> 'requer_ocr'
+          AND IFNULL(da.status_extracao,'') <> 'tecnico_visual'
           AND (lower(da.nome) LIKE '%.pdf' OR lower(da.nome) LIKE '%.docx' OR lower(da.nome) LIKE '%.doc')
           AND (da.tipo = 'proposta' OR (da.tipo = 'outro' AND (${termos})))
         ORDER BY d.ano DESC, da.id ${limit}`
@@ -243,7 +259,9 @@ async function main() {
       categoria = 'erro';
     } else {
       stats.textos++;
-      if (r.vencedor_extraido) {
+      if (r.tecnico_visual) {
+        categoria = 'tecnico';
+      } else if (r.vencedor_extraido) {
         stats.vencedores++;
         categoria = 'vencedor';
       }

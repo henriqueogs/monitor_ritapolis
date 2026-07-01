@@ -57,7 +57,7 @@ function cleanName(value) {
     .replace(/\s*,?\s*doravante.*$/i, '')
     .replace(/\s+/g, ' ')
     .trim()
-    .replace(/[.,;:]+$/g, '')
+    .replace(/[.,;:–-]+$/g, '')
     .trim();
 }
 
@@ -162,8 +162,8 @@ function parseValorFinal(text, origem) {
     /Valor\s+do\s+contrato\s*:?\s*R\$\s*([\d.]+,\d{2})/i,
     /contrata[cç][aã]o\s+tem\s+valor\s+total\s+de\s*R\$\s*([\d.]+,\d{2})/i,
     /valor\s+total\s+(?:de|do contrato de)?\s*R\$\s*([\d.]+,\d{2})/i,
-    /valor\s+global\s*:?\s*R\$\s*([\d.]+,\d{2})/i,
-    /pre[cç]o\s+global\s*:?\s*R\$\s*([\d.]+,\d{2})/i,
+    /valor\s+global\s*(?:[:–-]|\s+de)?\s*R\$\s*([\d.]+,\d{2})/i,
+    /pre[cç]o\s+global\s*(?:[:–-]|\s+de)?\s*R\$\s*([\d.]+,\d{2})/i,
     /\banual\s+de\s*R\$\s*([\d.]+,\d{2})/i,
     /os\s+valores\s+(?:para\s+execu[cç][aã]o[^.]{0,120}?|[^.]{0,120}?)\s+s[aã]o\s+de\s*R\$\s*([\d.]+,\d{2})/i
   ];
