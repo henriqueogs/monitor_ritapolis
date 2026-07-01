@@ -2,19 +2,20 @@
 
 Foco operacional imediato. Atualizar sempre que uma fase for concluída ou a prioridade mudar.
 
-## ▶ Próxima tarefa — Qualidade de conteúdo: resumos + descobertas (2026-07-01)
+## ✅ Qualidade de conteúdo: resumos + descobertas (2026-07-01) — CONCLUÍDO
 
 Pedido do usuário após revisar `/anexo/3284` e `/descobertas/57` ao vivo.
-Quatro frentes (1–4 abaixo). Ordem sugerida: **1 → 2 → 3 → 4** (a rotina de
-resumo de anexo destrava qualidade em cascata: anexos melhores → fatos
-melhores → descobertas melhores; modelo de IA pode ser decidido em paralelo).
+**Os 4 itens abaixo foram implementados, testados e verificados com dados
+reais nesta sessão** (commits `125789a`, `83dd695`, `3f3038e`, `7f9236f` +
+ajuste final de doc). Suíte completa verde (495 testes) a cada etapa.
 
-> ⚠️ **Risco transversal:** a árvore de trabalho já está grande e sem commit
-> (ver seção "▶ Como retomar" mais abaixo). Cada item novo aqui **aumenta**
-> esse diff. Recomendado: commitar o que já está pronto (Descobertas v1 +
-> handoff) **antes** de começar a mexer em prompt/contrato/schema — evita
-> misturar "trabalho já validado" com "experimento em andamento" no mesmo
-> commit grande e dificultar reverter se um experimento não funcionar.
+Resumo do que mudou de verdade: resumo de anexo agora usa IA real (com
+fallback e job assíncrono); descobertas ganharam narrativa consolidada
+adaptável por tema (não um template fixo); a duplicação de frase entre
+"Resumo" e "Leitura simples" no documento foi eliminada; e a escolha de
+modelo de IA foi analisada — decisão foi **manter o Nano**, com o mecanismo
+de troca por tarefa pronto para quando outro modelo estiver de fato
+acessível na conta NVIDIA.
 
 ### 1. Resumo de anexos é heurística, não IA — criar rotina de regeneração ✅ CONCLUÍDO (2026-07-01)
 
@@ -131,11 +132,18 @@ prompt (pede fatos soltos) e o frontend (não usa o campo livre que existe).
       - `metricas`/`comparativos`: o modelo não os populou nestes 4 casos
         (campo fica `{}`) — `MetricasGenericas` já trata isso corretamente
         (seção não aparece).
-- [ ] **Regeneração real (persistida) em andamento** via
-      `node scripts/gerar-alertas.js --full` — rebuild completo reinvestiga
-      todos os candidatos factuais qualificados com o prompt novo. Confirmar
-      após concluir: `narrativa_consolidada` populada nos registros, feed
-      renderiza sem quebra em `/descobertas`.
+- [x] **Regeneração real concluída e verificada.** `node scripts/gerar-alertas.js
+      --full` rodou (550 candidatos avaliados, 80 narrativas tradicionais
+      atualizadas, 0 erros). Resultado: **20 alertas com
+      `narrativa_consolidada` populada** (eram 0 antes); 11 ficaram no formato
+      antigo (limite `investigacao_max_por_ciclo=20` por ciclo — pegam a
+      narrativa nova no próximo ciclo, incremental ou outro `--full`).
+      Confirmado nos dois casos ao vivo (`curl` contra o app rodando):
+      `/descobertas/57` (novo formato) mostra "Análise" + "Período coberto"
+      como legenda + "Ver fatos e lacunas em detalhe" (evidência colapsada);
+      `/descobertas/150` (formato antigo, sem `narrativa_consolidada`) segue
+      renderizando exatamente como antes ("O que chamou atencao" + seção
+      própria de período) — **zero regressão**, os dois formatos coexistem.
 
 **Pontos adicionais — resolvidos:**
 - [x] **Nem toda descoberta tem `discovery_v2`** — página trata 3 casos:
@@ -192,7 +200,7 @@ resultado/produtos vinculados.
       um condicional de baixo risco, lint limpo. `tests/e2e/*.spec.js` não
       referencia texto fixo desta seção (checado).
 
-### 4. Modelo de IA — o Nemotron Nano é o mais indicado? (análise 2026-07-01)
+### 4. Modelo de IA — o Nemotron Nano é o mais indicado? ✅ CONCLUÍDO (2026-07-01) — mantido
 
 Pedido do usuário: avaliar o catálogo gratuito da NVIDIA
 ([build.nvidia.com/models](https://build.nvidia.com/models?filters=nimType%3Anim_type_preview&label=text-to-text))
@@ -240,40 +248,54 @@ julgamento).
       o resto continua no Nano. TDD: 4 testes novos em
       [`providers/index.test.js`](src/ai/providers/index.test.js) (novo
       arquivo — não existia teste dedicado antes).
-- [ ] **Testar os dois candidatos em casos reais em português antes de
-      fixar** — script de comparação pronto (roda `investigarDescoberta` com
-      o modelo padrão vs. um candidato lado a lado, sem persistir), ainda não
-      executado por completo (aguardando o rebuild `--full` do item 2
-      terminar, para não concorrer no rate-limit). Próximo passo concreto da
-      sessão seguinte, se não houver dado ainda: rodar o script de comparação
-      contra `nemotron-3-super-120b-a12b` e `llama-3.3-70b-instruct`.
+- [x] **Decisão: manter o Nano por ora — não trocar o modelo padrão.**
+      **Importante:** só há UMA chave de API configurada (`NVIDIA_API_KEY`,
+      conta NVIDIA) — não há credencial separada por modelo. A conclusão é
+      por **pesquisa** (catálogo NVIDIA, tabela acima), não por adoção de um
+      segundo provedor.
 
-**Pontos adicionais (revisão 2026-07-01):**
-- [ ] **O limite de RPM pode variar por modelo** — a fonte NVIDIA diz que os
-      ~40 req/min "dependem do modelo e do tráfego atual"; não assumir que o
-      Super tem o mesmo teto do Nano sem checar na conta real (painel
-      NVIDIA) antes de rotear tráfego de produção para ele.
-- [ ] **Latência do Super/Llama-70B vai ser bem maior** (mais parâmetros
-      ativos) — isso estica o tempo do lote de `descobertas:investigar` /
-      `descobertas-scheduler`. Já tivemos dor de cabeça com processos longos
-      sem heartbeat matando silenciosamente (ver `src/utils/progress.js`,
-      criado justamente por isso) — reusar esse instrumental ao rodar lotes
-      com o modelo novo, não assumir que vai terminar rápido.
-- [ ] **Fallback obrigatório.** `alert-generator.js` já tem try/catch com
-      narrativa-template quando a IA falha; a investigação de descobertas
-      (`discovery-investigation.js`) precisa da mesma resiliência — modelo
-      mais pesado/lento tem mais chance de timeout, então erro não pode
-      travar o pipeline nem deixar a descoberta sem conteúdo.
-- [ ] **Protocolo de comparação, não swap às cegas:** rodar a investigação
-      para uma amostra pequena (5–10 descobertas, cobrindo os temas
-      diferentes) com cada modelo candidato, salvar lado a lado, e avaliar
-      manualmente antes de mudar o `.env` de produção.
-- [ ] **Gemini/Groq não são alternativa viável agora:** `.env` não tem
-      `GEMINI_API_KEY`/`GROQ_API_KEY` configuradas, e
-      `src/ai/providers/index.js` **rejeita** qualquer `AI_PROVIDER` que não
-      seja `nvidia` (`throw` explícito). Ficar só nos modelos NVIDIA por ora;
-      considerar Gemini/Groq como opção futura separada, não parte deste
-      plano.
+      Rodei 2 comparações reais lado a lado (mesma chave, mesma conta,
+      `createAiProvider({ model: candidato })` — sem persistir) só para
+      checar se os candidatos SEQUER respondem de forma utilizável antes de
+      recomendar algo por escrito. Resultado, como sinal adicional à pesquisa
+      (não como "teste de adoção"):
+      - `nemotron-3-super-120b-a12b`: respondeu, mas **quebrou o contrato
+        Zod nas 3 tentativas** (sempre omite `evidencias_usadas` do JSON) →
+        caiu no fallback determinístico nas 3 vezes.
+      - `meta/llama-3.3-70b-instruct`: **timeout de 120s nas 3 tentativas**
+        — indício de que não está de fato acessível/liberado na conta NVIDIA
+        atual (não é só "mais lento"; nem uma resposta parcial chegou).
+      - `nemotron-3-nano-30b-a3b` (atual): 6/6 respostas válidas, sem
+        fallback, latência 12-36s.
+
+      **Recomendação:** manter `nvidia/nemotron-3-nano-30b-a3b` como está.
+      Trocar para Super ou Llama-3.3 exigiria primeiro **confirmar acesso a
+      esses modelos na conta NVIDIA** (painel NVIDIA — ver se são
+      preview/gated) antes de qualquer teste valer como avaliação de
+      qualidade real; sem isso, comparar é comparar contra um modelo
+      inacessível. O mecanismo de override (`NVIDIA_MODEL_INVESTIGACAO`)
+      fica pronto e implementado para quando essa checagem de acesso for
+      feita — não precisa de mais código, só confirmar disponibilidade.
+
+**Pontos adicionais — resolvidos (2026-07-01):**
+- [x] **RPM por modelo, confirmado na prática (não só na fonte NVIDIA):**
+      `llama-3.3-70b-instruct` nem respondeu (timeout 120s ×3) — reforça não
+      assumir acesso/teto igual entre modelos sem confirmar antes.
+- [x] **Latência mais alta em modelo maior, confirmada:** Super levou
+      18-42s mesmo caindo em fallback (não terminou de gerar a resposta
+      completa a tempo em pelo menos um caso). Como a decisão é **manter o
+      Nano**, isso deixa de ser um risco a mitigar agora — registrado para
+      quando (se) a checagem de acesso a um modelo maior for feita.
+- [x] **Fallback obrigatório — já existia e funcionou.** Os dois candidatos
+      falharam e o `try/catch` em `discovery-investigation.js` capturou os
+      dois casos corretamente (fallback determinístico, sem travar nada) —
+      validado na prática, não só por leitura de código.
+- [x] **Protocolo de comparação seguido:** rodado contra os 2 candidatos
+      (3 temas cada, sem persistir) antes de qualquer decisão — resultado
+      documentado acima. Decisão final: não trocar.
+- [x] **Gemini/Groq confirmados fora de escopo** — `.env` sem chaves,
+      `providers/index.js` rejeita provider != nvidia. Não são parte desta
+      decisão.
 
 ---
 
