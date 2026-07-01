@@ -4,6 +4,7 @@
 // chave_unica, vínculos N:N com documentos, watermark de processamento e
 // configuração de thresholds/gatilhos. Sem regra de negócio — só persistência.
 
+const crypto = require('crypto');
 const { db } = require('./connection');
 
 const STATUS_VALIDOS = new Set(['ativo', 'arquivado', 'suprimido']);
@@ -26,6 +27,10 @@ function fromJson(texto, fallback = null) {
   } catch {
     return fallback;
   }
+}
+
+function buildHash(value) {
+  return crypto.createHash('sha256').update(JSON.stringify(value), 'utf8').digest('hex');
 }
 
 function mapAlerta(row) {
@@ -65,7 +70,7 @@ function camposDe(alerta) {
 // Upsert idempotente por chave_unica. Preserva decisão humana: se o alerta já foi
 // arquivado/suprimido, a regeneração NÃO o reativa. Substitui os vínculos de
 // documentos pelo conjunto fornecido.
-function upsertAlerta(alerta, documentos = []) {
+function upsertAlerta(alerta, documentos = [], evidencias = []) {
   const agora = nowIso();
   const campos = camposDe(alerta);
   const existing = db.prepare('SELECT id, status FROM alertas WHERE chave_unica = ?').get(campos.chave_unica);
@@ -106,11 +111,36 @@ function upsertAlerta(alerta, documentos = []) {
   }
 
   db.prepare('DELETE FROM alertas_documentos WHERE alerta_id = ?').run(id);
+  db.prepare('DELETE FROM alertas_evidencias WHERE alerta_id = ?').run(id);
   const ins = db.prepare(
     'INSERT OR IGNORE INTO alertas_documentos (alerta_id, documento_id, papel, trecho_fonte) VALUES (?, ?, ?, ?)'
   );
   for (const d of documentos) {
     ins.run(id, d.documento_id, d.papel || 'relacionado', d.trecho_fonte || null);
+  }
+  const insEv = db.prepare(
+    `INSERT OR IGNORE INTO alertas_evidencias (
+       alerta_id, documento_id, anexo_id, fato_id, papel, trecho_fonte, metadados_json, evidencia_hash
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  for (const e of evidencias) {
+    const hash = e.evidencia_hash || buildHash({
+      documento_id: e.documento_id || null,
+      anexo_id: e.anexo_id || null,
+      fato_id: e.fato_id || null,
+      papel: e.papel || 'evidencia',
+      trecho_fonte: e.trecho_fonte || null,
+    });
+    insEv.run(
+      id,
+      e.documento_id || null,
+      e.anexo_id || null,
+      e.fato_id || null,
+      e.papel || 'evidencia',
+      e.trecho_fonte || null,
+      toJson(e.metadados || null),
+      hash
+    );
   }
 
   return { id, action: existing ? 'updated' : 'inserted' };
@@ -133,6 +163,7 @@ function removerAtivosNaoListados(chaves = []) {
   }
   const ids = alvos.map((a) => a.id);
   const idPlaceholders = ids.map(() => '?').join(',');
+  db.prepare(`DELETE FROM alertas_evidencias WHERE alerta_id IN (${idPlaceholders})`).run(...ids);
   db.prepare(`DELETE FROM alertas_documentos WHERE alerta_id IN (${idPlaceholders})`).run(...ids);
   db.prepare(`DELETE FROM alertas WHERE id IN (${idPlaceholders})`).run(...ids);
   return ids.length;
@@ -198,7 +229,50 @@ function getAlerta(id) {
         ORDER BY COALESCE(d.data_publicacao, '') DESC`
     )
     .all(id);
-  return { ...mapAlerta(row), documentos };
+  const evidencias = db
+    .prepare(
+      `SELECT ae.id, ae.documento_id, ae.anexo_id, ae.fato_id, ae.papel,
+              ae.trecho_fonte, ae.metadados_json,
+              d.titulo AS documento_titulo, d.tipo AS documento_tipo,
+              d.ano AS documento_ano, d.data_publicacao AS documento_data_publicacao,
+              a.nome AS anexo_nome, a.tipo AS anexo_tipo, a.url AS anexo_url,
+              f.tipo AS fato_tipo, f.subtipo AS fato_subtipo, f.descricao AS fato_descricao,
+              f.quantidade AS fato_quantidade, f.unidade AS fato_unidade,
+              f.valor AS fato_valor, f.confianca AS fato_confianca
+         FROM alertas_evidencias ae
+         LEFT JOIN documentos d ON d.id = ae.documento_id
+         LEFT JOIN documentos_anexos a ON a.id = ae.anexo_id
+         LEFT JOIN inteligencia_fatos f ON f.id = ae.fato_id
+        WHERE ae.alerta_id = ?
+        ORDER BY COALESCE(d.data_publicacao, '') DESC, ae.id ASC`
+    )
+    .all(id)
+    .map((e) => ({
+      ...e,
+      metadados: fromJson(e.metadados_json, {}),
+    }));
+  return { ...mapAlerta(row), documentos, evidencias };
+}
+
+function listarInvestigacoesPendentes({ limite = 5 } = {}) {
+  const rows = db
+    .prepare(
+      `SELECT id
+         FROM alertas
+        WHERE status = 'ativo'
+          AND json_extract(metadados_json, '$.discovery_kind') = 'investigacao_factual'
+          AND (
+            json_extract(metadados_json, '$.discovery_v2.status') IS NULL
+            OR json_extract(metadados_json, '$.discovery_v2.status') IN ('fallback', 'limite_ciclo', 'revisao_admin', 'desativado')
+          )
+        ORDER BY
+          CAST(COALESCE(json_extract(metadados_json, '$.ano'), 0) AS INTEGER) DESC,
+          CAST(COALESCE(json_extract(metadados_json, '$.prioridade'), 0) AS INTEGER) DESC,
+          COALESCE(atualizado_em, criado_em) ASC
+        LIMIT @limite`
+    )
+    .all({ limite: Math.max(Number(limite) || 1, 1) });
+  return rows.map((row) => getAlerta(row.id)).filter(Boolean);
 }
 
 function setAlertaStatus(id, status) {
@@ -273,6 +347,7 @@ module.exports = {
   listarAlertas,
   listarDestaques,
   getAlerta,
+  listarInvestigacoesPendentes,
   setAlertaStatus,
   contarPorSeveridade,
   getWatermark,

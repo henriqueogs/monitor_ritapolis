@@ -186,6 +186,14 @@ export function fetchDocumento(id) {
   return fetchJson(`/documentos/${id}`);
 }
 
+export function fetchDocumentoAnexos(id) {
+  return fetchJson(`/documentos/${id}/anexos`);
+}
+
+export function fetchAnexo(id) {
+  return fetchJson(`/anexos/${id}`);
+}
+
 export function fetchLicitacoes(params = {}) {
   return fetchJson(`/licitacoes${buildQuery(params)}`).catch(async () => {
     const fallback = await fetchDocumentos({

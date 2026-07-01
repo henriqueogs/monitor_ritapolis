@@ -27,6 +27,8 @@ export default function AdminAlertasPanel({ initialStats, initialConfig, initial
   const [alertas, setAlertas] = useState(initialAlertas?.dados || []);
   const [loading, setLoading] = useState(null);
   const [log, setLog] = useState([]);
+  const [filtroTema, setFiltroTema] = useState('todos');
+  const [filtroIa, setFiltroIa] = useState('todos');
 
   const registrar = useCallback((msg, erro = false) => {
     setLog((prev) => [{ msg, erro, ts: new Date() }, ...prev.slice(0, 5)]);
@@ -94,6 +96,15 @@ export default function AdminAlertasPanel({ initialStats, initialConfig, initial
     [registrar]
   );
 
+  const alertasFiltrados = alertas.filter((a) => {
+    const discovery = a.metadados?.discovery_v2;
+    const tema = discovery?.tipo_investigacao || a.metadados?.investigacao_tipo || 'sem_ia';
+    const statusIa = discovery?.status || 'sem_ia';
+    return (filtroTema === 'todos' || tema === filtroTema) && (filtroIa === 'todos' || statusIa === filtroIa);
+  });
+  const temas = [...new Set(alertas.map((a) => a.metadados?.discovery_v2?.tipo_investigacao || a.metadados?.investigacao_tipo).filter(Boolean))];
+  const statusIa = [...new Set(alertas.map((a) => a.metadados?.discovery_v2?.status || 'sem_ia'))];
+
   return (
     <div className={styles.panel}>
       <div className={styles.header}>
@@ -130,10 +141,26 @@ export default function AdminAlertasPanel({ initialStats, initialConfig, initial
       </section>
 
       <section className={styles.section}>
-        <h2>Alertas ativos ({alertas.length})</h2>
+        <h2>Alertas ativos ({alertasFiltrados.length}/{alertas.length})</h2>
+        <div className={styles.configGrid}>
+          <label className={styles.configRow}>
+            <span className={styles.configChave}>Tema investigativo</span>
+            <select value={filtroTema} onChange={(e) => setFiltroTema(e.target.value)}>
+              <option value="todos">todos</option>
+              {temas.map((tema) => <option key={tema} value={tema}>{tema}</option>)}
+            </select>
+          </label>
+          <label className={styles.configRow}>
+            <span className={styles.configChave}>Status IA</span>
+            <select value={filtroIa} onChange={(e) => setFiltroIa(e.target.value)}>
+              <option value="todos">todos</option>
+              {statusIa.map((status) => <option key={status} value={status}>{status}</option>)}
+            </select>
+          </label>
+        </div>
         {alertas.length === 0 && <p className="empty-state">Nenhum alerta ativo.</p>}
         <div className={styles.lista}>
-          {alertas.map((a) => (
+          {alertasFiltrados.map((a) => (
             <div key={a.id} className={styles.alertaRow} style={{ borderLeftColor: SEV_COR[a.severidade] }}>
               <div className={styles.alertaInfo}>
                 <strong>{a.titulo}</strong>

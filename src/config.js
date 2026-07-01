@@ -75,5 +75,13 @@ module.exports = {
   alertasSchedulerEnabled: String(process.env.ALERTAS_SCHEDULER_ENABLED || 'true').toLowerCase() !== 'false',
   alertasMinRepeticao: Number(process.env.ALERTAS_MIN_REPETICAO || 2),
   alertasValorThreshold: Number(process.env.ALERTAS_VALOR_THRESHOLD || 500000),
-  alertasLimitePorCiclo: Number(process.env.ALERTAS_LIMITE_POR_CICLO || 200)
+  alertasLimitePorCiclo: Number(process.env.ALERTAS_LIMITE_POR_CICLO || 200),
+  descobertasSchedulerEnabled: String(process.env.DESCOBERTAS_SCHEDULER_ENABLED || 'true').toLowerCase() !== 'false',
+  descobertasSchedulerHour: Number(process.env.DESCOBERTAS_SCHEDULER_HOUR || 6),
+  descobertasSchedulerCheckMs: Number(process.env.DESCOBERTAS_SCHEDULER_CHECK_MS || 30 * 60 * 1000),
+  descobertasFatosLimitePorCiclo: Number(process.env.DESCOBERTAS_FATOS_LIMITE_POR_CICLO || 5000),
+  descobertasInvestigacaoSchedulerEnabled: String(process.env.DESCOBERTAS_INVESTIGACAO_SCHEDULER_ENABLED || 'true').toLowerCase() !== 'false',
+  descobertasInvestigacaoIntervalMs: Number(process.env.DESCOBERTAS_INVESTIGACAO_INTERVAL_MS || 60 * 60 * 1000),
+  descobertasInvestigacaoPorCiclo: Number(process.env.DESCOBERTAS_INVESTIGACAO_POR_CICLO || 4),
+  descobertasInvestigacaoDelayMs: Number(process.env.DESCOBERTAS_INVESTIGACAO_DELAY_MS || 15_000)
 };

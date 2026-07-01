@@ -1,0 +1,159 @@
+'use strict';
+
+const fs = require('fs');
+const path = require('path');
+const { DatabaseSync } = require('node:sqlite');
+
+function criarBancoMemoria() {
+  const conn = new DatabaseSync(':memory:');
+  const schema = fs.readFileSync(path.resolve(__dirname, 'schema.sql'), 'utf8');
+  conn.exec(schema);
+  return conn;
+}
+
+const mockConn = criarBancoMemoria();
+
+jest.mock('./connection', () => ({
+  db: mockConn,
+}));
+
+const {
+  getEvolucaoPrecoGrupo,
+  getLicitacaoProdutosByDocumentoId,
+  getLicitacaoProdutosResumo,
+  getProdutosGruposComparaveis,
+  listLicitacaoProdutos,
+} = require('./produtos-repo');
+
+function inserirDocumento(id, ano, titulo = `Documento ${id}`) {
+  mockConn
+    .prepare(
+      `INSERT INTO documentos (id, fonte, tipo, numero, ano, titulo, url_origem)
+       VALUES (?, 'site_prefeitura', 'edital', ?, ?, ?, ?)`
+    )
+    .run(id, `P-${id}/${ano}`, ano, titulo, `https://origem/${id}`);
+}
+
+function inserirProduto({
+  id,
+  documentoId,
+  ano,
+  descricao,
+  hash,
+  fornecedor = null,
+  valorUnitarioFinal = null,
+  valorTotalFinal = null,
+  quantidade = null,
+  grupoId = null,
+}) {
+  mockConn
+    .prepare(
+      `INSERT INTO licitacoes_produtos (
+         id, documento_id, ano, descricao, descricao_normalizada, hash_item,
+         origem, fornecedor_nome, valor_unitario_final, valor_total_final,
+         quantidade, grupo_id
+       ) VALUES (?, ?, ?, ?, ?, ?, 'ia_resumo', ?, ?, ?, ?, ?)`
+    )
+    .run(
+      id,
+      documentoId,
+      ano,
+      descricao,
+      descricao.toLowerCase(),
+      hash,
+      fornecedor,
+      valorUnitarioFinal,
+      valorTotalFinal,
+      quantidade,
+      grupoId
+    );
+}
+
+describe('produtos-repo', () => {
+  beforeEach(() => {
+    mockConn.exec('DELETE FROM licitacoes_produtos_validacoes');
+    mockConn.exec('DELETE FROM licitacoes_produtos');
+    mockConn.exec('DELETE FROM produtos_grupos');
+    mockConn.exec('DELETE FROM documentos');
+
+    inserirDocumento(1, 2026, 'Compra de merenda escolar');
+    inserirDocumento(2, 2025, 'Compra de merenda escolar');
+
+    mockConn
+      .prepare("INSERT INTO produtos_grupos (id, rotulo_canonico, n_itens, n_variacoes, metodo) VALUES (1, 'arroz tipo 1', 2, 1, 'teste')")
+      .run();
+
+    inserirProduto({
+      id: 1,
+      documentoId: 1,
+      ano: 2026,
+      descricao: 'Arroz tipo 1',
+      hash: 'h1',
+      fornecedor: 'Fornecedor A',
+      valorUnitarioFinal: 10,
+      quantidade: 3,
+      grupoId: 1,
+    });
+    inserirProduto({
+      id: 2,
+      documentoId: 1,
+      ano: 2026,
+      descricao: 'Feijao carioca',
+      hash: 'h2',
+      valorTotalFinal: 50,
+    });
+    inserirProduto({
+      id: 3,
+      documentoId: 2,
+      ano: 2025,
+      descricao: 'Arroz tipo 1',
+      hash: 'h3',
+      fornecedor: 'Fornecedor B',
+      valorUnitarioFinal: 8,
+      quantidade: 2,
+      grupoId: 1,
+    });
+  });
+
+  it('lista produtos com contexto do documento', () => {
+    const result = listLicitacaoProdutos({ ano: 2026, limite: 10 });
+
+    expect(result.total).toBe(2);
+    expect(result.dados[0].documento_titulo).toBe('Compra de merenda escolar');
+    expect(result.dados[0].validacao_status).toBe('pendente');
+  });
+
+  it('filtra produtos por termo em descricao, fornecedor ou documento', () => {
+    expect(listLicitacaoProdutos({ termo: 'Fornecedor B' }).total).toBe(1);
+    expect(listLicitacaoProdutos({ termo: 'Feijao' }).total).toBe(1);
+    expect(listLicitacaoProdutos({ termo: 'P-1/2026' }).total).toBe(2);
+  });
+
+  it('retorna produtos por documento com limite amplo', () => {
+    const result = getLicitacaoProdutosByDocumentoId(1);
+
+    expect(result.total).toBe(2);
+    expect(result.dados.map((item) => item.descricao)).toEqual(['Feijao carioca', 'Arroz tipo 1']);
+  });
+
+  it('resume cobertura de valores e fornecedores por documento', () => {
+    const resumo = getLicitacaoProdutosResumo(1);
+
+    expect(resumo.total).toBe(2);
+    expect(resumo.com_preco_final).toBe(2);
+    expect(resumo.com_fornecedor).toBe(1);
+    expect(resumo.valor_final_total_identificado).toBe(80);
+  });
+
+  it('lista grupos comparaveis e evolucao de preco', () => {
+    const grupos = getProdutosGruposComparaveis({ limite: 5 });
+    const evolucao = getEvolucaoPrecoGrupo(1);
+
+    expect(grupos).toHaveLength(1);
+    expect(grupos[0].n_anos).toBe(2);
+    expect(evolucao.serie).toEqual([
+      { ano: 2025, preco_medio: 8, preco_min: 8, preco_max: 8, n_itens: 1 },
+      { ano: 2026, preco_medio: 10, preco_min: 10, preco_max: 10, n_itens: 1 },
+    ]);
+  });
+});

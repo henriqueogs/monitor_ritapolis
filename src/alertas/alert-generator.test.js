@@ -24,6 +24,9 @@ jest.mock('../db/alertas-repo', () => ({
   upsertAlerta: jest.fn(),
   removerAtivosNaoListados: jest.fn(() => 0),
 }));
+jest.mock('../db/inteligencia-fatos-repo', () => ({
+  listarFatosParaAlertas: jest.fn(() => []),
+}));
 
 const { db } = require('../db/connection');
 const aiJobsRepo = require('../db/ai-jobs-repo');

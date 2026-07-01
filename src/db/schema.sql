@@ -49,6 +49,47 @@ CREATE TABLE IF NOT EXISTS documentos_anexos (
   UNIQUE (documento_id, url)
 );
 
+CREATE TABLE IF NOT EXISTS documentos_anexos_resumos_ai (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  anexo_id INTEGER NOT NULL REFERENCES documentos_anexos(id) ON DELETE CASCADE,
+  provider TEXT NOT NULL,
+  modelo TEXT NOT NULL,
+  contrato_versao TEXT NOT NULL,
+  resumo_json TEXT NOT NULL,
+  texto_hash TEXT NOT NULL,
+  tokens_estimados INTEGER,
+  confianca REAL,
+  status TEXT DEFAULT 'ok',
+  erro TEXT,
+  criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (anexo_id, texto_hash, contrato_versao)
+);
+
+CREATE TABLE IF NOT EXISTS inteligencia_fatos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  documento_id INTEGER NOT NULL REFERENCES documentos(id) ON DELETE CASCADE,
+  anexo_id INTEGER REFERENCES documentos_anexos(id) ON DELETE SET NULL,
+  tipo TEXT NOT NULL,
+  subtipo TEXT,
+  descricao TEXT NOT NULL,
+  quantidade REAL,
+  unidade TEXT,
+  valor REAL,
+  data_evento TEXT,
+  periodo_inicio TEXT,
+  periodo_fim TEXT,
+  local TEXT,
+  ator TEXT,
+  trecho_fonte TEXT,
+  confianca REAL,
+  origem TEXT NOT NULL,
+  origem_hash TEXT NOT NULL UNIQUE,
+  metadados_json TEXT,
+  criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS licitacoes_detalhes (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   documento_id INTEGER NOT NULL REFERENCES documentos(id) ON DELETE CASCADE,
@@ -302,6 +343,12 @@ CREATE INDEX IF NOT EXISTS idx_documentos_numero_ano ON documentos(numero, ano);
 CREATE INDEX IF NOT EXISTS idx_documentos_anexos_documento_id ON documentos_anexos(documento_id);
 CREATE INDEX IF NOT EXISTS idx_documentos_anexos_tipo ON documentos_anexos(tipo);
 CREATE INDEX IF NOT EXISTS idx_documentos_anexos_status ON documentos_anexos(status_extracao);
+CREATE INDEX IF NOT EXISTS idx_anexos_resumos_anexo ON documentos_anexos_resumos_ai(anexo_id);
+CREATE INDEX IF NOT EXISTS idx_anexos_resumos_status ON documentos_anexos_resumos_ai(status);
+CREATE INDEX IF NOT EXISTS idx_inteligencia_fatos_doc ON inteligencia_fatos(documento_id);
+CREATE INDEX IF NOT EXISTS idx_inteligencia_fatos_anexo ON inteligencia_fatos(anexo_id);
+CREATE INDEX IF NOT EXISTS idx_inteligencia_fatos_tipo ON inteligencia_fatos(tipo, subtipo);
+CREATE INDEX IF NOT EXISTS idx_inteligencia_fatos_periodo ON inteligencia_fatos(periodo_inicio, periodo_fim, data_evento);
 CREATE INDEX IF NOT EXISTS idx_licitacoes_detalhes_origem ON licitacoes_detalhes(origem);
 CREATE INDEX IF NOT EXISTS idx_licitacoes_produtos_documento_id ON licitacoes_produtos(documento_id);
 CREATE INDEX IF NOT EXISTS idx_licitacoes_produtos_ano ON licitacoes_produtos(ano);
@@ -436,6 +483,24 @@ CREATE TABLE IF NOT EXISTS alertas_documentos (
 );
 
 CREATE INDEX IF NOT EXISTS idx_alertas_documentos_doc ON alertas_documentos(documento_id);
+
+CREATE TABLE IF NOT EXISTS alertas_evidencias (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  alerta_id INTEGER NOT NULL REFERENCES alertas(id) ON DELETE CASCADE,
+  documento_id INTEGER REFERENCES documentos(id) ON DELETE CASCADE,
+  anexo_id INTEGER REFERENCES documentos_anexos(id) ON DELETE SET NULL,
+  fato_id INTEGER REFERENCES inteligencia_fatos(id) ON DELETE SET NULL,
+  papel TEXT NOT NULL DEFAULT 'evidencia',
+  trecho_fonte TEXT,
+  metadados_json TEXT,
+  evidencia_hash TEXT NOT NULL,
+  criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (alerta_id, evidencia_hash)
+);
+
+CREATE INDEX IF NOT EXISTS idx_alertas_evidencias_alerta ON alertas_evidencias(alerta_id);
+CREATE INDEX IF NOT EXISTS idx_alertas_evidencias_fato ON alertas_evidencias(fato_id);
+CREATE INDEX IF NOT EXISTS idx_alertas_evidencias_anexo ON alertas_evidencias(anexo_id);
 
 CREATE TABLE IF NOT EXISTS alertas_watermark (
   chave TEXT PRIMARY KEY,

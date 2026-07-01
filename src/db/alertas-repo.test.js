@@ -26,7 +26,7 @@ function seedDocumento(id, dataPub) {
 
 describe('alertas-repo', () => {
   beforeEach(() => {
-    mockConn.exec('DELETE FROM alertas_documentos; DELETE FROM alertas; DELETE FROM alertas_watermark; DELETE FROM alertas_config; DELETE FROM documentos;');
+    mockConn.exec('DELETE FROM alertas_evidencias; DELETE FROM alertas_documentos; DELETE FROM alertas; DELETE FROM alertas_watermark; DELETE FROM alertas_config; DELETE FROM inteligencia_fatos; DELETE FROM documentos_anexos; DELETE FROM documentos;');
   });
 
   describe('upsertAlerta', () => {

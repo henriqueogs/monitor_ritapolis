@@ -33,7 +33,11 @@ const {
   listDocumentosParaResumoAi,
   listResumoAnalises,
   listResumoAiJobs,
-  recoverStaleResumoAiJobs
+  recoverStaleResumoAiJobs,
+  listarAnexosDocumento,
+  getAnexoById,
+  listarFatosDocumento,
+  listarFatosAnexo
 } = require('../db');
 const {
   getDespesasPorDocumento,
@@ -59,7 +63,8 @@ const { getAiOperationPlan } = require('../ai/operation-policy');
 const { extractEntitiesFromResumes } = require('../ai/extract-entities');
 const { gerarNarrativaAnomalias } = require('../ai/anomaly-narrative');
 const alertasRepo = require('../db/alertas-repo');
-const { generateAlerts } = require('../alertas/alert-generator');
+const { generateAlerts, getAlertasStatus } = require('../alertas/alert-generator');
+const { extrairFatosInteligencia } = require('../inteligencia/fatos-runner');
 const { getCollectionUpdateStatus, startCollectionUpdate } = require('../coletas/update-runner');
 const { listCredores, getCredorProfile } = require('../db/credores-repo');
 const { searchDocumentos, ensureFtsIndex, rebuildFtsIndex } = require('../db/fts-repo');
@@ -82,6 +87,7 @@ const dailyScheduler = require('../coletas/daily-scheduler');
 const { checkPrefeituraSyncOnPortalOpen } = require('../coletas/prefeitura-sync');
 const collectionScheduler = require('../coletas/collection-scheduler');
 const aiScheduler = require('../ai/ai-daily-scheduler');
+const descobertasScheduler = require('../inteligencia/descobertas-scheduler');
 const {
   compararCoberturaPrefeitura,
   getCoberturaPrefeituraSourceLinks,
@@ -93,6 +99,98 @@ function buildAiOperationPlan(documento) {
     texto: documento?.texto_completo || '',
     caracteres: documento?.texto_completo_chars || 0
   });
+}
+
+function stripKeys(value, keys) {
+  if (!value || typeof value !== 'object') return value;
+  const clone = Array.isArray(value) ? value.map((item) => stripKeys(item, keys)) : { ...value };
+  if (!Array.isArray(clone)) {
+    for (const key of keys) {
+      delete clone[key];
+    }
+    for (const [key, child] of Object.entries(clone)) {
+      clone[key] = stripKeys(child, keys);
+    }
+  }
+  return clone;
+}
+
+function resumoAiPublico(resumoAi) {
+  if (!resumoAi) return null;
+  return {
+    criado_em: resumoAi.criado_em,
+    atualizado_em: resumoAi.atualizado_em,
+    dados: stripKeys(resumoAi.dados, ['trecho_fonte', 'origem_detalhe', 'payload_json', 'contrato_versao'])
+  };
+}
+
+function leituraIntegradaPublica(leitura) {
+  if (!leitura) return null;
+  return {
+    criado_em: leitura.criado_em,
+    atualizado_em: leitura.atualizado_em,
+    dados: stripKeys(leitura.dados, ['fontes', 'fontes_usadas', 'fonte', 'trecho_fonte', 'origem_detalhe', 'payload_json', 'contrato_versao'])
+  };
+}
+
+function documentoPublico(documento) {
+  const publico = { ...documento };
+  delete publico.texto_completo;
+  delete publico.texto_hash_atual;
+  delete publico.texto_completo_chars;
+  delete publico.hash_conteudo;
+  delete publico.resumo_ai_job;
+  delete publico.resumo_ai_operacao;
+  delete publico.fatos;
+
+  return {
+    ...stripKeys(publico, [
+      'texto_completo',
+      'texto_hash',
+      'texto_completo_chars',
+      'texto_origem',
+      'hash_conteudo',
+      'hash_item',
+      'origem_detalhe',
+      'trecho_fonte',
+      'payload_json',
+      'provider',
+      'modelo',
+      'contrato_versao',
+      'resumo_provider',
+      'resumo_modelo',
+      'resumo_contrato_versao',
+      'resumo_texto_hash'
+    ]),
+    licitacao_detalhes: publico.licitacao_detalhes
+      ? stripKeys(publico.licitacao_detalhes, ['origem_detalhe', 'trecho_fonte', 'confianca'])
+      : publico.licitacao_detalhes,
+    resumo_ai: resumoAiPublico(publico.resumo_ai),
+    leitura_integrada_ai: leituraIntegradaPublica(publico.leitura_integrada_ai)
+  };
+}
+
+function anexoPublico(anexo) {
+  const publico = { ...anexo };
+  delete publico.texto_completo;
+  delete publico.texto_completo_chars;
+  delete publico.texto_hash;
+  delete publico.hash_conteudo;
+  return stripKeys(publico, [
+    'texto_completo',
+    'texto_hash',
+    'texto_completo_chars',
+    'hash_conteudo',
+    'trecho_fonte',
+    'payload_json',
+    'provider',
+    'modelo',
+    'contrato_versao',
+    'resumo_provider',
+    'resumo_modelo',
+    'resumo_contrato_versao',
+    'resumo_texto_hash'
+  ]);
 }
 
 function createServer() {
@@ -117,7 +215,9 @@ function createServer() {
   app.get('/api/scheduler/status', (_req, res) => {
     res.json({
       coletas: collectionScheduler.getStatus(),
-      ia: aiScheduler.getStatus()
+      ia: aiScheduler.getStatus(),
+      alertas: getAlertasStatus(),
+      descobertas: descobertasScheduler.getStatus()
     });
   });
 
@@ -490,9 +590,12 @@ function createServer() {
 
   // POST /api/alertas/gerar — dispara geração manual (admin)
   app.post('/api/alertas/gerar', async (req, res) => {
-    const { since, dryRun, limite, full } = req.body || {};
+    const { since, dryRun, limite, full, extrairFatos } = req.body || {};
     const ehFull = Boolean(full);
     try {
+      const fatos = ehFull && extrairFatos !== false
+        ? extrairFatosInteligencia({ limite: limite ? Number(limite) : 5000, apply: !dryRun })
+        : null;
       const resultado = await generateAlerts({
         since: since || undefined,
         dryRun: Boolean(dryRun),
@@ -500,7 +603,7 @@ function createServer() {
         // Rebuild completo precisa varrer todo o acervo, não só uma página.
         limite: limite ? Number(limite) : ehFull ? 5000 : 200,
       });
-      return res.json(resultado);
+      return res.json({ ...resultado, fatos });
     } catch (err) {
       return res.status(500).json({ error: err.message });
     }
@@ -624,6 +727,50 @@ function createServer() {
 
   // ─────────────────────────────────────────────────────────────────────────
 
+  app.get('/api/documentos/:id/anexos', (req, res) => {
+    const documentoId = Number(req.params.id);
+    if (!Number.isInteger(documentoId)) {
+      return res.status(400).json({ error: 'id inválido' });
+    }
+    const documento = getDocumentoById(documentoId);
+    if (!documento) {
+      return res.status(404).json({ error: 'Documento nao encontrado' });
+    }
+    return res.json({
+      documento_pai: {
+        id: documento.id,
+        titulo: documento.titulo,
+        tipo: documento.tipo,
+        ano: documento.ano,
+        data_publicacao: documento.data_publicacao,
+        url_origem: documento.url_origem,
+      },
+      anexos: listarAnexosDocumento(documentoId),
+      fatos: listarFatosDocumento(documentoId),
+    });
+  });
+
+  app.get('/api/anexos/:id', (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'id inválido' });
+    }
+    const anexo = getAnexoById(id);
+    if (!anexo) {
+      return res.status(404).json({ error: 'Anexo nao encontrado' });
+    }
+    const isAdminPayload = String(req.query.admin || '').toLowerCase() === '1';
+    if (isAdminPayload) {
+      return res.json({
+        ...anexo,
+        fatos: listarFatosAnexo(id),
+        aviso_analise: 'Resumo e fatos do anexo são análise automática a partir do texto extraído.',
+      });
+    }
+
+    return res.json(anexoPublico(anexo));
+  });
+
   app.get('/api/documentos/:id', (req, res) => {
     recoverStaleResumoAiJobs({ staleMinutes: 5 });
     const documento = getDocumentoById(Number(req.params.id));
@@ -631,10 +778,15 @@ function createServer() {
       return res.status(404).json({ error: 'Documento nao encontrado' });
     }
 
-    return res.json({
-      ...documento,
-      resumo_ai_operacao: buildAiOperationPlan(documento)
-    });
+    const isAdminPayload = String(req.query.admin || '').toLowerCase() === '1';
+    if (isAdminPayload) {
+      return res.json({
+        ...documento,
+        resumo_ai_operacao: buildAiOperationPlan(documento)
+      });
+    }
+
+    return res.json(documentoPublico(documento));
   });
 
   app.post('/api/documentos/:id/resumir', async (req, res) => {
@@ -881,6 +1033,8 @@ function createServer() {
         coleta: collectionScheduler.getStatus(),
         ia: aiScheduler.getStatus(),
         diario: dailyScheduler.getStatus(),
+        alertas: getAlertasStatus(),
+        descobertas: descobertasScheduler.getStatus(),
       },
       timestamp: new Date().toISOString(),
     });
@@ -912,6 +1066,13 @@ function createServer() {
         logger.warn('admin trigger ai-cycle: erro', { erro: e.message })
       );
       return res.json({ ok: true, acao, msg: 'Ciclo IA iniciado em background' });
+    }
+
+    if (acao === 'descobertas-ia-cycle') {
+      descobertasScheduler.runInvestigationCycle({ force: true }).catch((e) =>
+        logger.warn('admin trigger descobertas-ia-cycle: erro', { erro: e.message })
+      );
+      return res.json({ ok: true, acao, msg: 'Ciclo incremental de descobertas IA iniciado em background' });
     }
 
     if (acao === 'extract-entities') {

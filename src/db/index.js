@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const config = require('../config');
 const { deepRepairStrings, normalizeText } = require('../utils/text');
 const { devePreservarTextoOcr } = require('../utils/documento-merge');
@@ -15,6 +16,8 @@ const { db } = require('./connection');
 const coletasRepo = require('./coletas-repo');
 const aiJobsRepo = require('./ai-jobs-repo');
 const documentosRepo = require('./documentos-repo');
+const produtosRepo = require('./produtos-repo');
+const inteligenciaFatosRepo = require('./inteligencia-fatos-repo');
 
 // Desestrutura helpers do documentos-repo para uso nas funções restantes
 const {
@@ -40,6 +43,14 @@ const {
   listDocumentos,
   listAnosDocumentos,
 } = documentosRepo;
+
+const {
+  getEvolucaoPrecoGrupo,
+  getLicitacaoProdutosByDocumentoId,
+  getLicitacaoProdutosResumo,
+  getProdutosGruposComparaveis,
+  listLicitacaoProdutos,
+} = produtosRepo;
 
 function ensureColumn(table, column, definition) {
   const columns = db.prepare(`PRAGMA table_info(${table})`).all();
@@ -112,6 +123,73 @@ function ensureRuntimeSchema() {
   db.exec('CREATE INDEX IF NOT EXISTS idx_documentos_anexos_documento_id ON documentos_anexos(documento_id);');
   db.exec('CREATE INDEX IF NOT EXISTS idx_documentos_anexos_tipo ON documentos_anexos(tipo);');
   db.exec('CREATE INDEX IF NOT EXISTS idx_documentos_anexos_status ON documentos_anexos(status_extracao);');
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS documentos_anexos_resumos_ai (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      anexo_id INTEGER NOT NULL REFERENCES documentos_anexos(id) ON DELETE CASCADE,
+      provider TEXT NOT NULL,
+      modelo TEXT NOT NULL,
+      contrato_versao TEXT NOT NULL,
+      resumo_json TEXT NOT NULL,
+      texto_hash TEXT NOT NULL,
+      tokens_estimados INTEGER,
+      confianca REAL,
+      status TEXT DEFAULT 'ok',
+      erro TEXT,
+      criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+      atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (anexo_id, texto_hash, contrato_versao)
+    );
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS inteligencia_fatos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      documento_id INTEGER NOT NULL REFERENCES documentos(id) ON DELETE CASCADE,
+      anexo_id INTEGER REFERENCES documentos_anexos(id) ON DELETE SET NULL,
+      tipo TEXT NOT NULL,
+      subtipo TEXT,
+      descricao TEXT NOT NULL,
+      quantidade REAL,
+      unidade TEXT,
+      valor REAL,
+      data_evento TEXT,
+      periodo_inicio TEXT,
+      periodo_fim TEXT,
+      local TEXT,
+      ator TEXT,
+      trecho_fonte TEXT,
+      confianca REAL,
+      origem TEXT NOT NULL,
+      origem_hash TEXT NOT NULL UNIQUE,
+      metadados_json TEXT,
+      criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+      atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS alertas_evidencias (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      alerta_id INTEGER NOT NULL REFERENCES alertas(id) ON DELETE CASCADE,
+      documento_id INTEGER REFERENCES documentos(id) ON DELETE CASCADE,
+      anexo_id INTEGER REFERENCES documentos_anexos(id) ON DELETE SET NULL,
+      fato_id INTEGER REFERENCES inteligencia_fatos(id) ON DELETE SET NULL,
+      papel TEXT NOT NULL DEFAULT 'evidencia',
+      trecho_fonte TEXT,
+      metadados_json TEXT,
+      evidencia_hash TEXT NOT NULL,
+      criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (alerta_id, evidencia_hash)
+    );
+  `);
+  db.exec('CREATE INDEX IF NOT EXISTS idx_anexos_resumos_anexo ON documentos_anexos_resumos_ai(anexo_id);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_anexos_resumos_status ON documentos_anexos_resumos_ai(status);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_inteligencia_fatos_doc ON inteligencia_fatos(documento_id);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_inteligencia_fatos_anexo ON inteligencia_fatos(anexo_id);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_inteligencia_fatos_tipo ON inteligencia_fatos(tipo, subtipo);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_inteligencia_fatos_periodo ON inteligencia_fatos(periodo_inicio, periodo_fim, data_evento);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_alertas_evidencias_alerta ON alertas_evidencias(alerta_id);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_alertas_evidencias_fato ON alertas_evidencias(fato_id);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_alertas_evidencias_anexo ON alertas_evidencias(anexo_id);');
   db.exec('CREATE INDEX IF NOT EXISTS idx_licitacoes_detalhes_origem ON licitacoes_detalhes(origem);');
   db.exec('CREATE INDEX IF NOT EXISTS idx_licitacoes_fontes_relacionadas_documento_id ON licitacoes_fontes_relacionadas(documento_id);');
   db.exec('CREATE INDEX IF NOT EXISTS idx_licitacoes_fontes_relacionadas_fonte ON licitacoes_fontes_relacionadas(fonte);');
@@ -407,8 +485,8 @@ function normalizeProdutoLicitadoFromTabela(item, contexto) {
     descricao_normalizada: normalizeProdutoDescricao(descricao),
     unidade: cleanField(item?.unidade),
     quantidade: parsePositiveNumericField(item?.quantidade),
-    valor_unitario_estimado: null,
-    valor_total_estimado: null,
+    valor_unitario_estimado: parsePositiveNumericField(item?.valor_unitario_estimado),
+    valor_total_estimado: parsePositiveNumericField(item?.valor_total_estimado),
     valor_unitario_final: null,
     valor_total_final: null,
     valor_final_tipo: null,
@@ -416,7 +494,7 @@ function normalizeProdutoLicitadoFromTabela(item, contexto) {
     valor_global_final: null,
     fornecedor_nome: null,
     fornecedor_cnpj: null,
-    origem: 'texto_tabela',
+    origem: cleanField(item?.origem) || 'texto_tabela',
     origem_detalhe: cleanField(item?.origem_detalhe) || 'texto_completo:tabela_itens',
     trecho_fonte: trechoFonte,
     resumo_ai_id: null,
@@ -428,19 +506,85 @@ function normalizeProdutoLicitadoFromTabela(item, contexto) {
   return produto;
 }
 
-function normalizeProdutoRow(row) {
-  if (!row) {return null;}
+function isPlanilhaProdutosCandidata(anexo) {
+  const nome = normalizeProdutoDescricao(anexo?.nome || '');
+  if (!nome) {return false;}
 
-  return {
-    ...Object.fromEntries(
-      Object.entries(row).map(([key, value]) => [
-        key,
-        typeof value === 'string' ? normalizeText(value) : value
-      ])
-    ),
-    validacao_status: row.validacao_status || (row.validacoes_total ? 'revisar' : 'pendente'),
-    validacoes_total: Number(row.validacoes_total || 0)
+  if (/\bsinapi\b|\breferencia\b|\bbdi\b|\bcronograma\b/.test(nome)) {
+    return false;
+  }
+
+  return /\.(xls|xlsx|ods)\b/i.test(anexo?.nome || '') || anexo?.parser === 'xlsx';
+}
+
+function extractObjetoResumoDescricao(resumo) {
+  const objeto = resumo?.objeto;
+  if (typeof objeto === 'string') {
+    return compactField(objeto, 900);
+  }
+  if (objeto && typeof objeto === 'object') {
+    return compactField(objeto.descricao || objeto.objeto || objeto.texto, 900);
+  }
+  return null;
+}
+
+function extractObjetoFromTitulo(titulo) {
+  const text = cleanField(titulo);
+  if (!text) {return null;}
+  const parts = text
+    .split(/\s+-\s+/)
+    .map((part) => cleanField(part))
+    .filter(Boolean);
+  return compactField(parts.length > 1 ? parts[parts.length - 1] : text, 900);
+}
+
+function shouldSkipProdutoSintetico(documento) {
+  const text = normalizeProdutoDescricao(`${documento.titulo || ''} ${documento.numero || ''}`);
+  return /\bleilao\b|\bconcessao de espaco\b|\bespaco publico\b|\bautorizacao de uso\b/.test(text);
+}
+
+function normalizeProdutoSinteticoFromObjeto({ documento, modelo, resumo, resumoAiId }) {
+  if (shouldSkipProdutoSintetico(documento)) {return null;}
+
+  const descricao = compactField(extractObjetoResumoDescricao(resumo) || extractObjetoFromTitulo(documento.titulo), 900);
+  const valorGlobalFinal = parsePositiveNumericField(documento.licitacao_detalhes?.valor_final);
+  const trechoFonte =
+    compactField(resumo?.objeto?.trecho_fonte, 900) ||
+    compactField(documento.licitacao_detalhes?.trecho_fonte, 900) ||
+    compactField(documento.titulo, 900);
+
+  if (!descricao || !trechoFonte || !valorGlobalFinal) {return null;}
+
+  const produto = {
+    documento_id: documento.id,
+    ano: documento.ano || null,
+    processo: modelo.processo || documento.numero || null,
+    modalidade: modelo.modalidade_nome || modelo.modalidade || null,
+    item_numero: '1',
+    lote_numero: null,
+    descricao,
+    descricao_normalizada: normalizeProdutoDescricao(descricao),
+    unidade: null,
+    quantidade: null,
+    valor_unitario_estimado: null,
+    valor_total_estimado: null,
+    valor_unitario_final: null,
+    valor_total_final: null,
+    valor_final_tipo: 'global',
+    valor_lote_final: null,
+    valor_global_final: valorGlobalFinal,
+    fornecedor_nome: cleanField(documento.licitacao_detalhes?.vencedor_nome),
+    fornecedor_cnpj: cleanField(documento.licitacao_detalhes?.vencedor_cnpj),
+    origem: 'objeto_global',
+    origem_detalhe: resumoAiId ? `documentos_resumos_ai:${resumoAiId}:objeto_global` : 'titulo:objeto_global',
+    trecho_fonte: trechoFonte,
+    resumo_ai_id: resumoAiId || null,
+    confianca: Math.min(Number(resumo?.confianca || 0.62), 0.72),
+    status_revisao: 'pendente'
   };
+
+  produto.hash_item = buildProdutoHash(produto);
+  return produto;
 }
 
 function upsertLicitacaoProdutoValidacao({
@@ -1475,13 +1619,17 @@ function estruturarProdutosDeResumoAi(documentoId, resumoAi) {
   return resultado;
 }
 
-function estruturarProdutosLicitacoes({ ano = new Date().getFullYear(), limite } = {}) {
+function estruturarProdutosLicitacoes({ ano = new Date().getFullYear(), limite, semProdutos = false, sintetico = false } = {}) {
   const filters = ["d.tipo = 'edital'"];
   const params = {};
 
   if (ano) {
     filters.push('d.ano = @ano');
     params.ano = Number(ano);
+  }
+
+  if (semProdutos) {
+    filters.push('NOT EXISTS (SELECT 1 FROM licitacoes_produtos p WHERE p.documento_id = d.id)');
   }
 
   const limitClause = limite ? 'LIMIT @limite' : '';
@@ -1528,12 +1676,15 @@ function estruturarProdutosLicitacoes({ ano = new Date().getFullYear(), limite }
 
   const resultado = {
     ano: ano ? Number(ano) : null,
+    sem_produtos: Boolean(semProdutos),
+    sintetico: Boolean(sintetico),
     documentos_processados: rows.length,
     documentos_com_resumo: 0,
     documentos_com_itens_extraidos: 0,
     produtos_extraidos: 0,
     produtos_salvos: 0,
-    documentos_sem_itens: 0
+    documentos_sem_itens: 0,
+    produtos_sinteticos: 0
   };
 
   rows.forEach((row) => {
@@ -1561,7 +1712,20 @@ function estruturarProdutosLicitacoes({ ano = new Date().getFullYear(), limite }
             })
           )
           .filter(Boolean);
-    const produtos = dedupeProdutosLicitados(produtosTabela.length ? produtosTabela : produtosIa);
+    let produtos = dedupeProdutosLicitados(produtosTabela.length ? produtosTabela : produtosIa);
+
+    if (!produtos.length && sintetico) {
+      const produtoSintetico = normalizeProdutoSinteticoFromObjeto({
+        documento,
+        modelo,
+        resumo,
+        resumoAiId: row.resumo_ai_id
+      });
+      if (produtoSintetico) {
+        produtos = [produtoSintetico];
+        resultado.produtos_sinteticos += 1;
+      }
+    }
 
     if (!produtos.length) {
       resultado.documentos_sem_itens += 1;
@@ -1686,6 +1850,7 @@ function listDocumentoAnexosParaExtracao({
     // PDFs escaneados aguardam pipeline de OCR (flag 'requer_ocr') — re-extrair
     // sem OCR sempre devolve "texto vazio"; só reprocessar com --force
     filters.push("IFNULL(da.status_extracao, '') <> 'requer_ocr'");
+    filters.push("IFNULL(da.status_extracao, '') <> 'tecnico_visual'");
   }
 
   const limitClause = limite ? 'LIMIT @limite' : '';
@@ -1735,7 +1900,7 @@ function listDocumentoAnexosTextoResultados({ ano = new Date().getFullYear(), do
   syncDocumentoAnexosLicitacao({ ano, documentoId });
 
   const filters = [
-    `da.tipo IN ('${RESULTADO_ANEXO_TIPOS.join("','")}')`,
+    `(da.tipo IN ('${RESULTADO_ANEXO_TIPOS.join("','")}') OR da.parser = 'xlsx')`,
     "da.status_extracao = 'ok'",
     "IFNULL(da.texto_completo, '') <> ''"
   ];
@@ -1878,6 +2043,41 @@ function buildProdutoEnriquecidoPorResultado({ documento, modelo, atual, resulta
   return produto;
 }
 
+function atualizarProdutoExistenteComResultado(produtoId, produto) {
+  const now = new Date().toISOString();
+  const nullable = (value) => value ?? null;
+  return db.prepare(
+    `UPDATE licitacoes_produtos
+        SET valor_unitario_final = COALESCE(@valor_unitario_final, valor_unitario_final),
+            valor_total_final = COALESCE(@valor_total_final, valor_total_final),
+            valor_final_tipo = COALESCE(@valor_final_tipo, valor_final_tipo),
+            valor_lote_final = COALESCE(@valor_lote_final, valor_lote_final),
+            valor_global_final = COALESCE(@valor_global_final, valor_global_final),
+            fornecedor_nome = COALESCE(@fornecedor_nome, fornecedor_nome),
+            fornecedor_cnpj = COALESCE(@fornecedor_cnpj, fornecedor_cnpj),
+            origem = @origem,
+            origem_detalhe = @origem_detalhe,
+            trecho_fonte = @trecho_fonte,
+            confianca = MAX(IFNULL(confianca, 0), IFNULL(@confianca, 0)),
+            atualizado_em = @atualizado_em
+      WHERE id = @id`
+  ).run({
+    id: produtoId,
+    valor_unitario_final: nullable(parsePositiveNumericField(produto.valor_unitario_final)),
+    valor_total_final: nullable(parsePositiveNumericField(produto.valor_total_final)),
+    valor_final_tipo: nullable(normalizeValorFinalTipo(produto.valor_final_tipo)),
+    valor_lote_final: nullable(parsePositiveNumericField(produto.valor_lote_final)),
+    valor_global_final: nullable(parsePositiveNumericField(produto.valor_global_final)),
+    fornecedor_nome: nullable(cleanField(produto.fornecedor_nome)),
+    fornecedor_cnpj: nullable(cleanField(produto.fornecedor_cnpj)),
+    origem: produto.origem || 'ata_resultado',
+    origem_detalhe: nullable(compactField(produto.origem_detalhe, 600)),
+    trecho_fonte: nullable(compactField(produto.trecho_fonte, 1400)),
+    confianca: produto.confianca ?? null,
+    atualizado_em: now
+  }).changes || 0;
+}
+
 function enriquecerProdutosComResultadosAnexo({ documentoId, anexoId, texto }) {
   const row = getLicitacaoRowParaProdutos(documentoId);
   if (!row || row.tipo !== 'edital') {
@@ -1892,7 +2092,12 @@ function enriquecerProdutosComResultadosAnexo({ documentoId, anexoId, texto }) {
   }
 
   const anexo = db.prepare('SELECT * FROM documentos_anexos WHERE id = ?').get(anexoId);
-  const resultados = parseResultadosItensLicitacao(texto || '');
+  const isPlanilha = anexo?.parser === 'xlsx';
+  const resultados = isPlanilha ? [] : parseResultadosItensLicitacao(texto || '');
+  const produtosPlanilha =
+    resultados.length || !isPlanilhaProdutosCandidata(anexo)
+      ? []
+      : parseProdutosLicitados(texto || '').slice(0, 1000);
   const documento = normalizeLicitacao(row);
   const modelo = documento.licitacao_modelo || {};
   const atuais = db
@@ -1908,16 +2113,33 @@ function enriquecerProdutosComResultadosAnexo({ documentoId, anexoId, texto }) {
     documento_id: documento.id,
     anexo_id: Number(anexoId),
     itens_resultado_extraidos: resultados.length,
+    itens_planilha_extraidos: produtosPlanilha.length,
     produtos_atualizados: 0,
     produtos_criados: 0,
     produtos_ignorados: 0
   };
 
+  produtosPlanilha.forEach((item) => {
+    const produto = normalizeProdutoLicitadoFromTabela(item, { documento, modelo });
+    if (!produto) {
+      resumo.produtos_ignorados += 1;
+      return;
+    }
+
+    produto.origem_detalhe = mergeTextParts(
+      [produto.origem_detalhe, `documentos_anexos:${anexoId}:${anexo?.tipo || 'outro'}:${anexo?.nome || 'planilha'}`],
+      600
+    );
+    produto.trecho_fonte = compactField(produto.trecho_fonte, 1400);
+
+    resumo.produtos_criados += upsertLicitacaoProduto(produto) ? 1 : 0;
+  });
+
   resultados.forEach((resultado) => {
     const key = String(Number(resultado.item_numero));
     const atual = atuaisPorItem.get(key) || null;
 
-    if (atual?.status_revisao === 'validado') {
+    if (atual?.status_revisao === 'validado' && hasFinalValue(atual)) {
       resumo.produtos_ignorados += 1;
       return;
     }
@@ -1935,190 +2157,17 @@ function enriquecerProdutosComResultadosAnexo({ documentoId, anexoId, texto }) {
       return;
     }
 
-    upsertLicitacaoProduto(produto);
     if (atual) {
+      atualizarProdutoExistenteComResultado(atual.id, produto);
       resumo.produtos_atualizados += 1;
     } else {
+      upsertLicitacaoProduto(produto);
       resumo.produtos_criados += 1;
       atuaisPorItem.set(key, produto);
     }
   });
 
   return resumo;
-}
-
-function buildProdutosWhere({ ano, documentoId, termo, origem, validacao }, params) {
-  const filters = [];
-
-  if (ano) {
-    filters.push('lp.ano = @ano');
-    params.ano = Number(ano);
-  }
-
-  if (documentoId) {
-    filters.push('lp.documento_id = @documentoId');
-    params.documentoId = Number(documentoId);
-  }
-
-  if (termo) {
-    filters.push(
-      `(lp.descricao LIKE @termo
-        OR IFNULL(lp.descricao_normalizada, '') LIKE @termo
-        OR IFNULL(lp.fornecedor_nome, '') LIKE @termo
-        OR IFNULL(d.numero, '') LIKE @termo
-        OR IFNULL(d.titulo, '') LIKE @termo)`
-    );
-    params.termo = likeParam(termo);
-  }
-
-  if (origem) {
-    filters.push('lp.origem = @origem');
-    params.origem = origem;
-  }
-
-  if (validacao) {
-    if (validacao === 'sem_validacao') {
-      filters.push(
-        `NOT EXISTS (
-          SELECT 1 FROM licitacoes_produtos_validacoes v
-          WHERE v.produto_id = lp.id
-        )`
-      );
-    } else {
-      filters.push(
-        `EXISTS (
-          SELECT 1 FROM licitacoes_produtos_validacoes v
-          WHERE v.produto_id = lp.id
-            AND v.status = @validacao
-        )`
-      );
-      params.validacao = validacao;
-    }
-  }
-
-  return filters.length ? `WHERE ${filters.join(' AND ')}` : '';
-}
-
-function listLicitacaoProdutos({
-  ano,
-  documentoId,
-  termo,
-  origem,
-  validacao,
-  pagina = 1,
-  limite = 20
-} = {}) {
-  const params = {};
-  const whereClause = buildProdutosWhere({ ano, documentoId, termo, origem, validacao }, params);
-  const safePagina = Math.max(Number(pagina || 1), 1);
-  const safeLimite = Math.min(Math.max(Number(limite || 20), 1), 500);
-  const offset = (safePagina - 1) * safeLimite;
-
-  const total = db
-    .prepare(
-      `SELECT COUNT(*) AS total
-       FROM licitacoes_produtos lp
-       JOIN documentos d ON d.id = lp.documento_id
-       ${whereClause}`
-    )
-    .get(params).total;
-
-  const dados = db
-    .prepare(
-      `SELECT lp.*,
-              d.numero AS documento_numero,
-              d.titulo AS documento_titulo,
-              d.fonte AS documento_fonte,
-              d.url_origem AS documento_url_origem,
-              d.url_pdf AS documento_url_pdf,
-              (
-                SELECT v.status
-                FROM licitacoes_produtos_validacoes v
-                WHERE v.produto_id = lp.id
-                ORDER BY datetime(v.validado_em) DESC, v.id DESC
-                LIMIT 1
-              ) AS validacao_status,
-              (
-                SELECT COUNT(*)
-                FROM licitacoes_produtos_validacoes v
-                WHERE v.produto_id = lp.id
-              ) AS validacoes_total
-       FROM licitacoes_produtos lp
-       JOIN documentos d ON d.id = lp.documento_id
-       ${whereClause}
-       ORDER BY COALESCE(lp.ano, 0) DESC,
-                lp.documento_id DESC,
-                CAST(lp.lote_numero AS INTEGER),
-                lp.lote_numero,
-                CAST(lp.item_numero AS INTEGER),
-                lp.item_numero,
-                lp.id DESC
-       LIMIT @limite OFFSET @offset`
-    )
-    .all({
-      ...params,
-      limite: safeLimite,
-      offset
-    })
-    .map(normalizeProdutoRow);
-
-  return {
-    total,
-    pagina: safePagina,
-    limite: safeLimite,
-    dados
-  };
-}
-
-function getLicitacaoProdutosByDocumentoId(documentoId) {
-  return listLicitacaoProdutos({
-    documentoId,
-    pagina: 1,
-    limite: 500
-  });
-}
-
-function getLicitacaoProdutosResumo(documentoId) {
-  const row = db
-    .prepare(
-      `SELECT
-         COUNT(*) AS total,
-         SUM(CASE WHEN valor_unitario_estimado IS NOT NULL OR valor_total_estimado IS NOT NULL THEN 1 ELSE 0 END) AS com_preco_estimado,
-         SUM(CASE WHEN valor_unitario_final IS NOT NULL OR valor_total_final IS NOT NULL OR valor_lote_final IS NOT NULL OR valor_global_final IS NOT NULL THEN 1 ELSE 0 END) AS com_preco_final,
-         SUM(CASE WHEN valor_lote_final IS NOT NULL THEN 1 ELSE 0 END) AS com_valor_lote_final,
-         SUM(CASE WHEN valor_global_final IS NOT NULL THEN 1 ELSE 0 END) AS com_valor_global_final,
-         SUM(CASE WHEN IFNULL(fornecedor_nome, '') <> '' THEN 1 ELSE 0 END) AS com_fornecedor,
-         ROUND(IFNULL(SUM(valor_total_estimado), 0), 2) AS valor_estimado_total_identificado,
-         ROUND(IFNULL(SUM(CASE
-           WHEN valor_total_final IS NOT NULL THEN valor_total_final
-           WHEN valor_unitario_final IS NOT NULL AND quantidade IS NOT NULL THEN valor_unitario_final * quantidade
-           ELSE 0
-         END), 0), 2) AS valor_final_total_identificado,
-         ROUND(IFNULL(SUM(valor_lote_final), 0), 2) AS valor_lote_total_identificado,
-         ROUND(IFNULL(SUM(valor_global_final), 0), 2) AS valor_global_total_identificado,
-         SUM(CASE WHEN NOT EXISTS (
-           SELECT 1
-           FROM licitacoes_produtos_validacoes v
-           WHERE v.produto_id = licitacoes_produtos.id
-         ) THEN 1 ELSE 0 END) AS sem_validacao
-       FROM licitacoes_produtos
-       WHERE documento_id = ?`
-    )
-    .get(documentoId);
-
-  return {
-    total: row.total || 0,
-    com_preco_estimado: row.com_preco_estimado || 0,
-    com_preco_final: row.com_preco_final || 0,
-    com_valor_lote_final: row.com_valor_lote_final || 0,
-    com_valor_global_final: row.com_valor_global_final || 0,
-    com_fornecedor: row.com_fornecedor || 0,
-    valor_estimado_total_identificado: row.valor_estimado_total_identificado || 0,
-    valor_final_total_identificado: row.valor_final_total_identificado || 0,
-    valor_lote_total_identificado: row.valor_lote_total_identificado || 0,
-    valor_global_total_identificado: row.valor_global_total_identificado || 0,
-    sem_validacao: row.sem_validacao || 0
-  };
 }
 
 function getProdutoValorFinalEstruturado(produto) {
@@ -3291,6 +3340,8 @@ function getDocumentoById(id) {
     licitacao_detalhes: licitacao || null,
     licitacao_modelo: documento.tipo === 'edital' ? buildLicitacaoModelo(documento, licitacao || {}) : null,
     produtos_licitados_resumo: documento.tipo === 'edital' ? getLicitacaoProdutosResumo(documento.id) : null,
+    anexos: inteligenciaFatosRepo.listarAnexosDocumento(documento.id),
+    fatos: inteligenciaFatosRepo.listarFatosDocumento(documento.id),
     resumo_ai_job: resumoAiJob,
     leitura_integrada_ai: leituraIntegradaAi
       ? {
@@ -3593,59 +3644,6 @@ function getFornecedoresRanking({ limite = 20, ordem = 'valor' } = {}) {
     ...row,
     anos_ativos: parseJson(row.anos_ativos) || []
   }));
-}
-
-// Grupos de produtos com preço unitário em 2+ anos — base da comparação
-// histórica de preços (3.3). Ordenado por amplitude temporal e volume.
-function getProdutosGruposComparaveis({ limite = 50 } = {}) {
-  return db
-    .prepare(
-      `SELECT g.id, g.rotulo_canonico, g.n_variacoes,
-              COUNT(DISTINCT p.ano) AS n_anos,
-              COUNT(*) AS n_itens,
-              ROUND(MIN(p.valor_unitario_final), 2) AS preco_min,
-              ROUND(MAX(p.valor_unitario_final), 2) AS preco_max,
-              ROUND(AVG(p.valor_unitario_final), 2) AS preco_medio
-         FROM produtos_grupos g
-         JOIN licitacoes_produtos p ON p.grupo_id = g.id
-        WHERE p.valor_unitario_final IS NOT NULL AND p.valor_unitario_final > 0 AND p.ano IS NOT NULL
-        GROUP BY g.id
-       HAVING n_anos >= 2
-        ORDER BY n_anos DESC, n_itens DESC
-        LIMIT @limite`
-    )
-    .all({ limite: Math.min(Math.max(Number(limite) || 50, 1), 200) });
-}
-
-// Série anual de preço unitário (média/mín/máx) de um grupo de produto.
-function getEvolucaoPrecoGrupo(grupoId) {
-  const grupo = db.prepare('SELECT id, rotulo_canonico, n_variacoes FROM produtos_grupos WHERE id = ?').get(Number(grupoId));
-  if (!grupo) {return null;}
-
-  const serie = db
-    .prepare(
-      `SELECT p.ano,
-              ROUND(AVG(p.valor_unitario_final), 2) AS preco_medio,
-              ROUND(MIN(p.valor_unitario_final), 2) AS preco_min,
-              ROUND(MAX(p.valor_unitario_final), 2) AS preco_max,
-              COUNT(*) AS n_itens
-         FROM licitacoes_produtos p
-        WHERE p.grupo_id = @grupoId AND p.valor_unitario_final IS NOT NULL
-          AND p.valor_unitario_final > 0 AND p.ano IS NOT NULL
-        GROUP BY p.ano
-        ORDER BY p.ano`
-    )
-    .all({ grupoId: Number(grupoId) });
-
-  const variacoes = db
-    .prepare(
-      `SELECT DISTINCT descricao_normalizada AS descricao
-         FROM licitacoes_produtos WHERE grupo_id = ? ORDER BY descricao_normalizada`
-    )
-    .all(Number(grupoId))
-    .map((r) => r.descricao);
-
-  return { ...grupo, serie, variacoes };
 }
 
 // Cobertura honesta por ano: % de editais com vencedor, valor, resumo e análise
@@ -4079,4 +4077,6 @@ module.exports = {
   ...aiJobsRepo,
   // Re-exports de documentos-repo.js
   ...documentosRepo,
+  // Re-exports de inteligencia-fatos-repo.js
+  ...inteligenciaFatosRepo,
 };

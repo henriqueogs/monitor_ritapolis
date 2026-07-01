@@ -18,6 +18,7 @@ const { getCategoriasDocumentoId } = require('../db');
 const { getLicitacaoGrupoByDocumentoId } = require('../db');
 const { classificarCategoria } = require('../licitacoes/categoria');
 const { gerarNarrativaAlerta } = require('../ai/alert-narrative');
+const { investigarDescoberta, deveInvestigarDescoberta } = require('../ai/discovery-investigation');
 const {
   detectarRepeticaoTematica,
 } = require('./detectores/repeticao-tematica');
@@ -25,10 +26,41 @@ const { detectarRiscoAlto } = require('./detectores/risco-alto');
 const { detectarValorRelevante } = require('./detectores/valor-relevante');
 const { detectarAnomaliaTemporal } = require('./detectores/anomalia-temporal');
 const { detectarQuestionamentos } = require('./detectores/questionamentos');
+const { gerarCandidatosInvestigativos, DEFAULT_TEMAS } = require('./discovery-candidates');
 const { consolidarSinais } = require('./consolidador');
 const repo = require('../db/alertas-repo');
+const { listarFatosParaAlertas } = require('../db/inteligencia-fatos-repo');
 
 const WATERMARK_KEY = 'alertas:ultimo_ciclo';
+
+function getAlertasStatus() {
+  const watermark = repo.getWatermark(WATERMARK_KEY);
+  const latestResumo = db
+    .prepare(
+      `SELECT MAX(COALESCE(atualizado_em, criado_em)) AS ultimo_resumo_ai
+         FROM documentos_resumos_ai
+        WHERE status = 'ok' AND provider <> 'mock'`
+    )
+    .get();
+  const ativos = db.prepare("SELECT COUNT(*) AS n FROM alertas WHERE status = 'ativo'").get().n;
+  const ultimoCiclo = watermark?.ultimo_processado_em || null;
+  const ultimoResumoAi = latestResumo?.ultimo_resumo_ai || null;
+  const pendente = Boolean(
+    ultimoResumoAi && (!ultimoCiclo || new Date(ultimoResumoAi).getTime() > new Date(ultimoCiclo).getTime())
+  );
+  const atrasoMs = pendente ? Date.now() - new Date(ultimoResumoAi).getTime() : 0;
+
+  return {
+    enabled: config.alertasEnabled,
+    scheduler_enabled: config.alertasSchedulerEnabled,
+    ativos,
+    ultimo_ciclo: ultimoCiclo,
+    ultimo_resumo_ai: ultimoResumoAi,
+    pendente,
+    atraso_minutos: Math.max(0, Math.round(atrasoMs / 60000)),
+    limite_por_ciclo: config.alertasLimitePorCiclo,
+  };
+}
 
 function parseResumoJson(registro) {
   if (!registro || !registro.resumo_json) {
@@ -132,19 +164,67 @@ function enriquecerDocumento(row) {
 }
 
 function lerConfig() {
+  const gatilhosDefault = {
+    repeticao_tematica: true,
+    risco_alto: true,
+    valor_relevante: true,
+    anomalia_temporal: true,
+    questionamentos: true,
+    fatos_agregados: true,
+  };
   return {
     minRepeticao: repo.getConfig('alertas:min_repeticao', config.alertasMinRepeticao ?? 2),
     valorThreshold: repo.getConfig('alertas:valor_threshold', config.alertasValorThreshold ?? 500000),
     anomaliaMultiplicador: repo.getConfig('alertas:anomalia_multiplicador', 3),
     anomaliaMinAbsoluto: repo.getConfig('alertas:anomalia_min_absoluto', 3),
-    gatilhosAtivos: repo.getConfig('alertas:gatilhos_ativos', {
-      repeticao_tematica: true,
-      risco_alto: true,
-      valor_relevante: true,
-      anomalia_temporal: true,
-      questionamentos: true,
-    }),
+    gatilhosAtivos: { ...gatilhosDefault, ...repo.getConfig('alertas:gatilhos_ativos', {}) },
+    fatosThresholdArvores: repo.getConfig('alertas:fatos_threshold_arvores', 60),
+    fatosMinDocsRecorrencia: repo.getConfig('alertas:fatos_min_docs_recorrencia', 3),
+    investigacaoIaAtiva: repo.getConfig('alertas:investigacao_ia_ativa', true),
+    investigacaoMinArvores: repo.getConfig('alertas:investigacao_min_arvores', 20),
+    investigacaoMaxPorCiclo: repo.getConfig('alertas:investigacao_max_por_ciclo', 20),
+    investigacaoTemasAtivos: repo.getConfig('alertas:investigacao_temas_ativos', DEFAULT_TEMAS),
+    investigacaoConfiancaMinPublica: repo.getConfig('alertas:investigacao_confianca_min_publica', 0.55),
+    investigacaoPublicacaoAutomatica: repo.getConfig('alertas:investigacao_publicacao_automatica', true),
   };
+}
+
+async function aplicarInvestigacaoDescobertas(candidatos, cfg) {
+  const out = [];
+  let investigadas = 0;
+  const max = Math.max(Number(cfg.investigacaoMaxPorCiclo) || 0, 0);
+
+  for (const candidato of candidatos) {
+    if (!deveInvestigarDescoberta(candidato)) {
+      out.push(candidato);
+      continue;
+    }
+
+    if (investigadas >= max || cfg.investigacaoIaAtiva === false) {
+      out.push({
+        ...candidato,
+        metadados: {
+          ...(candidato.metadados || {}),
+          discovery_v2: {
+            contrato_versao: 'discovery-investigation-v2',
+            status: cfg.investigacaoIaAtiva === false ? 'desativado' : 'limite_ciclo',
+            gerado_em: new Date().toISOString(),
+          },
+        },
+      });
+      continue;
+    }
+
+    out.push(await investigarDescoberta(candidato, {
+      cfg: {
+        confiancaMinPublica: cfg.investigacaoConfiancaMinPublica,
+        publicacaoAutomatica: cfg.investigacaoPublicacaoAutomatica,
+      },
+    }));
+    investigadas += 1;
+  }
+
+  return out;
 }
 
 // Gera alertas a partir dos resumos IA novos. Idempotente via watermark.
@@ -165,9 +245,12 @@ async function generateAlerts({ since, limite = 200, dryRun = false, full = fals
   });
 
   const rows = buscarDocumentosRecentes(sinceDate, limite);
-  if (!rows.length) {
+  if (!rows.length && !cfg.gatilhosAtivos.fatos_agregados) {
     logger.info('Gerador de alertas: nenhum documento novo');
     return { total: 0, gerados: 0, atualizados: 0, erros: 0, alertas: [] };
+  }
+  if (!rows.length) {
+    logger.info('Gerador de alertas: nenhum resumo novo; avaliando camada factual');
   }
 
   const docs = rows.map(enriquecerDocumento).filter((d) => d.resumo !== null);
@@ -194,19 +277,27 @@ async function generateAlerts({ since, limite = 200, dryRun = false, full = fals
   }
 
   const candidatos = consolidarSinais(sinais, docsById);
+  if (cfg.gatilhosAtivos.fatos_agregados) {
+    const fatos = listarFatosParaAlertas({ limite: full ? 20000 : 5000 });
+    candidatos.push(...gerarCandidatosInvestigativos(fatos, {
+      thresholdArvores: cfg.investigacaoMinArvores || cfg.fatosThresholdArvores,
+      temasAtivos: cfg.investigacaoTemasAtivos,
+    }));
+  }
+  const candidatosInvestigados = await aplicarInvestigacaoDescobertas(candidatos, cfg);
   logger.info('Gerador de alertas: candidatos consolidados', {
     documentos: docs.length,
     sinais: sinais.length,
-    candidatos: candidatos.length,
+    candidatos: candidatosInvestigados.length,
   });
 
   if (dryRun) {
     return {
       total: docs.length,
-      gerados: candidatos.length,
+      gerados: candidatosInvestigados.length,
       atualizados: 0,
       erros: 0,
-      alertas: candidatos,
+      alertas: candidatosInvestigados,
       dryRun: true,
     };
   }
@@ -216,10 +307,10 @@ async function generateAlerts({ since, limite = 200, dryRun = false, full = fals
   let erros = 0;
   const alertasSalvos = [];
 
-  for (const candidato of candidatos) {
+  for (const candidato of candidatosInvestigados) {
     try {
       const alertaParaSalvar = { ...candidato };
-      if (candidato.tipo === 'tematico') {
+      if (candidato.tipo === 'tematico' && !candidato.metadados?.tipo_fato) {
         const docsParaNarrativa = candidato.documentos_ids
           .map((id) => docsById.get(id))
           .filter(Boolean)
@@ -249,11 +340,11 @@ async function generateAlerts({ since, limite = 200, dryRun = false, full = fals
           });
           alertaParaSalvar.narrativa = montarNarrativaTemplate(candidato, docsById);
         }
-      } else {
+      } else if (!alertaParaSalvar.narrativa) {
         alertaParaSalvar.narrativa = montarNarrativaTemplate(candidato, docsById);
       }
 
-      const result = repo.upsertAlerta(alertaParaSalvar, candidato.documentos);
+      const result = repo.upsertAlerta(alertaParaSalvar, candidato.documentos, candidato.evidencias || []);
       if (result.action === 'inserted') {
         gerados += 1;
       } else {
@@ -273,7 +364,7 @@ async function generateAlerts({ since, limite = 200, dryRun = false, full = fals
   // (caíram abaixo dos thresholds). Decisões humanas (arquivado/suprimido) ficam.
   let removidos = 0;
   if (full) {
-    removidos = repo.removerAtivosNaoListados(candidatos.map((c) => c.chave_unica));
+    removidos = repo.removerAtivosNaoListados(candidatosInvestigados.map((c) => c.chave_unica));
   }
 
   const agora = new Date().toISOString();
@@ -320,4 +411,4 @@ function montarNarrativaTemplate(candidato, docsById) {
   return partes.join(' ');
 }
 
-module.exports = { generateAlerts, enriquecerDocumento, WATERMARK_KEY };
+module.exports = { generateAlerts, enriquecerDocumento, getAlertasStatus, WATERMARK_KEY };

@@ -62,8 +62,59 @@ const SEMENTES = [
       valor_relevante: true,
       anomalia_temporal: true,
       questionamentos: true,
+      fatos_agregados: true,
     },
     descricao: 'Liga/desliga cada detector. Edite o JSON (true/false por gatilho).',
+  },
+  {
+    chave: 'alertas:investigacao_ia_ativa',
+    valor: true,
+    descricao: 'Liga a etapa de investigacao assistida por IA para descobertas factuais relevantes.',
+  },
+  {
+    chave: 'alertas:investigacao_min_arvores',
+    valor: 20,
+    descricao: 'Quantidade minima de arvores em um ano para gerar descoberta investigativa de supressao/corte.',
+  },
+  {
+    chave: 'alertas:investigacao_max_por_ciclo',
+    valor: 20,
+    descricao: 'Numero maximo de descobertas factuais que passam pela investigacao IA em cada ciclo.',
+  },
+  {
+    chave: 'alertas:investigacao_temas_ativos',
+    valor: {
+      'meio_ambiente.supressao_arvores': true,
+      'compras.precos_itens': true,
+      'contratos.recorrencia_fornecedor_objeto': true,
+      'eventos.gastos_eventos_publicos': true,
+    },
+    descricao: 'Temas investigativos ativos para a expansao das Descobertas.',
+  },
+  {
+    chave: 'alertas:investigacao_confianca_min_publica',
+    valor: 0.55,
+    descricao: 'Confianca minima para publicar automaticamente uma descoberta investigativa.',
+  },
+  {
+    chave: 'alertas:investigacao_publicacao_automatica',
+    valor: true,
+    descricao: 'Publica automaticamente descobertas investigativas que passem contrato, evidencia e confianca.',
+  },
+  {
+    chave: 'descobertas:investigacao_scheduler_ativo',
+    valor: true,
+    descricao: 'Liga a rotina incremental que reprocessa descobertas pendentes com IA em ciclos pequenos.',
+  },
+  {
+    chave: 'descobertas:investigacao_por_ciclo',
+    valor: 4,
+    descricao: 'Quantidade de descobertas reavaliadas por IA em cada ciclo incremental.',
+  },
+  {
+    chave: 'descobertas:investigacao_delay_ms',
+    valor: 15000,
+    descricao: 'Delay entre analises IA de descobertas no worker incremental.',
   },
 ];
 

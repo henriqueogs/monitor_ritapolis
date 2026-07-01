@@ -55,19 +55,22 @@ async function runCycle() {
         logger.warn('AI scheduler: falha na extração pós-ciclo', { erro: errEntidades.message });
       }
 
-      // Pós-ciclo: gerar alertas de inteligência a partir dos resumos novos
-      if (config.alertasEnabled && config.alertasSchedulerEnabled) {
-        try {
-          const alertasResult = await generateAlerts({ limite: config.alertasLimitePorCiclo });
-          logger.info('AI scheduler: alertas gerados pós-ciclo', {
-            total_docs: alertasResult.total,
-            gerados: alertasResult.gerados,
-            atualizados: alertasResult.atualizados,
-            erros: alertasResult.erros,
-          });
-        } catch (errAlertas) {
-          logger.warn('AI scheduler: falha na geração de alertas pós-ciclo', { erro: errAlertas.message });
-        }
+    }
+
+    // Pós-ciclo: gerar alertas de inteligência de forma incremental. Roda mesmo
+    // quando o ciclo atual não produziu resumo, porque resumos podem ter sido
+    // criados por scripts/admin entre ciclos.
+    if (config.alertasEnabled && config.alertasSchedulerEnabled) {
+      try {
+        const alertasResult = await generateAlerts({ limite: config.alertasLimitePorCiclo });
+        logger.info('AI scheduler: alertas gerados pós-ciclo', {
+          total_docs: alertasResult.total,
+          gerados: alertasResult.gerados,
+          atualizados: alertasResult.atualizados,
+          erros: alertasResult.erros,
+        });
+      } catch (errAlertas) {
+        logger.warn('AI scheduler: falha na geração de alertas pós-ciclo', { erro: errAlertas.message });
       }
     }
   } catch (error) {
