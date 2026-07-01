@@ -107,6 +107,14 @@ const SEMENTES = [
     descricao: 'Liga a rotina incremental que reprocessa descobertas pendentes com IA em ciclos pequenos.',
   },
   {
+    chave: 'alertas:narrativa_consolidada_ativa',
+    valor: true,
+    descricao:
+      'Pede ao modelo um parágrafo único consolidado (narrativa_consolidada) como leitura ' +
+      'principal da descoberta, em vez de fatos soltos em lista. Desligue para voltar ao ' +
+      'formato antigo (hipótese + lista de fatos) sem precisar de deploy.',
+  },
+  {
     chave: 'descobertas:investigacao_por_ciclo',
     valor: 4,
     descricao: 'Quantidade de descobertas reavaliadas por IA em cada ciclo incremental.',

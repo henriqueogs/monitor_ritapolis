@@ -109,7 +109,7 @@ function chipAtivo(filtro, params) {
 
 function DescobertaCard({ alerta }) {
   const discovery = discoveryV2(alerta);
-  const summary = discovery?.hipotese_publica || alerta.narrativa;
+  const summary = discovery?.narrativa_consolidada || discovery?.hipotese_publica || alerta.narrativa;
   const lacunas = discovery?.lacunas_encontradas || [];
   const metric = metricLabel(alerta);
   const investigation = investigationLabel(alerta);

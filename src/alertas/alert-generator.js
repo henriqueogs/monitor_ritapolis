@@ -186,6 +186,7 @@ function lerConfig() {
     investigacaoTemasAtivos: repo.getConfig('alertas:investigacao_temas_ativos', DEFAULT_TEMAS),
     investigacaoConfiancaMinPublica: repo.getConfig('alertas:investigacao_confianca_min_publica', 0.55),
     investigacaoPublicacaoAutomatica: repo.getConfig('alertas:investigacao_publicacao_automatica', true),
+    narrativaConsolidadaAtiva: repo.getConfig('alertas:narrativa_consolidada_ativa', true),
   };
 }
 
@@ -219,6 +220,7 @@ async function aplicarInvestigacaoDescobertas(candidatos, cfg) {
       cfg: {
         confiancaMinPublica: cfg.investigacaoConfiancaMinPublica,
         publicacaoAutomatica: cfg.investigacaoPublicacaoAutomatica,
+        narrativaConsolidadaAtiva: cfg.narrativaConsolidadaAtiva,
       },
     }));
     investigadas += 1;

@@ -34,6 +34,41 @@ function investigationLabel(discovery, alerta) {
   return labels[tipo] || tipo || null;
 }
 
+function humanizarChaveMetrica(chave) {
+  return String(chave || '')
+    .replace(/_/g, ' ')
+    .replace(/^\w/, (c) => c.toUpperCase());
+}
+
+// Métricas/comparativos são schema-livre (Record<string, any>) — o
+// formatador não presume forma numérica fixa; string/objeto também passam.
+function formatarValorMetrica(valor) {
+  if (valor === null || valor === undefined) return '—';
+  if (typeof valor === 'number') return valor.toLocaleString('pt-BR');
+  if (typeof valor === 'object') return JSON.stringify(valor);
+  return String(valor);
+}
+
+// Grade genérica de métricas: 0, 1 ou N entradas — sem template fixo tipo
+// "Total + Período" para todo tipo de investigação.
+function MetricasGenericas({ titulo, dados }) {
+  const entradas = Object.entries(dados || {});
+  if (!entradas.length) return null;
+  return (
+    <section className={styles.section}>
+      <h2 className={styles.sectionTitle}>{titulo}</h2>
+      <div className={styles.metrics}>
+        {entradas.map(([chave, valor]) => (
+          <div className={styles.metric} key={chave}>
+            <span className={styles.metricLabel}>{humanizarChaveMetrica(chave)}</span>
+            <span className={styles.metricValue}>{formatarValorMetrica(valor)}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default async function DescobertaDetalhePage({ params }) {
   const id = Number(params.id);
   let alerta = null;
@@ -80,7 +115,50 @@ export default async function DescobertaDetalhePage({ params }) {
         <p className={styles.disclaimer}>{DISCLAIMER_DESCOBERTAS}</p>
       </header>
 
-      {discovery ? (
+      {discovery?.narrativa_consolidada ? (
+        <>
+          {/* Formato consolidado: um parágrafo já traz fatos + lacuna relevante
+              em prosa — Período coberto vira legenda, não seção própria. */}
+          <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>Análise</h2>
+            <p className={styles.narrativa}>{discovery.narrativa_consolidada}</p>
+            {alerta.periodo_inicio || alerta.periodo_fim ? (
+              <p className={styles.sectionNote}>
+                Período coberto: {alerta.periodo_inicio ? formatDate(alerta.periodo_inicio) : '—'}
+                {' até '}
+                {alerta.periodo_fim ? formatDate(alerta.periodo_fim) : '—'}
+              </p>
+            ) : null}
+          </section>
+
+          <MetricasGenericas titulo="Métricas" dados={discovery.metricas} />
+          <MetricasGenericas titulo="Comparativos" dados={discovery.comparativos} />
+
+          {discovery.o_que_os_dados_mostram?.length || discovery.lacunas_encontradas?.length ? (
+            <details className={styles.evidenciasDetalhes}>
+              <summary>Ver fatos e lacunas em detalhe</summary>
+              {discovery.o_que_os_dados_mostram?.length ? (
+                <div className={styles.section}>
+                  <h3 className={styles.sectionTitle}>O que os dados mostram</h3>
+                  <ul className={styles.findingsList}>
+                    {discovery.o_que_os_dados_mostram.map((item, i) => (<li key={i}>{item}</li>))}
+                  </ul>
+                </div>
+              ) : null}
+              {discovery.lacunas_encontradas?.length ? (
+                <div className={styles.section}>
+                  <h3 className={styles.sectionTitle}>O que não apareceu nos documentos analisados</h3>
+                  <ul className={styles.lacunasList}>
+                    {discovery.lacunas_encontradas.map((item, i) => (<li key={i}>{item}</li>))}
+                  </ul>
+                </div>
+              ) : null}
+            </details>
+          ) : null}
+        </>
+      ) : discovery ? (
+        // Formato antigo (investigação gerada antes de narrativa_consolidada
+        // existir) — rendering inalterado, sem forçar re-geração em massa.
         <>
           <section className={styles.section}>
             <h2 className={styles.sectionTitle}>O que chamou atencao</h2>
@@ -134,7 +212,7 @@ export default async function DescobertaDetalhePage({ params }) {
         </section>
       ) : null}
 
-      {alerta.periodo_inicio || alerta.periodo_fim ? (
+      {(alerta.periodo_inicio || alerta.periodo_fim) && !discovery?.narrativa_consolidada ? (
         <section className={styles.section}>
           <h2 className={styles.sectionTitle}>Período coberto</h2>
           <p className={styles.narrativa}>

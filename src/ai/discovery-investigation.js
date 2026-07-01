@@ -75,7 +75,21 @@ function evidenciasFortes(alerta) {
   return (alerta.evidencias || []).length > 0 && (alerta.documentos_ids || []).length > 0;
 }
 
-function fallbackInvestigation(alerta, motivo = null) {
+function narrativaConsolidadaFallback(alerta, { total, unidade, ano, ausentes, documentosIds }) {
+  const partes = [
+    `A prefeitura registrou ${total} ${unidade} em ${alerta.categoria || 'um tema publico'} no ${ano}` +
+    (documentosIds.length ? ` (documento${documentosIds.length > 1 ? 's' : ''} ${documentosIds.join(', ')})` : '') +
+    '.',
+  ];
+  if (ausentes.length) {
+    partes.push(`${ausentes[0]} Vale conferir as informacoes na fonte oficial antes de qualquer conclusao.`);
+  } else {
+    partes.push('Vale conferir as informacoes na fonte oficial antes de qualquer conclusao.');
+  }
+  return partes.join(' ');
+}
+
+function fallbackInvestigation(alerta, motivo = null, { narrativaConsolidadaAtiva = true } = {}) {
   const lacunas = lacunasDeterministicas(alerta);
   const ausentes = lacunas
     .filter((item) => item.status === 'nao_encontrado_nos_documentos_analisados')
@@ -84,6 +98,7 @@ function fallbackInvestigation(alerta, motivo = null) {
   const ano = String(alerta.valor_periodo_label || alerta.metadados?.ano || '').match(/\d{4}/)?.[0] || 'periodo analisado';
   const unidade = alerta.metadados?.unidade || 'itens';
   const tipo = alerta.metadados?.investigacao_tipo || alerta.metadados?.tipo_fato || alerta.subcategoria || 'descoberta';
+  const documentosIds = alerta.documentos_ids || [];
   const evidencias = (alerta.evidencias || []).slice(0, 8).map((ev) => ({
     documento_id: ev.documento_id || null,
     anexo_id: ev.anexo_id || null,
@@ -96,6 +111,9 @@ function fallbackInvestigation(alerta, motivo = null) {
     tipo_investigacao: tipo,
     hipotese_publica:
       `Os documentos indicam ${total} ${unidade} em ${alerta.categoria || 'um tema publico'} no ${ano}; vale conferir as informacoes e lacunas associadas.`,
+    ...(narrativaConsolidadaAtiva
+      ? { narrativa_consolidada: narrativaConsolidadaFallback(alerta, { total, unidade, ano, ausentes, documentosIds }) }
+      : {}),
     o_que_os_dados_mostram: [
       `A metrica principal do candidato soma ${total} ${unidade}.`,
       `A descoberta esta ligada a ${alerta.documentos_ids?.length || 0} documento(s) oficial(is).`,
@@ -162,7 +180,10 @@ function applyInvestigationToAlert(alerta, investigation, { status, provider = n
   return {
     ...alerta,
     titulo: alerta.titulo || investigation.hipotese_publica.slice(0, 90),
-    narrativa: investigation.hipotese_publica,
+    // narrativa_consolidada (quando presente) e a leitura principal — mais
+    // completa que a hipotese isolada. Registros antigos/toggle desligado
+    // caem no hipotese_publica de sempre (compatibilidade).
+    narrativa: investigation.narrativa_consolidada || investigation.hipotese_publica,
     questionamentos: [
       ...new Set([
         ...(alerta.questionamentos || []),
@@ -179,14 +200,16 @@ function applyInvestigationToAlert(alerta, investigation, { status, provider = n
 async function investigarDescoberta(alerta, { provider, cfg } = {}) {
   const lacunas = lacunasDeterministicas(alerta);
 
+  const narrativaConsolidadaAtiva = cfg?.narrativaConsolidadaAtiva !== false;
+
   if (!config.aiSummaryEnabled) {
-    const fallback = fallbackInvestigation(alerta, 'AI_SUMMARY_ENABLED=false');
+    const fallback = fallbackInvestigation(alerta, 'AI_SUMMARY_ENABLED=false', { narrativaConsolidadaAtiva });
     return applyInvestigationToAlert(alerta, fallback, { status: 'fallback', erro: 'AI_SUMMARY_ENABLED=false', lacunas, cfg });
   }
 
   try {
-    const aiProvider = provider || createAiProvider();
-    const prompt = buildDiscoveryInvestigationPrompt({ alerta, lacunasDeterministicas: lacunas });
+    const aiProvider = provider || createAiProvider(process.env, { model: config.nvidiaModelInvestigacao });
+    const prompt = buildDiscoveryInvestigationPrompt({ alerta, lacunasDeterministicas: lacunas, narrativaConsolidadaAtiva });
     const raw = await aiProvider.generateJson({ prompt, temperature: 0.15 });
     const investigation = validateDiscoveryInvestigation(extractJsonObject(raw));
     return applyInvestigationToAlert(alerta, investigation, {
@@ -201,7 +224,7 @@ async function investigarDescoberta(alerta, { provider, cfg } = {}) {
       chave: alerta.chave_unica,
       erro: err.message,
     });
-    const fallback = fallbackInvestigation(alerta, err.message);
+    const fallback = fallbackInvestigation(alerta, err.message, { narrativaConsolidadaAtiva });
     return applyInvestigationToAlert(alerta, fallback, {
       status: 'fallback',
       erro: err.message,

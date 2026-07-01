@@ -56,7 +56,7 @@ function resumirEvidencias(evidencias = []) {
   }));
 }
 
-function buildDiscoveryInvestigationPrompt({ alerta, lacunasDeterministicas = [] }) {
+function buildDiscoveryInvestigationPrompt({ alerta, lacunasDeterministicas = [], narrativaConsolidadaAtiva = true }) {
   const tipoInvestigacao =
     alerta.metadados?.investigacao_tipo ||
     alerta.metadados?.tipo_fato ||
@@ -112,12 +112,21 @@ Regras obrigatorias:
 - Toda evidencia_usada deve se referir a documento_id/anexo_id existente no JSON de entrada.
 - nivel_confianca deve ser numero entre 0 e 1.
 - Inclua em limites_publicacao qualquer cuidado que impeça leitura exagerada do caso.
+${narrativaConsolidadaAtiva ? `- narrativa_consolidada: paragrafo UNICO (2-4 frases) que e a leitura principal do publico.
+  Some/consolide os fatos relevantes (o_que_os_dados_mostram) e a lacuna mais relevante
+  (lacunas_encontradas) na MESMA prosa, em vez de listar fatos soltos. Cite os documentos
+  entre colchetes quando fizer sentido (ex.: "[607]"). SO calcule razao/proporcao
+  (ex.: R$ por unidade) quando os dados numericos permitirem e isso for informativo para
+  o tema — NUNCA force esse calculo em temas qualitativos (ex.: saude, recorrencia de
+  fornecedor) onde nao faz sentido. o_que_os_dados_mostram e lacunas_encontradas continuam
+  obrigatorios (evidencia auditavel), mas narrativa_consolidada e o texto que o publico le.` : ''}
 
 Formato:
 {
   "tema": "tema publico",
   "tipo_investigacao": "tipo.estavel",
-  "hipotese_publica": "frase cautelosa sobre por que vale olhar",
+  "hipotese_publica": "frase cautelosa sobre por que vale olhar",${narrativaConsolidadaAtiva ? `
+  "narrativa_consolidada": "paragrafo unico consolidando fatos + lacuna relevante em prosa",` : ''}
   "o_que_os_dados_mostram": ["fato verificavel 1"],
   "lacunas_encontradas": ["nao encontrado nos documentos analisados: ..."],
   "perguntas_abertas": ["pergunta publica em aberto"],

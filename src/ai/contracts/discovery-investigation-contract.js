@@ -6,6 +6,13 @@ const textoPublico = z.string().trim().min(1).max(1400);
 
 const DiscoveryInvestigationContract = z.object({
   hipotese_publica: textoPublico,
+  // Narrativa consolidada (opcional): parágrafo único que já incorpora os
+  // fatos relevantes e a lacuna relevante em prosa corrida — a leitura
+  // principal do público quando presente. `o_que_os_dados_mostram`/
+  // `lacunas_encontradas` continuam existindo como evidência de apoio
+  // (auditável), não como o texto em destaque. Opcional para não quebrar a
+  // leitura de investigações já geradas antes deste campo existir.
+  narrativa_consolidada: textoPublico.optional(),
   o_que_os_dados_mostram: z.array(textoPublico).min(1).max(8),
   lacunas_encontradas: z.array(textoPublico).default([]),
   perguntas_abertas: z.array(textoPublico).default([]),
@@ -46,6 +53,7 @@ const TERMOS_ACUSATORIOS_PUBLICOS = [
 function assertPublicoCauteloso(data) {
   const campos = [
     data.hipotese_publica,
+    data.narrativa_consolidada || '',
     ...(data.o_que_os_dados_mostram || []),
     ...(data.lacunas_encontradas || []),
     ...(data.perguntas_abertas || []),
