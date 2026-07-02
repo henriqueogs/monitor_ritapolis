@@ -29,6 +29,23 @@ Já pronto, não bloqueia a decisão: Basic Auth em `/admin/*`
 - [ ] Deploy (Railway/Fly.io backend + Vercel frontend) — alvo depende da
   decisão da spec acima.
 
+## ⏳ Pendente — Transparência: dados e vinculação (pós deep-links, 02/07/2026)
+
+Deep-links do portal, página por mandato e perfil de credor paginado já
+entregues (commits de 02/07). Ficam como tarefas separadas:
+
+- [ ] **Backfill despesas 2019–2022** — probe confirmou dados na API SH3 pros
+  4 anos (`node scripts/testar-sh3-anos-anteriores.js`, 16/16 janelas ok).
+  Mover `ANO_INICIO` (src/coletores/portal-transparencia.js:29) pra
+  `src/config.js` e rodar coleta histórica. Enquanto isso, 2022 aparece
+  parcial (282 empenhos) nas telas.
+- [ ] **Vinculação empenho↔licitação (13–23%)** — matching secundário via
+  `licitacao_ref` + `vencedor_cnpj` = `credor_cnpj` em
+  `src/licitacoes/modalidade.js` / `scripts/revincular-despesas.js`. TDD.
+- [ ] **Monitoração recorrente de deep-links** — integrar
+  `npm run transparencia:validar-links` ao daily-scheduler (amostra ~5) com
+  alerta em log se o portal mudar o contrato de URL. Rodar manual/mensal até lá.
+
 ## Backlog menor (baixa prioridade, sem prazo)
 
 - `/temas` → virar filtro de `/licitacoes`; `/analises` redirecionar (páginas
