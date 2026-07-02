@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { fetchCredorProfile } from '../../lib/api';
 import { formatMoney } from '../../lib/format';
 import SectionBlock from '../../components/SectionBlock';
+import EmpenhosCredor from './components/EmpenhosCredor';
+import HistoricoPorMandato from './components/HistoricoPorMandato';
 
 export async function generateMetadata({ params }) {
   const perfil = await fetchCredorProfile(params.cnpj).catch(() => null);
@@ -30,8 +32,10 @@ function formatCnpj(cnpj) {
   return c.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
 }
 
-export default async function CredorProfilePage({ params }) {
+export default async function CredorProfilePage({ params, searchParams }) {
   const perfil = await fetchCredorProfile(params.cnpj).catch(() => null);
+  const empPagina = searchParams?.pagina ? Number(searchParams.pagina) : 1;
+  const empExercicio = searchParams?.exercicio ? Number(searchParams.exercicio) : undefined;
 
   if (!perfil) {
     return (
@@ -45,8 +49,7 @@ export default async function CredorProfilePage({ params }) {
     );
   }
 
-  const { nome, cnpj, resumo, por_ano, por_funcao, empenhos_recentes, licitacoes_ganhas } = perfil;
-  const totalMax = Math.max(...(por_ano || []).map((r) => r.valor_total), 1);
+  const { nome, cnpj, resumo, por_ano, por_mandato, por_funcao, licitacoes_ganhas } = perfil;
 
   return (
     <main className="page-container">
@@ -66,11 +69,12 @@ export default async function CredorProfilePage({ params }) {
       {/* Métricas */}
       <div className="admin-metric-grid" style={{ marginBottom: 24 }}>
         <div className="admin-metric-card">
-          <span>Total recebido</span>
+          <span>
+            Total recebido ({resumo.primeiro_ano === resumo.ultimo_ano
+              ? resumo.primeiro_ano
+              : `${resumo.primeiro_ano}–${resumo.ultimo_ano}`})
+          </span>
           <strong>{formatMoney(resumo.valor_total)}</strong>
-          <p style={{ margin: '4px 0 0', fontSize: 12, opacity: 0.6 }}>
-            {resumo.primeiro_ano}–{resumo.ultimo_ano}
-          </p>
         </div>
         <div className="admin-metric-card">
           <span>Empenhos</span>
@@ -129,28 +133,8 @@ export default async function CredorProfilePage({ params }) {
         </SectionBlock>
       )}
 
-      {/* Histórico por ano */}
-      {por_ano?.length > 0 && (
-        <SectionBlock title="Histórico de recebimentos">
-          {por_ano.map((r) => {
-            const pct = Math.round((r.valor_total / totalMax) * 100);
-            return (
-              <div key={r.ano} style={{ marginBottom: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                  <span style={{ fontSize: 14, fontWeight: 500 }}>{r.ano}</span>
-                  <span style={{ display: 'flex', gap: 16, fontSize: 13 }}>
-                    <span style={{ color: 'var(--text-muted)' }}>{r.n_empenhos} empenhos</span>
-                    <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{formatMoney(r.valor_total)}</strong>
-                  </span>
-                </div>
-                <div style={{ height: 6, background: 'var(--surface-muted)', borderRadius: 3, overflow: 'hidden' }}>
-                  <div style={{ width: `${pct}%`, height: '100%', background: 'var(--accent)', borderRadius: 3 }} />
-                </div>
-              </div>
-            );
-          })}
-        </SectionBlock>
-      )}
+      {/* Histórico por ano, agrupado por mandato */}
+      <HistoricoPorMandato porAno={por_ano} porMandato={por_mandato} />
 
       {/* Por área funcional */}
       {por_funcao?.length > 0 && (
@@ -217,40 +201,8 @@ export default async function CredorProfilePage({ params }) {
         </SectionBlock>
       )}
 
-      {/* Empenhos recentes */}
-      {empenhos_recentes?.length > 0 && (
-        <SectionBlock title="Empenhos recentes">
-          <div className="table-scroll-x">
-            <div className="simple-table" style={{ minWidth: 520 }}>
-              <div className="table-row table-row-header" style={{ display: 'grid', gridTemplateColumns: '90px 1fr 150px 110px', gap: 12, alignItems: 'center' }}>
-                <span>Data</span>
-                <span>Empenho</span>
-                <span>Área</span>
-                <span style={{ textAlign: 'right' }}>Valor</span>
-              </div>
-              {empenhos_recentes.map((e) => (
-                <div key={`${e.empenho}-${e.ano}`} className="table-row" style={{ display: 'grid', gridTemplateColumns: '90px 1fr 150px 110px', gap: 12, alignItems: 'center' }}>
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
-                    {e.data_empenho || e.ano}
-                  </span>
-                  <span style={{ minWidth: 0 }}>
-                    <span style={{ fontSize: 13, fontVariantNumeric: 'tabular-nums' }}>{e.empenho}</span>
-                    {e.historico && (
-                      <span style={{ display: 'block', fontSize: 11, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>
-                        {e.historico}
-                      </span>
-                    )}
-                  </span>
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                    {e.funcao?.replace(/^\d+\s*-\s*/, '') || '—'}
-                  </span>
-                  <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>{formatMoney(e.valor)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </SectionBlock>
-      )}
+      {/* Todos os empenhos — lista paginada com detalhamento e link pra fonte */}
+      <EmpenhosCredor cnpj={cnpj} porAno={por_ano} pagina={empPagina} exercicio={empExercicio} />
     </main>
   );
 }

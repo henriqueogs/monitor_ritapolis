@@ -42,7 +42,7 @@ export default async function CredoresPage({ searchParams }) {
           style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 14, background: 'var(--surface)' }}
         >
           <option value="">Todos os anos</option>
-          {[2023, 2024, 2025, 2026].map((a) => (
+          {Array.from({ length: new Date().getFullYear() - 2023 + 1 }, (_, i) => 2023 + i).map((a) => (
             <option key={a} value={a}>{a}</option>
           ))}
         </select>
