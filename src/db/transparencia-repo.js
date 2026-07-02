@@ -581,15 +581,29 @@ function getPainelResumo({ exercicio, exercicios } = {}) {
 /**
  * Lista paginada de despesas com filtros opcionais.
  */
-function getDespesas({ exercicio, credor_cnpj, documento_id, pagina = 1, limite = 50 } = {}) {
+const LIMITE_MAX_DESPESAS = 100;
+
+function getDespesas({
+  exercicio,
+  credor_cnpj,
+  documento_id,
+  categoriaPrefixos,
+  pagina = 1,
+  limite = 50,
+} = {}) {
   const filters = [];
   const params = [];
 
   if (exercicio) { filters.push('exercicio_orcamento = ?'); params.push(Number(exercicio)); }
   if (credor_cnpj) { filters.push('credor_cnpj = ?'); params.push(credor_cnpj); }
   if (documento_id) { filters.push('documento_id = ?'); params.push(Number(documento_id)); }
+  if (categoriaPrefixos?.length) {
+    filters.push(`(${categoriaPrefixos.map(() => 'categoria_economica LIKE ?').join(' OR ')})`);
+    params.push(...categoriaPrefixos.map((p) => `${p}%`));
+  }
 
   const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+  limite = Math.min(Math.max(1, Number(limite) || 50), LIMITE_MAX_DESPESAS);
   const offset = (Math.max(1, pagina) - 1) * limite;
 
   const total = db.prepare(`SELECT COUNT(*) AS n FROM transparencia_despesas ${where}`).get(...params).n;

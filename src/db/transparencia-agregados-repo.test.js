@@ -109,6 +109,60 @@ describe('transparencia-agregados-repo', () => {
     });
   });
 
+  describe('agregados para o painel de gastos', () => {
+    beforeEach(() => {
+      seedDespesa({ valor: 10, categoria: '3.3.90.14.00 - DIÁRIAS', credorCnpj: '1', credorNome: 'A' });
+      seedDespesa({ valor: 20, categoria: '3.3.90.14.00 - DIÁRIAS', credorCnpj: '2', credorNome: 'B' });
+      seedDespesa({ valor: 300, categoria: '4.4.90.51.00 - OBRAS', unidade: '02.002 - OBRAS', fonteRecurso: '2.500.000 - FUNDEB' });
+      seedDespesa({ valor: 40, categoria: '3.3.90.14.00 - DIÁRIAS', exercicio: 2025, data: '2025-01-01' });
+    });
+
+    it('getAgregadoPorCategoriaEconomica agrega bruto por exercicios', () => {
+      const rows = repo.getAgregadoPorCategoriaEconomica({ exercicios: [2026] });
+      expect(rows).toHaveLength(2);
+      const diarias = rows.find((r) => r.categoria_economica.includes('DIÁRIAS'));
+      expect(diarias.n).toBe(2);
+      expect(diarias.valor_total).toBe(30);
+    });
+
+    it('getAgregadoPorCategoriaEconomica sem exercicios agrega tudo', () => {
+      const rows = repo.getAgregadoPorCategoriaEconomica({});
+      const diarias = rows.find((r) => r.categoria_economica.includes('DIÁRIAS'));
+      expect(diarias.n).toBe(3);
+      expect(diarias.valor_total).toBe(70);
+    });
+
+    it('getAgregadoPorUnidade respeita prefixos de categoria', () => {
+      const todas = repo.getAgregadoPorUnidade({ exercicios: [2026] });
+      expect(todas).toHaveLength(2);
+      const soObras = repo.getAgregadoPorUnidade({ exercicios: [2026], prefixos: ['4.4.90.51'] });
+      expect(soObras).toHaveLength(1);
+      expect(soObras[0].unidade).toContain('OBRAS');
+      expect(soObras[0].valor_total).toBe(300);
+    });
+
+    it('getAgregadoPorFonteRecurso agrega por fonte', () => {
+      const fontes = repo.getAgregadoPorFonteRecurso({ exercicios: [2026] });
+      expect(fontes).toHaveLength(2);
+      expect(fontes[0].valor_total).toBeGreaterThanOrEqual(fontes[1].valor_total);
+    });
+
+    it('getRankingCredores ranqueia credores da categoria no período', () => {
+      const ranking = repo.getRankingCredores({ prefixos: ['3.3.90.14'], exercicios: [2026], limite: 10 });
+      expect(ranking).toHaveLength(2);
+      expect(ranking[0].credor_nome).toBe('B');
+      expect(ranking[0].valor_total).toBe(20);
+    });
+
+    it('getCategoriaPorAno série anual da categoria', () => {
+      const serie = repo.getCategoriaPorAno({ prefixos: ['3.3.90.14'] });
+      expect(serie).toEqual([
+        expect.objectContaining({ exercicio: 2025, n: 1, valor_total: 40 }),
+        expect.objectContaining({ exercicio: 2026, n: 2, valor_total: 30 }),
+      ]);
+    });
+  });
+
   describe('getResumoCategoriaAno', () => {
     it('agrega por prefixos de categoria no exercício', () => {
       seedDespesa({ valor: 10 });

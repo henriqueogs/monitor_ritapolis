@@ -76,8 +76,86 @@ function getResumoCategoriaAno({ prefixos, exercicio, exceptId = 0 }) {
   return { n: total.n, valor_total: total.valor_total || 0, exemplos };
 }
 
+// ── Agregados para o painel "Pra onde vai o dinheiro" ────────────────────────
+
+function filtroExercicios(exercicios) {
+  const lista = (exercicios || []).map(Number).filter((n) => Number.isInteger(n) && n > 0);
+  if (!lista.length) {return { sql: '1=1', params: [] };}
+  return { sql: `exercicio_orcamento IN (${lista.map(() => '?').join(', ')})`, params: lista };
+}
+
+function filtroCategoria(prefixos) {
+  if (!prefixos?.length) {return { sql: '1=1', params: [] };}
+  return prefixosWhere(prefixos);
+}
+
+function getAgregadoPorCategoriaEconomica({ exercicios } = {}) {
+  const ex = filtroExercicios(exercicios);
+  return db
+    .prepare(
+      `SELECT categoria_economica, COUNT(*) AS n, ROUND(SUM(valor), 2) AS valor_total
+       FROM transparencia_despesas WHERE ${ex.sql}
+       GROUP BY categoria_economica ORDER BY valor_total DESC`
+    )
+    .all(...ex.params);
+}
+
+function getAgregadoPorUnidade({ exercicios, prefixos } = {}) {
+  const ex = filtroExercicios(exercicios);
+  const cat = filtroCategoria(prefixos);
+  return db
+    .prepare(
+      `SELECT unidade, COUNT(*) AS n, ROUND(SUM(valor), 2) AS valor_total
+       FROM transparencia_despesas WHERE ${ex.sql} AND ${cat.sql}
+       GROUP BY unidade ORDER BY valor_total DESC`
+    )
+    .all(...ex.params, ...cat.params);
+}
+
+function getAgregadoPorFonteRecurso({ exercicios, prefixos } = {}) {
+  const ex = filtroExercicios(exercicios);
+  const cat = filtroCategoria(prefixos);
+  return db
+    .prepare(
+      `SELECT fonte_recurso, COUNT(*) AS n, ROUND(SUM(valor), 2) AS valor_total
+       FROM transparencia_despesas WHERE ${ex.sql} AND ${cat.sql}
+       GROUP BY fonte_recurso ORDER BY valor_total DESC`
+    )
+    .all(...ex.params, ...cat.params);
+}
+
+function getRankingCredores({ prefixos, exercicios, limite = 15 } = {}) {
+  const ex = filtroExercicios(exercicios);
+  const cat = filtroCategoria(prefixos);
+  return db
+    .prepare(
+      `SELECT credor_nome, credor_cnpj, COUNT(*) AS n, ROUND(SUM(valor), 2) AS valor_total
+       FROM transparencia_despesas
+       WHERE ${ex.sql} AND ${cat.sql} AND credor_nome IS NOT NULL
+       GROUP BY COALESCE(credor_cnpj, credor_nome)
+       ORDER BY valor_total DESC LIMIT ?`
+    )
+    .all(...ex.params, ...cat.params, Number(limite));
+}
+
+function getCategoriaPorAno({ prefixos } = {}) {
+  const cat = filtroCategoria(prefixos);
+  return db
+    .prepare(
+      `SELECT exercicio_orcamento AS exercicio, COUNT(*) AS n, ROUND(SUM(valor), 2) AS valor_total
+       FROM transparencia_despesas WHERE ${cat.sql}
+       GROUP BY exercicio_orcamento ORDER BY exercicio_orcamento ASC`
+    )
+    .all(...cat.params);
+}
+
 module.exports = {
   getDespesaById,
   getResumoRelacionados,
   getResumoCategoriaAno,
+  getAgregadoPorCategoriaEconomica,
+  getAgregadoPorUnidade,
+  getAgregadoPorFonteRecurso,
+  getRankingCredores,
+  getCategoriaPorAno,
 };

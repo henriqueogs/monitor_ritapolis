@@ -51,6 +51,8 @@ const {
 } = require('../transparencia/painel-service');
 const { getCredorDossie } = require('../transparencia/credor-service');
 const { getEmpenhoDossie } = require('../transparencia/empenho-service');
+const { getGastosPanorama, getCategoriaDossie } = require('../transparencia/gastos-service');
+const { slugParaPrefixos } = require('../transparencia/categorias');
 const {
   getConcentracaoCredores,
   getConcentracaoHistorico,
@@ -492,8 +494,26 @@ function createServer() {
   });
 
   app.get('/api/transparencia/despesas', (req, res) => {
-    const { exercicio, credor_cnpj, documento_id, pagina, limite } = req.query;
-    return res.json(getDespesasComPortal({ exercicio, credor_cnpj, documento_id, pagina, limite }));
+    const { exercicio, credor_cnpj, documento_id, categoria, pagina, limite } = req.query;
+    const categoriaPrefixos = categoria ? slugParaPrefixos(categoria) : undefined;
+    if (categoria && !categoriaPrefixos) { return res.status(400).json({ error: 'Categoria desconhecida' }); }
+    return res.json(
+      getDespesasComPortal({ exercicio, credor_cnpj, documento_id, categoriaPrefixos, pagina, limite })
+    );
+  });
+
+  app.get('/api/transparencia/gastos', (req, res) => {
+    const exercicio = req.query.exercicio ? Number(req.query.exercicio) : undefined;
+    const mandato = req.query.mandato ? Number(req.query.mandato) : undefined;
+    return res.json(getGastosPanorama({ exercicio, mandato }));
+  });
+
+  app.get('/api/transparencia/categoria/:slug', (req, res) => {
+    const exercicio = req.query.exercicio ? Number(req.query.exercicio) : undefined;
+    const mandato = req.query.mandato ? Number(req.query.mandato) : undefined;
+    const dossie = getCategoriaDossie(req.params.slug, { exercicio, mandato });
+    if (!dossie) { return res.status(404).json({ error: 'Categoria não encontrada' }); }
+    return res.json(dossie);
   });
 
   app.get('/api/empenhos/:id', (req, res) => {

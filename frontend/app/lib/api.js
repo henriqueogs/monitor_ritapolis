@@ -257,6 +257,14 @@ export function fetchEmpenho(id) {
   return fetchJson(`/empenhos/${id}`).catch(() => null);
 }
 
+export function fetchTransparenciaGastos(params = {}) {
+  return fetchJson(`/transparencia/gastos${buildQuery(params)}`).catch(() => null);
+}
+
+export function fetchTransparenciaCategoria(slug, params = {}) {
+  return fetchJson(`/transparencia/categoria/${slug}${buildQuery(params)}`).catch(() => null);
+}
+
 export function fetchTransparenciaDespesas(params = {}) {
   return fetchJson(`/transparencia/despesas${buildQuery(params)}`).catch(() => ({
     total: 0,

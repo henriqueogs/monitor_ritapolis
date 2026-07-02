@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import SectionBlock from '../components/SectionBlock';
-import { fetchTransparenciaResumo } from '../lib/api';
+import { fetchTransparenciaResumo, fetchTransparenciaGastos } from '../lib/api';
+import GastosPorCategoria from './components/GastosPorCategoria';
 import PeriodoSelector from '../components/PeriodoSelector';
 import MetricasPeriodo from './components/MetricasPeriodo';
 import TabelaExercicios from './components/TabelaExercicios';
@@ -47,7 +48,10 @@ function montarPeriodoLabel(modo, periodo, porMandato) {
 
 export default async function TransparenciaPage({ searchParams }) {
   const { modo, fetchParams } = resolverFiltro(searchParams);
-  const dados = await fetchTransparenciaResumo(fetchParams);
+  const [dados, gastos] = await Promise.all([
+    fetchTransparenciaResumo(fetchParams),
+    fetchTransparenciaGastos(fetchParams),
+  ]);
 
   if (!dados || !dados.periodo) {
     return (
@@ -82,6 +86,14 @@ export default async function TransparenciaPage({ searchParams }) {
       <PeriodoSelector porMandato={porMandato} periodo={periodo} anosCobertos={periodo.anos_cobertos} modo={modo} />
 
       <MetricasPeriodo total={total} periodoLabel={periodoLabel} pctVinculado={pctVinculado} />
+
+      <GastosPorCategoria
+        categorias={gastos?.categorias}
+        periodoLabel={periodoLabel}
+        queryPeriodo={new URLSearchParams(
+          Object.fromEntries(Object.entries(fetchParams).map(([k, v]) => [k, String(v)]))
+        ).toString()}
+      />
 
       <TabelaExercicios porAno={porAno} porMandato={porMandato} />
 

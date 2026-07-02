@@ -81,6 +81,21 @@ describe('transparencia-repo', () => {
       expect(d.data_pagamento).toBeDefined();
     });
 
+    it('filtra por prefixos de categoria econômica', () => {
+      seedDespesa({ categoriaEconomica: '3.3.90.14.00 - DIÁRIAS' });
+      seedDespesa({ categoriaEconomica: '4.4.90.51.00 - OBRAS' });
+
+      const soDiarias = repo.getDespesas({ categoriaPrefixos: ['3.3.90.14'] });
+      expect(soDiarias.total).toBe(1);
+      expect(soDiarias.dados[0].categoria_economica).toContain('DIÁRIAS');
+    });
+
+    it('limita o tamanho máximo da página', () => {
+      seedDespesa({});
+      const r = repo.getDespesas({ limite: 5000 });
+      expect(r.limite).toBeLessThanOrEqual(100);
+    });
+
     it('filtra por credor_cnpj e exercicio, com paginação', () => {
       seedDespesa({ credorCnpj: '01991246000135', exercicio: 2026 });
       seedDespesa({ credorCnpj: '01991246000135', exercicio: 2025, data: '2025-03-01' });
