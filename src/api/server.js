@@ -40,13 +40,16 @@ const {
   listarFatosAnexo
 } = require('../db');
 const {
-  getDespesasPorDocumento,
   getResumoFinanceiroPorDocumento,
-  getPainelResumo,
-  getDespesas,
   getReceitasPorAno,
   getReceitasDetalheExercicio,
 } = require('../db/transparencia-repo');
+const {
+  getPainelTransparencia,
+  getDespesasComPortal,
+  getDespesasDocumentoComPortal,
+} = require('../transparencia/painel-service');
+const { getCredorDossie } = require('../transparencia/credor-service');
 const {
   getConcentracaoCredores,
   getConcentracaoHistorico,
@@ -73,7 +76,7 @@ const {
 const { scheduleAnexoResumoJobWorker } = require('../ai/anexo-summary-job-worker');
 const { CONTRACT_VERSION_IA: CONTRATO_ANEXO_IA } = require('../ai/summarize-anexo');
 const { getCollectionUpdateStatus, startCollectionUpdate } = require('../coletas/update-runner');
-const { listCredores, getCredorProfile } = require('../db/credores-repo');
+const { listCredores } = require('../db/credores-repo');
 const { searchDocumentos, ensureFtsIndex, rebuildFtsIndex } = require('../db/fts-repo');
 const {
   listarEmendas,
@@ -109,7 +112,7 @@ function buildAiOperationPlan(documento) {
 }
 
 function stripKeys(value, keys) {
-  if (!value || typeof value !== 'object') return value;
+  if (!value || typeof value !== 'object') {return value;}
   const clone = Array.isArray(value) ? value.map((item) => stripKeys(item, keys)) : { ...value };
   if (!Array.isArray(clone)) {
     for (const key of keys) {
@@ -123,7 +126,7 @@ function stripKeys(value, keys) {
 }
 
 function resumoAiPublico(resumoAi) {
-  if (!resumoAi) return null;
+  if (!resumoAi) {return null;}
   return {
     criado_em: resumoAi.criado_em,
     atualizado_em: resumoAi.atualizado_em,
@@ -132,7 +135,7 @@ function resumoAiPublico(resumoAi) {
 }
 
 function leituraIntegradaPublica(leitura) {
-  if (!leitura) return null;
+  if (!leitura) {return null;}
   return {
     criado_em: leitura.criado_em,
     atualizado_em: leitura.atualizado_em,
@@ -474,20 +477,21 @@ function createServer() {
     if (!documento) { return res.status(404).json({ error: 'Documento nao encontrado' }); }
 
     const resumo = getResumoFinanceiroPorDocumento(id);
-    const empenhos = getDespesasPorDocumento(id);
+    const empenhos = getDespesasDocumentoComPortal(id);
 
     return res.json({ resumo, empenhos });
   });
 
   // ── Portal da Transparência ───────────────────────────────────────────────
 
-  app.get('/api/transparencia/resumo', (_req, res) => {
-    return res.json(getPainelResumo());
+  app.get('/api/transparencia/resumo', (req, res) => {
+    const exercicio = req.query.exercicio ? Number(req.query.exercicio) : undefined;
+    return res.json(getPainelTransparencia({ exercicio }));
   });
 
   app.get('/api/transparencia/despesas', (req, res) => {
     const { exercicio, credor_cnpj, documento_id, pagina, limite } = req.query;
-    return res.json(getDespesas({ exercicio, credor_cnpj, documento_id, pagina, limite }));
+    return res.json(getDespesasComPortal({ exercicio, credor_cnpj, documento_id, pagina, limite }));
   });
 
   app.get('/api/transparencia/receitas', (_req, res) => {
@@ -660,9 +664,9 @@ function createServer() {
   app.get('/api/credores/:cnpj', (req, res) => {
     const cnpj = String(req.params.cnpj).replace(/\D/g, '');
     if (cnpj.length !== 14) { return res.status(400).json({ error: 'CNPJ inválido' }); }
-    const perfil = getCredorProfile(cnpj);
-    if (!perfil) { return res.status(404).json({ error: 'Credor não encontrado' }); }
-    return res.json(perfil);
+    const dossie = getCredorDossie(cnpj);
+    if (!dossie) { return res.status(404).json({ error: 'Credor não encontrado' }); }
+    return res.json(dossie);
   });
 
   // ── Busca FTS ─────────────────────────────────────────────────────────────
@@ -1037,7 +1041,7 @@ function createServer() {
     });
   });
 
-  // Dossiê de fornecedor unificado vive em /api/credores/:cnpj (getCredorProfile),
+  // Dossiê de fornecedor unificado vive em /api/credores/:cnpj (getCredorDossie),
   // que já agrega licitado + pago. O endpoint /inteligencia/fornecedores/:cnpj foi
   // removido por redundância (Fase 4).
 

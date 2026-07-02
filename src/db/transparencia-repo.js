@@ -481,9 +481,15 @@ function getResumoAnual(exercicio) {
 }
 
 /**
- * Visão geral de todos os exercícios — para o painel de transparência.
+ * Visão geral para o painel de transparência.
+ * `exercicio` (opcional) escopa total/topCredores/ultimosEmpenhos/tiposEmpenho;
+ * porAno/logs/receitas ficam sempre completos — alimentam o seletor de período.
  */
-function getPainelResumo() {
+function getPainelResumo({ exercicio } = {}) {
+  const temFiltro = Number.isInteger(Number(exercicio)) && Number(exercicio) > 0;
+  const whereExercicio = temFiltro ? 'WHERE exercicio_orcamento = ?' : '';
+  const paramsExercicio = temFiltro ? [Number(exercicio)] : [];
+
   const porAno = db.prepare(`
     SELECT
       exercicio_orcamento            AS exercicio,
@@ -506,7 +512,8 @@ function getPainelResumo() {
       COUNT(DISTINCT credor_cnpj)    AS n_credores,
       COUNT(DISTINCT documento_id)   AS n_licitacoes_vinculadas
     FROM transparencia_despesas
-  `).get();
+    ${whereExercicio}
+  `).get(...paramsExercicio);
 
   const topCredores = db.prepare(`
     SELECT
@@ -518,10 +525,11 @@ function getPainelResumo() {
       MAX(exercicio_orcamento) AS ultimo_exercicio
     FROM transparencia_despesas
     WHERE credor_cnpj IS NOT NULL AND credor_cnpj != ''
+      ${temFiltro ? 'AND exercicio_orcamento = ?' : ''}
     GROUP BY credor_cnpj
     ORDER BY valor_total DESC
     LIMIT 20
-  `).all();
+  `).all(...paramsExercicio);
 
   const ultimosEmpenhos = db.prepare(`
     SELECT
@@ -533,9 +541,10 @@ function getPainelResumo() {
     FROM transparencia_despesas td
     LEFT JOIN documentos d ON d.id = td.documento_id
     WHERE td.data_empenho IS NOT NULL
+      ${temFiltro ? 'AND td.exercicio_orcamento = ?' : ''}
     ORDER BY td.data_empenho DESC, td.id DESC
     LIMIT 20
-  `).all();
+  `).all(...paramsExercicio);
 
   const logs = db.prepare(`
     SELECT exercicio, registros, novos, atualizados, status, erro, coletado_em
@@ -546,9 +555,10 @@ function getPainelResumo() {
   const tiposEmpenho = db.prepare(`
     SELECT tipo, COUNT(*) AS n, ROUND(SUM(valor), 2) AS valor
     FROM transparencia_despesas
+    ${whereExercicio}
     GROUP BY tipo
     ORDER BY valor DESC
-  `).all();
+  `).all(...paramsExercicio);
 
   // Receitas previstas — cruzar com despesas executadas por exercício
   const receitasPorAno = getReceitasPorAno();
@@ -583,6 +593,7 @@ function getDespesas({ exercicio, credor_cnpj, documento_id, pagina = 1, limite 
       td.id, td.exercicio_orcamento, td.empenho, td.tipo,
       td.data_empenho, td.data_liquidacao, td.data_pagamento,
       td.credor_nome, td.credor_cnpj, td.valor,
+      td.funcao, td.unidade, td.programa, td.categoria_economica, td.fonte_recurso,
       td.historico, td.modalidade, td.licitacao_ref,
       td.documento_id,
       d.titulo AS documento_titulo, d.numero AS documento_numero
