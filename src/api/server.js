@@ -486,7 +486,8 @@ function createServer() {
 
   app.get('/api/transparencia/resumo', (req, res) => {
     const exercicio = req.query.exercicio ? Number(req.query.exercicio) : undefined;
-    return res.json(getPainelTransparencia({ exercicio }));
+    const mandato = req.query.mandato ? Number(req.query.mandato) : undefined;
+    return res.json(getPainelTransparencia({ exercicio, mandato }));
   });
 
   app.get('/api/transparencia/despesas', (req, res) => {

@@ -60,6 +60,16 @@ describe('painel-service', () => {
       expect(painel.periodo.anos_cobertos).toEqual([2023, 2026]);
     });
 
+    it('modo mandato: escopa pelos anos do mandato e monta periodo', () => {
+      const painel = getPainelTransparencia({ mandato: 2025 });
+
+      expect(repo.getPainelResumo).toHaveBeenCalledWith({
+        exercicios: [2025, 2026, 2027, 2028],
+      });
+      expect(painel.periodo.exercicio).toBeNull();
+      expect(painel.periodo.mandato).toEqual({ inicio: 2025, fim: 2028, label: '2025-2028' });
+    });
+
     it('monta periodo sem exercicio (visão completa)', () => {
       const painel = getPainelTransparencia();
       expect(painel.periodo.exercicio).toBeNull();

@@ -482,13 +482,18 @@ function getResumoAnual(exercicio) {
 
 /**
  * Visão geral para o painel de transparência.
- * `exercicio` (opcional) escopa total/topCredores/ultimosEmpenhos/tiposEmpenho;
- * porAno/logs/receitas ficam sempre completos — alimentam o seletor de período.
+ * `exercicio` (int) ou `exercicios` (int[], p/ mandato) escopam
+ * total/topCredores/ultimosEmpenhos/tiposEmpenho; porAno/logs/receitas ficam
+ * sempre completos — alimentam o seletor de período.
  */
-function getPainelResumo({ exercicio } = {}) {
-  const temFiltro = Number.isInteger(Number(exercicio)) && Number(exercicio) > 0;
-  const whereExercicio = temFiltro ? 'WHERE exercicio_orcamento = ?' : '';
-  const paramsExercicio = temFiltro ? [Number(exercicio)] : [];
+function getPainelResumo({ exercicio, exercicios } = {}) {
+  const lista = (Array.isArray(exercicios) ? exercicios : [exercicio])
+    .map(Number)
+    .filter((n) => Number.isInteger(n) && n > 0);
+  const temFiltro = lista.length > 0;
+  const placeholders = lista.map(() => '?').join(', ');
+  const whereExercicio = temFiltro ? `WHERE exercicio_orcamento IN (${placeholders})` : '';
+  const paramsExercicio = lista;
 
   const porAno = db.prepare(`
     SELECT
@@ -525,7 +530,7 @@ function getPainelResumo({ exercicio } = {}) {
       MAX(exercicio_orcamento) AS ultimo_exercicio
     FROM transparencia_despesas
     WHERE credor_cnpj IS NOT NULL AND credor_cnpj != ''
-      ${temFiltro ? 'AND exercicio_orcamento = ?' : ''}
+      ${temFiltro ? `AND exercicio_orcamento IN (${placeholders})` : ''}
     GROUP BY credor_cnpj
     ORDER BY valor_total DESC
     LIMIT 20
@@ -541,7 +546,7 @@ function getPainelResumo({ exercicio } = {}) {
     FROM transparencia_despesas td
     LEFT JOIN documentos d ON d.id = td.documento_id
     WHERE td.data_empenho IS NOT NULL
-      ${temFiltro ? 'AND td.exercicio_orcamento = ?' : ''}
+      ${temFiltro ? `AND td.exercicio_orcamento IN (${placeholders})` : ''}
     ORDER BY td.data_empenho DESC, td.id DESC
     LIMIT 20
   `).all(...paramsExercicio);

@@ -145,5 +145,15 @@ describe('transparencia-repo', () => {
       expect(painel.porAno).toHaveLength(2);
       expect(painel.porAno.map((r) => r.exercicio).sort()).toEqual([2025, 2026]);
     });
+
+    it('aceita lista de exercicios (escopo por mandato)', () => {
+      seedDespesa({ exercicio: 2023, data: '2023-05-01', valor: 5, credorCnpj: '11111111111111', credorNome: 'A' });
+      const painel = repo.getPainelResumo({ exercicios: [2025, 2026] });
+
+      expect(painel.total.n_empenhos).toBe(4);
+      expect(painel.total.valor_total).toBe(150);
+      expect(painel.ultimosEmpenhos.every((e) => [2025, 2026].includes(e.exercicio_orcamento))).toBe(true);
+      expect(painel.porAno).toHaveLength(3);
+    });
   });
 });

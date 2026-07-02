@@ -245,9 +245,9 @@ export async function fetchDocumentoEmpenhos(id) {
   }
 }
 
-export async function fetchTransparenciaResumo() {
+export async function fetchTransparenciaResumo(params = {}) {
   try {
-    return await fetchJson('/transparencia/resumo');
+    return await fetchJson(`/transparencia/resumo${buildQuery(params)}`);
   } catch {
     return null;
   }
