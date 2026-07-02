@@ -23,7 +23,9 @@ export default function EmpenhosRecentes({ ultimosEmpenhos, periodoLabel }) {
             <div className="product-row-main">
               <div className="document-row-meta">
                 <span>{emp.exercicio_orcamento}</span>
-                <span>Empenho {emp.empenho}</span>
+                <Link href={`/empenho/${emp.id}`} style={{ fontWeight: 600 }}>
+                  Empenho {emp.empenho}
+                </Link>
                 {emp.tipo ? <span style={{ fontSize: '0.8rem' }}>{emp.tipo.split(' - ')[0]}</span> : null}
                 {emp.portal?.url && (
                   <a

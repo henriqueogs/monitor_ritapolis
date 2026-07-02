@@ -50,6 +50,7 @@ const {
   getDespesasDocumentoComPortal,
 } = require('../transparencia/painel-service');
 const { getCredorDossie } = require('../transparencia/credor-service');
+const { getEmpenhoDossie } = require('../transparencia/empenho-service');
 const {
   getConcentracaoCredores,
   getConcentracaoHistorico,
@@ -493,6 +494,14 @@ function createServer() {
   app.get('/api/transparencia/despesas', (req, res) => {
     const { exercicio, credor_cnpj, documento_id, pagina, limite } = req.query;
     return res.json(getDespesasComPortal({ exercicio, credor_cnpj, documento_id, pagina, limite }));
+  });
+
+  app.get('/api/empenhos/:id', (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) { return res.status(400).json({ error: 'ID inválido' }); }
+    const dossie = getEmpenhoDossie(id);
+    if (!dossie) { return res.status(404).json({ error: 'Empenho não encontrado' }); }
+    return res.json(dossie);
   });
 
   app.get('/api/transparencia/receitas', (_req, res) => {

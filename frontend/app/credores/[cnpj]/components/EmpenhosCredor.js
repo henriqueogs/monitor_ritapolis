@@ -36,7 +36,9 @@ function LinhaEmpenho({ emp }) {
       </span>
       <span style={{ minWidth: 0 }}>
         <span style={{ display: 'flex', gap: 10, alignItems: 'baseline', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{emp.empenho}</span>
+          <Link href={`/empenho/${emp.id}`} style={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+            {emp.empenho}
+          </Link>
           <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{emp.tipo}</span>
           {emp.portal?.url && (
             <a href={emp.portal.url} target="_blank" rel="noreferrer" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>

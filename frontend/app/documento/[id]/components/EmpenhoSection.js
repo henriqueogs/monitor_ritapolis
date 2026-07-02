@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import SectionBlock from '../../../components/SectionBlock';
 import { formatDate, formatMoney } from '../../../lib/format';
 
@@ -82,7 +83,9 @@ export default function EmpenhoSection({ empenhos: data }) {
             <div className="product-row-main">
               <div className="document-row-meta">
                 <span>{emp.exercicio_orcamento}</span>
-                <span>Empenho {emp.empenho}</span>
+                <Link href={`/empenho/${emp.id}`} style={{ fontWeight: 600 }}>
+                  Empenho {emp.empenho}
+                </Link>
                 {emp.tipo ? <span>{tipoLabel(emp.tipo)}</span> : null}
                 <a
                   href={emp.portal?.url || PORTAL_BASE}

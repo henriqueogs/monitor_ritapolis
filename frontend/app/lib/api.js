@@ -253,6 +253,10 @@ export async function fetchTransparenciaResumo(params = {}) {
   }
 }
 
+export function fetchEmpenho(id) {
+  return fetchJson(`/empenhos/${id}`).catch(() => null);
+}
+
 export function fetchTransparenciaDespesas(params = {}) {
   return fetchJson(`/transparencia/despesas${buildQuery(params)}`).catch(() => ({
     total: 0,
