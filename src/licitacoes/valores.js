@@ -38,8 +38,79 @@ function avaliarValorFinal(valor, { piso = PISO_VALOR_PLAUSIVEL, teto = TETO_VAL
   return { plausivel: true, motivo: null };
 }
 
+// Um item não pode custar mais que o processo inteiro; 5% de folga cobre
+// arredondamento entre fontes (ata vs portal de transparência).
+const FATOR_MAX_ITEM_VS_PROCESSO = 1.05;
+
+function roundMoney(value) {
+  const numero = Number(value);
+  return Number.isFinite(numero) ? Math.round(numero * 100) / 100 : null;
+}
+
+function positivo(value) {
+  const numero = Number(value);
+  return Number.isFinite(numero) && numero > 0 ? numero : null;
+}
+
+/**
+ * Valor final estruturado de um produto, na mesma prioridade usada na
+ * exibição: global > lote > total do item > unitário×quantidade > unitário.
+ * @returns {{ campo: string, tipo: string, valor: number }|null}
+ */
+function extrairValorFinalEstruturado(produto = {}) {
+  const global = positivo(produto.valor_global_final);
+  if (global) {return { campo: 'valor_global_final', tipo: 'global', valor: global };}
+
+  const lote = positivo(produto.valor_lote_final);
+  if (lote) {return { campo: 'valor_lote_final', tipo: 'lote', valor: lote };}
+
+  const total = positivo(produto.valor_total_final);
+  if (total) {return { campo: 'valor_total_final', tipo: 'total_item', valor: total };}
+
+  const unitario = positivo(produto.valor_unitario_final);
+  const quantidade = positivo(produto.quantidade);
+  if (unitario && quantidade) {
+    return {
+      campo: 'valor_total_final_calculado',
+      tipo: 'total_item',
+      valor: roundMoney(unitario * quantidade),
+    };
+  }
+  if (unitario) {return { campo: 'valor_unitario_final', tipo: 'unitario', valor: unitario };}
+  return null;
+}
+
+/**
+ * Gate de plausibilidade item×processo: item não pode exceder o valor final
+ * do processo. Sem valor de referência (null/0) → plausível: lacuna explícita,
+ * nunca inventa julgamento.
+ * @returns {{ plausivel: boolean, motivo: string|null, razao: number|null }}
+ */
+function avaliarValorItemContraProcesso({
+  valorItem,
+  valorFinalProcesso,
+  fator = FATOR_MAX_ITEM_VS_PROCESSO,
+} = {}) {
+  const item = positivo(valorItem);
+  const processo = positivo(valorFinalProcesso);
+  if (!item || !processo) {return { plausivel: true, motivo: null, razao: null };}
+
+  const razao = item / processo;
+  if (razao > fator) {
+    return {
+      plausivel: false,
+      motivo: 'item_excede_valor_processo',
+      razao: Math.round(razao * 100) / 100,
+    };
+  }
+  return { plausivel: true, motivo: null, razao: Math.round(razao * 100) / 100 };
+}
+
 module.exports = {
   avaliarValorFinal,
+  extrairValorFinalEstruturado,
+  avaliarValorItemContraProcesso,
+  FATOR_MAX_ITEM_VS_PROCESSO,
   PISO_VALOR_PLAUSIVEL,
   TETO_VALOR_PLAUSIVEL,
 };

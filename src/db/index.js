@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const config = require('../config');
+const logger = require('../logger');
 const { deepRepairStrings, normalizeText } = require('../utils/text');
 const { devePreservarTextoOcr } = require('../utils/documento-merge');
 const { parseLicitacaoDetalhes } = require('../parsers/licitacao-detalhes');
@@ -11,6 +12,21 @@ const { normalizarCnpj, formatarCnpj } = require('../licitacoes/cnpj');
 const {
   inferirValorFinalTipoResultado: inferirValorFinalTipoResultadoDomain,
 } = require('../licitacoes/valor-final-tipo');
+const { aplicarGatePlausibilidadeItemProcesso } = require('./produtos-plausibilidade-repo');
+
+// Guard-rail: após qualquer escrita de produtos/valor final, quarentena itens
+// cujo valor excede o do processo. Nunca derruba a coleta.
+function rodarGatePlausibilidadeSeguro(documentoId) {
+  try {
+    return aplicarGatePlausibilidadeItemProcesso({ documentoId });
+  } catch (err) {
+    logger.warn('gate de plausibilidade item×processo falhou', {
+      documento_id: documentoId,
+      erro: err.message,
+    });
+    return null;
+  }
+}
 
 // Fase E: importa db do singleton para evitar conexões duplicadas
 const { db } = require('./connection');
@@ -1345,6 +1361,12 @@ function upsertLicitacaoDetalhesExtraidos(documento, detalhes) {
       atualizado_em: now
     });
 
+  // O valor_final do processo pode chegar depois dos produtos — revalida
+  // a plausibilidade dos itens agora que existe referência.
+  if (detalhes.valor_final !== null && detalhes.valor_final !== undefined) {
+    rodarGatePlausibilidadeSeguro(documento.id);
+  }
+
   return result.changes || 0;
 }
 
@@ -1618,6 +1640,10 @@ function estruturarProdutosDeResumoAi(documentoId, resumoAi) {
   produtos.forEach((produto) => {
     resultado.produtos_salvos += upsertLicitacaoProduto(produto);
   });
+
+  if (resultado.produtos_salvos) {
+    resultado.gate_plausibilidade = rodarGatePlausibilidadeSeguro(documentoId);
+  }
 
   return resultado;
 }
@@ -2165,6 +2191,10 @@ function enriquecerProdutosComResultadosAnexo({ documentoId, anexoId, texto }) {
       atuaisPorItem.set(key, produto);
     }
   });
+
+  if (resumo.produtos_atualizados || resumo.produtos_criados) {
+    resumo.gate_plausibilidade = rodarGatePlausibilidadeSeguro(documento.id);
+  }
 
   return resumo;
 }
