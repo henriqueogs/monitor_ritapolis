@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import SectionBlock from '../components/SectionBlock';
 import { fetchTransparenciaResumo } from '../lib/api';
-import PeriodoSelector from './components/PeriodoSelector';
+import PeriodoSelector from '../components/PeriodoSelector';
 import MetricasPeriodo from './components/MetricasPeriodo';
 import TabelaExercicios from './components/TabelaExercicios';
 import ComposicaoReceita from './components/ComposicaoReceita';

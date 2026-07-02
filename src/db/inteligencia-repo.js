@@ -389,8 +389,18 @@ function getPainelInteligencia(exercicio) {
     return r?.ano || 2025;
   })();
 
+  const anosDisponiveis = db
+    .prepare(
+      `SELECT DISTINCT exercicio_orcamento AS ano FROM transparencia_despesas
+       GROUP BY exercicio_orcamento HAVING COUNT(*) > 100
+       ORDER BY exercicio_orcamento DESC`
+    )
+    .all()
+    .map((r) => r.ano);
+
   return {
     exercicio: anoAlvo,
+    anos_disponiveis: anosDisponiveis,
     concentracao: getConcentracaoCredores(anoAlvo),
     concentracao_historico: getConcentracaoHistorico(),
     anomalias: getEmpenhoAtipicos(anoAlvo),

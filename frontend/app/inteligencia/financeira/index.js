@@ -28,9 +28,9 @@ export default async function AnaliseFinanceiraPage({ searchParams }) {
           </p>
         </div>
 
-        {/* Seletor de exercício */}
+        {/* Seletor de exercício — anos derivados dos dados reais */}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {[2023, 2024, 2025].map((ano) => (
+          {(dados?.anos_disponiveis || []).map((ano) => (
             <Link
               key={ano}
               href={`/inteligencia/financeira?exercicio=${ano}`}
