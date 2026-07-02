@@ -21,7 +21,9 @@ function normalizeProdutoRow(row) {
       ])
     ),
     validacao_status: row.validacao_status || (row.validacoes_total ? 'revisar' : 'pendente'),
-    validacoes_total: Number(row.validacoes_total || 0)
+    validacoes_total: Number(row.validacoes_total || 0),
+    // Quarentena do gate item×processo: a UI não exibe o valor como "Final"
+    valor_final_quarentenado: row.plausibilidade_status === 'implausivel'
   };
 }
 
@@ -120,7 +122,21 @@ function listLicitacaoProdutos({
                 SELECT COUNT(*)
                 FROM licitacoes_produtos_validacoes v
                 WHERE v.produto_id = lp.id
-              ) AS validacoes_total
+              ) AS validacoes_total,
+              (
+                SELECT v.status
+                FROM licitacoes_produtos_validacoes v
+                WHERE v.produto_id = lp.id AND v.fonte = 'plausibilidade_item_processo'
+                ORDER BY datetime(v.validado_em) DESC, v.id DESC
+                LIMIT 1
+              ) AS plausibilidade_status,
+              (
+                SELECT v.valor_encontrado
+                FROM licitacoes_produtos_validacoes v
+                WHERE v.produto_id = lp.id AND v.fonte = 'plausibilidade_item_processo'
+                ORDER BY datetime(v.validado_em) DESC, v.id DESC
+                LIMIT 1
+              ) AS plausibilidade_valor_processo
        FROM licitacoes_produtos lp
        JOIN documentos d ON d.id = lp.documento_id
        ${whereClause}

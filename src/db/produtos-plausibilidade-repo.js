@@ -105,7 +105,15 @@ function aplicarGatePlausibilidadeItemProcesso({
   dryRun = false,
 } = {}) {
   const alvos = listarAlvos({ documentoId, ano });
-  const resumo = { avaliados: 0, quarentenados: 0, ja_quarentenados: 0, liberados: 0, dryRun, detalhes: [] };
+  const resumo = {
+    avaliados: 0,
+    quarentenados: 0,
+    ja_quarentenados: 0,
+    validados_nao_rebaixados: 0,
+    liberados: 0,
+    dryRun,
+    detalhes: [],
+  };
 
   for (const produto of alvos) {
     const estruturado = extrairValorFinalEstruturado(produto);
@@ -131,7 +139,11 @@ function aplicarGatePlausibilidadeItemProcesso({
       const humanoValidado = produto.status_revisao === 'validado';
       if (jaMarcado) {
         resumo.ja_quarentenados += 1;
-      } else if (!humanoValidado) {
+      } else if (humanoValidado) {
+        // status_revisao intocado, mas a validação 'implausivel' é gravada —
+        // a exibição quarentena por ela, independente do workflow admin.
+        resumo.validados_nao_rebaixados += 1;
+      } else {
         resumo.quarentenados += 1;
       }
       if (!dryRun) {

@@ -123,6 +123,23 @@ describe('produtos-repo', () => {
     expect(result.dados[0].validacao_status).toBe('pendente');
   });
 
+  it('expõe quarentena de plausibilidade item×processo', () => {
+    mockConn
+      .prepare(
+        `INSERT INTO licitacoes_produtos_validacoes (produto_id, fonte, valor_encontrado, campo_validado, status)
+         VALUES (1, 'plausibilidade_item_processo', 176186.2, 'valor_total_final', 'implausivel')`
+      )
+      .run();
+
+    const dados = getLicitacaoProdutosByDocumentoId(1).dados;
+    const quarentenado = dados.find((p) => p.id === 1);
+    const normal = dados.find((p) => p.id === 2);
+
+    expect(quarentenado.valor_final_quarentenado).toBe(true);
+    expect(quarentenado.plausibilidade_valor_processo).toBe(176186.2);
+    expect(normal.valor_final_quarentenado).toBe(false);
+  });
+
   it('filtra produtos por termo em descricao, fornecedor ou documento', () => {
     expect(listLicitacaoProdutos({ termo: 'Fornecedor B' }).total).toBe(1);
     expect(listLicitacaoProdutos({ termo: 'Feijao' }).total).toBe(1);

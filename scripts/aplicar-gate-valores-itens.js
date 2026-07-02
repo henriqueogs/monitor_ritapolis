@@ -42,7 +42,8 @@ function main() {
 
   console.warn(
     `${apply ? '' : '[dry-run] '}avaliados=${resultado.avaliados} quarentenados=${resultado.quarentenados} ` +
-      `ja_quarentenados=${resultado.ja_quarentenados} liberados=${resultado.liberados}`
+      `ja_quarentenados=${resultado.ja_quarentenados} validados_nao_rebaixados=${resultado.validados_nao_rebaixados} ` +
+      `liberados=${resultado.liberados} implausiveis_total=${resultado.detalhes.length}`
   );
   for (const d of resultado.detalhes) {
     console.warn(

@@ -47,7 +47,9 @@ export default async function DocumentoPage({ params }) {
       {documento.tipo === 'edital' && documento.licitacao_grupo ? (
         <LicitationGroup grupo={documento.licitacao_grupo} />
       ) : null}
-      {documento.tipo === 'edital' ? <LicitationProducts produtos={produtos} /> : null}
+      {documento.tipo === 'edital' ? (
+        <LicitationProducts produtos={produtos} valorFinalProcesso={licitacao?.valor_final ?? null} />
+      ) : null}
       {documento.tipo === 'edital' ? <EmpenhoSection empenhos={empenhos} /> : null}
       {documento.tipo === 'edital' ? (
         <LicitationRelatedSources fontes={documento.licitacao_fontes_relacionadas} />

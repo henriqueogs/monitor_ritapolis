@@ -10,21 +10,21 @@ const {
 } = require('./valores');
 
 describe('licitacoes/valores · extrairValorFinalEstruturado', () => {
-  it('prioriza global > lote > total_item > unit×qtd > unitário', () => {
-    expect(extrairValorFinalEstruturado({ valor_global_final: 10, valor_lote_final: 20 })).toEqual({
-      campo: 'valor_global_final',
-      tipo: 'global',
-      valor: 10,
+  it('prioriza na ordem da exibição: total_item > lote > global > unit×qtd > unitário', () => {
+    expect(extrairValorFinalEstruturado({ valor_total_final: 30, valor_lote_final: 20, valor_global_final: 10 })).toEqual({
+      campo: 'valor_total_final',
+      tipo: 'total_item',
+      valor: 30,
     });
-    expect(extrairValorFinalEstruturado({ valor_lote_final: 20, valor_total_final: 30 })).toEqual({
+    expect(extrairValorFinalEstruturado({ valor_lote_final: 20, valor_global_final: 10 })).toEqual({
       campo: 'valor_lote_final',
       tipo: 'lote',
       valor: 20,
     });
-    expect(extrairValorFinalEstruturado({ valor_total_final: 30 })).toEqual({
-      campo: 'valor_total_final',
-      tipo: 'total_item',
-      valor: 30,
+    expect(extrairValorFinalEstruturado({ valor_global_final: 10 })).toEqual({
+      campo: 'valor_global_final',
+      tipo: 'global',
+      valor: 10,
     });
     expect(extrairValorFinalEstruturado({ valor_unitario_final: 5, quantidade: 4 })).toEqual({
       campo: 'valor_total_final_calculado',

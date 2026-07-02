@@ -53,19 +53,21 @@ function positivo(value) {
 }
 
 /**
- * Valor final estruturado de um produto, na mesma prioridade usada na
- * exibição: global > lote > total do item > unitário×quantidade > unitário.
+ * Valor final estruturado de um produto, na MESMA prioridade da exibição
+ * pública (LicitationProducts): total do item > lote > global >
+ * unitário×quantidade > unitário. O gate protege o que o cidadão vê —
+ * a ordem tem que ser idêntica à da UI.
  * @returns {{ campo: string, tipo: string, valor: number }|null}
  */
 function extrairValorFinalEstruturado(produto = {}) {
-  const global = positivo(produto.valor_global_final);
-  if (global) {return { campo: 'valor_global_final', tipo: 'global', valor: global };}
+  const total = positivo(produto.valor_total_final);
+  if (total) {return { campo: 'valor_total_final', tipo: 'total_item', valor: total };}
 
   const lote = positivo(produto.valor_lote_final);
   if (lote) {return { campo: 'valor_lote_final', tipo: 'lote', valor: lote };}
 
-  const total = positivo(produto.valor_total_final);
-  if (total) {return { campo: 'valor_total_final', tipo: 'total_item', valor: total };}
+  const global = positivo(produto.valor_global_final);
+  if (global) {return { campo: 'valor_global_final', tipo: 'global', valor: global };}
 
   const unitario = positivo(produto.valor_unitario_final);
   const quantidade = positivo(produto.quantidade);

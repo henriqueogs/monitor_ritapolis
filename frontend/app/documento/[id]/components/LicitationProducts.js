@@ -1,6 +1,10 @@
 import SectionBlock from '../../../components/SectionBlock';
 import { formatMoney } from '../../../lib/format';
 
+// Item não pode custar mais que o processo inteiro (folga de arredondamento).
+// Espelha o gate do backend (src/licitacoes/valores.js).
+const FATOR_MAX_ITEM_VS_PROCESSO = 1.05;
+
 function bestEstimatedValue(item) {
   if (item.valor_total_estimado != null) return item.valor_total_estimado;
   if (item.valor_unitario_estimado != null && item.quantidade != null) {
@@ -9,23 +13,33 @@ function bestEstimatedValue(item) {
   return item.valor_unitario_estimado;
 }
 
-function bestFinalValue(item) {
-  if (item.valor_total_final != null) return item.valor_total_final;
-  if (item.valor_lote_final != null) return item.valor_lote_final;
-  if (item.valor_global_final != null) return item.valor_global_final;
+// Valor final pra exibição, protegido: nunca "inventa" um total unit×qtd que
+// excederia o valor final do processo — nesses casos mostra o unitário cru.
+function bestFinalValue(item, valorFinalProcesso) {
+  if (item.valor_total_final != null) return { valor: item.valor_total_final, label: 'Final total' };
+  if (item.valor_lote_final != null) return { valor: item.valor_lote_final, label: 'Final lote' };
+  if (item.valor_global_final != null) return { valor: item.valor_global_final, label: 'Final global' };
   if (item.valor_unitario_final != null && item.quantidade != null) {
-    return Number(item.valor_unitario_final) * Number(item.quantidade);
+    const calculado = Number(item.valor_unitario_final) * Number(item.quantidade);
+    const excede =
+      valorFinalProcesso > 0 && calculado > valorFinalProcesso * FATOR_MAX_ITEM_VS_PROCESSO;
+    if (excede) return { valor: item.valor_unitario_final, label: 'Final unitario' };
+    return { valor: calculado, label: 'Final calculado' };
   }
-  return item.valor_unitario_final;
+  if (item.valor_unitario_final != null) return { valor: item.valor_unitario_final, label: 'Final unitario' };
+  return null;
 }
 
-function finalValueLabel(item) {
-  if (item.valor_total_final != null) return 'Final total';
-  if (item.valor_lote_final != null) return 'Final lote';
-  if (item.valor_global_final != null) return 'Final global';
-  if (item.valor_unitario_final != null && item.quantidade != null) return 'Final calculado';
-  if (item.valor_unitario_final != null) return 'Final unitario';
-  return 'Final';
+function somaFinaisItens(itens, valorFinalProcesso) {
+  let soma = 0;
+  for (const item of itens) {
+    const final = bestFinalValue(item, valorFinalProcesso);
+    if (final?.valor != null) soma += Number(final.valor);
+  }
+  return {
+    soma,
+    excedeProcesso: valorFinalProcesso > 0 && soma > valorFinalProcesso * FATOR_MAX_ITEM_VS_PROCESSO,
+  };
 }
 
 // Item "útil" tem ao menos um dado concreto além da descrição: quantidade,
@@ -40,9 +54,40 @@ function temDadoUtil(item) {
   );
 }
 
-function ProductRow({ item }) {
+// Valor da fonte que caiu na quarentena — mostrado dentro do aviso, não como "Final"
+function valorQuarentenado(item) {
+  return (
+    item.valor_lote_final ?? item.valor_global_final ?? item.valor_total_final ?? item.valor_unitario_final
+  );
+}
+
+function AvisoValorInconsistente({ item, valorFinalProcesso }) {
+  const valorFonte = valorQuarentenado(item);
+  const valorProcesso = item.plausibilidade_valor_processo ?? valorFinalProcesso;
+  const urlFonte = item.documento_url_pdf || item.documento_url_origem;
+
+  return (
+    <div className="document-row-field" style={{ maxWidth: 300 }}>
+      <span style={{ color: 'var(--warning)' }}>Valor não confiável</span>
+      <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.45 }}>
+        A fonte registra {valorFonte != null ? formatMoney(valorFonte) : 'um valor'} para este item —
+        inconsistente com o valor final do processo
+        {valorProcesso ? ` (${formatMoney(valorProcesso)})` : ''}. Provável erro de digitação na
+        própria ata.{' '}
+        {urlFonte ? (
+          <a href={urlFonte} target="_blank" rel="noopener noreferrer">
+            Conferir na fonte oficial ↗
+          </a>
+        ) : null}
+      </p>
+    </div>
+  );
+}
+
+function ProductRow({ item, valorFinalProcesso }) {
   const estimado = bestEstimatedValue(item);
-  const final = bestFinalValue(item);
+  const quarentenado = Boolean(item.valor_final_quarentenado);
+  const final = quarentenado ? null : bestFinalValue(item, valorFinalProcesso);
   const lote = item.lote_numero ? `Lote ${item.lote_numero}` : null;
   const itemNum = item.item_numero ? `Item ${item.item_numero}` : null;
 
@@ -71,10 +116,12 @@ function ProductRow({ item }) {
             <strong>{formatMoney(estimado)}</strong>
           </div>
         ) : null}
-        {final != null ? (
+        {quarentenado ? (
+          <AvisoValorInconsistente item={item} valorFinalProcesso={valorFinalProcesso} />
+        ) : final ? (
           <div className="document-row-field">
-            <span>{finalValueLabel(item)}</span>
-            <strong>{formatMoney(final)}</strong>
+            <span>{final.label}</span>
+            <strong>{formatMoney(final.valor)}</strong>
           </div>
         ) : null}
         {item.fornecedor_nome ? (
@@ -88,7 +135,7 @@ function ProductRow({ item }) {
   );
 }
 
-export default function LicitationProducts({ produtos }) {
+export default function LicitationProducts({ produtos, valorFinalProcesso }) {
   const itens = produtos?.dados || [];
 
   if (!itens.length) {
@@ -104,16 +151,32 @@ export default function LicitationProducts({ produtos }) {
 
   const comDados = itens.filter(temDadoUtil);
   const semDados = itens.filter((item) => !temDadoUtil(item));
+  const naoQuarentenados = comDados.filter((item) => !item.valor_final_quarentenado);
+  const { soma, excedeProcesso } = somaFinaisItens(naoQuarentenados, valorFinalProcesso);
 
   return (
     <SectionBlock
       title="Itens deste processo"
       description="Produtos, precos e fornecedores citados nos documentos, quando a fonte oficial informa."
     >
+      {excedeProcesso ? (
+        <p
+          style={{
+            margin: '0 0 14px', padding: '10px 14px', borderRadius: 8, fontSize: 13, lineHeight: 1.5,
+            background: 'color-mix(in srgb, var(--warning) 10%, transparent)',
+            border: '1px solid color-mix(in srgb, var(--warning) 35%, transparent)',
+          }}
+        >
+          Os valores por item registrados na fonte somam {formatMoney(soma)} — acima do valor final
+          do processo ({formatMoney(valorFinalProcesso)}). Alguns itens podem conter erro de
+          digitação na própria ata; confira sempre a fonte oficial.
+        </p>
+      ) : null}
+
       {comDados.length ? (
         <div className="products-table">
           {comDados.map((item) => (
-            <ProductRow key={item.id} item={item} />
+            <ProductRow key={item.id} item={item} valorFinalProcesso={valorFinalProcesso} />
           ))}
         </div>
       ) : (
