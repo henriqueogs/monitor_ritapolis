@@ -11,6 +11,8 @@ const ORIGEM_CONFIG = {
   portal_transparencia: {
     label: 'Portal Transparência',
     variant: 'gov',
+    // Listagem genérica — quem tem um empenho específico deve passar o
+    // deep-link da API (`emp.portal.url`) na prop `url`.
     url: 'https://pt.ritapolis.mg.gov.br/Tempo_Real_Despesa',
   },
   pncp: {

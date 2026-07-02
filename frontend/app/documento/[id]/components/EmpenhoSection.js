@@ -1,17 +1,14 @@
 import SectionBlock from '../../../components/SectionBlock';
 import { formatDate, formatMoney } from '../../../lib/format';
 
-// Portal da Transparência não aceita ?exercicio= (retorna 404) — usa só a base.
+// Listagem genérica do Portal — usada só como aside da seção; cada empenho tem
+// deep-link próprio (`emp.portal.url`), montado pela API.
 const PORTAL_BASE = 'https://pt.ritapolis.mg.gov.br/Tempo_Real_Despesa';
-
-function portalUrl() {
-  return PORTAL_BASE;
-}
 
 function PortalLink({ label = 'Ver no Portal ↗' }) {
   return (
     <a
-      href={portalUrl()}
+      href={PORTAL_BASE}
       target="_blank"
       rel="noopener noreferrer"
       className="availability-badge is-gov origin-badge"
@@ -88,13 +85,17 @@ export default function EmpenhoSection({ empenhos: data }) {
                 <span>Empenho {emp.empenho}</span>
                 {emp.tipo ? <span>{tipoLabel(emp.tipo)}</span> : null}
                 <a
-                  href={portalUrl(emp.exercicio_orcamento)}
+                  href={emp.portal?.url || PORTAL_BASE}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="availability-badge is-gov"
-                  title={`Verificar empenho ${emp.empenho} no Portal da Transparência`}
+                  title={
+                    emp.portal?.especifico
+                      ? `Detalhamento oficial do empenho ${emp.empenho} no Portal da Transparência`
+                      : 'Portal da Transparência (busca manual)'
+                  }
                 >
-                  ↗ Verificar
+                  {emp.portal?.especifico ? '↗ Ver no Portal' : '↗ Portal (busca manual)'}
                 </a>
               </div>
               <h3>{emp.credor_nome || 'Credor não identificado'}</h3>
