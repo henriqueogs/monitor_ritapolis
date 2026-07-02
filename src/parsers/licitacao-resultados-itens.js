@@ -1,3 +1,8 @@
+const {
+  detectarTipoValorEmTexto,
+  extrairLoteNumero,
+} = require('../licitacoes/valor-final-tipo');
+
 const PREFEITURA_HEADER_PATTERN =
   /\b1854\s+1963\s+Prefeitura\s+Municipal\s+de\s+Rit\S*polis\s+Pra\S*a\s+Tiradentes,\s*340\s+[-–]\s+Centro\s+[-–]\s+CEP\s+36335-000\s+CNPJ:\s*18\.557\.553\/0001-05\s+[-–]\s+Tel\.\s*\(32\)\s*3356-1136\s+\d*\b/gi;
 
@@ -156,12 +161,16 @@ function buildTrechoFonte(itemNumero, descricao, fornecedor, valorFinal, tipo) {
   );
 }
 
-function inferValorFinalTipo(descricao) {
+// Olha a descrição E o corpo do segmento — o token "LOTE 00008" muitas vezes
+// está fora do texto que vira descrição do produto.
+function inferValorFinalTipo(descricao, contextoSegmento) {
   const key = normalizeKey(descricao);
-  if (!key) {return null;}
-  if (/\bvalor global\b|\bglobal\b/.test(key)) {return 'global';}
-  if (/\blote\b/.test(key)) {return 'lote';}
-  return 'unitario';
+  if (!key && !contextoSegmento) {return null;}
+  return (
+    detectarTipoValorEmTexto(descricao) ||
+    detectarTipoValorEmTexto(contextoSegmento) ||
+    'unitario'
+  );
 }
 
 function parseNegociacaoSegment(segment, cnpjMap) {
@@ -182,10 +191,11 @@ function parseNegociacaoSegment(segment, cnpjMap) {
 
   return {
     item_numero: segment.item_numero,
+    lote_numero: extrairLoteNumero(body),
     descricao,
     valor_unitario_final: valorFinal,
     valor_total_final: null,
-    valor_final_tipo: inferValorFinalTipo(descricao),
+    valor_final_tipo: inferValorFinalTipo(descricao, body),
     fornecedor_nome: fornecedorNome,
     fornecedor_cnpj: findFornecedorCnpj(cnpjMap, fornecedorNome),
     origem: 'ata_resultado',
@@ -213,10 +223,11 @@ function parseClassificacaoSegment(segment, cnpjMap) {
 
   return {
     item_numero: segment.item_numero,
+    lote_numero: extrairLoteNumero(body),
     descricao,
     valor_unitario_final: valorFinal,
     valor_total_final: null,
-    valor_final_tipo: inferValorFinalTipo(descricao),
+    valor_final_tipo: inferValorFinalTipo(descricao, body),
     fornecedor_nome: fornecedorNome,
     fornecedor_cnpj: findFornecedorCnpj(cnpjMap, fornecedorNome),
     origem: 'ata_resultado',
@@ -265,10 +276,11 @@ function parseResultadoDeclarado(text, cnpjMap) {
 
     resultados.push({
       item_numero: marker.numero,
+      lote_numero: extrairLoteNumero(segment),
       descricao,
       valor_unitario_final: valorFinal,
       valor_total_final: null,
-      valor_final_tipo: inferValorFinalTipo(descricao),
+      valor_final_tipo: inferValorFinalTipo(descricao, segment),
       fornecedor_nome: fornecedorNome,
       fornecedor_cnpj: findFornecedorCnpj(cnpjMap, fornecedorNome),
       origem: 'ata_resultado',

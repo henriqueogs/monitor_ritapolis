@@ -8,6 +8,9 @@ const { parseResultadosItensLicitacao } = require('../parsers/licitacao-resultad
 const { agruparDocumentosLicitacao, papelLabel } = require('../licitacoes/grupos');
 const { normalizarNumeroDocumento, titulosCompativeis } = require('../licitacoes/processo');
 const { normalizarCnpj, formatarCnpj } = require('../licitacoes/cnpj');
+const {
+  inferirValorFinalTipoResultado: inferirValorFinalTipoResultadoDomain,
+} = require('../licitacoes/valor-final-tipo');
 
 // Fase E: importa db do singleton para evitar conexões duplicadas
 const { db } = require('./connection');
@@ -1956,24 +1959,16 @@ function roundMoney(value) {
   return Number.isFinite(number) ? Math.round(number * 100) / 100 : null;
 }
 
+// Delegação fina pro domain — sinais de lote/global VENCEM a quantidade
+// (a inversão antiga multiplicava valor de lote pela quantidade do edital).
 function inferValorFinalTipoResultado({ atual, resultado, descricao, quantidade, valorFinal }) {
-  if (quantidade) {return 'unitario';}
-
-  const explicit = normalizeValorFinalTipo(resultado?.valor_final_tipo);
-  if (explicit && explicit !== 'unitario') {return explicit;}
-
-  const key = normalizeProdutoDescricao(
-    [descricao, atual?.trecho_fonte, resultado?.trecho_fonte].filter(Boolean).join(' ')
-  ) || '';
-
-  if (/\bvalor global\b|\bglobal\b/.test(key)) {return 'global';}
-  if (/\blote\b/.test(key) || atual?.lote_numero || resultado?.lote_numero) {return 'lote';}
-
-  const looksLikeServiceOrWork =
-    /\b(servico|servicos|prestacao|obra|reforma|construcao|ampliacao|engenharia|manutencao)\b/.test(key);
-  if (looksLikeServiceOrWork && Number(valorFinal || 0) >= 1000) {return 'global';}
-
-  return explicit || 'unitario';
+  return inferirValorFinalTipoResultadoDomain({
+    tipoParser: normalizeValorFinalTipo(resultado?.valor_final_tipo),
+    loteNumero: atual?.lote_numero || resultado?.lote_numero || null,
+    trechos: [descricao, atual?.trecho_fonte, resultado?.trecho_fonte],
+    quantidade,
+    valorFinal,
+  });
 }
 
 function buildProdutoEnriquecidoPorResultado({ documento, modelo, atual, resultado, anexo }) {
@@ -2048,8 +2043,12 @@ function atualizarProdutoExistenteComResultado(produtoId, produto) {
   const nullable = (value) => value ?? null;
   return db.prepare(
     `UPDATE licitacoes_produtos
-        SET valor_unitario_final = COALESCE(@valor_unitario_final, valor_unitario_final),
-            valor_total_final = COALESCE(@valor_total_final, valor_total_final),
+        SET valor_unitario_final = CASE
+              WHEN @valor_final_tipo IN ('lote', 'global') THEN NULL
+              ELSE COALESCE(@valor_unitario_final, valor_unitario_final) END,
+            valor_total_final = CASE
+              WHEN @valor_final_tipo IN ('lote', 'global') THEN NULL
+              ELSE COALESCE(@valor_total_final, valor_total_final) END,
             valor_final_tipo = COALESCE(@valor_final_tipo, valor_final_tipo),
             valor_lote_final = COALESCE(@valor_lote_final, valor_lote_final),
             valor_global_final = COALESCE(@valor_global_final, valor_global_final),

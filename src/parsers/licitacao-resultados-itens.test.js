@@ -60,6 +60,40 @@ describe('parsers/licitacao-resultados-itens', () => {
     });
   });
 
+  it('NEGOCIACAO com LOTE no segmento emite tipo lote e lote_numero (caso doc/5)', () => {
+    const texto = [
+      'NEGOCIACAO',
+      'Item: 8 - LOTE 00008 Direct Box ativo',
+      'Fornecedor Valor Negociado Valor Vencedor Situacao',
+      'HYAGO E. SANTOS PROMOCOES-ME R$ 4.900.000,00 R$ 4.815.000,00 Vencedor',
+    ].join(' ');
+
+    const resultados = parseResultadosItensLicitacao(texto);
+
+    expect(resultados).toHaveLength(1);
+    expect(resultados[0]).toMatchObject({
+      item_numero: '8',
+      valor_unitario_final: 4815000,
+      valor_final_tipo: 'lote',
+      lote_numero: '8',
+    });
+  });
+
+  it('NEGOCIACAO sem LOTE continua unitario sem lote_numero (regressão)', () => {
+    const texto = [
+      'NEGOCIACAO',
+      'Item: 2 - Caneta esferográfica azul',
+      'Fornecedor Valor Negociado Valor Vencedor Situacao',
+      'PAPELARIA TESTE LTDA R$ 2,00 R$ 1,80 Vencedor',
+    ].join(' ');
+
+    const resultados = parseResultadosItensLicitacao(texto);
+
+    expect(resultados).toHaveLength(1);
+    expect(resultados[0].valor_final_tipo).toBe('unitario');
+    expect(resultados[0].lote_numero ?? null).toBeNull();
+  });
+
   it('usa resultado declarado quando a classificacao tem OCR ruim', () => {
     const texto = [
       'RESULTADO A vista da habilitacao, foi declarado:',
