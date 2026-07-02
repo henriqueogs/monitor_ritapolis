@@ -18,19 +18,22 @@ test.describe('Descobertas (caminho feliz)', () => {
     await expect(page.locator('body')).not.toContainText('Crítico');
     await expect(page.locator('body')).not.toContainText('Sinais de atenção');
 
-    const primeiro = page.locator('.citizen-card').first();
+    const primeiro = page.locator('a[href^="/descobertas/"]').filter({ has: page.locator('h3') }).first();
     await expect(primeiro).toBeVisible();
     await primeiro.click();
 
     await expect(page).toHaveURL(/\/descobertas\/\d+/);
     await expect(page.locator('h1')).toBeVisible();
-    // Detalhe traz a seção de documentos vinculados com link de fonte (§11.3)
-    await expect(page.getByText(/Documentos vinculados/i)).toBeVisible();
+    // Detalhe traz rastreabilidade (§11.3): documentos vinculados OU
+    // evidências factuais com fonte (descobertas de empenho não têm documento)
+    await expect(
+      page.getByText(/Documentos vinculados|Evidencias factuais/i).first()
+    ).toBeVisible();
   });
 
   test('detalhe inexistente não quebra a aplicação', async ({ page }) => {
     const resp = await page.goto('/descobertas/999999');
     expect(resp.status()).toBeLessThan(500);
-    await expect(page.getByRole('heading', { name: /Descoberta não encontrada/i })).toBeVisible();
+    await expect(page.getByText(/Descoberta não encontrada/i)).toBeVisible();
   });
 });

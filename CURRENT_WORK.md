@@ -29,10 +29,31 @@ Já pronto, não bloqueia a decisão: Basic Auth em `/admin/*`
 - [ ] Deploy (Railway/Fly.io backend + Vercel frontend) — alvo depende da
   decisão da spec acima.
 
-## ⏳ Pendente — Transparência: dados e vinculação (pós deep-links, 02/07/2026)
+## ⏳ Pendente — Transparência: dados e vinculação (pós Empenhos v2, 02/07/2026)
 
-Deep-links do portal, página por mandato e perfil de credor paginado já
-entregues (commits de 02/07). Ficam como tarefas separadas:
+Entregue em 02/07 (Empenhos v2): página `/empenho/[id]`, painel "Pra onde
+vai o dinheiro" por categoria cidadã (`/transparencia/categoria/[slug]`),
+lista geral `/transparencia/empenhos` com busca FTS, PeriodoSelector
+genérico e detector de gasto atípico nas Descobertas
+(`npm run alertas:empenhos`, thresholds em /admin/alertas). Ficam:
+
+- [ ] **Validar receita LOA antes de expor "% de execução"** — 2024:
+  R$ 215M previsto vs R$ 29M executado é implausível pro porte do município
+  (suspeita de dupla contagem apesar do filtro nível-1 em
+  `getReceitasPorAno`). **Bloqueia** qualquer card novo de execução
+  orçamentária em destaque.
+- [ ] **Fila de pagamentos** — 390 empenhos liquidados e não pagos; seção
+  "quem está esperando receber" (dados já no banco).
+- [ ] **Análise de fonte de recurso** — dependência de transferências
+  (próprios R$ 48M vs FUNDEB/SUS/convênios); seções por fonte já existem
+  na página de categoria, falta a visão dedicada.
+- [ ] **Cruzamento emendas × empenhos** (`emendas-repo` já existe).
+- [ ] **`dados_extras.coTce`** — acompanhamento TCE-MG por empenho.
+- [ ] **Busca unificada multi-índice na navbar** (documentos + empenhos);
+  hoje /acervo oferece link contextual pra busca de empenhos.
+- [ ] **Detector de gasto atípico no scheduler** — hoje CLI manual;
+  integrar ao ciclo diário de descobertas quando o tom estiver validado
+  com o feed real.
 
 - [ ] **Backfill despesas 2019–2022** — probe confirmou dados na API SH3 pros
   4 anos (`node scripts/testar-sh3-anos-anteriores.js`, 16/16 janelas ok).
