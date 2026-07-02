@@ -29,6 +29,7 @@
     "licitacoes:marcar-requer-ocr": "node scripts/marcar-requer-ocr.js",
     "licitacoes:extrair-anexos-sem-texto": "node scripts/extrair-anexos-edital-sem-texto.js",
     "transparencia:revincular": "node scripts/revincular-despesas.js",
+    "transparencia:validar-links": "node scripts/validar-links-portal.js",
     "licitacoes:agrupar-produtos": "node scripts/agrupar-produtos-embeddings.js",
     "cobertura:relatorio": "node scripts/relatorio-cobertura.js",
     "licitacoes:validar-produtos-ia": "node scripts/validar-produtos-ia.js",
