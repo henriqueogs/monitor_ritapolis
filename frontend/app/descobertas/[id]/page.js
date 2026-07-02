@@ -274,10 +274,18 @@ export default async function DescobertaDetalhePage({ params }) {
                   ) : null}
                 </div>
                 <h3 className={styles.docTitle}>
-                  {ev.fato_descricao || `Evidencia ${ev.id}`}
+                  {ev.fato_descricao ||
+                    (ev.metadados?.empenho
+                      ? `Empenho ${ev.metadados.empenho}/${ev.metadados.exercicio}${ev.metadados.credor_nome ? ` — ${ev.metadados.credor_nome}` : ''}`
+                      : `Evidencia ${ev.id}`)}
                 </h3>
-                {ev.trecho_fonte ? <p className={`${styles.evidenceText} admin-only`}>{ev.trecho_fonte}</p> : null}
+                {ev.trecho_fonte ? (
+                  <p className={ev.metadados?.empenho_id ? styles.evidenceText : `${styles.evidenceText} admin-only`}>
+                    {ev.trecho_fonte}
+                  </p>
+                ) : null}
                 <div className={styles.docMeta}>
+                  {ev.metadados?.valor != null ? <span>{formatMoney(ev.metadados.valor)}</span> : null}
                   {ev.documento_id ? (
                     <Link href={`/documento/${ev.documento_id}`}>
                       Documento pai #{ev.documento_id}
@@ -287,6 +295,14 @@ export default async function DescobertaDetalhePage({ params }) {
                     <Link href={`/anexo/${ev.anexo_id}`}>
                       Anexo: {ev.anexo_nome || `#${ev.anexo_id}`}
                     </Link>
+                  ) : null}
+                  {ev.metadados?.empenho_id ? (
+                    <Link href={`/empenho/${ev.metadados.empenho_id}`}>Ver empenho no site</Link>
+                  ) : null}
+                  {ev.metadados?.portal_url ? (
+                    <a href={ev.metadados.portal_url} target="_blank" rel="noopener noreferrer" className={styles.sourceLink}>
+                      Fonte oficial (Portal) ↗
+                    </a>
                   ) : null}
                 </div>
               </article>

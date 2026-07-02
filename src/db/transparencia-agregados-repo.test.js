@@ -163,6 +163,37 @@ describe('transparencia-agregados-repo', () => {
     });
   });
 
+  describe('getAgregadoCredorCategoriaAno', () => {
+    it('agrega por categoria bruta × ano × credor com ids dos empenhos', () => {
+      seedDespesa({ valor: 10, credorCnpj: '1', credorNome: 'A' });
+      seedDespesa({ valor: 20, credorCnpj: '1', credorNome: 'A' });
+      seedDespesa({ valor: 5, credorCnpj: '2', credorNome: 'B' });
+
+      const rows = repo.getAgregadoCredorCategoriaAno();
+      const a = rows.find((r) => r.credor_cnpj === '1');
+      expect(a.n).toBe(2);
+      expect(a.valor_total).toBe(30);
+      expect(a.exercicio).toBe(2026);
+      expect(a.empenho_ids).toHaveLength(2);
+      expect(typeof a.empenho_ids[0]).toBe('number');
+    });
+  });
+
+  describe('getDespesasPorIds', () => {
+    it('retorna empenho/exercicio/tipo dos ids pedidos', () => {
+      const id1 = seedDespesa({ valor: 10 });
+      seedDespesa({ valor: 20 });
+      const rows = repo.getDespesasPorIds([id1]);
+      expect(rows).toHaveLength(1);
+      expect(rows[0].id).toBe(id1);
+      expect(rows[0].empenho).toMatch(/^\d{5}-\d{3}$/);
+    });
+
+    it('lista vazia retorna vazio', () => {
+      expect(repo.getDespesasPorIds([])).toEqual([]);
+    });
+  });
+
   describe('getResumoCategoriaAno', () => {
     it('agrega por prefixos de categoria no exercício', () => {
       seedDespesa({ valor: 10 });

@@ -62,6 +62,8 @@
     "ai:worker": "node scripts/ai-worker.js",
     "alertas:gerar": "node scripts/gerar-alertas.js",
     "alertas:gerar:dry": "node scripts/gerar-alertas.js --dry-run",
+    "alertas:empenhos": "node scripts/gerar-descobertas-empenhos.js",
+    "alertas:empenhos:dry": "node scripts/gerar-descobertas-empenhos.js --dry-run",
     "descobertas:investigar": "node scripts/investigar-descobertas-pendentes.js",
     "api": "node scripts/api.js",
     "dados:auditar": "node scripts/auditar-dados.js",

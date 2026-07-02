@@ -115,6 +115,34 @@ const SEMENTES = [
       'formato antigo (hipótese + lista de fatos) sem precisar de deploy.',
   },
   {
+    chave: 'gasto_atipico.share_minimo',
+    valor: 0.4,
+    descricao:
+      'Descobertas de empenhos: fração mínima (0-1) do gasto total da categoria no ano que um ' +
+      'único credor precisa concentrar para virar descoberta. Mediana não funciona aqui — ' +
+      'cauda longa faz todo fornecedor grande parecer atípico.',
+  },
+  {
+    chave: 'gasto_atipico.multiplicador_salto',
+    valor: 3,
+    descricao:
+      'Descobertas de empenhos: quantas vezes o gasto anual de uma categoria precisa crescer ' +
+      'sobre o ano anterior para virar descoberta de salto.',
+  },
+  {
+    chave: 'gasto_atipico.valor_minimo',
+    valor: 50000,
+    descricao:
+      'Descobertas de empenhos: piso absoluto (R$) para sinal de gasto atípico — evita ' +
+      'alarmar sobre quantias irrisórias.',
+  },
+  {
+    chave: 'gasto_atipico.min_credores_categoria',
+    valor: 4,
+    descricao:
+      'Descobertas de empenhos: mínimo de credores na categoria/ano — concentrar tudo entre 2 é banal.',
+  },
+  {
     chave: 'descobertas:investigacao_por_ciclo',
     valor: 4,
     descricao: 'Quantidade de descobertas reavaliadas por IA em cada ciclo incremental.',

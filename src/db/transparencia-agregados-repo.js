@@ -149,6 +149,44 @@ function getCategoriaPorAno({ prefixos } = {}) {
     .all(...cat.params);
 }
 
+/**
+ * Agregado por (categoria bruta, exercício, credor) com ids dos empenhos —
+ * insumo do detector de gasto atípico. Classificação cidadã fica no chamador.
+ */
+function getAgregadoCredorCategoriaAno() {
+  return db
+    .prepare(
+      `SELECT categoria_economica, exercicio_orcamento AS exercicio,
+              credor_cnpj, credor_nome,
+              COUNT(*) AS n, ROUND(SUM(valor), 2) AS valor_total,
+              GROUP_CONCAT(id) AS ids
+       FROM transparencia_despesas
+       WHERE credor_nome IS NOT NULL
+       GROUP BY categoria_economica, exercicio_orcamento, COALESCE(credor_cnpj, credor_nome)`
+    )
+    .all()
+    .map((row) => ({
+      ...row,
+      empenho_ids: String(row.ids || '')
+        .split(',')
+        .filter(Boolean)
+        .map(Number),
+      ids: undefined,
+    }));
+}
+
+function getDespesasPorIds(ids) {
+  const lista = (ids || []).map(Number).filter(Number.isInteger);
+  if (!lista.length) {return [];}
+  return db
+    .prepare(
+      `SELECT id, empenho, exercicio_orcamento, tipo, valor, data_empenho, historico, credor_nome
+       FROM transparencia_despesas WHERE id IN (${lista.map(() => '?').join(', ')})
+       ORDER BY valor DESC`
+    )
+    .all(...lista);
+}
+
 module.exports = {
   getDespesaById,
   getResumoRelacionados,
@@ -158,4 +196,6 @@ module.exports = {
   getAgregadoPorFonteRecurso,
   getRankingCredores,
   getCategoriaPorAno,
+  getAgregadoCredorCategoriaAno,
+  getDespesasPorIds,
 };
