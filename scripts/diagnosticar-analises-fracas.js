@@ -3,6 +3,7 @@
 const { DatabaseSync } = require('node:sqlite');
 const config = require('../src/config');
 const { classifyProdutoPrecoLacuna } = require('./lib/produtos-lacunas');
+const { mandatoInicio } = require('../src/utils/mandato');
 
 const db = new DatabaseSync(config.dbPath, { readOnly: true, timeout: 15000 });
 db.exec('PRAGMA query_only = ON;');
@@ -16,10 +17,6 @@ function readFlag(name, fallback = null) {
 
 function hasFlag(name) {
   return process.argv.includes(`--${name}`);
-}
-
-function mandatoInicio(ano) {
-  return 2025 + Math.floor((Number(ano) - 2025) / 4) * 4;
 }
 
 function inferMotivos(row, options = {}) {

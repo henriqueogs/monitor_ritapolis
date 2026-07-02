@@ -5,6 +5,7 @@ const path = require('path');
 const { DatabaseSync } = require('node:sqlite');
 const config = require('../../src/config');
 const { classifyProdutoPrecoLacuna } = require('./produtos-lacunas');
+const { mandatoInicio, mandatoLabel } = require('../../src/utils/mandato');
 
 const db = new DatabaseSync(config.dbPath, { readOnly: true, timeout: 15000 });
 db.exec('PRAGMA query_only = ON;');
@@ -392,14 +393,6 @@ function collectMetrics() {
       backup_human: bytesToHuman(backupsBytes),
     },
   };
-}
-
-function mandatoInicio(ano) {
-  return 2025 + Math.floor((Number(ano) - 2025) / 4) * 4;
-}
-
-function mandatoLabel(inicio) {
-  return `${inicio}-${inicio + 3}`;
 }
 
 function getCoberturaPorAnoLocal() {
