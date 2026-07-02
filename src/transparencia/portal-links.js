@@ -33,10 +33,10 @@ function isOrdemDePagamento(tipo) {
  * @returns {{ url: string, especifico: boolean }}
  */
 function buildPortalDespesaLink({ empenho, exercicio, tipo } = {}) {
-  if (typeof empenho !== 'string' || !EMPENHO_PATTERN.test(empenho)) return FALLBACK;
+  if (typeof empenho !== 'string' || !EMPENHO_PATTERN.test(empenho)) {return FALLBACK;}
 
   const ano = Number(exercicio);
-  if (!Number.isInteger(ano) || ano < EXERCICIO_MIN || ano > EXERCICIO_MAX) return FALLBACK;
+  if (!Number.isInteger(ano) || ano < EXERCICIO_MIN || ano > EXERCICIO_MAX) {return FALLBACK;}
 
   const params = new URLSearchParams({
     ID8_DESP: empenho.replace('-', ''),
@@ -53,7 +53,7 @@ function buildPortalDespesaLink({ empenho, exercicio, tipo } = {}) {
  * @param {{ exercicioKey?: string }} opcoes — use 'ano' quando a row vem do perfil de credor
  */
 function comLinkPortal(rows, { exercicioKey = 'exercicio_orcamento' } = {}) {
-  if (!Array.isArray(rows)) return [];
+  if (!Array.isArray(rows)) {return [];}
   return rows.map((row) => ({
     ...row,
     portal: buildPortalDespesaLink({

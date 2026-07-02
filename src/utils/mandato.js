@@ -30,13 +30,13 @@ function mandatoLabel(inicio) {
  * @returns {Array<{ mandato: string, inicio: number, fim: number, anos: number[], em_curso: boolean }>}
  */
 function agruparPorMandato(rows, { anoKey = 'ano', camposSoma = [], anoAtual } = {}) {
-  if (!Array.isArray(rows) || rows.length === 0) return [];
+  if (!Array.isArray(rows) || rows.length === 0) {return [];}
   const anoCorrente = Number.isFinite(anoAtual) ? anoAtual : new Date().getFullYear();
 
   const porMandato = new Map();
   for (const row of rows) {
     const ano = Number(row?.[anoKey]);
-    if (!Number.isInteger(ano) || ano < ANO_PLAUSIVEL_MIN || ano > ANO_PLAUSIVEL_MAX) continue;
+    if (!Number.isInteger(ano) || ano < ANO_PLAUSIVEL_MIN || ano > ANO_PLAUSIVEL_MAX) {continue;}
 
     const inicio = mandatoInicio(ano);
     const key = mandatoLabel(inicio);
