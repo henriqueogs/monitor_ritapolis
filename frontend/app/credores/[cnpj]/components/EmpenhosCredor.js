@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { fetchTransparenciaDespesas } from '../../../lib/api';
 import SectionBlock from '../../../components/SectionBlock';
 import TabelaEmpenhos from '../../../components/TabelaEmpenhos';
+import SearchInput from '../../../components/SearchInput';
 
 const LIMITE = 25;
 
@@ -18,10 +19,11 @@ function tituloPeriodo(exercicio, porAno) {
  * Lista completa e paginada de empenhos do credor, com filtro por exercício.
  * Server component — paginação via query params, como em /credores.
  */
-export default async function EmpenhosCredor({ cnpj, porAno, pagina = 1, exercicio }) {
+export default async function EmpenhosCredor({ cnpj, porAno, pagina = 1, exercicio, q }) {
   const resultado = await fetchTransparenciaDespesas({
     credor_cnpj: cnpj,
     exercicio,
+    q: q || undefined,
     pagina,
     limite: LIMITE,
   });
@@ -33,6 +35,7 @@ export default async function EmpenhosCredor({ cnpj, porAno, pagina = 1, exercic
   const hrefPagina = (p, ex = exercicio) =>
     `/credores/${cnpj}?${new URLSearchParams({
       ...(ex ? { exercicio: String(ex) } : {}),
+      ...(q ? { q } : {}),
       ...(p > 1 ? { pagina: String(p) } : {}),
     })}#empenhos`;
 
@@ -69,6 +72,11 @@ export default async function EmpenhosCredor({ cnpj, porAno, pagina = 1, exercic
             ))}
           </div>
         )}
+
+        <form method="get" action={`/credores/${cnpj}`} style={{ marginBottom: 14 }}>
+          {exercicio ? <input type="hidden" name="exercicio" value={exercicio} /> : null}
+          <SearchInput name="q" defaultValue={q || ''} placeholder="Buscar na descrição dos empenhos…" compact />
+        </form>
 
         <TabelaEmpenhos dados={dados} />
 

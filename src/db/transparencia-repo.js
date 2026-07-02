@@ -9,6 +9,7 @@
 const crypto = require('crypto');
 const { db } = require('./index');
 const { parseModalidadeDespesa, parseModalidadeEdital } = require('../licitacoes/modalidade');
+const { sanitizeFtsQuery } = require('./fts-repo');
 
 // ---------------------------------------------------------------------------
 // Schema
@@ -588,6 +589,7 @@ function getDespesas({
   credor_cnpj,
   documento_id,
   categoriaPrefixos,
+  q,
   pagina = 1,
   limite = 50,
 } = {}) {
@@ -602,28 +604,48 @@ function getDespesas({
     params.push(...categoriaPrefixos.map((p) => `${p}%`));
   }
 
-  const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
   limite = Math.min(Math.max(1, Number(limite) || 50), LIMITE_MAX_DESPESAS);
   const offset = (Math.max(1, pagina) - 1) * limite;
 
-  const total = db.prepare(`SELECT COUNT(*) AS n FROM transparencia_despesas ${where}`).get(...params).n;
-  const dados = db.prepare(`
-    SELECT
-      td.id, td.exercicio_orcamento, td.empenho, td.tipo,
-      td.data_empenho, td.data_liquidacao, td.data_pagamento,
-      td.credor_nome, td.credor_cnpj, td.valor,
-      td.funcao, td.unidade, td.programa, td.categoria_economica, td.fonte_recurso,
-      td.historico, td.modalidade, td.licitacao_ref,
-      td.documento_id,
-      d.titulo AS documento_titulo, d.numero AS documento_numero
-    FROM transparencia_despesas td
-    LEFT JOIN documentos d ON d.id = td.documento_id
-    ${where}
-    ORDER BY td.data_empenho DESC, td.id DESC
-    LIMIT ? OFFSET ?
-  `).all(...params, limite, offset);
+  const executar = (filtersFinais, paramsFinais) => {
+    const where = filtersFinais.length ? `WHERE ${filtersFinais.join(' AND ')}` : '';
+    const total = db.prepare(`SELECT COUNT(*) AS n FROM transparencia_despesas td ${where}`).get(...paramsFinais).n;
+    const dados = db.prepare(`
+      SELECT
+        td.id, td.exercicio_orcamento, td.empenho, td.tipo,
+        td.data_empenho, td.data_liquidacao, td.data_pagamento,
+        td.credor_nome, td.credor_cnpj, td.valor,
+        td.funcao, td.unidade, td.programa, td.categoria_economica, td.fonte_recurso,
+        td.historico, td.modalidade, td.licitacao_ref,
+        td.documento_id,
+        d.titulo AS documento_titulo, d.numero AS documento_numero
+      FROM transparencia_despesas td
+      LEFT JOIN documentos d ON d.id = td.documento_id
+      ${where}
+      ORDER BY td.data_empenho DESC, td.id DESC
+      LIMIT ? OFFSET ?
+    `).all(...paramsFinais, limite, offset);
+    return { total, pagina: Number(pagina), limite, dados };
+  };
 
-  return { total, pagina: Number(pagina), limite: Number(limite), dados };
+  const ftsQuery = q ? sanitizeFtsQuery(q) : null;
+  if (ftsQuery) {
+    try {
+      return executar(
+        [...filters, 'td.id IN (SELECT rowid FROM despesas_fts WHERE despesas_fts MATCH ?)'],
+        [...params, ftsQuery]
+      );
+    } catch {
+      // Sintaxe FTS inválida — fallback LIKE em historico/credor
+      const like = `%${String(q).slice(0, 100)}%`;
+      return executar(
+        [...filters, '(td.historico LIKE ? OR td.credor_nome LIKE ?)'],
+        [...params, like, like]
+      );
+    }
+  }
+
+  return executar(filters, params);
 }
 
 module.exports = {

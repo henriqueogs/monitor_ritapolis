@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import DocumentList from '../components/DocumentList';
 import Pagination from '../components/Pagination';
 import SectionBlock from '../components/SectionBlock';
@@ -48,6 +49,14 @@ export default async function DocumentosContent({ searchParams, basePath = '/ace
 
       <DocumentFilters filters={filters} action={basePath} />
       <YearFilter anos={estatisticas.por_ano || []} filters={filters} basePath={basePath} />
+
+      {filters.q && filters.q.length >= 2 && (
+        <p style={{ margin: '0 0 16px', fontSize: 13 }}>
+          <Link href={`/transparencia/empenhos?q=${encodeURIComponent(filters.q)}`}>
+            Buscar “{filters.q}” também nos empenhos do Dinheiro público →
+          </Link>
+        </p>
+      )}
 
       <SectionBlock
         title={`${data.total} documentos encontrados`}

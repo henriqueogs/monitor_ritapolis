@@ -36,6 +36,7 @@ export default async function CredorProfilePage({ params, searchParams }) {
   const perfil = await fetchCredorProfile(params.cnpj).catch(() => null);
   const empPagina = searchParams?.pagina ? Number(searchParams.pagina) : 1;
   const empExercicio = searchParams?.exercicio ? Number(searchParams.exercicio) : undefined;
+  const empBusca = searchParams?.q || '';
 
   if (!perfil) {
     return (
@@ -202,7 +203,7 @@ export default async function CredorProfilePage({ params, searchParams }) {
       )}
 
       {/* Todos os empenhos — lista paginada com detalhamento e link pra fonte */}
-      <EmpenhosCredor cnpj={cnpj} porAno={por_ano} pagina={empPagina} exercicio={empExercicio} />
+      <EmpenhosCredor cnpj={cnpj} porAno={por_ano} pagina={empPagina} exercicio={empExercicio} q={empBusca} />
     </main>
   );
 }

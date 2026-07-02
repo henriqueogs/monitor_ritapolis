@@ -81,6 +81,7 @@ const { CONTRACT_VERSION_IA: CONTRATO_ANEXO_IA } = require('../ai/summarize-anex
 const { getCollectionUpdateStatus, startCollectionUpdate } = require('../coletas/update-runner');
 const { listCredores } = require('../db/credores-repo');
 const { searchDocumentos, ensureFtsIndex, rebuildFtsIndex } = require('../db/fts-repo');
+const { ensureDespesasFtsIndex } = require('../db/fts-despesas-repo');
 const {
   listarEmendas,
   contarEmendas,
@@ -211,11 +212,15 @@ function createServer() {
   app.use(cors());
   app.use(express.json());
 
-  // Inicializa índice FTS5 se ainda não populado (apenas no primeiro start)
+  // Inicializa índices FTS5 se ainda não populados (apenas no primeiro start)
   try {
     const ftsResult = ensureFtsIndex();
     if (ftsResult.rebuiltRows > 0) {
-      logger.info('FTS5: índice reconstruído', { linhas: ftsResult.rebuiltRows });
+      logger.info('FTS5: índice de documentos reconstruído', { linhas: ftsResult.rebuiltRows });
+    }
+    const ftsDespesas = ensureDespesasFtsIndex();
+    if (ftsDespesas.rebuiltRows > 0) {
+      logger.info('FTS5: índice de empenhos reconstruído', { linhas: ftsDespesas.rebuiltRows });
     }
   } catch (err) {
     logger.warn('FTS5: falha ao inicializar índice', { erro: err.message });
@@ -494,11 +499,11 @@ function createServer() {
   });
 
   app.get('/api/transparencia/despesas', (req, res) => {
-    const { exercicio, credor_cnpj, documento_id, categoria, pagina, limite } = req.query;
+    const { exercicio, credor_cnpj, documento_id, categoria, q, pagina, limite } = req.query;
     const categoriaPrefixos = categoria ? slugParaPrefixos(categoria) : undefined;
     if (categoria && !categoriaPrefixos) { return res.status(400).json({ error: 'Categoria desconhecida' }); }
     return res.json(
-      getDespesasComPortal({ exercicio, credor_cnpj, documento_id, categoriaPrefixos, pagina, limite })
+      getDespesasComPortal({ exercicio, credor_cnpj, documento_id, categoriaPrefixos, q, pagina, limite })
     );
   });
 

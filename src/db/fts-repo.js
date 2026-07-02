@@ -155,4 +155,4 @@ function searchDocumentos(query, { limite = LIMITE_DEFAULT, pagina = 1, tipo, fo
   }
 }
 
-module.exports = { searchDocumentos, ensureFtsIndex, rebuildFtsIndex, isFtsIndexReady };
+module.exports = { searchDocumentos, ensureFtsIndex, rebuildFtsIndex, isFtsIndexReady, sanitizeFtsQuery };

@@ -436,6 +436,33 @@ CREATE TRIGGER IF NOT EXISTS documentos_fts_au AFTER UPDATE ON documentos BEGIN
   VALUES (new.id, new.titulo, new.resumo, new.texto_completo);
 END;
 
+-- FTS5 — Busca textual nos empenhos (histórico + credor)
+CREATE VIRTUAL TABLE IF NOT EXISTS despesas_fts USING fts5(
+  historico,
+  credor_nome,
+  empenho,
+  content='transparencia_despesas',
+  content_rowid='id',
+  tokenize='unicode61 remove_diacritics 2'
+);
+
+CREATE TRIGGER IF NOT EXISTS despesas_fts_ai AFTER INSERT ON transparencia_despesas BEGIN
+  INSERT INTO despesas_fts(rowid, historico, credor_nome, empenho)
+  VALUES (new.id, new.historico, new.credor_nome, new.empenho);
+END;
+
+CREATE TRIGGER IF NOT EXISTS despesas_fts_ad AFTER DELETE ON transparencia_despesas BEGIN
+  INSERT INTO despesas_fts(despesas_fts, rowid, historico, credor_nome, empenho)
+  VALUES ('delete', old.id, old.historico, old.credor_nome, old.empenho);
+END;
+
+CREATE TRIGGER IF NOT EXISTS despesas_fts_au AFTER UPDATE ON transparencia_despesas BEGIN
+  INSERT INTO despesas_fts(despesas_fts, rowid, historico, credor_nome, empenho)
+  VALUES ('delete', old.id, old.historico, old.credor_nome, old.empenho);
+  INSERT INTO despesas_fts(rowid, historico, credor_nome, empenho)
+  VALUES (new.id, new.historico, new.credor_nome, new.empenho);
+END;
+
 -- Tabela de detalhes estruturados de emendas parlamentares
 -- Referencia documentos WHERE tipo = 'emenda_parlamentar'
 -- Campos extraidos pelo parser src/parsers/emenda-parlamentar.js

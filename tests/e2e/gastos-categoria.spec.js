@@ -31,6 +31,17 @@ test.describe('Pra onde vai o dinheiro (caminho feliz)', () => {
     await expect(page.getByRole('heading', { name: /Empenho/ })).toBeVisible();
   });
 
+  test('busca de empenhos encontra termo com e sem acento', async ({ page }) => {
+    await page.goto('/transparencia/empenhos?q=diaria');
+    await expect(page.getByText(/empenhos? encontrados?/)).toBeVisible();
+    const totalSemAcento = await page.locator('h2').filter({ hasText: 'encontrado' }).textContent();
+    expect(totalSemAcento).not.toContain('0 empenhos');
+
+    await page.goto('/transparencia/empenhos?q=diária');
+    const totalComAcento = await page.locator('h2').filter({ hasText: 'encontrado' }).textContent();
+    expect(totalComAcento).toBe(totalSemAcento);
+  });
+
   test('categoria desconhecida não quebra', async ({ page }) => {
     const resp = await page.goto('/transparencia/categoria/nao-existe');
     expect(resp.status()).toBeLessThan(500);
