@@ -9,6 +9,7 @@
 const { db } = require('./connection');
 const { likeParam } = require('./documentos-repo');
 const { normalizeText } = require('../utils/text');
+const { montarItensProcesso } = require('../licitacoes/itens-processo-view');
 
 function normalizeProdutoRow(row) {
   if (!row) { return null; }
@@ -176,11 +177,25 @@ function listLicitacaoProdutos({
 }
 
 function getLicitacaoProdutosByDocumentoId(documentoId) {
-  return listLicitacaoProdutos({
+  const resultado = listLicitacaoProdutos({
     documentoId,
     pagina: 1,
     limite: 500
   });
+
+  // Visão estruturada (demanda × resultado por lote × global), aditiva:
+  // `.dados` segue plano para os consumidores legados (leitura integrada etc.).
+  const detalhes = db
+    .prepare('SELECT valor_final, origem FROM licitacoes_detalhes WHERE documento_id = ?')
+    .get(Number(documentoId));
+
+  return {
+    ...resultado,
+    estrutura: montarItensProcesso(resultado.dados, {
+      valorFinalProcesso: detalhes?.valor_final ?? null,
+      valorFinalOrigem: detalhes?.origem ?? null,
+    }),
+  };
 }
 
 function getLicitacaoProdutosResumo(documentoId) {

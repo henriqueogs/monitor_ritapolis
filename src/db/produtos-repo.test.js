@@ -175,6 +175,14 @@ describe('produtos-repo', () => {
     expect(result.dados.map((item) => item.descricao)).toEqual(['Feijao carioca', 'Arroz tipo 1']);
   });
 
+  it('inclui estrutura (3 blocos) sem quebrar .dados', () => {
+    const result = getLicitacaoProdutosByDocumentoId(1);
+    expect(result.dados).toHaveLength(2); // legado intacto
+    expect(result.estrutura).toBeDefined();
+    expect(result.estrutura.itens_solicitados.length + result.estrutura.resultado_lotes.length).toBeGreaterThan(0);
+    expect(result.estrutura.cobertura).toHaveProperty('n_itens');
+  });
+
   it('resume cobertura de valores e fornecedores por documento', () => {
     const resumo = getLicitacaoProdutosResumo(1);
 
