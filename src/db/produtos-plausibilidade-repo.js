@@ -18,6 +18,10 @@ const {
 
 const FONTE_VALIDACAO = 'plausibilidade_item_processo';
 const STATUS_IMPLAUSIVEL = 'implausivel';
+// Referência = soma de empenhos (registro de preços): item acima dela não é
+// erro — é teto homologado. Vira nota de contexto, nunca quarentena.
+const STATUS_CONTEXTO_EMPENHO = 'contexto_empenho';
+const ORIGEM_VALOR_EMPENHO_AGREGADO = 'portal_transparencia';
 const MARCADOR_ORIGEM = 'valor_item_implausivel';
 const MARCADOR_RE = /\s*\|?\s*valor_item_implausivel\([^)]*\)/g;
 
@@ -29,7 +33,7 @@ function listarAlvos({ documentoId, ano }) {
 
   return db
     .prepare(
-      `SELECT lp.*, ld.valor_final AS valor_final_processo
+      `SELECT lp.*, ld.valor_final AS valor_final_processo, ld.origem AS valor_final_origem
        FROM licitacoes_produtos lp
        JOIN licitacoes_detalhes ld ON ld.documento_id = lp.documento_id
        WHERE ${filters.join(' AND ')}`
@@ -110,6 +114,7 @@ function aplicarGatePlausibilidadeItemProcesso({
     quarentenados: 0,
     ja_quarentenados: 0,
     validados_nao_rebaixados: 0,
+    contexto_empenho: 0,
     liberados: 0,
     dryRun,
     detalhes: [],
@@ -126,6 +131,26 @@ function aplicarGatePlausibilidadeItemProcesso({
       fator,
     });
     const jaMarcado = String(produto.origem_detalhe || '').includes(MARCADOR_ORIGEM);
+    const referenciaEmpenho = produto.valor_final_origem === ORIGEM_VALOR_EMPENHO_AGREGADO;
+
+    if (!plausivel && referenciaEmpenho) {
+      // Teto homologado acima do empenhado: dado legítimo. Grava nota de
+      // contexto e desfaz quarentena antiga baseada nessa comparação.
+      resumo.contexto_empenho += 1;
+      if (!dryRun) {
+        if (jaMarcado) {
+          liberar(produto, { campo: estruturado.campo, valorItem: estruturado.valor, razao, fator });
+          resumo.liberados += 1;
+        }
+        upsertValidacao(produto.id, {
+          status: STATUS_CONTEXTO_EMPENHO,
+          valorProcesso: produto.valor_final_processo,
+          campo: estruturado.campo,
+          payload: { valor_item: estruturado.valor, razao, fator, motivo: 'referencia_e_empenho_agregado' },
+        });
+      }
+      continue;
+    }
 
     if (!plausivel) {
       resumo.detalhes.push({
@@ -175,5 +200,6 @@ module.exports = {
   aplicarGatePlausibilidadeItemProcesso,
   FONTE_VALIDACAO,
   STATUS_IMPLAUSIVEL,
+  STATUS_CONTEXTO_EMPENHO,
   MARCADOR_ORIGEM,
 };

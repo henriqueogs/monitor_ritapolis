@@ -23,8 +23,19 @@ function normalizeProdutoRow(row) {
     validacao_status: row.validacao_status || (row.validacoes_total ? 'revisar' : 'pendente'),
     validacoes_total: Number(row.validacoes_total || 0),
     // Quarentena do gate item×processo: a UI não exibe o valor como "Final"
-    valor_final_quarentenado: row.plausibilidade_status === 'implausivel'
+    valor_final_quarentenado: row.plausibilidade_status === 'implausivel',
+    // Teto homologado acima do empenhado (registro de preços): valor legítimo
+    // da fonte que a UI exibe com nota de contexto
+    valor_final_contexto_empenho: row.plausibilidade_status === 'contexto_empenho',
+    // Anexo (ata) de onde o valor veio — origem rastreável §11.3
+    anexo_origem_id: extrairAnexoOrigemId(row.origem_detalhe)
   };
+}
+
+// 'ata:negociacao:ata_resultado:documentos_anexos:21:Ata.pdf' → 21
+function extrairAnexoOrigemId(origemDetalhe) {
+  const match = String(origemDetalhe || '').match(/documentos_anexos:(\d+)/);
+  return match ? Number(match[1]) : null;
 }
 
 function buildProdutosWhere({ ano, documentoId, termo, origem, validacao }, params) {

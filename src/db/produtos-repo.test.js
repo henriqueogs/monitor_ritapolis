@@ -123,6 +123,28 @@ describe('produtos-repo', () => {
     expect(result.dados[0].validacao_status).toBe('pendente');
   });
 
+  it('expõe contexto de empenho agregado e anexo de origem', () => {
+    mockConn
+      .prepare(
+        `INSERT INTO licitacoes_produtos_validacoes (produto_id, fonte, valor_encontrado, campo_validado, status)
+         VALUES (1, 'plausibilidade_item_processo', 176186.2, 'valor_lote_final', 'contexto_empenho')`
+      )
+      .run();
+    mockConn
+      .prepare(
+        `UPDATE licitacoes_produtos
+         SET origem_detalhe = 'ata:negociacao:ata_resultado:documentos_anexos:21:Ata_de_Estrutura_2026.pdf'
+         WHERE id = 1`
+      )
+      .run();
+
+    const p = getLicitacaoProdutosByDocumentoId(1).dados.find((x) => x.id === 1);
+    expect(p.valor_final_quarentenado).toBe(false);
+    expect(p.valor_final_contexto_empenho).toBe(true);
+    expect(p.plausibilidade_valor_processo).toBe(176186.2);
+    expect(p.anexo_origem_id).toBe(21);
+  });
+
   it('expõe quarentena de plausibilidade item×processo', () => {
     mockConn
       .prepare(

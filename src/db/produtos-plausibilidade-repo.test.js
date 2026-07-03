@@ -18,7 +18,7 @@ const {
   FONTE_VALIDACAO,
 } = require('./produtos-plausibilidade-repo');
 
-function seedDocumentoComValor(id, valorFinal) {
+function seedDocumentoComValor(id, valorFinal, origem = 'ata_resultado') {
   mockConn
     .prepare(
       `INSERT INTO documentos (id, fonte, tipo, titulo, ano, url_origem)
@@ -27,8 +27,8 @@ function seedDocumentoComValor(id, valorFinal) {
     .run(id, id);
   if (valorFinal !== null && valorFinal !== undefined) {
     mockConn
-      .prepare(`INSERT INTO licitacoes_detalhes (documento_id, valor_final) VALUES (?, ?)`)
-      .run(id, valorFinal);
+      .prepare(`INSERT INTO licitacoes_detalhes (documento_id, valor_final, origem) VALUES (?, ?, ?)`)
+      .run(id, valorFinal, origem);
   }
 }
 
@@ -140,6 +140,41 @@ describe('produtos-plausibilidade-repo', () => {
     // ainda registra a validação implausível pra auditoria
     expect(getValidacoes(pid)[0]?.status).toBe('implausivel');
     expect(r.quarentenados).toBe(0);
+  });
+
+  it('valor_final de empenho agregado (portal_transparencia) → contexto, não erro', () => {
+    // Registro de preços: ata homologa teto por lote; valor_final do processo
+    // é a soma dos EMPENHOS — comparação "item excede processo" seria mentira.
+    seedDocumentoComValor(9, 176186.2, 'portal_transparencia');
+    const pid = seedProduto(9, { lote: 4815000 });
+
+    const r = aplicarGatePlausibilidadeItemProcesso({ documentoId: 9 });
+
+    expect(r.quarentenados).toBe(0);
+    expect(r.contexto_empenho).toBe(1);
+    const p = getProduto(pid);
+    expect(p.status_revisao).toBe('pendente'); // não rebaixa
+    expect(p.origem_detalhe).not.toContain('valor_item_implausivel');
+    const v = getValidacoes(pid);
+    expect(v).toHaveLength(1);
+    expect(v[0].status).toBe('contexto_empenho');
+  });
+
+  it('quarentena antiga vira contexto quando a referência é empenho agregado', () => {
+    seedDocumentoComValor(9, 176186.2, 'ata_resultado');
+    const pid = seedProduto(9, { lote: 4815000 });
+    aplicarGatePlausibilidadeItemProcesso({ documentoId: 9 });
+    expect(getProduto(pid).status_revisao).toBe('rejeitado');
+
+    // Origem do valor_final corrigida pra empenho agregado
+    mockConn.prepare(`UPDATE licitacoes_detalhes SET origem = 'portal_transparencia' WHERE documento_id = 9`).run();
+    const r = aplicarGatePlausibilidadeItemProcesso({ documentoId: 9 });
+
+    expect(r.contexto_empenho).toBe(1);
+    const p = getProduto(pid);
+    expect(p.status_revisao).toBe('pendente');
+    expect(p.origem_detalhe).not.toContain('valor_item_implausivel');
+    expect(getValidacoes(pid)[0].status).toBe('contexto_empenho');
   });
 
   it('documento sem valor_final → nada acontece', () => {

@@ -61,24 +61,48 @@ function valorQuarentenado(item) {
   );
 }
 
+// Link pra fonte de onde o valor realmente veio: a ata (anexo), não o edital.
+function LinkFonteDoValor({ item, rotulo = 'Conferir na ata de origem' }) {
+  if (item.anexo_origem_id) {
+    return <a href={`/anexo/${item.anexo_origem_id}`}>{rotulo} →</a>;
+  }
+  const urlFonte = item.documento_url_pdf || item.documento_url_origem;
+  if (!urlFonte) {return null;}
+  return (
+    <a href={urlFonte} target="_blank" rel="noopener noreferrer">
+      Conferir na fonte oficial ↗
+    </a>
+  );
+}
+
 function AvisoValorInconsistente({ item, valorFinalProcesso }) {
   const valorFonte = valorQuarentenado(item);
   const valorProcesso = item.plausibilidade_valor_processo ?? valorFinalProcesso;
-  const urlFonte = item.documento_url_pdf || item.documento_url_origem;
 
   return (
     <div className="document-row-field" style={{ maxWidth: 300 }}>
       <span style={{ color: 'var(--warning)' }}>Valor não confiável</span>
       <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.45 }}>
-        A fonte registra {valorFonte != null ? formatMoney(valorFonte) : 'um valor'} para este item —
-        inconsistente com o valor final do processo
-        {valorProcesso ? ` (${formatMoney(valorProcesso)})` : ''}. Provável erro de digitação na
-        própria ata.{' '}
-        {urlFonte ? (
-          <a href={urlFonte} target="_blank" rel="noopener noreferrer">
-            Conferir na fonte oficial ↗
-          </a>
-        ) : null}
+        A ata registra {valorFonte != null ? formatMoney(valorFonte) : 'um valor'} para este item —
+        acima do valor final homologado do processo
+        {valorProcesso ? ` (${formatMoney(valorProcesso)})` : ''}. <LinkFonteDoValor item={item} />
+      </p>
+    </div>
+  );
+}
+
+// Registro de preços: o valor é teto homologado por lote, não gasto — exibe
+// com contexto pra não parecer que a Prefeitura gastou milhões.
+function NotaTetoHomologado({ item, final }) {
+  const empenhado = item.plausibilidade_valor_processo;
+  return (
+    <div className="document-row-field" style={{ maxWidth: 300 }}>
+      <span>{final.label} (teto homologado)</span>
+      <strong>{formatMoney(final.valor)}</strong>
+      <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.45 }}>
+        Teto homologado na ata — não é gasto realizado
+        {empenhado ? `; o processo tem ${formatMoney(empenhado)} empenhados até agora` : ''}.{' '}
+        <LinkFonteDoValor item={item} />
       </p>
     </div>
   );
@@ -87,6 +111,7 @@ function AvisoValorInconsistente({ item, valorFinalProcesso }) {
 function ProductRow({ item, valorFinalProcesso }) {
   const estimado = bestEstimatedValue(item);
   const quarentenado = Boolean(item.valor_final_quarentenado);
+  const contextoEmpenho = Boolean(item.valor_final_contexto_empenho);
   const final = quarentenado ? null : bestFinalValue(item, valorFinalProcesso);
   const lote = item.lote_numero ? `Lote ${item.lote_numero}` : null;
   const itemNum = item.item_numero ? `Item ${item.item_numero}` : null;
@@ -118,6 +143,8 @@ function ProductRow({ item, valorFinalProcesso }) {
         ) : null}
         {quarentenado ? (
           <AvisoValorInconsistente item={item} valorFinalProcesso={valorFinalProcesso} />
+        ) : contextoEmpenho && final ? (
+          <NotaTetoHomologado item={item} final={final} />
         ) : final ? (
           <div className="document-row-field">
             <span>{final.label}</span>
@@ -151,7 +178,11 @@ export default function LicitationProducts({ produtos, valorFinalProcesso }) {
 
   const comDados = itens.filter(temDadoUtil);
   const semDados = itens.filter((item) => !temDadoUtil(item));
-  const naoQuarentenados = comDados.filter((item) => !item.valor_final_quarentenado);
+  // Tetos homologados (registro de preços) ficam fora da soma do banner —
+  // somá-los contra o valor empenhado geraria alarme falso.
+  const naoQuarentenados = comDados.filter(
+    (item) => !item.valor_final_quarentenado && !item.valor_final_contexto_empenho
+  );
   const { soma, excedeProcesso } = somaFinaisItens(naoQuarentenados, valorFinalProcesso);
 
   return (
