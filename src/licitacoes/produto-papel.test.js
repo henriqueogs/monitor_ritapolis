@@ -59,6 +59,18 @@ describe('produto-papel', () => {
       ).toBe(false);
     });
 
+    it('produto abreviado NÃO é lixo (evita falso-positivo)', () => {
+      expect(detectarLixoProduto({ descricao: 'CD- RW 48 X 700 MB' }).lixo).toBe(false);
+      expect(detectarLixoProduto({ descricao: 'R22' }).lixo).toBe(false);
+      expect(detectarLixoProduto({ descricao: '7 MM' }).lixo).toBe(false);
+    });
+
+    it('marca fragmento sem letra (OCR de tabela) como lixo', () => {
+      expect(detectarLixoProduto({ descricao: '5091' }).lixo).toBe(true);
+      expect(detectarLixoProduto({ descricao: '| 128.90' }).lixo).toBe(true);
+      expect(detectarLixoProduto({ descricao: '1.54%' }).lixo).toBe(true);
+    });
+
     it('marca vazio sem nenhum dado', () => {
       expect(detectarLixoProduto({ descricao: '', quantidade: null, fornecedor_nome: null }).lixo).toBe(true);
       expect(detectarLixoProduto({ descricao: '..' }).lixo).toBe(true);

@@ -37,17 +37,17 @@ function limparDescricaoProduto(descricao) {
 }
 
 /**
- * Lixo = após limpar o rodapé não sobra palavra-produto real (só número/
- * pontuação). Um valor solto sem descrição é artefato de parse (o "2637" do
- * rodapé re-parseou o valor de um lote), não um item exibível. Conservador:
- * descrição curta legítima ("NOBREAK") e código TCE grande NÃO são lixo.
+ * Lixo = após limpar o rodapé a descrição não tem NENHUMA letra (só número,
+ * pontuação ou fragmento de OCR de tabela: "5091", "| 128.90", "1.54%"). Um
+ * valor solto sem descrição é artefato de parse, não item exibível.
+ * Conservador de propósito: produto abreviado ("CD-RW", "R22", "7 MM") e
+ * descrição curta ("NOBREAK") NÃO são lixo — perder item real é pior que
+ * mostrar uma linha-ruído rara.
  * @returns {{ lixo: boolean, motivo: string|null }}
  */
 function detectarLixoProduto(produto = {}) {
   const limpa = limparDescricaoProduto(produto.descricao);
-  const letras = limpa.replace(/[^A-Za-zÀ-ÿ]/g, '');
-  const temProduto = /[A-Za-zÀ-ÿ]{3,}/.test(limpa) && letras.length >= 3;
-  if (temProduto) {return { lixo: false, motivo: null };}
+  if (/[A-Za-zÀ-ÿ]/.test(limpa)) {return { lixo: false, motivo: null };}
 
   const original = String(produto.descricao || '').trim();
   if (original && original !== limpa) {return { lixo: true, motivo: 'ruido_parser' };}

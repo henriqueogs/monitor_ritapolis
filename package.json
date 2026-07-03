@@ -25,6 +25,7 @@
     "licitacoes:validar-valores": "node scripts/validar-valores-licitacoes.js",
     "licitacoes:gate-valores": "node scripts/aplicar-gate-valores.js",
     "licitacoes:gate-valores-itens": "node scripts/aplicar-gate-valores-itens.js",
+    "licitacoes:marcar-lixo": "node scripts/marcar-itens-lixo.js",
     "licitacoes:reclassificar-tipos": "node scripts/reclassificar-tipos.js",
     "licitacoes:derivar-vencedores": "node scripts/derivar-vencedores-produtos.js",
     "licitacoes:marcar-requer-ocr": "node scripts/marcar-requer-ocr.js",
