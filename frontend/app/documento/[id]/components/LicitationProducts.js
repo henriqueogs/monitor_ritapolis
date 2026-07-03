@@ -5,29 +5,49 @@ import ResultadoGlobal from './itens/ResultadoGlobal';
 
 /**
  * Seção "Itens do processo" em 3 blocos fiéis à fonte: demanda do edital,
- * resultado por lote (teto homologado) e resultado global — cada valor no
- * bloco da sua natureza real. Lixo de parser fica colapsado no rodapé.
+ * resultado por lote (teto homologado) e resultado global.
  * Consome `produtos.estrutura` (read-model); fallback à lista plana se ausente.
+ *
+ * A extração hoje é heurística/regex e falha em documentos fora de padrão
+ * (ex: anexo que é cronograma de medição de obra, não lista de itens — a
+ * heurística não sabe distinguir e classifica linhas de cronograma como
+ * item). Até a reextração via IA cobrir o documento (`origem_estrutura`),
+ * o detalhamento fica visível só em modo interno — o público vê apenas a
+ * contagem, nunca dado incerto como se fosse fato (§11).
  */
-export default function LicitationProducts({ produtos, documento }) {
-  const estrutura = produtos?.estrutura;
+function PlaceholderPublico({ totalLinhas }) {
+  return (
+    <SectionBlock title="Itens deste processo">
+      <p className="empty-state">
+        {totalLinhas > 0
+          ? `Este processo tem ${totalLinhas} linha${totalLinhas === 1 ? '' : 's'} de itens/resultado na fonte, mas o detalhamento ainda está em revisão de qualidade antes de ser publicado.`
+          : 'Nenhum item estruturado para este documento.'}
+      </p>
+    </SectionBlock>
+  );
+}
 
-  if (!estrutura || (produtos?.dados || []).length === 0) {
-    return (
-      <SectionBlock title="Itens deste processo">
-        <p className="empty-state">Nenhum item estruturado para este documento.</p>
-      </SectionBlock>
-    );
-  }
-
+function DetalhamentoInterno({ estrutura, documento }) {
   const { itens_solicitados, resultado_lotes, resultado_global, descartados, cobertura } = estrutura;
   const vazio = !itens_solicitados.length && !resultado_lotes.length && !resultado_global;
 
   return (
     <SectionBlock
       title="Itens deste processo"
-      description="O que foi solicitado no edital e como ficou o resultado da licitação, direto das fontes oficiais."
+      description="O que foi solicitado no edital e como ficou o resultado da licitação, direto das fontes oficiais. (Visível só em modo interno — extração ainda heurística, ver aviso.)"
     >
+      <p
+        style={{
+          margin: '0 0 16px', padding: '10px 14px', borderRadius: 8, fontSize: 12, lineHeight: 1.5,
+          background: 'color-mix(in srgb, var(--warning) 10%, transparent)',
+          border: '1px solid color-mix(in srgb, var(--warning) 35%, transparent)',
+        }}
+      >
+        Extração heurística (regex), não IA — pode classificar linhas de tabelas fora de padrão
+        (ex: cronograma de medição de obra) como se fossem itens. Oculto do público até a
+        reextração via IA cobrir este documento.
+      </p>
+
       {vazio ? (
         <p className="empty-state">Os itens deste processo ainda não têm preço ou fornecedor na fonte.</p>
       ) : null}
@@ -58,5 +78,25 @@ export default function LicitationProducts({ produtos, documento }) {
         </details>
       ) : null}
     </SectionBlock>
+  );
+}
+
+export default function LicitationProducts({ produtos, documento }) {
+  const estrutura = produtos?.estrutura;
+  const totalLinhas = (produtos?.dados || []).length;
+
+  if (!estrutura || totalLinhas === 0) {
+    return <PlaceholderPublico totalLinhas={0} />;
+  }
+
+  return (
+    <>
+      <div className="admin-only">
+        <DetalhamentoInterno estrutura={estrutura} documento={documento} />
+      </div>
+      <div className="public-only-placeholder">
+        <PlaceholderPublico totalLinhas={totalLinhas} />
+      </div>
+    </>
   );
 }

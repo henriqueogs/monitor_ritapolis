@@ -2285,6 +2285,9 @@ a.origin-badge {
 .admin-only { display: none; }
 html.admin-mode .admin-only { display: block; }
 
+/* Inverso: só aparece pro público — some quando modo admin está ativo */
+html.admin-mode .public-only-placeholder { display: none; }
+
 /* Botão de toggle admin: estado ativo com destaque visual */
 .admin-mode-button.is-active {
   background: var(--accent);
