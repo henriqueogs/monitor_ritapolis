@@ -87,6 +87,47 @@ CREATE TABLE IF NOT EXISTS documentos_anexos_resumos_ai_jobs (
   atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Reextração completa dos itens do processo via IA (edital + atas
+-- vinculadas) — substitui a extração heurística/regex quando disponível
+-- com confiança suficiente. Mesmo padrão de documentos_anexos_resumos_ai:
+-- resultado persistido por hash (não reprocessa se o texto não mudou).
+CREATE TABLE IF NOT EXISTS documentos_itens_estruturados (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  documento_id INTEGER NOT NULL REFERENCES documentos(id) ON DELETE CASCADE,
+  provider TEXT NOT NULL,
+  modelo TEXT NOT NULL,
+  contrato_versao TEXT NOT NULL,
+  itens_json TEXT NOT NULL,
+  texto_hash TEXT NOT NULL,
+  confianca REAL,
+  status TEXT DEFAULT 'ok',
+  erro TEXT,
+  criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (documento_id, texto_hash, contrato_versao)
+);
+
+-- Fila assíncrona de estruturação de itens (mesmo padrão de
+-- documentos_anexos_resumos_ai_jobs) — worker em background processa um
+-- por vez, respeitando rate limit da NVIDIA.
+CREATE TABLE IF NOT EXISTS documentos_itens_estruturacao_ai_jobs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  documento_id INTEGER NOT NULL REFERENCES documentos(id) ON DELETE CASCADE,
+  provider TEXT NOT NULL,
+  modelo TEXT NOT NULL,
+  contrato_versao TEXT NOT NULL,
+  texto_hash TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pendente',
+  force INTEGER NOT NULL DEFAULT 0,
+  erro TEXT,
+  itens_estruturados_id INTEGER REFERENCES documentos_itens_estruturados(id) ON DELETE SET NULL,
+  tentativas INTEGER NOT NULL DEFAULT 0,
+  criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+  iniciado_em TEXT,
+  finalizado_em TEXT,
+  atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS inteligencia_fatos (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   documento_id INTEGER NOT NULL REFERENCES documentos(id) ON DELETE CASCADE,
@@ -405,6 +446,32 @@ CREATE INDEX IF NOT EXISTS idx_transp_despesas_licitacao_ref ON transparencia_de
 CREATE INDEX IF NOT EXISTS idx_transp_despesas_documento_id ON transparencia_despesas(documento_id);
 CREATE INDEX IF NOT EXISTS idx_transp_receitas_exercicio ON transparencia_receitas(exercicio);
 CREATE INDEX IF NOT EXISTS idx_licitacoes_produtos_grupo_id ON licitacoes_produtos(grupo_id);
+
+CREATE TABLE IF NOT EXISTS admin_users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'ativo',
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    last_login_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS admin_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES admin_users(id) ON DELETE CASCADE,
+    token_hash TEXT NOT NULL UNIQUE,
+    user_agent TEXT,
+    ip TEXT,
+    expires_at TEXT NOT NULL,
+    revoked_at TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    last_seen_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_sessions_token_hash ON admin_sessions(token_hash);
+CREATE INDEX IF NOT EXISTS idx_admin_sessions_user_id ON admin_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_admin_sessions_expires_at ON admin_sessions(expires_at);
 
 
 -- FTS5 — Busca textual nos documentos
