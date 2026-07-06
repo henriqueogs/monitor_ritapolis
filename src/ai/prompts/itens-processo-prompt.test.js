@@ -44,8 +44,8 @@ describe('itens-processo-prompt', () => {
       documento: { texto_completo: 'edital curto' },
       atas: [{ nome: 'ata.pdf', texto_completo: ataGigante }],
     });
-    const bCount = (prompt.match(/B/g) || []).length;
-    expect(bCount).toBeLessThanOrEqual(MAX_TEXTO_ATA_CHARS);
+    expect(prompt).not.toContain(ataGigante);
+    expect(prompt).toContain('[...texto truncado');
   });
 
   it('funciona sem nenhuma ata vinculada', () => {
@@ -56,5 +56,21 @@ describe('itens-processo-prompt', () => {
   it('POSTURA: nunca afirma verdade absoluta, atribui à fonte', () => {
     const prompt = buildItensProcessoPrompt({ documento: { texto_completo: 't' }, atas: [] });
     expect(prompt).toMatch(/segundo|conforme consta|fonte/i);
+  });
+
+  it('instrui a nunca deixar campo obrigatorio vazio (objeto/descricao/trecho_fonte)', () => {
+    const prompt = buildItensProcessoPrompt({ documento: { texto_completo: 't' }, atas: [] });
+    expect(prompt).toMatch(/Não especificado no trecho fornecido/);
+    expect(prompt).toMatch(/nunca deixe.*vazio/i);
+  });
+
+  it('instrui resultado_global a ser null quando faltar descricao ou trecho_fonte', () => {
+    const prompt = buildItensProcessoPrompt({ documento: { texto_completo: 't' }, atas: [] });
+    expect(prompt).toMatch(/resultado_global.*null/is);
+  });
+
+  it('instrui descricao/trecho_fonte concisos para caber no limite de caracteres', () => {
+    const prompt = buildItensProcessoPrompt({ documento: { texto_completo: 't' }, atas: [] });
+    expect(prompt).toMatch(/400 caracteres/);
   });
 });

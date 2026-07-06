@@ -128,6 +128,55 @@ describe('itens-processo-contract', () => {
     expect(() => validateItensProcesso(payload({ itens_solicitados: muitos }))).toThrow();
   });
 
+  it('trunca trecho_fonte excedente em vez de rejeitar o resultado inteiro', () => {
+    const r = validateItensProcesso(
+      payload({
+        itens_solicitados: [
+          { descricao: 'Item X', trecho_fonte: 'A'.repeat(900) },
+        ],
+      })
+    );
+    expect(r.itens_solicitados[0].trecho_fonte.length).toBeLessThanOrEqual(700);
+    expect(r.itens_solicitados[0].trecho_fonte).toMatch(/…$/);
+  });
+
+  it('coage item_numero/lote_numero number puro pra string (IA às vezes manda 1 em vez de "1")', () => {
+    const r = validateItensProcesso(
+      payload({
+        itens_solicitados: [{ item_numero: 1, descricao: 'Item', trecho_fonte: 'fonte' }],
+        resultado_lotes: [{ lote_numero: 2, objeto: 'X', trecho_fonte: 'fonte' }],
+      })
+    );
+    expect(r.itens_solicitados[0].item_numero).toBe('1');
+    expect(r.resultado_lotes[0].lote_numero).toBe('2');
+  });
+
+  it('trunca fornecedor_cnpj/lote_numero excedentes (ex.: IA escreveu sentinela em campo curto)', () => {
+    const r = validateItensProcesso(
+      payload({
+        resultado_lotes: [
+          {
+            lote_numero: 'Não especificado no trecho fornecido',
+            objeto: 'Objeto X',
+            fornecedor_cnpj: 'Não especificado no trecho fornecido',
+            trecho_fonte: 'fonte',
+          },
+        ],
+      })
+    );
+    expect(r.resultado_lotes[0].lote_numero.length).toBeLessThanOrEqual(20);
+    expect(r.resultado_lotes[0].fornecedor_cnpj.length).toBeLessThanOrEqual(20);
+  });
+
+  it('aceita null nos arrays (IA às vezes manda null em vez de [])', () => {
+    const r = validateItensProcesso(
+      payload({ itens_solicitados: null, resultado_lotes: null, lacunas: null })
+    );
+    expect(r.itens_solicitados).toEqual([]);
+    expect(r.resultado_lotes).toEqual([]);
+    expect(r.lacunas).toEqual([]);
+  });
+
   it('mensagem de erro identifica o campo problemático', () => {
     try {
       validateItensProcesso(payload({ confianca: 'alta' }));

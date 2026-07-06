@@ -41,13 +41,19 @@ function listarAtasDoDocumento(documentoId) {
     .filter((a) => TIPOS_ATA_RESULTADO.includes(a.tipo) && a.texto_completo);
 }
 
+// Mesmo hash usado internamente pra upsert idempotente — exportado pro
+// backfill em lote decidir se um documento já foi processado com o texto
+// atual (edital + atas), sem precisar chamar a IA de novo.
+function computeTextoHash(documento, atas) {
+  return textoHash(`${documento.texto_completo}|${(atas || []).map((a) => a.texto_completo).join('|')}`);
+}
+
 /**
- * Reextrai os itens de um processo (edital + atas vinculadas) via IA e
- * persiste o resultado. Lança erro em qualquer falha (texto ausente,
- * resposta fora do contrato) — quem chama decide o fallback (worker grava
- * status='erro' no job; script de piloto mostra o erro pra inspeção).
+ * Chama a IA e valida o contrato, sem persistir — usado pelo piloto (Fase F)
+ * pra inspecionar a saída antes de decidir gravar em massa.
+ * @returns {{ itens_json, provider, modelo, texto_hash, atas }}
  */
-async function estruturarItensProcesso(documento, options = {}) {
+async function gerarItensProcesso(documento, options = {}) {
   if (!documento?.texto_completo) {
     throw new Error(`Documento ${documento?.id} nao tem texto_completo para reextrair itens`);
   }
@@ -60,17 +66,35 @@ async function estruturarItensProcesso(documento, options = {}) {
   const raw = await provider.generateJson({ prompt, temperature: 0.1 });
   const validado = validateItensProcesso(extractJsonObject(raw));
 
+  return { itens_json: validado, provider: provider.provider, modelo: provider.model, texto_hash: hash, atas };
+}
+
+/**
+ * Reextrai os itens de um processo (edital + atas vinculadas) via IA e
+ * persiste o resultado. Lança erro em qualquer falha (texto ausente,
+ * resposta fora do contrato) — quem chama decide o fallback (worker grava
+ * status='erro' no job; script de piloto mostra o erro pra inspeção).
+ */
+async function estruturarItensProcesso(documento, options = {}) {
+  const gerado = await gerarItensProcesso(documento, options);
+
   return salvarItensEstruturados({
     documento_id: documento.id,
-    provider: provider.provider,
-    modelo: provider.model,
+    provider: gerado.provider,
+    modelo: gerado.modelo,
     contrato_versao: CONTRACT_VERSION,
-    itens_json: validado,
-    texto_hash: hash,
-    confianca: validado.confianca,
+    itens_json: gerado.itens_json,
+    texto_hash: gerado.texto_hash,
+    confianca: gerado.itens_json.confianca,
     status: 'ok',
     erro: null,
   });
 }
 
-module.exports = { estruturarItensProcesso, CONTRACT_VERSION, listarAtasDoDocumento };
+module.exports = {
+  estruturarItensProcesso,
+  gerarItensProcesso,
+  computeTextoHash,
+  CONTRACT_VERSION,
+  listarAtasDoDocumento,
+};
