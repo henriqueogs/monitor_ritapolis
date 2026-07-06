@@ -127,12 +127,17 @@ function getAgregadoPorFonteRecurso({ exercicios, prefixos } = {}) {
 function getRankingCredores({ prefixos, exercicios, limite = 15 } = {}) {
   const ex = filtroExercicios(exercicios);
   const cat = filtroCategoria(prefixos);
+  // Agrupa por credor_chave (CNPJ ou pf-slug) — une grafias do mesmo nome PF.
+  // MAX(credor_cargo) pode trazer cargo antigo se a pessoa mudou de cargo;
+  // aceito (a alternativa exigiria subquery pelo empenho mais recente).
   return db
     .prepare(
-      `SELECT credor_nome, credor_cnpj, COUNT(*) AS n, ROUND(SUM(valor), 2) AS valor_total
+      `SELECT credor_nome, credor_cnpj, credor_chave,
+              MAX(credor_cargo) AS credor_cargo,
+              COUNT(*) AS n, ROUND(SUM(valor), 2) AS valor_total
        FROM transparencia_despesas
        WHERE ${ex.sql} AND ${cat.sql} AND credor_nome IS NOT NULL
-       GROUP BY COALESCE(credor_cnpj, credor_nome)
+       GROUP BY COALESCE(credor_chave, credor_nome)
        ORDER BY valor_total DESC LIMIT ?`
     )
     .all(...ex.params, ...cat.params, Number(limite));

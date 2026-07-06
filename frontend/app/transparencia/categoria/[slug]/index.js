@@ -74,6 +74,7 @@ export default async function CategoriaPage({ params, searchParams }) {
 
   const { categoria, periodo, por_ano, por_mandato, top_credores, por_unidade, por_fonte } = dossie;
   const periodoLabel = labelPeriodo(modo, periodo, por_mandato);
+  const isDiarias = categoria.slug === 'diarias';
   const totalPeriodo = top_credores.reduce((s, c) => s + c.valor_total, 0);
   const maxAno = Math.max(...(por_ano || []).map((r) => r.valor_total), 1);
   const queryEmpenhos = new URLSearchParams({
@@ -126,7 +127,11 @@ export default async function CategoriaPage({ params, searchParams }) {
       {top_credores?.length > 0 && (
         <SectionBlock
           title={`Quem mais recebe (${periodoLabel})`}
-          description={`Top ${top_credores.length} recebedores somando ${formatMoney(totalPeriodo)} no período. Clique para ver o perfil completo.`}
+          description={
+            isDiarias
+              ? `Diárias pagas a servidores no período ${periodoLabel} — fonte: Portal da Transparência. Clique para ver o perfil completo.`
+              : `Top ${top_credores.length} recebedores somando ${formatMoney(totalPeriodo)} no período. Clique para ver o perfil completo.`
+          }
           aside={
             <Link href={`/transparencia/empenhos?${queryEmpenhos}`} className="availability-badge is-gov" style={{ textDecoration: 'none' }}>
               Ver todos os empenhos
@@ -135,17 +140,22 @@ export default async function CategoriaPage({ params, searchParams }) {
         >
           <div className="simple-table">
             {top_credores.map((c, i) => (
-              <div key={c.credor_cnpj || c.credor_nome} className="table-row" style={{ display: 'grid', gridTemplateColumns: '36px 1fr 90px 130px', gap: 12, alignItems: 'center' }}>
+              <div key={c.credor_chave || c.credor_nome} className="table-row" style={{ display: 'grid', gridTemplateColumns: '36px 1fr 90px 130px', gap: 12, alignItems: 'center' }}>
                 <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>{i + 1}</span>
-                <span style={{ fontSize: 13, fontWeight: 500 }}>
-                  {c.credor_cnpj ? (
-                    <Link href={`/credores/${c.credor_cnpj}`}>{c.credor_nome}</Link>
+                <span style={{ fontSize: 13, fontWeight: 500, minWidth: 0 }}>
+                  {c.credor_chave ? (
+                    <Link href={`/credores/${c.credor_chave}`}>{c.credor_nome}</Link>
                   ) : (
                     c.credor_nome
                   )}
+                  {c.credor_cargo ? (
+                    <span style={{ display: 'block', fontSize: 11, color: 'var(--text-muted)', fontWeight: 400 }}>
+                      {c.credor_cargo}
+                    </span>
+                  ) : null}
                 </span>
                 <span style={{ fontSize: 13, textAlign: 'center', fontVariantNumeric: 'tabular-nums', color: 'var(--text-muted)' }}>
-                  {c.n}×
+                  {isDiarias ? `${c.n} diária${c.n === 1 ? '' : 's'}` : `${c.n}×`}
                 </span>
                 <span style={{ fontWeight: 600, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                   {formatMoney(c.valor_total)}

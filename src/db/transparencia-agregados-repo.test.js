@@ -14,6 +14,7 @@ const mockConn = criarBancoMemoria();
 jest.mock('./index', () => ({ db: mockConn }));
 
 const repo = require('./transparencia-agregados-repo');
+const { buildCredorChave } = require('../transparencia/credor-chave');
 
 let seq = 0;
 function seedDespesa({
@@ -23,6 +24,7 @@ function seedDespesa({
   data = '2026-06-01',
   credorCnpj = '11111111111111',
   credorNome = 'FORNECEDOR A',
+  cargo = null,
   valor = 100,
   categoria = '3.3.90.14.00 - DIÁRIAS - CIVIL',
   unidade = '02.001.001 - SECRETARIA DE ADMINISTRAÇÃO',
@@ -34,8 +36,9 @@ function seedDespesa({
     .prepare(
       `INSERT INTO transparencia_despesas
          (exercicio_orcamento, empenho, tipo, data_empenho, credor_cnpj, credor_nome,
-          valor, categoria_economica, unidade, fonte_recurso, documento_id, hash_despesa)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          credor_cargo, credor_chave, valor, categoria_economica, unidade, fonte_recurso,
+          documento_id, hash_despesa)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       exercicio,
@@ -44,6 +47,8 @@ function seedDespesa({
       data,
       credorCnpj,
       credorNome,
+      cargo,
+      buildCredorChave({ cnpj: credorCnpj, nome: credorNome }),
       valor,
       categoria,
       unidade,
@@ -152,6 +157,28 @@ describe('transparencia-agregados-repo', () => {
       expect(ranking).toHaveLength(2);
       expect(ranking[0].credor_nome).toBe('B');
       expect(ranking[0].valor_total).toBe(20);
+    });
+
+    it('getRankingCredores expõe credor_chave e cargo (diárias por pessoa)', () => {
+      seedDespesa({ valor: 45, credorCnpj: null, credorNome: 'ADILSON DE SOUZA MELO', cargo: 'MOTORISTA' });
+      seedDespesa({ valor: 55, credorCnpj: null, credorNome: 'ADILSON DE SOUZA MELO', cargo: 'MOTORISTA' });
+
+      const ranking = repo.getRankingCredores({ prefixos: ['3.3.90.14'], exercicios: [2026], limite: 10 });
+      const pf = ranking.find((r) => r.credor_chave === 'pf-adilson-de-souza-melo');
+      expect(pf).toBeDefined();
+      expect(pf.n).toBe(2); // duas diárias agrupadas na mesma pessoa
+      expect(pf.valor_total).toBe(100);
+      expect(pf.credor_cargo).toBe('MOTORISTA');
+    });
+
+    it('getRankingCredores agrupa por chave: PJ por CNPJ mesmo com nomes diferentes', () => {
+      seedDespesa({ valor: 10, credorCnpj: '99999999000199', credorNome: 'EMPRESA Y LTDA' });
+      seedDespesa({ valor: 30, credorCnpj: '99999999000199', credorNome: 'EMPRESA Y LTDA - ME' });
+
+      const ranking = repo.getRankingCredores({ prefixos: ['3.3.90.14'], exercicios: [2026], limite: 10 });
+      const pj = ranking.filter((r) => r.credor_chave === '99999999000199');
+      expect(pj).toHaveLength(1);
+      expect(pj[0].valor_total).toBe(40);
     });
 
     it('getCategoriaPorAno série anual da categoria', () => {
