@@ -13,7 +13,7 @@ module.exports = {
   rootDir,
   dbPath: resolveFromRoot(process.env.DB_PATH, './data/ritapolis.db'),
   logDir: resolveFromRoot(process.env.LOG_DIR, './logs'),
-  apiPort: Number(process.env.API_PORT || 3001),
+  apiPort: Number(process.env.PORT || process.env.API_PORT || 3001),
   apiHost: process.env.API_HOST || '0.0.0.0',
   frontendApiUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api',
   collectorDelayMs: Number(process.env.COLETOR_DELAY_MS || 1000),
@@ -87,5 +87,8 @@ module.exports = {
   descobertasInvestigacaoSchedulerEnabled: String(process.env.DESCOBERTAS_INVESTIGACAO_SCHEDULER_ENABLED || 'true').toLowerCase() !== 'false',
   descobertasInvestigacaoIntervalMs: Number(process.env.DESCOBERTAS_INVESTIGACAO_INTERVAL_MS || 60 * 60 * 1000),
   descobertasInvestigacaoPorCiclo: Number(process.env.DESCOBERTAS_INVESTIGACAO_POR_CICLO || 4),
-  descobertasInvestigacaoDelayMs: Number(process.env.DESCOBERTAS_INVESTIGACAO_DELAY_MS || 15_000)
+  descobertasInvestigacaoDelayMs: Number(process.env.DESCOBERTAS_INVESTIGACAO_DELAY_MS || 15_000),
+  // Portal da Transparência (SH3): primeiro exercício coletado. API tem dados
+  // desde 2019 (probe 16/16 janelas ok — scripts/testar-sh3-anos-anteriores.js).
+  transparenciaAnoInicio: Number(process.env.TRANSPARENCIA_ANO_INICIO || 2019)
 };

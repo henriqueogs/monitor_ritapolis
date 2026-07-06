@@ -11,6 +11,7 @@
 
 const ColetorBase = require('./base');
 const logger = require('../logger');
+const config = require('../config');
 const {
   upsertDespesa,
   upsertReceita,
@@ -25,8 +26,9 @@ const BASE_URL = 'https://pt.ritapolis.mg.gov.br';
 // Unidade gestora da Prefeitura (ID fixo no sistema SH3)
 const UNIDADE_GESTORA_PREFEITURA = 1;
 
-// Anos para coleta histórica (inclusivo)
-const ANO_INICIO = 2023;
+// Primeiro exercício coletado (inclusivo) — configurável via
+// TRANSPARENCIA_ANO_INICIO; API SH3 tem dados desde 2019.
+const ANO_INICIO = config.transparenciaAnoInicio;
 
 class ColetorPortalTransparencia extends ColetorBase {
   constructor() {
