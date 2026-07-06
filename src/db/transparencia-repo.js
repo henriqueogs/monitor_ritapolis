@@ -585,6 +585,46 @@ function getPainelResumo({ exercicio, exercicios } = {}) {
 }
 
 /**
+ * Fila de pagamentos: empenhos liquidados (dever de pagar reconhecido) que
+ * ainda não têm data de pagamento — "quem está esperando receber". Exclui
+ * ordens de pagamento (extra-orçamentárias, ex: INSS retido). Mais antigos
+ * primeiro: quanto mais tempo liquidado sem pagar, mais relevante.
+ */
+const LIMITE_MAX_FILA = 200;
+
+function getFilaPagamentos({ exercicio, limite = LIMITE_MAX_FILA } = {}) {
+  const filters = [
+    "tipo NOT LIKE 'OP%'",
+    "IFNULL(data_liquidacao, '') <> ''",
+    "IFNULL(data_pagamento, '') = ''",
+  ];
+  const params = [];
+  if (exercicio) {
+    filters.push('exercicio_orcamento = ?');
+    params.push(Number(exercicio));
+  }
+  const where = `WHERE ${filters.join(' AND ')}`;
+
+  const resumo = db.prepare(`
+    SELECT COUNT(*) AS n_total, ROUND(IFNULL(SUM(valor), 0), 2) AS valor_total,
+           MIN(data_liquidacao) AS liquidacao_mais_antiga
+    FROM transparencia_despesas
+    ${where}
+  `).get(...params);
+
+  const itens = db.prepare(`
+    SELECT id, exercicio_orcamento, empenho, credor_nome, credor_cnpj, valor,
+           data_empenho, data_liquidacao, funcao, documento_id
+    FROM transparencia_despesas
+    ${where}
+    ORDER BY date(data_liquidacao) ASC, id ASC
+    LIMIT ?
+  `).all(...params, Math.min(Math.max(Number(limite) || LIMITE_MAX_FILA, 1), LIMITE_MAX_FILA));
+
+  return { resumo, itens };
+}
+
+/**
  * Lista paginada de despesas com filtros opcionais.
  */
 const LIMITE_MAX_DESPESAS = 100;
@@ -665,6 +705,7 @@ module.exports = {
   getResumoAnual,
   getPainelResumo,
   getDespesas,
+  getFilaPagamentos,
   getReceitasPorAno,
   getReceitasDetalheExercicio,
 };

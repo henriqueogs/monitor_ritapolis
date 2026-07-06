@@ -1,20 +1,73 @@
-export const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const backendApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const adminProxyUrl = '/api/admin-proxy';
+
+export const apiUrl = typeof window === 'undefined' ? backendApiUrl : adminProxyUrl;
 
 // Rotas que precisam sempre do dado mais recente (admin, jobs, status ao vivo).
 // As demais (dados públicos do acervo/transparência) são cacheadas com ISR para
 // que a navegação seja instantânea e não re-bata na API a cada clique.
 const PREFIXOS_SEM_CACHE = ['/admin', '/coletas', '/ia/resumos', '/scheduler'];
+const PREFIXOS_PROTEGIDOS = [
+  '/admin',
+  '/coletas',
+  '/ia/',
+  '/scheduler',
+  '/cobertura/prefeitura',
+  '/inteligencia/auditoria',
+  '/alertas/config',
+  '/alertas/gerar',
+  '/anexos/resumos/jobs'
+];
 const REVALIDATE_PADRAO_S = 120;
+
+function isProtectedApiPath(path) {
+  return PREFIXOS_PROTEGIDOS.some((prefixo) => path.startsWith(prefixo));
+}
+
+function buildAdminBasicAuthHeader() {
+  const user = process.env.ADMIN_AUTH_USER;
+  const password = process.env.ADMIN_AUTH_PASSWORD;
+  if (!user || !password) {
+    return null;
+  }
+  const encoded =
+    typeof btoa === 'function'
+      ? btoa(`${user}:${password}`)
+      : Buffer.from(`${user}:${password}`, 'utf8').toString('base64');
+  return `Basic ${encoded}`;
+}
+
+function buildRequestUrl(path, { forceProxy = false } = {}) {
+  if (typeof window !== 'undefined' && (forceProxy || isProtectedApiPath(path))) {
+    return `${adminProxyUrl}${path}`;
+  }
+  return `${backendApiUrl}${path}`;
+}
+
+function buildRequestHeaders(path, headers = {}) {
+  const finalHeaders = { ...headers };
+  if (typeof window === 'undefined' && isProtectedApiPath(path) && !finalHeaders.Authorization) {
+    const auth = buildAdminBasicAuthHeader();
+    if (auth) {
+      finalHeaders.Authorization = auth;
+    }
+  }
+  return finalHeaders;
+}
 
 async function fetchJson(path, { revalidate = REVALIDATE_PADRAO_S } = {}) {
   const semCache = PREFIXOS_SEM_CACHE.some((prefixo) => path.startsWith(prefixo));
   const cacheOpts = semCache ? { cache: 'no-store' } : { next: { revalidate } };
+  const url = buildRequestUrl(path);
   let response;
 
   try {
-    response = await fetch(`${apiUrl}${path}`, cacheOpts);
+    response = await fetch(url, {
+      ...cacheOpts,
+      headers: buildRequestHeaders(path)
+    });
   } catch (error) {
-    throw new Error(`Falha ao conectar na API ${apiUrl}${path}: ${error.message}`);
+    throw new Error(`Falha ao conectar na API ${url}: ${error.message}`);
   }
 
   if (!response.ok) {
@@ -34,19 +87,20 @@ async function fetchJson(path, { revalidate = REVALIDATE_PADRAO_S } = {}) {
 }
 
 async function postJson(path, body = {}) {
+  const url = buildRequestUrl(path, { forceProxy: true });
   let response;
 
   try {
-    response = await fetch(`${apiUrl}${path}`, {
+    response = await fetch(url, {
       method: 'POST',
-      headers: {
+      headers: buildRequestHeaders(path, {
         'Content-Type': 'application/json'
-      },
+      }),
       body: JSON.stringify(body),
       cache: 'no-store'
     });
   } catch (error) {
-    throw new Error(`Falha ao conectar na API ${apiUrl}${path}: ${error.message}`);
+    throw new Error(`Falha ao conectar na API ${url}: ${error.message}`);
   }
 
   if (!response.ok) {
@@ -66,9 +120,9 @@ async function postJson(path, body = {}) {
 }
 
 async function patchJson(path, body = {}) {
-  const response = await fetch(`${apiUrl}${path}`, {
+  const response = await fetch(buildRequestUrl(path, { forceProxy: true }), {
     method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
+    headers: buildRequestHeaders(path, { 'Content-Type': 'application/json' }),
     body: JSON.stringify(body),
     cache: 'no-store',
   });
@@ -261,6 +315,10 @@ export function fetchTransparenciaGastos(params = {}) {
   return fetchJson(`/transparencia/gastos${buildQuery(params)}`).catch(() => null);
 }
 
+export function fetchFilaPagamentos(params = {}) {
+  return fetchJson(`/transparencia/fila-pagamentos${buildQuery(params)}`).catch(() => null);
+}
+
 export function fetchTransparenciaCategoria(slug, params = {}) {
   return fetchJson(`/transparencia/categoria/${slug}${buildQuery(params)}`).catch(() => null);
 }
@@ -448,39 +506,15 @@ export function fetchAlertasConfig() {
 }
 
 export async function updateAlertaStatus(id, status) {
-  const response = await fetch(`${apiUrl}/alertas/${id}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status }),
-  });
-  if (!response.ok) {
-    throw new Error(`Falha ao atualizar alerta ${id}`);
-  }
-  return response.json();
+  return patchJson(`/alertas/${id}`, { status });
 }
 
 export async function updateAlertaConfig(chave, valor, descricao = null) {
-  const response = await fetch(`${apiUrl}/alertas/config`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chave, valor, descricao }),
-  });
-  if (!response.ok) {
-    throw new Error(`Falha ao atualizar configuração ${chave}`);
-  }
-  return response.json();
+  return patchJson('/alertas/config', { chave, valor, descricao });
 }
 
 export async function gerarAlertasManual({ since, dryRun, limite, full } = {}) {
-  const response = await fetch(`${apiUrl}/alertas/gerar`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ since, dryRun, limite, full }),
-  });
-  if (!response.ok) {
-    throw new Error('Falha ao gerar alertas');
-  }
-  return response.json();
+  return postJson('/alertas/gerar', { since, dryRun, limite, full });
 }
 
 export function fetchSchedulerStatus() {
@@ -542,7 +576,7 @@ export function fetchAdminStatus() {
 }
 
 export function triggerAdminAction(acao) {
-  return fetch(`${apiUrl}/admin/trigger/${acao}`, { method: 'POST' }).then((r) => r.json());
+  return postJson(`/admin/trigger/${acao}`);
 }
 
 export function fetchAdminFerramentas() {
@@ -601,3 +635,9 @@ export function fetchEmendaParlamentares(params = {}) {
 export function fetchEmenda(id) {
   return fetchJson(`/emendas/${id}`).catch(() => null);
 }
+
+export const __apiSecurityInternals = {
+  buildAdminBasicAuthHeader,
+  buildRequestUrl,
+  isProtectedApiPath
+};

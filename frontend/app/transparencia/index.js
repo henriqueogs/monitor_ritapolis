@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import SectionBlock from '../components/SectionBlock';
-import { fetchTransparenciaResumo, fetchTransparenciaGastos } from '../lib/api';
+import { fetchTransparenciaResumo, fetchTransparenciaGastos, fetchFilaPagamentos } from '../lib/api';
+import FilaPagamentos from './components/FilaPagamentos';
 import GastosPorCategoria from './components/GastosPorCategoria';
 import PeriodoSelector from '../components/PeriodoSelector';
 import MetricasPeriodo from './components/MetricasPeriodo';
@@ -48,9 +49,11 @@ function montarPeriodoLabel(modo, periodo, porMandato) {
 
 export default async function TransparenciaPage({ searchParams }) {
   const { modo, fetchParams } = resolverFiltro(searchParams);
-  const [dados, gastos] = await Promise.all([
+  const [dados, gastos, fila] = await Promise.all([
     fetchTransparenciaResumo(fetchParams),
     fetchTransparenciaGastos(fetchParams),
+    // Fila filtra só por exercício (mandato não se aplica a pendência atual)
+    fetchFilaPagamentos(fetchParams.exercicio ? { exercicio: fetchParams.exercicio } : {}),
   ]);
 
   if (!dados || !dados.periodo) {
@@ -98,6 +101,8 @@ export default async function TransparenciaPage({ searchParams }) {
       <TabelaExercicios porAno={porAno} porMandato={porMandato} />
 
       <ComposicaoReceita receitasPorAno={receitasPorAno} porAno={porAno} />
+
+      <FilaPagamentos fila={fila} />
 
       <TopCredores topCredores={topCredores} periodoLabel={periodoLabel} />
 

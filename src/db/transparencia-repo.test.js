@@ -193,4 +193,44 @@ describe('transparencia-repo', () => {
       expect(painel.porAno).toHaveLength(3);
     });
   });
+
+  describe('getFilaPagamentos', () => {
+    function seedLiquidado({ id, liquidacao, pagamento = null, valor = 100, tipo = 'EO - Empenho Ordinário', credor = 'FORNECEDOR X' }) {
+      seedDespesa({ exercicio: 2026, valor, tipo, credorNome: credor, credorCnpj: `${id}`.padStart(14, '0') });
+      mockConn
+        .prepare('UPDATE transparencia_despesas SET data_liquidacao = ?, data_pagamento = ? WHERE hash_despesa = ?')
+        .run(liquidacao, pagamento, `hash-2026-${seq}`);
+    }
+
+    it('lista só empenhos liquidados sem pagamento, mais antigos primeiro', () => {
+      seedLiquidado({ id: 1, liquidacao: '2026-03-01' });
+      seedLiquidado({ id: 2, liquidacao: '2026-01-15', valor: 500 });
+      seedLiquidado({ id: 3, liquidacao: '2026-02-01', pagamento: '2026-02-10' }); // pago — fora
+      seedDespesa({ exercicio: 2026, valor: 999 }); // nem liquidado — fora
+
+      const fila = repo.getFilaPagamentos();
+
+      expect(fila.itens).toHaveLength(2);
+      expect(fila.itens[0].data_liquidacao).toBe('2026-01-15'); // mais antigo primeiro
+      expect(fila.resumo.n_total).toBe(2);
+      expect(fila.resumo.valor_total).toBe(600);
+    });
+
+    it('exclui ordens de pagamento (extra-orçamentárias) da fila', () => {
+      seedLiquidado({ id: 1, liquidacao: '2026-01-01', tipo: 'OP - Ordem de Pagamento' });
+      const fila = repo.getFilaPagamentos();
+      expect(fila.itens).toHaveLength(0);
+    });
+
+    it('filtra por exercicio quando informado', () => {
+      seedLiquidado({ id: 1, liquidacao: '2026-01-01' });
+      seedDespesa({ exercicio: 2025, valor: 50 });
+      mockConn
+        .prepare("UPDATE transparencia_despesas SET data_liquidacao = '2025-06-01' WHERE exercicio_orcamento = 2025")
+        .run();
+
+      expect(repo.getFilaPagamentos({ exercicio: 2026 }).itens).toHaveLength(1);
+      expect(repo.getFilaPagamentos().itens).toHaveLength(2);
+    });
+  });
 });
