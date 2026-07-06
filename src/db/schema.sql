@@ -353,12 +353,17 @@ CREATE TABLE IF NOT EXISTS transparencia_despesas (
   historico TEXT,
   licitacao_ref TEXT,
   modalidade TEXT,
+  credor_cargo TEXT,
+  co_tce TEXT,
+  credor_chave TEXT,
   dados_extras TEXT,
   hash_despesa TEXT NOT NULL,
   coletado_em TEXT DEFAULT CURRENT_TIMESTAMP,
   atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (exercicio_orcamento, empenho)
 );
+-- Índice de credor_chave é criado em transparencia-migracoes.js (após o
+-- ALTER TABLE em bancos existentes — aqui quebraria em banco pré-migração).
 
 CREATE TABLE IF NOT EXISTS transparencia_receitas (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

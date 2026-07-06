@@ -194,6 +194,51 @@ describe('transparencia-repo', () => {
     });
   });
 
+  describe('upsertDespesa — colunas derivadas', () => {
+    it('grava credor_cargo, co_tce e credor_chave (PF sem CNPJ)', () => {
+      repo.upsertDespesa({
+        exercicio: 2026,
+        empenho: '09001-000',
+        credor: 'ADILSON DE SOUZA MELO - CPF/CNPJ:',
+        cargo: 'MOTORISTA',
+        coTce: 'TCE-42',
+        valor: 45,
+      });
+
+      const row = mockConn
+        .prepare("SELECT credor_cargo, co_tce, credor_chave FROM transparencia_despesas WHERE empenho = '09001-000'")
+        .get();
+      expect(row.credor_cargo).toBe('MOTORISTA');
+      expect(row.co_tce).toBe('TCE-42');
+      expect(row.credor_chave).toBe('pf-adilson-de-souza-melo');
+    });
+
+    it('PJ com CNPJ vira chave de 14 dígitos', () => {
+      repo.upsertDespesa({
+        exercicio: 2026,
+        empenho: '09002-000',
+        credor: 'EMPRESA X LTDA - CPF/CNPJ: CNPJ: 12.345.678/0001-90',
+        valor: 100,
+      });
+
+      const row = mockConn
+        .prepare("SELECT credor_chave, credor_cargo FROM transparencia_despesas WHERE empenho = '09002-000'")
+        .get();
+      expect(row.credor_chave).toBe('12345678000190');
+      expect(row.credor_cargo).toBeNull();
+    });
+
+    it('re-upsert atualiza as colunas derivadas', () => {
+      repo.upsertDespesa({ exercicio: 2026, empenho: '09003-000', credor: 'FULANO - CPF/CNPJ:', cargo: 'AUXILIAR', valor: 10 });
+      repo.upsertDespesa({ exercicio: 2026, empenho: '09003-000', credor: 'FULANO - CPF/CNPJ:', cargo: 'SECRETARIO', valor: 10 });
+
+      const row = mockConn
+        .prepare("SELECT credor_cargo FROM transparencia_despesas WHERE empenho = '09003-000'")
+        .get();
+      expect(row.credor_cargo).toBe('SECRETARIO');
+    });
+  });
+
   describe('getFilaPagamentos', () => {
     function seedLiquidado({ id, liquidacao, pagamento = null, valor = 100, tipo = 'EO - Empenho Ordinário', credor = 'FORNECEDOR X' }) {
       seedDespesa({ exercicio: 2026, valor, tipo, credorNome: credor, credorCnpj: `${id}`.padStart(14, '0') });

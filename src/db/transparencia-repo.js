@@ -8,6 +8,8 @@
 
 const crypto = require('crypto');
 const { db } = require('./index');
+const { ensureDespesasMigracoes } = require('./transparencia-migracoes');
+const { buildCredorChave } = require('../transparencia/credor-chave');
 const { parseModalidadeDespesa, parseModalidadeEdital } = require('../licitacoes/modalidade');
 const { sanitizeFtsQuery } = require('./fts-repo');
 
@@ -55,6 +57,9 @@ function ensureTransparenciaSchema() {
       historico            TEXT,
       licitacao_ref        TEXT,
       modalidade           TEXT,
+      credor_cargo         TEXT,
+      co_tce               TEXT,
+      credor_chave         TEXT,
       dados_extras         TEXT,
       hash_despesa         TEXT NOT NULL,
       coletado_em          TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -89,6 +94,7 @@ function ensureTransparenciaSchema() {
 }
 
 ensureTransparenciaSchema();
+ensureDespesasMigracoes();
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -124,14 +130,16 @@ const upsertDespesaStmt = db.prepare(`
     credor_nome, credor_cnpj, valor,
     unidade, funcao, subfuncao, programa, projeto_atividade,
     categoria_economica, fonte_recurso, historico,
-    licitacao_ref, modalidade, dados_extras, hash_despesa
+    licitacao_ref, modalidade, credor_cargo, co_tce, credor_chave,
+    dados_extras, hash_despesa
   ) VALUES (
     @exercicio_orcamento, @empenho, @tipo,
     @data_empenho, @data_liquidacao, @data_pagamento,
     @credor_nome, @credor_cnpj, @valor,
     @unidade, @funcao, @subfuncao, @programa, @projeto_atividade,
     @categoria_economica, @fonte_recurso, @historico,
-    @licitacao_ref, @modalidade, @dados_extras, @hash_despesa
+    @licitacao_ref, @modalidade, @credor_cargo, @co_tce, @credor_chave,
+    @dados_extras, @hash_despesa
   )
   ON CONFLICT (exercicio_orcamento, empenho) DO UPDATE SET
     tipo               = excluded.tipo,
@@ -151,6 +159,9 @@ const upsertDespesaStmt = db.prepare(`
     historico          = excluded.historico,
     licitacao_ref      = excluded.licitacao_ref,
     modalidade         = excluded.modalidade,
+    credor_cargo       = excluded.credor_cargo,
+    co_tce             = excluded.co_tce,
+    credor_chave       = excluded.credor_chave,
     dados_extras       = excluded.dados_extras,
     hash_despesa       = excluded.hash_despesa,
     atualizado_em      = CURRENT_TIMESTAMP
@@ -168,6 +179,8 @@ function upsertDespesa(dadosPrincipais) {
   if (!exercicio || !empenho) {return null;}
 
   const credorRaw = p.credor || '';
+  const credorNome = extractCredorNome(credorRaw);
+  const credorCnpj = extractCnpj(credorRaw);
   const hash = hashDespesa(exercicio, empenho);
 
   const existing = db.prepare(
@@ -181,8 +194,8 @@ function upsertDespesa(dadosPrincipais) {
     data_empenho: p.dataDoEmpenho || null,
     data_liquidacao: p.dataDeLiquidacao || null,
     data_pagamento: p.dataDePagamento || null,
-    credor_nome: extractCredorNome(credorRaw),
-    credor_cnpj: extractCnpj(credorRaw),
+    credor_nome: credorNome,
+    credor_cnpj: credorCnpj,
     valor: Number(p.valor) || 0,
     unidade: p.unidade || null,
     funcao: p.funcao || null,
@@ -194,6 +207,9 @@ function upsertDespesa(dadosPrincipais) {
     historico: p.historico || null,
     licitacao_ref: p.licitacao || null,
     modalidade: p.modalidade || null,
+    credor_cargo: String(p.cargo || '').trim() || null,
+    co_tce: String(p.coTce || '').trim() || null,
+    credor_chave: buildCredorChave({ cnpj: credorCnpj, nome: credorNome }),
     dados_extras: JSON.stringify(p),
     hash_despesa: hash,
   });
