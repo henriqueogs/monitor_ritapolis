@@ -15,6 +15,13 @@ function isAdminAuthEnabled(env = process.env) {
   return Boolean(getAdminCredentials(env));
 }
 
+function getAdminAuthState(env = process.env) {
+  return {
+    configured: isAdminAuthEnabled(env),
+    production: env.NODE_ENV === 'production'
+  };
+}
+
 function decodeBase64(value) {
   if (typeof atob === 'function') {
     return atob(value);
@@ -51,15 +58,31 @@ function isAuthorizedBasicAuth(header, env = process.env) {
   const expected = getAdminCredentials(env);
 
   if (!expected) {
-    return true;
+    return env.NODE_ENV !== 'production';
   }
 
   const provided = parseBasicAuthHeader(header);
-  return provided?.user === expected.user && provided?.password === expected.password;
+  if (!provided) {
+    return false;
+  }
+
+  return safeEqual(provided.user, expected.user) && safeEqual(provided.password, expected.password);
+}
+
+function safeEqual(a, b) {
+  const left = String(a || '');
+  const right = String(b || '');
+  const length = Math.max(left.length, right.length);
+  let diff = left.length ^ right.length;
+  for (let i = 0; i < length; i += 1) {
+    diff |= (left.charCodeAt(i) || 0) ^ (right.charCodeAt(i) || 0);
+  }
+  return diff === 0;
 }
 
 module.exports = {
   getAdminCredentials,
+  getAdminAuthState,
   isAdminAuthEnabled,
   isAuthorizedBasicAuth,
   parseBasicAuthHeader

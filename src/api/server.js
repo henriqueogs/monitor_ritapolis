@@ -1,7 +1,9 @@
 const express = require('express');
 const cors = require('cors');
+const crypto = require('crypto');
 const config = require('../config');
 const logger = require('../logger');
+const security = require('./security');
 const {
   listDocumentos,
   listLicitacoes,
@@ -43,6 +45,7 @@ const {
   getResumoFinanceiroPorDocumento,
   getReceitasPorAno,
   getReceitasDetalheExercicio,
+  getFilaPagamentos,
 } = require('../db/transparencia-repo');
 const {
   getPainelTransparencia,
@@ -50,6 +53,8 @@ const {
   getDespesasDocumentoComPortal,
 } = require('../transparencia/painel-service');
 const { getCredorDossie } = require('../transparencia/credor-service');
+const { parseCredorChave } = require('../transparencia/credor-chave');
+const { buscaUnificada } = require('../busca/busca-unificada');
 const { getEmpenhoDossie } = require('../transparencia/empenho-service');
 const { getGastosPanorama, getCategoriaDossie } = require('../transparencia/gastos-service');
 const { slugParaPrefixos } = require('../transparencia/categorias');
@@ -78,6 +83,12 @@ const {
 } = require('../db/anexo-resumo-jobs-repo');
 const { scheduleAnexoResumoJobWorker } = require('../ai/anexo-summary-job-worker');
 const { CONTRACT_VERSION_IA: CONTRATO_ANEXO_IA } = require('../ai/summarize-anexo');
+const { enfileirarItensPendentes } = require('../ai/enfileirar-itens-pendentes');
+const { scheduleItensProcessoJobWorker } = require('../ai/itens-processo-job-worker');
+const {
+  recoverStaleItensEstruturacaoJobs,
+  getItensEstruturacaoJobById,
+} = require('../db/itens-estruturacao-jobs-repo');
 const { getCollectionUpdateStatus, startCollectionUpdate } = require('../coletas/update-runner');
 const { listCredores } = require('../db/credores-repo');
 const { searchDocumentos, ensureFtsIndex, rebuildFtsIndex } = require('../db/fts-repo');
@@ -90,6 +101,8 @@ const {
   parlamentaresComTotais,
 } = require('../db/emendas-repo');
 const { getAdminSnapshot } = require('../db/admin-repo');
+const adminAuthRepo = require('../db/admin-auth-repo');
+const adminSession = require('../auth/admin-session');
 const { listarFerramentas, executarFerramenta, lerStatusProgresso } = require('./admin-tarefas');
 const {
   contarProdutosRevisao,
@@ -207,10 +220,38 @@ function anexoPublico(anexo) {
   ]);
 }
 
+function safeEqual(left, right) {
+  const a = Buffer.from(String(left || ''));
+  const b = Buffer.from(String(right || ''));
+  if (a.length !== b.length) {
+    return false;
+  }
+  return crypto.timingSafeEqual(a, b);
+}
+
+function validateBootstrapToken(token, env = process.env) {
+  if (env.NODE_ENV !== 'production') {
+    return { ok: true };
+  }
+  if (!env.ADMIN_BOOTSTRAP_TOKEN) {
+    return { ok: false, status: 503, error: 'Token de bootstrap admin nao configurado' };
+  }
+  if (!safeEqual(token, env.ADMIN_BOOTSTRAP_TOKEN)) {
+    return { ok: false, status: 403, error: 'Token de bootstrap admin invalido' };
+  }
+  return { ok: true };
+}
+
 function createServer() {
   const app = express();
-  app.use(cors());
-  app.use(express.json());
+  app.set('trust proxy', 1);
+  app.use(security.applySecurityHeaders);
+  app.use(cors(security.corsOptions));
+  app.use(security.rateLimit);
+  app.use(security.validateOrigin);
+  app.use(security.applyCachePolicy);
+  app.use(security.requireAdmin);
+  app.use(express.json({ limit: security.getJsonLimit() }));
 
   // Inicializa índices FTS5 se ainda não populados (apenas no primeiro start)
   try {
@@ -228,6 +269,94 @@ function createServer() {
 
   app.get('/api/health', (_req, res) => {
     res.json({ ok: true });
+  });
+
+  app.get('/api/auth/session', (req, res) => {
+    const token = adminSession.getSessionTokenFromRequest(req);
+    const session = adminAuthRepo.getAdminSession(token);
+    res.setHeader('Cache-Control', 'no-store');
+    if (!session) {
+      return res.json({
+        authenticated: false,
+        bootstrapRequired: adminAuthRepo.countAdminUsers() === 0,
+      });
+    }
+    return res.json({
+      authenticated: true,
+      user: session.user,
+      expiresAt: session.expiresAt,
+      bootstrapRequired: false,
+    });
+  });
+
+  app.post('/api/auth/bootstrap', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    if (adminAuthRepo.countAdminUsers() > 0) {
+      return res.status(409).json({ error: 'Usuario administrador inicial ja existe' });
+    }
+
+    const bootstrapToken = validateBootstrapToken(req.body?.bootstrapToken, process.env);
+    if (!bootstrapToken.ok) {
+      return res.status(bootstrapToken.status).json({ error: bootstrapToken.error });
+    }
+
+    try {
+      const user = adminAuthRepo.createAdminUser({
+        username: req.body?.username,
+        password: req.body?.password,
+      });
+      const session = adminAuthRepo.createAdminSession({
+        userId: user.id,
+        userAgent: req.get('user-agent') || null,
+        ip: req.ip,
+        ttlMs: adminSession.getSessionTtlMs(process.env),
+      });
+      res.setHeader('Set-Cookie', adminSession.buildSessionCookie(session.token, process.env));
+      return res.status(201).json({ authenticated: true, user, expiresAt: session.expiresAt });
+    } catch (err) {
+      return res.status(400).json({ error: err.message || 'Falha ao criar administrador' });
+    }
+  });
+
+  app.post('/api/auth/login', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const resultado = adminAuthRepo.verifyAdminLogin({
+      username: req.body?.username,
+      password: req.body?.password,
+    });
+    if (resultado.locked) {
+      res.setHeader('Retry-After', resultado.retryAfterSec);
+      logger.warn('Seguranca: login admin bloqueado por tentativas', {
+        username: adminAuthRepo.normalizeUsername(req.body?.username),
+        ip: req.ip,
+      });
+      return res.status(429).json({ error: 'Conta temporariamente bloqueada por excesso de tentativas' });
+    }
+    const user = resultado.user;
+    if (!user) {
+      logger.warn('Seguranca: login admin negado', {
+        username: adminAuthRepo.normalizeUsername(req.body?.username),
+        ip: req.ip,
+      });
+      return res.status(401).json({ error: 'Usuario ou senha invalidos' });
+    }
+
+    const session = adminAuthRepo.createAdminSession({
+      userId: user.id,
+      userAgent: req.get('user-agent') || null,
+      ip: req.ip,
+      ttlMs: adminSession.getSessionTtlMs(process.env),
+    });
+    res.setHeader('Set-Cookie', adminSession.buildSessionCookie(session.token, process.env));
+    return res.json({ authenticated: true, user, expiresAt: session.expiresAt });
+  });
+
+  app.post('/api/auth/logout', (req, res) => {
+    const token = adminSession.getSessionTokenFromRequest(req);
+    adminAuthRepo.revokeAdminSession(token);
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Set-Cookie', adminSession.buildExpiredSessionCookie(process.env));
+    return res.json({ ok: true });
   });
 
   app.get('/api/scheduler/status', (_req, res) => {
@@ -529,6 +658,14 @@ function createServer() {
     return res.json(dossie);
   });
 
+  // GET /api/transparencia/fila-pagamentos — empenhos liquidados aguardando
+  // pagamento ("quem está esperando receber"), mais antigos primeiro.
+  app.get('/api/transparencia/fila-pagamentos', (req, res) => {
+    const exercicio = req.query.exercicio ? Number(req.query.exercicio) : undefined;
+    const limite = req.query.limite ? Number(req.query.limite) : undefined;
+    return res.json(getFilaPagamentos({ exercicio, limite }));
+  });
+
   app.get('/api/transparencia/receitas', (_req, res) => {
     return res.json(getReceitasPorAno());
   });
@@ -695,16 +832,26 @@ function createServer() {
     }));
   });
 
-  // GET /api/credores/:cnpj — perfil completo de um credor
+  // GET /api/credores/:cnpj — perfil completo de um credor (aceita CNPJ
+  // formatado ou chave 'pf-…' de pessoa física)
   app.get('/api/credores/:cnpj', (req, res) => {
-    const cnpj = String(req.params.cnpj).replace(/\D/g, '');
-    if (cnpj.length !== 14) { return res.status(400).json({ error: 'CNPJ inválido' }); }
-    const dossie = getCredorDossie(cnpj);
+    const parsed = parseCredorChave(req.params.cnpj);
+    if (!parsed) { return res.status(400).json({ error: 'Identificador de credor inválido' }); }
+    const dossie = getCredorDossie(parsed.chave);
     if (!dossie) { return res.status(404).json({ error: 'Credor não encontrado' }); }
     return res.json(dossie);
   });
 
   // ── Busca FTS ─────────────────────────────────────────────────────────────
+
+  // GET /api/busca/unificada?q= — documentos + empenhos + credores num só payload
+  app.get('/api/busca/unificada', (req, res) => {
+    const q = String(req.query.q || '').trim();
+    if (q.length < 2) {
+      return res.status(400).json({ error: 'Parâmetro q obrigatório (mínimo 2 caracteres)' });
+    }
+    return res.json(buscaUnificada(q));
+  });
 
   // GET /api/busca?q=texto&tipo=edital&ano=2025
   app.get('/api/busca', (req, res) => {
@@ -870,6 +1017,37 @@ function createServer() {
     return res.json({ job });
   });
 
+  // POST /api/documentos/:id/estruturar-itens — enfileira reextração dos itens
+  // do processo via IA (assíncrono, mesmo padrão de /anexos/:id/resumir).
+  // Protegido por default: POST classifica como adminWrite no security.js.
+  app.post('/api/documentos/:id/estruturar-itens', async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'id inválido' });
+    }
+    try {
+      recoverStaleItensEstruturacaoJobs({ staleMinutes: 5 });
+      const force = req.body?.force === true || String(req.query.force || '').toLowerCase() === 'true';
+      const resultado = await enfileirarItensPendentes({ documentoId: id, force });
+
+      if (!resultado.selecionados.length) {
+        return res.status(404).json({ error: 'Documento nao encontrado ou sem texto para estruturar' });
+      }
+      if (!resultado.enfileirados.length) {
+        return res.json({ status: 'ok', mensagem: 'Itens ja estruturados para o texto atual (use force para reprocessar).' });
+      }
+
+      scheduleItensProcessoJobWorker();
+      return res.status(202).json({
+        status: 'pendente',
+        job_id: resultado.enfileirados[0].job_id,
+        mensagem: 'Estruturacao de itens enfileirada para processamento assincrono.',
+      });
+    } catch (error) {
+      return res.status(500).json({ error: error.message });
+    }
+  });
+
   app.get('/api/documentos/:id', (req, res) => {
     recoverStaleResumoAiJobs({ staleMinutes: 5 });
     const documento = getDocumentoById(Number(req.params.id));
@@ -965,6 +1143,14 @@ function createServer() {
       return res.status(404).json({ error: 'Job de resumo nao encontrado' });
     }
 
+    return res.json({ job });
+  });
+
+  app.get('/api/ia/itens-estruturacao/jobs/:id', (req, res) => {
+    const job = getItensEstruturacaoJobById(Number(req.params.id));
+    if (!job) {
+      return res.status(404).json({ error: 'Job de estruturacao de itens nao encontrado' });
+    }
     return res.json({ job });
   });
 

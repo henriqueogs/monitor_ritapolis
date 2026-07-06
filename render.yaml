@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: monitor-ritapolis-api
+    runtime: node
+    plan: starter
+    region: oregon
+    buildCommand: npm ci
+    startCommand: npm run api
+    healthCheckPath: /api/health
+    disk:
+      name: monitor-ritapolis-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: API_HOST
+        value: 0.0.0.0
+      - key: DB_PATH
+        value: /var/data/ritapolis.db
+      - key: LOG_DIR
+        value: /var/data/logs
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+      - key: ADMIN_AUTH_USER
+        sync: false
+      - key: ADMIN_AUTH_PASSWORD
+        sync: false
+      - key: NVIDIA_API_KEY
+        sync: false

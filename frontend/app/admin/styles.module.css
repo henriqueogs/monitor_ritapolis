@@ -34,3 +34,27 @@
     align-items: stretch;
   }
 }
+
+.logoutButton {
+  display: inline-flex;
+  min-height: 38px;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-secondary);
+  margin-top: 18px;
+  font-weight: 600;
+  transition: background var(--motion-fast) var(--ease-out),
+    border-color var(--motion-fast) var(--ease-out),
+    color var(--motion-fast) var(--ease-out);
+}
+
+.logoutButton:hover {
+  border-color: var(--border-hover);
+  background: var(--surface-muted);
+  color: var(--text);
+}

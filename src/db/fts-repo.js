@@ -3,7 +3,7 @@
 /**
  * Repositório FTS5 — busca textual em documentos.
  * Usa SQLite FTS5 com tokenizer unicode61 (remove_diacritics).
- * Suporta operadores nativos: AND, OR, NOT, prefixo*, aspas "frase exata".
+ * A entrada do usuario e sanitizada antes de chegar ao operador MATCH.
  */
 
 const { db } = require('./index');
@@ -68,19 +68,21 @@ const SNIPPET_LENGTH = 64; // chars por snippet
  */
 function sanitizeFtsQuery(rawQuery) {
   if (!rawQuery || !rawQuery.trim()) {return null;}
-  const q = rawQuery.trim();
+  const terms = String(rawQuery)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .split(/\s+/)
+    .map((term) => term.replace(/[^a-zA-Z0-9_-]/g, '').trim())
+    .filter((term) => !['AND', 'OR', 'NOT'].includes(term.toUpperCase()))
+    .filter(Boolean)
+    .slice(0, 8);
 
-  // Se já contém operadores FTS5, usar como está (usuário avançado)
-  if (/\bAND\b|\bOR\b|\bNOT\b|"/.test(q)) {return q;}
-
-  // Múltiplas palavras: juntar com AND implícito e adicionar * para prefixo
-  const terms = q.split(/\s+/).filter(Boolean);
+  if (!terms.length) { return null; }
   if (terms.length === 1) {
     // Busca de prefixo para termo único
     return `${terms[0]}*`;
   }
-  // Multi-palavra: "frase exata" para manter proximidade
-  return `"${terms.join(' ')}" OR ${terms.map((t) => `${t}*`).join(' AND ')}`;
+  return terms.map((t) => `${t}*`).join(' AND ');
 }
 
 /**

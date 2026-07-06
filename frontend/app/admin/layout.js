@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import LogoutButton from './LogoutButton';
 
 const adminLinks = [
   { href: '/admin', label: 'Visao geral' },
@@ -25,6 +26,7 @@ export default function AdminLayout({ children }) {
             </Link>
           ))}
         </nav>
+        <LogoutButton />
       </aside>
       <div className="admin-content">
         {children}

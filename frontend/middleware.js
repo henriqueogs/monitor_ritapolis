@@ -1,17 +1,16 @@
 import { NextResponse } from 'next/server';
-import auth from '../src/auth/admin-basic-auth';
+
+const SESSION_COOKIE = 'monitor_admin_session';
 
 export function middleware(request) {
-  if (auth.isAuthorizedBasicAuth(request.headers.get('authorization'))) {
+  const session = request.cookies.get(SESSION_COOKIE)?.value;
+  if (session) {
     return NextResponse.next();
   }
 
-  return new NextResponse('Autenticacao administrativa obrigatoria.', {
-    status: 401,
-    headers: {
-      'WWW-Authenticate': 'Basic realm="Monitor Ritapolis Admin", charset="UTF-8"'
-    }
-  });
+  const loginUrl = new URL('/login', request.url);
+  loginUrl.searchParams.set('next', `${request.nextUrl.pathname}${request.nextUrl.search}`);
+  return NextResponse.redirect(loginUrl);
 }
 
 export const config = {

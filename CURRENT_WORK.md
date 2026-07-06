@@ -16,8 +16,10 @@ Rascunho aguardando **sua confirmação** antes de avançar para Design/Tasks:
 
 - Spec: [`.specs/features/publicacao-mvp/spec.md`](.specs/features/publicacao-mvp/spec.md)
 - Estado: [`.specs/STATE.md`](.specs/STATE.md)
-- Perguntas em aberto (ver spec): alvo de deploy, política de credenciais
-  admin, frescor de dados esperado em produção.
+- Decisão de deploy: Cloudflare na borda + frontend em Cloudflare
+  Pages/Workers + API Node no Render protegida por Cloudflare.
+- Ainda em aberto: frescor de dados esperado em produção e evolução da
+  autenticação admin além do Basic Auth.
 
 Já pronto, não bloqueia a decisão: Basic Auth em `/admin/*`
 (`src/auth/admin-basic-auth.js` + `frontend/middleware.js`).
@@ -25,9 +27,11 @@ Já pronto, não bloqueia a decisão: Basic Auth em `/admin/*`
 ## ⏳ Pendente — Build de produção + deploy
 
 - [ ] Testar `next build && next start` em produção.
-- [ ] Dockerizar backend + SQLite.
-- [ ] Deploy (Railway/Fly.io backend + Vercel frontend) — alvo depende da
-  decisão da spec acima.
+- [x] Preparar blueprint inicial da API no Render (`render.yaml`).
+- [ ] Criar serviço Render com disco persistente em `/var/data`.
+- [ ] Configurar Cloudflare DNS/WAF/rate limits para o domínio da API.
+- [ ] Preparar frontend Cloudflare Workers/OpenNext; requer upgrade do Next
+  atual antes de instalar `@opennextjs/cloudflare`.
 
 ## ⏳ Pendente — Transparência: dados e vinculação (pós Empenhos v2, 02/07/2026)
 
@@ -37,13 +41,14 @@ lista geral `/transparencia/empenhos` com busca FTS, PeriodoSelector
 genérico e detector de gasto atípico nas Descobertas
 (`npm run alertas:empenhos`, thresholds em /admin/alertas). Ficam:
 
-- [ ] **Validar receita LOA antes de expor "% de execução"** — 2024:
-  R$ 215M previsto vs R$ 29M executado é implausível pro porte do município
-  (suspeita de dupla contagem apesar do filtro nível-1 em
-  `getReceitasPorAno`). **Bloqueia** qualquer card novo de execução
-  orçamentária em destaque.
-- [ ] **Fila de pagamentos** — 390 empenhos liquidados e não pagos; seção
-  "quem está esperando receber" (dados já no banco).
+- [x] **Validar receita LOA** (06/07) — nível-1 estava correto (2024: R$ 34M
+  previsto, plausível; o R$ 215M do registro era a soma bruta da hierarquia).
+  O problema real era o numerador: a % de execução somava ordens de
+  pagamento junto com empenhos; `porAno.valor_empenhado` (sem OP) corrige.
+  Cards de execução orçamentária desbloqueados.
+- [x] **Fila de pagamentos** (06/07) — seção "quem está esperando receber"
+  em /transparencia (391 liquidados não pagos, R$ 1,58M, desde jun/2023);
+  `getFilaPagamentos` + `GET /api/transparencia/fila-pagamentos`.
 - [ ] **Análise de fonte de recurso** — dependência de transferências
   (próprios R$ 48M vs FUNDEB/SUS/convênios); seções por fonte já existem
   na página de categoria, falta a visão dedicada.
@@ -55,11 +60,11 @@ genérico e detector de gasto atípico nas Descobertas
   integrar ao ciclo diário de descobertas quando o tom estiver validado
   com o feed real.
 
-- [ ] **Backfill despesas 2019–2022** — probe confirmou dados na API SH3 pros
-  4 anos (`node scripts/testar-sh3-anos-anteriores.js`, 16/16 janelas ok).
-  Mover `ANO_INICIO` (src/coletores/portal-transparencia.js:29) pra
-  `src/config.js` e rodar coleta histórica. Enquanto isso, 2022 aparece
-  parcial (282 empenhos) nas telas.
+- [x] **Backfill despesas 2019–2022** (06/07) — `ANO_INICIO` virou
+  `config.transparenciaAnoInicio` (`TRANSPARENCIA_ANO_INICIO`, default 2019)
+  e a coleta histórica foi disparada. Atenção: a coleta diária agora percorre
+  2019+ (o skip é por dia, anos fechados são re-coletados a cada ciclo — o
+  custo subiu; otimizar o skip de anos fechados é follow-up se pesar).
 - [ ] **Vinculação empenho↔licitação (13–23%)** — matching secundário via
   `licitacao_ref` + `vencedor_cnpj` = `credor_cnpj` em
   `src/licitacoes/modalidade.js` / `scripts/revincular-despesas.js`. TDD.

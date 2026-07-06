@@ -459,7 +459,9 @@ CREATE TABLE IF NOT EXISTS admin_users (
     status TEXT NOT NULL DEFAULT 'ativo',
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    last_login_at TEXT
+    last_login_at TEXT,
+    failed_attempts INTEGER NOT NULL DEFAULT 0,
+    locked_until TEXT
 );
 
 CREATE TABLE IF NOT EXISTS admin_sessions (

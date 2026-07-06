@@ -4,7 +4,8 @@ const {
   getAdminCredentials,
   isAdminAuthEnabled,
   isAuthorizedBasicAuth,
-  parseBasicAuthHeader
+  parseBasicAuthHeader,
+  getAdminAuthState
 } = require('./admin-basic-auth');
 
 function basic(user, password) {
@@ -18,6 +19,11 @@ describe('admin basic auth', () => {
     expect(getAdminCredentials({ ADMIN_AUTH_PASSWORD: 'secret' })).toBeNull();
     expect(isAdminAuthEnabled({})).toBe(false);
     expect(isAuthorizedBasicAuth(null, {})).toBe(true);
+    expect(isAuthorizedBasicAuth(null, { NODE_ENV: 'production' })).toBe(false);
+    expect(getAdminAuthState({ NODE_ENV: 'production' })).toEqual({
+      configured: false,
+      production: true
+    });
   });
 
   test('parses a valid Basic header', () => {
