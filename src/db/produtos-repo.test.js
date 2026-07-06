@@ -225,6 +225,23 @@ describe('produtos-repo', () => {
     expect(result.estrutura.cobertura.origem_estrutura).toBe('heuristica');
   });
 
+  it('IA vazia (tem_tabela_itens=false, sem conteúdo) é usada mesmo com confiança baixa', () => {
+    // Vazio honesto não expõe dado nenhum — não há risco; melhor que placeholder eterno
+    inserirItensEstruturadosIA(1, {
+      tem_tabela_itens: false,
+      itens_solicitados: [],
+      resultado_lotes: [],
+      resultado_global: null,
+      lacunas: ['O texto não contém tabela de itens licitados.'],
+      confianca: 0.15,
+    }, { confianca: 0.15 });
+
+    const result = getLicitacaoProdutosByDocumentoId(1);
+    expect(result.estrutura.cobertura.origem_estrutura).toBe('ia');
+    expect(result.estrutura.itens_solicitados).toEqual([]);
+    expect(result.estrutura.cobertura.lacunas[0]).toMatch(/tabela/);
+  });
+
   it('cai pro heurístico quando o resultado da IA tem status de erro', () => {
     inserirItensEstruturadosIA(1, { tem_tabela_itens: true, itens_solicitados: [], resultado_lotes: [], resultado_global: null, lacunas: [], confianca: 0.9 }, { status: 'erro' });
 

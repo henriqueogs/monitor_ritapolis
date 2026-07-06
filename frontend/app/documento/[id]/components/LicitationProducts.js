@@ -1,4 +1,5 @@
 import SectionBlock from '../../../components/SectionBlock';
+import EstruturarItensAction from '../../../components/EstruturarItensAction';
 import ItensSolicitados from './itens/ItensSolicitados';
 import ResultadoLotes from './itens/ResultadoLotes';
 import ResultadoGlobal from './itens/ResultadoGlobal';
@@ -47,6 +48,7 @@ function DetalhamentoInterno({ estrutura, documento }) {
         (ex: cronograma de medição de obra) como se fossem itens. Oculto do público até a
         reextração via IA cobrir este documento.
       </p>
+      <EstruturarItensAction documentoId={documento?.id} />
 
       {vazio ? (
         <p className="empty-state">Os itens deste processo ainda não têm preço ou fornecedor na fonte.</p>
@@ -115,6 +117,10 @@ function DetalhamentoPublicoIA({ estrutura, documento }) {
           </ul>
         </details>
       ) : null}
+
+      <div className="admin-only" style={{ marginTop: 12 }}>
+        <EstruturarItensAction documentoId={documento?.id} />
+      </div>
     </SectionBlock>
   );
 }

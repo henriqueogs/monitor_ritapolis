@@ -3,6 +3,8 @@ const logger = require('../logger');
 const { summarizePendingDocuments } = require('./summarize-pending-documents');
 const { extractEntitiesFromResumes } = require('./extract-entities');
 const { generateAlerts } = require('../alertas/alert-generator');
+const { enfileirarItensPendentes } = require('./enfileirar-itens-pendentes');
+const { runPendingItensEstruturacaoJobs } = require('./itens-processo-job-worker');
 
 let timer = null;
 let cycleRunning = false;
@@ -55,6 +57,21 @@ async function runCycle() {
         logger.warn('AI scheduler: falha na extração pós-ciclo', { erro: errEntidades.message });
       }
 
+    }
+
+    // Pós-ciclo: estruturação de itens via IA pra editais novos/atualizados.
+    // Seleção idempotente por hash (edital já processado com o mesmo texto é
+    // pulado), então rodar todo ciclo é barato; o worker processa um por vez.
+    try {
+      const fila = await enfileirarItensPendentes({ limite: config.aiSchedulerDocsPerCycle });
+      if (fila.enfileirados.length) {
+        logger.info('AI scheduler: itens de processo enfileirados pós-ciclo', {
+          enfileirados: fila.enfileirados.length,
+        });
+        await runPendingItensEstruturacaoJobs();
+      }
+    } catch (errItens) {
+      logger.warn('AI scheduler: falha na estruturação de itens pós-ciclo', { erro: errItens.message });
     }
 
     // Pós-ciclo: gerar alertas de inteligência de forma incremental. Roda mesmo

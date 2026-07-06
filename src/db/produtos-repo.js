@@ -196,7 +196,15 @@ function getLicitacaoProdutosByDocumentoId(documentoId) {
   const valoresProcesso = { valorFinalProcesso: detalhes?.valor_final ?? null, valorFinalOrigem: detalhes?.origem ?? null };
 
   const itensIA = getUltimoItensEstruturadosPorDocumento(documentoId);
-  const usaIA = itensIA?.status === 'ok' && Number(itensIA.confianca) >= CONFIANCA_MINIMA_IA;
+  // Gate de confiança só vale quando a IA devolveu CONTEÚDO — um resultado
+  // vazio ("não há tabela de itens") não expõe dado nenhum, então é sempre
+  // preferível ao placeholder eterno / fallback heurístico (que pode ter lixo).
+  const iaVazia = itensIA?.status === 'ok' &&
+    !itensIA.itens_json.itens_solicitados?.length &&
+    !itensIA.itens_json.resultado_lotes?.length &&
+    !itensIA.itens_json.resultado_global;
+  const usaIA = itensIA?.status === 'ok' &&
+    (iaVazia || Number(itensIA.confianca) >= CONFIANCA_MINIMA_IA);
 
   const estrutura = usaIA
     ? montarItensProcessoDeIA(itensIA.itens_json, valoresProcesso)
