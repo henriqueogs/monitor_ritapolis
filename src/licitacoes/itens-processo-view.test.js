@@ -1,6 +1,6 @@
 'use strict';
 
-const { montarItensProcesso } = require('./itens-processo-view');
+const { montarItensProcesso, montarItensProcessoDeIA } = require('./itens-processo-view');
 
 // Produto no shape do normalizeProdutoRow (produtos-repo)
 function prod(over = {}) {
@@ -98,5 +98,62 @@ describe('montarItensProcesso', () => {
   it('entrada vazia', () => {
     const v = montarItensProcesso([], {});
     expect(v).toMatchObject({ itens_solicitados: [], resultado_lotes: [], resultado_global: null, descartados: [] });
+  });
+});
+
+describe('montarItensProcessoDeIA', () => {
+  it('mapeia itens/lotes/global da IA pro mesmo shape do heurístico (CASO doc/5)', () => {
+    const v = montarItensProcessoDeIA({
+      tem_tabela_itens: true,
+      itens_solicitados: [],
+      resultado_lotes: [
+        {
+          lote_numero: '1', objeto: 'EQUIPE DE APOIO', fornecedor_nome: 'HYAGO E. SANTOS PROMOÇÕES-ME',
+          fornecedor_cnpj: null, teto_homologado: 195000, trecho_fonte: 'Item: 1 - LOTE 00001 ... R$ 195.000,00',
+        },
+      ],
+      resultado_global: null,
+      lacunas: ['cnpj dos fornecedores'],
+      confianca: 0.85,
+    });
+
+    expect(v.resultado_lotes).toHaveLength(1);
+    expect(v.resultado_lotes[0]).toMatchObject({
+      lote_numero: '1', objeto: 'EQUIPE DE APOIO', fornecedor_nome: 'HYAGO E. SANTOS PROMOÇÕES-ME', teto_homologado: 195000,
+    });
+    expect(v.resultado_lotes[0].trecho_fonte).toMatch(/LOTE 00001/);
+    expect(v.descartados).toEqual([]);
+    expect(v.cobertura).toMatchObject({ origem_estrutura: 'ia', confianca: 0.85, lacunas: ['cnpj dos fornecedores'] });
+  });
+
+  it('CASO doc/605: tem_tabela_itens=false vira estrutura vazia com lacunas visíveis', () => {
+    const v = montarItensProcessoDeIA({
+      tem_tabela_itens: false,
+      itens_solicitados: [],
+      resultado_lotes: [],
+      resultado_global: null,
+      lacunas: ['O texto é um cronograma físico-financeiro de medição de obra, não uma lista de itens licitados.'],
+      confianca: 0.9,
+    });
+
+    expect(v.itens_solicitados).toEqual([]);
+    expect(v.resultado_lotes).toEqual([]);
+    expect(v.resultado_global).toBeNull();
+    expect(v.cobertura.tem_tabela_itens).toBe(false);
+    expect(v.cobertura.lacunas[0]).toMatch(/cronograma/);
+  });
+
+  it('mapeia resultado_global preservando trecho_fonte', () => {
+    const v = montarItensProcessoDeIA({
+      tem_tabela_itens: true,
+      itens_solicitados: [],
+      resultado_lotes: [],
+      resultado_global: { descricao: 'Serviço único', valor: 50000, fornecedor_nome: 'X LTDA', fornecedor_cnpj: null, trecho_fonte: 'Valor global R$ 50.000,00' },
+      lacunas: [],
+      confianca: 0.95,
+    });
+
+    expect(v.resultado_global).toMatchObject({ descricao: 'Serviço único', valor: 50000, fornecedor_nome: 'X LTDA' });
+    expect(v.resultado_global.trecho_fonte).toBe('Valor global R$ 50.000,00');
   });
 });

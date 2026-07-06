@@ -9,7 +9,12 @@
 const { db } = require('./connection');
 const { likeParam } = require('./documentos-repo');
 const { normalizeText } = require('../utils/text');
-const { montarItensProcesso } = require('../licitacoes/itens-processo-view');
+const { montarItensProcesso, montarItensProcessoDeIA } = require('../licitacoes/itens-processo-view');
+const { getUltimoItensEstruturadosPorDocumento } = require('./itens-estruturacao-jobs-repo');
+
+// Abaixo disso, a reextração via IA fica tão incerta quanto a heurística que
+// substitui — melhor manter o fallback do que expor um resultado raso.
+const CONFIANCA_MINIMA_IA = 0.5;
 
 function normalizeProdutoRow(row) {
   if (!row) { return null; }
@@ -188,14 +193,19 @@ function getLicitacaoProdutosByDocumentoId(documentoId) {
   const detalhes = db
     .prepare('SELECT valor_final, origem FROM licitacoes_detalhes WHERE documento_id = ?')
     .get(Number(documentoId));
+  const valoresProcesso = { valorFinalProcesso: detalhes?.valor_final ?? null, valorFinalOrigem: detalhes?.origem ?? null };
 
-  return {
-    ...resultado,
-    estrutura: montarItensProcesso(resultado.dados, {
-      valorFinalProcesso: detalhes?.valor_final ?? null,
-      valorFinalOrigem: detalhes?.origem ?? null,
-    }),
-  };
+  const itensIA = getUltimoItensEstruturadosPorDocumento(documentoId);
+  const usaIA = itensIA?.status === 'ok' && Number(itensIA.confianca) >= CONFIANCA_MINIMA_IA;
+
+  const estrutura = usaIA
+    ? montarItensProcessoDeIA(itensIA.itens_json, valoresProcesso)
+    : { ...montarItensProcesso(resultado.dados, valoresProcesso) };
+  if (!usaIA) {
+    estrutura.cobertura = { ...estrutura.cobertura, origem_estrutura: 'heuristica' };
+  }
+
+  return { ...resultado, estrutura };
 }
 
 function getLicitacaoProdutosResumo(documentoId) {

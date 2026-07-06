@@ -142,4 +142,71 @@ function montarItensProcesso(produtos, { valorFinalProcesso = null, valorFinalOr
   };
 }
 
-module.exports = { montarItensProcesso };
+// Mesmo shape de saída de montarItensProcesso, mas a partir do resultado da
+// reextração via IA (contrato itens-processo-v1.0) — usado quando existe
+// documentos_itens_estruturados com confiança aceitável (Fase G). Sem
+// `descartados` (a IA já filtra lixo na origem) nem `id`/`grupo_id`/
+// `anexo_origem_id` (não existem nesse pipeline); `trecho_fonte` some no
+// lugar como origem rastreável (§11.3).
+function montarItemSolicitadoIA(item) {
+  return {
+    item_numero: item.item_numero ?? null,
+    descricao: item.descricao,
+    quantidade: item.quantidade ?? null,
+    unidade: item.unidade ?? null,
+    valor_estimado: item.valor_estimado ?? null,
+    resultado_item: null,
+    trecho_fonte: item.trecho_fonte,
+  };
+}
+
+function montarResultadoLoteIA(lote) {
+  return {
+    lote_numero: lote.lote_numero ?? null,
+    objeto: lote.objeto,
+    fornecedor_nome: lote.fornecedor_nome ?? null,
+    fornecedor_cnpj: lote.fornecedor_cnpj ?? null,
+    teto_homologado: lote.teto_homologado ?? null,
+    trecho_fonte: lote.trecho_fonte,
+  };
+}
+
+function montarResultadoGlobalIA(global) {
+  if (!global) {return null;}
+  return {
+    descricao: global.descricao,
+    valor: global.valor ?? null,
+    fornecedor_nome: global.fornecedor_nome ?? null,
+    fornecedor_cnpj: global.fornecedor_cnpj ?? null,
+    trecho_fonte: global.trecho_fonte,
+  };
+}
+
+function montarItensProcessoDeIA(itensJson, { valorFinalProcesso = null, valorFinalOrigem = null } = {}) {
+  const itens_solicitados = (itensJson.itens_solicitados || []).map(montarItemSolicitadoIA);
+  const resultado_lotes = (itensJson.resultado_lotes || []).map(montarResultadoLoteIA);
+  const resultado_global = montarResultadoGlobalIA(itensJson.resultado_global);
+  const tem_resultado = resultado_lotes.length > 0 || Boolean(resultado_global);
+
+  return {
+    itens_solicitados,
+    resultado_lotes,
+    resultado_global,
+    descartados: [],
+    cobertura: {
+      n_itens: itens_solicitados.length,
+      n_lotes: resultado_lotes.length,
+      n_descartados: 0,
+      tem_resultado,
+      so_demanda: itens_solicitados.length > 0 && !tem_resultado,
+      valor_final_processo: valorFinalProcesso,
+      valor_final_origem: valorFinalOrigem,
+      origem_estrutura: 'ia',
+      tem_tabela_itens: itensJson.tem_tabela_itens,
+      confianca: itensJson.confianca,
+      lacunas: itensJson.lacunas || [],
+    },
+  };
+}
+
+module.exports = { montarItensProcesso, montarItensProcessoDeIA };

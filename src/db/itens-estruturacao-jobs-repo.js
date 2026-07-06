@@ -85,6 +85,32 @@ function getUltimoItensEstruturadosPorDocumento(documentoId) {
   );
 }
 
+// Seleção de editais candidatos ao backfill em lote (Fase G) — mesmo padrão
+// de listDocumentosPendentesResumoAi (ai-jobs-repo.js). A reextração de itens
+// só faz sentido pra editais (é onde vive a tabela de itens/lotes).
+function listDocumentosPendentesItens({ limite = 20, ano, fonte } = {}) {
+  const filters = ["tipo = 'edital'", "IFNULL(texto_completo, '') <> ''"];
+  const params = { limite: Math.min(Math.max(Number(limite || 20), 1), 2000) };
+
+  if (ano) {
+    filters.push('ano = @ano');
+    params.ano = Number(ano);
+  }
+  if (fonte) {
+    filters.push('fonte = @fonte');
+    params.fonte = fonte;
+  }
+
+  return db
+    .prepare(
+      `SELECT * FROM documentos
+       WHERE ${filters.join(' AND ')}
+       ORDER BY COALESCE(data_publicacao, atualizado_em) DESC, id DESC
+       LIMIT @limite`
+    )
+    .all(params);
+}
+
 // ── Fila (documentos_itens_estruturacao_ai_jobs) ─────────────────────────────
 
 function normalizeJob(row) {
@@ -234,6 +260,7 @@ module.exports = {
   salvarItensEstruturados,
   getItensEstruturadosById,
   getUltimoItensEstruturadosPorDocumento,
+  listDocumentosPendentesItens,
   createItensEstruturacaoJob,
   getItensEstruturacaoJobById,
   getNextPendingItensEstruturacaoJob,

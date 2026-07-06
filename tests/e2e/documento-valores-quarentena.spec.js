@@ -8,19 +8,17 @@ async function ativarModoInterno(page) {
   await page.addInitScript((key) => window.localStorage.setItem(key, 'true'), ADMIN_STORAGE_KEY);
 }
 
-// Documento 5: registro de preços — a ata homologa TETOS por lote (ex.:
-// R$ 195.000 no lote 1) enquanto o processo tem R$ 176.186,20 empenhados.
-// A UI nunca pode: (a) estampar totais derivados inventados (38,5M) nem
-// (b) apresentar teto homologado como gasto sem contexto.
-// Detalhamento fica atrás de modo interno (ver documento-itens-processo.spec.js).
-test.describe('Valores de itens: quarentena e contexto (doc 5, modo interno)', () => {
+// Documento 178: registro de preços por lote com contexto de empenho — ainda
+// na extração heurística (sem reprocessamento via IA), então continua atrás
+// de modo interno (doc 5, o caso original, migrou pra IA — ver
+// documento-itens-processo.spec.js). A UI nunca pode: (a) estampar totais
+// derivados inventados nem (b) apresentar teto homologado como gasto sem
+// contexto.
+test.describe('Valores de itens: quarentena e contexto (doc 178, modo interno)', () => {
   test('teto homologado aparece com contexto e link pra ata de origem', async ({ page }) => {
     await ativarModoInterno(page);
-    await page.goto('/documento/5');
+    await page.goto('/documento/178');
     await expect(page.getByRole('heading', { name: 'Itens deste processo' }).first()).toBeVisible();
-
-    // O total inventado (4.815.000 × 8) não aparece em lugar nenhum
-    await expect(page.locator('body')).not.toContainText('38.520.000');
 
     // Teto homologado com contexto honesto
     await expect(page.getByText(/teto homologado/i).first()).toBeVisible();

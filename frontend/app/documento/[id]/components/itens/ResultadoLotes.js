@@ -15,9 +15,9 @@ export default function ResultadoLotes({ lotes, documento }) {
         ata (limite do registro de preços) — não o quanto já foi gasto.
       </p>
       <div style={{ display: 'grid', gap: 12 }}>
-        {lotes.map((lote) => {
+        {lotes.map((lote, index) => {
           return (
-            <div key={lote.id} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '12px 14px' }}>
+            <div key={lote.id ?? `${lote.lote_numero || ''}|${lote.objeto}|${index}`} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '12px 14px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                 <div style={{ minWidth: 0 }}>
                   <span style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>

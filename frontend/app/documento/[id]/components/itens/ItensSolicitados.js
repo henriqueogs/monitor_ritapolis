@@ -20,8 +20,8 @@ export default function ItensSolicitados({ itens, documento }) {
           <span style={{ textAlign: 'right' }}>Estimado</span>
           <span style={{ textAlign: 'right' }}>Resultado</span>
         </div>
-        {itens.map((it) => (
-          <div key={it.id} className="table-row" style={{ display: 'grid', gridTemplateColumns: '48px 1fr 120px 150px', gap: 12, alignItems: 'start', padding: '10px 0' }}>
+        {itens.map((it, index) => (
+          <div key={it.id ?? `${it.item_numero || ''}|${it.descricao}|${index}`} className="table-row" style={{ display: 'grid', gridTemplateColumns: '48px 1fr 120px 150px', gap: 12, alignItems: 'start', padding: '10px 0' }}>
             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{it.item_numero || '—'}</span>
             <span style={{ minWidth: 0 }}>
               <span style={{ fontSize: 13, display: 'block' }}>{it.descricao}</span>

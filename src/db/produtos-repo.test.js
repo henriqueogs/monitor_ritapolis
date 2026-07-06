@@ -74,6 +74,7 @@ describe('produtos-repo', () => {
     mockConn.exec('DELETE FROM licitacoes_produtos_validacoes');
     mockConn.exec('DELETE FROM licitacoes_produtos');
     mockConn.exec('DELETE FROM produtos_grupos');
+    mockConn.exec('DELETE FROM documentos_itens_estruturados');
     mockConn.exec('DELETE FROM documentos');
 
     inserirDocumento(1, 2026, 'Compra de merenda escolar');
@@ -181,6 +182,54 @@ describe('produtos-repo', () => {
     expect(result.estrutura).toBeDefined();
     expect(result.estrutura.itens_solicitados.length + result.estrutura.resultado_lotes.length).toBeGreaterThan(0);
     expect(result.estrutura.cobertura).toHaveProperty('n_itens');
+    expect(result.estrutura.cobertura.origem_estrutura).toBe('heuristica');
+  });
+
+  function inserirItensEstruturadosIA(documentoId, itensJson, { confianca = 0.85, status = 'ok' } = {}) {
+    mockConn
+      .prepare(
+        `INSERT INTO documentos_itens_estruturados
+           (documento_id, provider, modelo, contrato_versao, itens_json, texto_hash, confianca, status)
+         VALUES (?, 'nvidia', 'nvidia/nemotron-3-nano-30b-a3b', 'itens-processo-v1.0', ?, 'hash-teste', ?, ?)`
+      )
+      .run(documentoId, JSON.stringify(itensJson), confianca, status);
+  }
+
+  it('usa estrutura da IA quando existe resultado ok com confiança aceitável', () => {
+    inserirItensEstruturadosIA(1, {
+      tem_tabela_itens: true,
+      itens_solicitados: [],
+      resultado_lotes: [{ lote_numero: '1', objeto: 'EQUIPE DE APOIO', fornecedor_nome: 'HYAGO', teto_homologado: 195000, trecho_fonte: 'fonte' }],
+      resultado_global: null,
+      lacunas: [],
+      confianca: 0.85,
+    });
+
+    const result = getLicitacaoProdutosByDocumentoId(1);
+    expect(result.estrutura.cobertura.origem_estrutura).toBe('ia');
+    expect(result.estrutura.resultado_lotes).toHaveLength(1);
+    expect(result.estrutura.resultado_lotes[0].objeto).toBe('EQUIPE DE APOIO');
+  });
+
+  it('cai pro heurístico quando a confiança da IA é baixa demais', () => {
+    inserirItensEstruturadosIA(1, {
+      tem_tabela_itens: true,
+      itens_solicitados: [],
+      resultado_lotes: [{ lote_numero: '1', objeto: 'X', fornecedor_nome: null, teto_homologado: null, trecho_fonte: 'fonte' }],
+      resultado_global: null,
+      lacunas: [],
+      confianca: 0.2,
+    }, { confianca: 0.2 });
+
+    const result = getLicitacaoProdutosByDocumentoId(1);
+    expect(result.estrutura.cobertura.origem_estrutura).toBe('heuristica');
+  });
+
+  it('cai pro heurístico quando o resultado da IA tem status de erro', () => {
+    inserirItensEstruturadosIA(1, { tem_tabela_itens: true, itens_solicitados: [], resultado_lotes: [], resultado_global: null, lacunas: [], confianca: 0.9 }, { status: 'erro' });
+
+    const result = getLicitacaoProdutosByDocumentoId(1);
+    expect(result.estrutura.cobertura.origem_estrutura).toBe('heuristica');
   });
 
   it('resume cobertura de valores e fornecedores por documento', () => {

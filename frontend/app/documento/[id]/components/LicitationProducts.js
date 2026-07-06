@@ -81,9 +81,53 @@ function DetalhamentoInterno({ estrutura, documento }) {
   );
 }
 
+function DetalhamentoPublicoIA({ estrutura, documento }) {
+  const { itens_solicitados, resultado_lotes, resultado_global, cobertura } = estrutura;
+  const vazio = !itens_solicitados.length && !resultado_lotes.length && !resultado_global;
+
+  return (
+    <SectionBlock
+      title="Itens deste processo"
+      description="O que foi solicitado no edital e como ficou o resultado da licitação, direto das fontes oficiais (extração assistida por IA, com o trecho de origem em cada linha)."
+    >
+      {vazio ? (
+        <p className="empty-state">Não foi possível identificar itens ou resultado estruturado na fonte deste processo.</p>
+      ) : null}
+
+      {cobertura?.so_demanda ? (
+        <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text-muted)' }}>
+          O resultado da licitação (vencedores e valores) ainda não foi publicado pela fonte — abaixo,
+          apenas o que foi solicitado no edital.
+        </p>
+      ) : null}
+
+      <ItensSolicitados itens={itens_solicitados} documento={documento} />
+      <ResultadoLotes lotes={resultado_lotes} documento={documento} />
+      <ResultadoGlobal global={resultado_global} documento={documento} />
+
+      {cobertura?.lacunas?.length ? (
+        <details className="details-block" style={{ marginTop: 8 }}>
+          <summary>Informações não encontradas na fonte</summary>
+          <ul className="plain-list" style={{ marginTop: 12 }}>
+            {cobertura.lacunas.map((lacuna) => (
+              <li key={lacuna} style={{ fontSize: 12, color: 'var(--text-muted)' }}>{lacuna}</li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+    </SectionBlock>
+  );
+}
+
 export default function LicitationProducts({ produtos, documento }) {
   const estrutura = produtos?.estrutura;
   const totalLinhas = (produtos?.dados || []).length;
+
+  // Extração via IA (Fase G) já passou pelo gate de confiança no read-model
+  // (produtos-repo.js) — pode ser exibida direto ao público, sem admin-only.
+  if (estrutura?.cobertura?.origem_estrutura === 'ia') {
+    return <DetalhamentoPublicoIA estrutura={estrutura} documento={documento} />;
+  }
 
   if (!estrutura || totalLinhas === 0) {
     return <PlaceholderPublico totalLinhas={0} />;

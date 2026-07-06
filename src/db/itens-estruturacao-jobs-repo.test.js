@@ -112,4 +112,25 @@ describe('itens-estruturacao-jobs-repo', () => {
       expect(repo.getItensEstruturacaoJobById(job.id).status).toBe('pendente');
     });
   });
+
+  describe('listDocumentosPendentesItens (seleção pro backfill)', () => {
+    it('lista só editais com texto_completo', () => {
+      mockConn.exec(`UPDATE documentos SET texto_completo = 'edital com texto', tipo='edital' WHERE id = 5`);
+      mockConn.prepare(`INSERT INTO documentos (id, fonte, tipo, titulo, url_origem) VALUES (6, 'x', 'decreto', 'D', 'u')`).run();
+      mockConn.exec(`UPDATE documentos SET texto_completo = 'decreto com texto' WHERE id = 6`);
+      mockConn.prepare(`INSERT INTO documentos (id, fonte, tipo, titulo, url_origem) VALUES (7, 'x', 'edital', 'D', 'u')`).run();
+
+      const r = repo.listDocumentosPendentesItens({ limite: 20 });
+      expect(r.map((d) => d.id)).toEqual([5]);
+    });
+
+    it('filtra por ano quando informado', () => {
+      mockConn.exec(`UPDATE documentos SET texto_completo = 'edital', ano = 2025 WHERE id = 5`);
+      mockConn.prepare(`INSERT INTO documentos (id, fonte, tipo, titulo, url_origem, ano) VALUES (6, 'x', 'edital', 'D', 'u', 2020)`).run();
+      mockConn.exec(`UPDATE documentos SET texto_completo = 'edital2' WHERE id = 6`);
+
+      const r = repo.listDocumentosPendentesItens({ limite: 20, ano: 2025 });
+      expect(r.map((d) => d.id)).toEqual([5]);
+    });
+  });
 });
