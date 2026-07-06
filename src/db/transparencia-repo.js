@@ -496,11 +496,16 @@ function getPainelResumo({ exercicio, exercicios } = {}) {
   const whereExercicio = temFiltro ? `WHERE exercicio_orcamento IN (${placeholders})` : '';
   const paramsExercicio = lista;
 
+  // valor_total = movimentação (empenhos + ordens de pagamento); valor_empenhado
+  // exclui OP — ordem de pagamento é caixa (paga empenho, inclusive restos a
+  // pagar de anos anteriores), não nova despesa empenhada. A % de execução da
+  // LOA compara previsto × EMPENHADO, senão o numerador infla.
   const porAno = db.prepare(`
     SELECT
       exercicio_orcamento            AS exercicio,
       COUNT(*)                       AS n_empenhos,
       ROUND(SUM(valor), 2)           AS valor_total,
+      ROUND(SUM(CASE WHEN tipo NOT LIKE 'OP%' THEN valor ELSE 0 END), 2) AS valor_empenhado,
       COUNT(DISTINCT credor_cnpj)    AS n_credores,
       COUNT(DISTINCT documento_id)   AS n_vinculados,
       COUNT(CASE WHEN documento_id IS NOT NULL THEN 1 END) AS n_empenhos_vinculados,

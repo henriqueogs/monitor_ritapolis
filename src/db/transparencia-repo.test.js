@@ -161,6 +161,28 @@ describe('transparencia-repo', () => {
       expect(painel.porAno.map((r) => r.exercicio).sort()).toEqual([2025, 2026]);
     });
 
+    it('porAno separa valor_empenhado (sem OP) de valor_total (movimentação)', () => {
+      // OP paga empenho (caixa) — não é nova despesa empenhada (competência);
+      // misturar os dois infla o numerador da % de execução da LOA.
+      const painel = repo.getPainelResumo();
+      const ano2026 = painel.porAno.find((r) => r.exercicio === 2026);
+      expect(ano2026.valor_total).toBe(120); // EO 40 + OP 80 (movimentação)
+      expect(ano2026.valor_empenhado).toBe(40); // só empenhos
+    });
+
+    it('valor_receita_previsto soma apenas categorias nível-1 (sem dupla contagem)', () => {
+      const insReceita = mockConn.prepare(
+        'INSERT INTO transparencia_receitas (exercicio, codigo_receita, nome_receita, valor_previsto) VALUES (?, ?, ?, ?)'
+      );
+      insReceita.run(2026, '1.0.0.0.00.0.0', 'RECEITAS CORRENTES', 1000);
+      insReceita.run(2026, '1.1.0.0.00.0.0', 'IMPOSTOS', 600); // filho — não pode somar
+      insReceita.run(2026, '2.0.0.0.00.0.0', 'RECEITAS DE CAPITAL', 200);
+
+      const painel = repo.getPainelResumo();
+      const ano2026 = painel.porAno.find((r) => r.exercicio === 2026);
+      expect(ano2026.valor_receita_previsto).toBe(1200);
+    });
+
     it('aceita lista de exercicios (escopo por mandato)', () => {
       seedDespesa({ exercicio: 2023, data: '2023-05-01', valor: 5, credorCnpj: '11111111111111', credorNome: 'A' });
       const painel = repo.getPainelResumo({ exercicios: [2025, 2026] });

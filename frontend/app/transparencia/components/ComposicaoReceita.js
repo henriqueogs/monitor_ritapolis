@@ -16,9 +16,11 @@ export default function ComposicaoReceita({ receitasPorAno, porAno }) {
       <dl className="keyvalue-list">
         {receitasPorAno.map((r) => {
           const despeRow = (porAno || []).find((d) => d.exercicio === r.exercicio);
+          // Empenhado (competência), sem ordens de pagamento — ver TabelaExercicios
+          const empenhado = despeRow?.valor_empenhado ?? despeRow?.valor_total;
           const execucao =
-            despeRow?.valor_total && r.valor_total_previsto
-              ? Math.round((despeRow.valor_total / r.valor_total_previsto) * 100)
+            empenhado && r.valor_total_previsto
+              ? Math.round((empenhado / r.valor_total_previsto) * 100)
               : null;
           return (
             <div key={r.exercicio} className="keyvalue-row">
@@ -26,9 +28,9 @@ export default function ComposicaoReceita({ receitasPorAno, porAno }) {
               <dd>
                 <strong>{formatMoney(r.valor_total_previsto)}</strong>
                 <span style={{ marginLeft: 12, color: 'var(--text-muted)', fontSize: '0.83rem' }}>receita prevista</span>
-                {despeRow?.valor_total != null && (
+                {empenhado != null && (
                   <span style={{ marginLeft: 12, color: 'var(--text-secondary)', fontSize: '0.83rem' }}>
-                    · {formatMoney(despeRow.valor_total)} empenhado
+                    · {formatMoney(empenhado)} empenhado
                     {execucao != null && (
                       <span style={{ marginLeft: 6, color: execucao > 95 ? 'var(--warning)' : 'var(--success)', fontWeight: 600 }}>
                         ({execucao}%)

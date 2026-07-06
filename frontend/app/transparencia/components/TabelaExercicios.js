@@ -22,9 +22,12 @@ function labelMandato(m) {
 }
 
 function LinhaExercicio({ row }) {
+  // % execução compara previsto × EMPENHADO (competência) — valor_total inclui
+  // ordens de pagamento (caixa, inclusive restos a pagar) e inflaria o número.
+  const empenhado = row.valor_empenhado ?? row.valor_total;
   const execucao =
-    row.valor_receita_previsto && row.valor_total
-      ? Math.round((row.valor_total / row.valor_receita_previsto) * 100)
+    row.valor_receita_previsto && empenhado
+      ? Math.round((empenhado / row.valor_receita_previsto) * 100)
       : null;
   return (
     <tr style={{ borderBottom: '1px solid var(--border)' }}>
@@ -36,7 +39,7 @@ function LinhaExercicio({ row }) {
       <td style={{ padding: '11px 8px', textAlign: 'right', color: 'var(--text-secondary)' }}>
         {row.valor_receita_previsto != null ? formatMoney(row.valor_receita_previsto) : '—'}
       </td>
-      <td style={{ padding: '11px 8px', textAlign: 'right', fontWeight: 600 }}>{formatMoney(row.valor_total)}</td>
+      <td style={{ padding: '11px 8px', textAlign: 'right', fontWeight: 600 }}>{formatMoney(empenhado)}</td>
       <td style={{ padding: '11px 8px', textAlign: 'right' }}>
         {execucao != null ? (
           <span style={{ color: execucao > 95 ? 'var(--warning)' : execucao > 70 ? 'var(--success)' : 'var(--text-secondary)', fontWeight: 600 }}>
