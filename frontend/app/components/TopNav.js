@@ -18,6 +18,18 @@ export default function TopNav() {
         </Link>
 
         <NavLinks />
+
+        {/* Form HTML puro: funciona sem JS e mantém o TopNav server component */}
+        <form action="/busca" method="get" className="topbar-search" role="search">
+          <input
+            type="search"
+            name="q"
+            placeholder="Buscar nome, empresa, empenho…"
+            aria-label="Buscar em documentos, empenhos e fornecedores"
+            minLength={2}
+          />
+        </form>
+
         <AdminModeToggle />
       </div>
     </header>

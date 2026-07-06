@@ -31,31 +31,32 @@ test.describe('Itens do processo — reextração via IA pública (doc 5)', () =
   });
 });
 
-// Doc 46: ainda só tem extração heurística (sem reprocessamento via IA) —
-// prova que a regra "oculto do público até a IA cobrir o documento" (Fase A)
-// continua valendo pros documentos que ainda não passaram pela Fase F/G.
-test.describe('Itens do processo — oculto do público, visível em modo interno (doc 46, sem IA)', () => {
-  test('público vê apenas a contagem, nunca os blocos de detalhamento', async ({ page }) => {
+// Doc 46: a IA declarou que o texto não tem tabela de itens estruturável
+// (resultado vazio, confiança baixa). O gate vazio-honesto usa a resposta da
+// IA mesmo assim — vazio não expõe dado incerto, e é melhor que o placeholder
+// eterno "em revisão". O público vê a lacuna explícita (§11).
+test.describe('Itens do processo — vazio honesto via IA (doc 46)', () => {
+  test('público vê a lacuna explícita, não os itens heurísticos nem placeholder eterno', async ({ page }) => {
     await page.goto('/documento/46');
-    const publico = page.locator('.public-only-placeholder');
-    await expect(publico.getByText('Itens deste processo')).toBeVisible();
-    await expect(publico.getByText(/em revisão de qualidade/i)).toBeVisible();
 
+    await expect(page.getByRole('heading', { name: 'Itens deste processo' })).toBeVisible();
+    await expect(page.getByText(/Não foi possível identificar itens/i)).toBeVisible();
+
+    // Nem detalhamento heurístico, nem "em revisão de qualidade"
     await expect(page.getByRole('heading', { name: 'O que foi solicitado' })).toBeHidden();
+    await expect(page.getByText(/em revisão de qualidade/i)).toBeHidden();
   });
 
-  test('modo interno mostra os blocos, com aviso de extração heurística', async ({ page }) => {
+  test('modo interno tem botão de reestruturação via IA', async ({ page }) => {
     await ativarModoInterno(page);
     await page.goto('/documento/46');
 
-    await expect(page.getByRole('heading', { name: 'O que foi solicitado' })).toBeVisible();
-    await expect(page.getByText(/extração heurística/i)).toBeVisible();
+    await expect(page.getByRole('button', { name: /Reestruturar itens via IA/i })).toBeVisible();
   });
 
-  test('documento sem itens estruturados mostra placeholder honesto (regressão)', async ({ page }) => {
-    // Doc 321: edital com muitos itens, sem reprocessamento via IA
+  test('doc 321 (mesmo caso) não vaza total inventado (regressão)', async ({ page }) => {
     await page.goto('/documento/321');
-    await expect(page.locator('.public-only-placeholder').getByText('Itens deste processo')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Itens deste processo' })).toBeVisible();
     await expect(page.locator('body')).not.toContainText('38.520.000');
   });
 });

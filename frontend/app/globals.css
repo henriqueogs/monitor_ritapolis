@@ -190,6 +190,33 @@ h1, h2, h3, h4, p {
   gap: 24px;
 }
 
+.topbar-search {
+  flex: 0 1 240px;
+  min-width: 120px;
+}
+
+.topbar-search input {
+  width: 100%;
+  padding: 7px 12px;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  transition: border-color var(--motion-fast) var(--ease-out);
+}
+
+.topbar-search input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+@media (max-width: 960px) {
+  .topbar-search {
+    display: none;
+  }
+}
+
 .brand {
   display: flex;
   align-items: center;

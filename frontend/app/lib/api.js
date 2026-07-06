@@ -319,6 +319,17 @@ export function fetchFilaPagamentos(params = {}) {
   return fetchJson(`/transparencia/fila-pagamentos${buildQuery(params)}`).catch(() => null);
 }
 
+const SECAO_BUSCA_VAZIA = { total: 0, dados: [] };
+
+export function fetchBuscaUnificada(q) {
+  return fetchJson(`/busca/unificada${buildQuery({ q })}`).catch(() => ({
+    q,
+    documentos: { ...SECAO_BUSCA_VAZIA },
+    empenhos: { ...SECAO_BUSCA_VAZIA },
+    credores: { ...SECAO_BUSCA_VAZIA },
+  }));
+}
+
 export function fetchTransparenciaCategoria(slug, params = {}) {
   return fetchJson(`/transparencia/categoria/${slug}${buildQuery(params)}`).catch(() => null);
 }
