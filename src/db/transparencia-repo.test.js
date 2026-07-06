@@ -14,6 +14,7 @@ const mockConn = criarBancoMemoria();
 jest.mock('./index', () => ({ db: mockConn }));
 
 const repo = require('./transparencia-repo');
+const { buildCredorChave } = require('../transparencia/credor-chave');
 
 let seq = 0;
 function seedDespesa({
@@ -36,9 +37,9 @@ function seedDespesa({
     .prepare(
       `INSERT INTO transparencia_despesas
          (exercicio_orcamento, empenho, tipo, data_empenho, credor_cnpj, credor_nome,
-          valor, funcao, unidade, programa, categoria_economica, fonte_recurso,
-          documento_id, hash_despesa)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          credor_chave, valor, funcao, unidade, programa, categoria_economica,
+          fonte_recurso, documento_id, hash_despesa)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       exercicio,
@@ -47,6 +48,7 @@ function seedDespesa({
       data,
       credorCnpj,
       credorNome,
+      buildCredorChave({ cnpj: credorCnpj, nome: credorNome }),
       valor,
       funcao,
       unidade,
@@ -226,6 +228,15 @@ describe('transparencia-repo', () => {
         .get();
       expect(row.credor_chave).toBe('12345678000190');
       expect(row.credor_cargo).toBeNull();
+    });
+
+    it('getDespesas filtra por chave PF (param credor_cnpj aceita a chave)', () => {
+      repo.upsertDespesa({ exercicio: 2026, empenho: '09010-000', credor: 'ADILSON DE SOUZA MELO - CPF/CNPJ:', valor: 45 });
+      repo.upsertDespesa({ exercicio: 2026, empenho: '09011-000', credor: 'OUTRA PESSOA - CPF/CNPJ:', valor: 90 });
+
+      const r = repo.getDespesas({ credor_cnpj: 'pf-adilson-de-souza-melo' });
+      expect(r.total).toBe(1);
+      expect(r.dados[0].credor_nome).toBe('ADILSON DE SOUZA MELO');
     });
 
     it('re-upsert atualiza as colunas derivadas', () => {

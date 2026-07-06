@@ -44,13 +44,14 @@ export default async function CredorProfilePage({ params, searchParams }) {
         <div className="page-title">
           <Link href="/credores" style={{ color: 'var(--text-muted)', fontSize: 13 }}>← Fornecedores</Link>
           <h1>Fornecedor não encontrado</h1>
-          <p>CNPJ {formatCnpj(params.cnpj)} não possui empenhos registrados.</p>
+          <p>O credor consultado não possui empenhos registrados.</p>
         </div>
       </main>
     );
   }
 
-  const { nome, cnpj, resumo, por_ano, por_mandato, por_funcao, licitacoes_ganhas } = perfil;
+  const { nome, cnpj, chave, tipo, cargo, resumo, por_ano, por_mandato, por_funcao, licitacoes_ganhas } = perfil;
+  const isPf = tipo === 'pf';
 
   return (
     <main className="page-container">
@@ -60,9 +61,21 @@ export default async function CredorProfilePage({ params, searchParams }) {
             <Link href="/credores" style={{ color: 'var(--text-muted)' }}>← Fornecedores</Link>
           </p>
           <h1 style={{ wordBreak: 'break-word' }}>{nome}</h1>
-          <p style={{ margin: 0, fontFamily: 'monospace', fontSize: 14, color: 'var(--text-muted)' }}>
-            CNPJ {formatCnpj(cnpj)}
-          </p>
+          {isPf ? (
+            <p style={{ margin: 0, fontSize: 14, color: 'var(--text-muted)' }}>
+              Pessoa física{cargo ? ` · ${cargo}` : ''}
+            </p>
+          ) : (
+            <p style={{ margin: 0, fontFamily: 'monospace', fontSize: 14, color: 'var(--text-muted)' }}>
+              CNPJ {formatCnpj(cnpj)}
+            </p>
+          )}
+          {isPf ? (
+            <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
+              O Portal da Transparência não publica CPF — este perfil agrupa os pagamentos pelo nome
+              e pode reunir homônimos.
+            </p>
+          ) : null}
         </div>
         <CrescimentoBadge pct={resumo.crescimento_yoy} />
       </div>
@@ -203,7 +216,7 @@ export default async function CredorProfilePage({ params, searchParams }) {
       )}
 
       {/* Todos os empenhos — lista paginada com detalhamento e link pra fonte */}
-      <EmpenhosCredor cnpj={cnpj} porAno={por_ano} pagina={empPagina} exercicio={empExercicio} q={empBusca} />
+      <EmpenhosCredor cnpj={chave || cnpj} porAno={por_ano} pagina={empPagina} exercicio={empExercicio} q={empBusca} />
     </main>
   );
 }

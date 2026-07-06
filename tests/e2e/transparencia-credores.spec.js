@@ -69,4 +69,17 @@ test.describe('Dinheiro público → credor → empenho (caminho feliz)', () => 
       await expect(page.getByText(/Pág\. 2 de/)).toBeVisible();
     }
   });
+
+  test('pessoa física tem perfil próprio via chave pf- (diárias e reembolsos)', async ({ page }) => {
+    // Busca por nome na listagem encontra PF e o perfil abre com o aviso honesto
+    await page.goto('/credores?busca=adilson');
+    const linkPf = page.locator('a[href^="/credores/pf-"]').first();
+    await expect(linkPf).toBeVisible();
+    await linkPf.click();
+
+    await expect(page).toHaveURL(/\/credores\/pf-[a-z0-9-]+/);
+    await expect(page.getByText('Pessoa física').first()).toBeVisible();
+    await expect(page.getByText(/pode reunir homônimos/)).toBeVisible();
+    await expect(page.getByText(/Total recebido \(\d{4}/)).toBeVisible();
+  });
 });

@@ -2,23 +2,25 @@
 
 /**
  * Repositório de credores — Monitor Ritápolis.
- * Agrega dados de transparencia_despesas + licitacoes_detalhes
- * para construir perfis ricos de fornecedores por CNPJ.
+ * Agrega dados de transparencia_despesas + licitacoes_detalhes para perfis
+ * de credores por credor_chave: CNPJ (14 dígitos) pra empresas, 'pf-' + slug
+ * do nome pra pessoas físicas (o portal não expõe CPF).
  */
 
 const { db } = require('./index');
+const { parseCredorChave } = require('../transparencia/credor-chave');
 
 // ── Listagem ──────────────────────────────────────────────────────────────────
 
 /**
  * Lista credores com mais presença no sistema (empenhos reais).
- * Exclui folha de pagamento e entidades sem CNPJ.
+ * Exclui folha de pagamento; inclui pessoas físicas (chave pf-).
  * @param {{ limite, pagina, busca, exercicio }} opcoes
  */
 function listCredores({ limite = 50, pagina = 1, busca, exercicio } = {}) {
   const offset = (pagina - 1) * limite;
   const filters = [
-    "credor_cnpj IS NOT NULL AND credor_cnpj != ''",
+    "credor_chave IS NOT NULL AND credor_chave != ''",
     "UPPER(credor_nome) NOT LIKE '%FOLHA%PAGAMENTO%'",
     "UPPER(credor_nome) NOT LIKE '%PAGAMENTO%FOLHA%'",
     "UPPER(credor_nome) NOT LIKE '%13%SALARIO%'",
@@ -36,11 +38,12 @@ function listCredores({ limite = 50, pagina = 1, busca, exercicio } = {}) {
 
   const where = `WHERE ${filters.join(' AND ')}`;
 
-  const total = db.prepare(`SELECT COUNT(DISTINCT credor_cnpj) n FROM transparencia_despesas ${where}`).get(...params).n;
+  const total = db.prepare(`SELECT COUNT(DISTINCT credor_chave) n FROM transparencia_despesas ${where}`).get(...params).n;
 
   const dados = db.prepare(`
     SELECT
-      credor_cnpj,
+      credor_chave,
+      MAX(credor_cnpj)                    AS credor_cnpj,
       credor_nome,
       COUNT(*)                            AS n_empenhos,
       ROUND(SUM(valor), 2)                AS valor_total,
@@ -50,7 +53,7 @@ function listCredores({ limite = 50, pagina = 1, busca, exercicio } = {}) {
       COUNT(DISTINCT funcao)              AS n_funcoes
     FROM transparencia_despesas
     ${where}
-    GROUP BY credor_cnpj
+    GROUP BY credor_chave
     ORDER BY valor_total DESC
     LIMIT ? OFFSET ?
   `).all(...params, limite, offset);
@@ -61,16 +64,19 @@ function listCredores({ limite = 50, pagina = 1, busca, exercicio } = {}) {
 // ── Perfil completo ───────────────────────────────────────────────────────────
 
 /**
- * Retorna perfil detalhado de um credor por CNPJ.
- * Combina: empenhos reais + licitações ganhas (documentos) + tendência histórica.
+ * Retorna perfil detalhado de um credor pela credor_chave (aceita também CNPJ
+ * formatado). PF não tem seções de licitação (empresa vence licitação, não o
+ * servidor que recebe diária).
  */
-function getCredorProfile(cnpj) {
-  if (!cnpj) {return null;}
-  const cnpjClean = String(cnpj).replace(/\D/g, '');
+function getCredorProfile(identificador) {
+  const parsed = parseCredorChave(identificador);
+  if (!parsed) {return null;}
+  const { tipo, chave } = parsed;
 
   // ── Identidade ──
   const identidade = db.prepare(`
     SELECT credor_cnpj, credor_nome,
+      MAX(credor_cargo)                   AS cargo,
       COUNT(*)                            AS n_empenhos,
       ROUND(SUM(valor), 2)                AS valor_total,
       MIN(data_empenho)                   AS primeiro_empenho,
@@ -80,8 +86,8 @@ function getCredorProfile(cnpj) {
       COUNT(DISTINCT exercicio_orcamento) AS n_anos,
       COUNT(DISTINCT funcao)              AS n_funcoes
     FROM transparencia_despesas
-    WHERE credor_cnpj = ?
-  `).get(cnpjClean);
+    WHERE credor_chave = ?
+  `).get(chave);
 
   if (!identidade || !identidade.n_empenhos) {return null;}
 
@@ -92,9 +98,9 @@ function getCredorProfile(cnpj) {
       COUNT(*)             AS n_empenhos,
       ROUND(SUM(valor), 2) AS valor_total
     FROM transparencia_despesas
-    WHERE credor_cnpj = ?
+    WHERE credor_chave = ?
     GROUP BY ano ORDER BY ano
-  `).all(cnpjClean);
+  `).all(chave);
 
   // ── Por área funcional ──
   const porFuncao = db.prepare(`
@@ -103,9 +109,9 @@ function getCredorProfile(cnpj) {
       COUNT(*)             AS n_empenhos,
       ROUND(SUM(valor), 2) AS valor_total
     FROM transparencia_despesas
-    WHERE credor_cnpj = ? AND funcao IS NOT NULL
+    WHERE credor_chave = ? AND funcao IS NOT NULL
     GROUP BY funcao ORDER BY valor_total DESC
-  `).all(cnpjClean);
+  `).all(chave);
 
   // ── Empenhos recentes ──
   const empenhosRecentes = db.prepare(`
@@ -116,33 +122,36 @@ function getCredorProfile(cnpj) {
       d.id                   AS documento_id
     FROM transparencia_despesas td
     LEFT JOIN documentos d ON d.id = td.documento_id
-    WHERE td.credor_cnpj = ?
+    WHERE td.credor_chave = ?
     ORDER BY td.data_empenho DESC, td.valor DESC
     LIMIT 20
-  `).all(cnpjClean);
+  `).all(chave);
 
   // Normalização de CNPJ em SQL — as colunas guardam formatos mistos
   const cnpjNorm = (col) => `REPLACE(REPLACE(REPLACE(REPLACE(${col}, '.', ''), '/', ''), '-', ''), ' ', '')`;
 
-  // ── Licitações ganhas (documentos) ──
-  const licitacoesGanhas = db.prepare(`
-    SELECT
-      ld.documento_id, ld.vencedor_nome, ld.vencedor_cnpj,
-      d.valor_estimado, ld.valor_final, ld.data_homologacao, ld.modalidade,
-      d.titulo, d.ano, d.numero
-    FROM licitacoes_detalhes ld
-    JOIN documentos d ON d.id = ld.documento_id
-    WHERE ${cnpjNorm('ld.vencedor_cnpj')} = ?
-    ORDER BY d.ano DESC, ld.data_homologacao DESC
-    LIMIT 20
-  `).all(cnpjClean);
+  // ── Licitações ganhas + perfil consolidado: só fazem sentido pra CNPJ ──
+  const licitacoesGanhas = tipo === 'cnpj'
+    ? db.prepare(`
+        SELECT
+          ld.documento_id, ld.vencedor_nome, ld.vencedor_cnpj,
+          d.valor_estimado, ld.valor_final, ld.data_homologacao, ld.modalidade,
+          d.titulo, d.ano, d.numero
+        FROM licitacoes_detalhes ld
+        JOIN documentos d ON d.id = ld.documento_id
+        WHERE ${cnpjNorm('ld.vencedor_cnpj')} = ?
+        ORDER BY d.ano DESC, ld.data_homologacao DESC
+        LIMIT 20
+      `).all(chave)
+    : [];
 
-  // ── Fornecedor perfil consolidado (licitado + pago, ver 3.2) ──
-  const perfil = db.prepare(`
-    SELECT nome_canonico, total_valor_vencedor, total_valor_produtos, total_valor_pago,
-           n_vitorias, n_itens_produtos, n_licitacoes_vencedor, anos_ativos
-    FROM fornecedores_perfil WHERE ${cnpjNorm('cnpj')} = ?
-  `).get(cnpjClean);
+  const perfil = tipo === 'cnpj'
+    ? db.prepare(`
+        SELECT nome_canonico, total_valor_vencedor, total_valor_produtos, total_valor_pago,
+               n_vitorias, n_itens_produtos, n_licitacoes_vencedor, anos_ativos
+        FROM fornecedores_perfil WHERE ${cnpjNorm('cnpj')} = ?
+      `).get(chave)
+    : null;
 
   // ── Tendência (crescimento último ano vs penúltimo) ──
   const ultimoAno = porAno[porAno.length - 1];
@@ -152,7 +161,10 @@ function getCredorProfile(cnpj) {
     : null;
 
   return {
-    cnpj: cnpjClean,
+    tipo: tipo === 'cnpj' ? 'pj' : 'pf',
+    chave,
+    cnpj: tipo === 'cnpj' ? chave : null,
+    cargo: identidade.cargo || null,
     nome: identidade.credor_nome,
     nome_canonico: perfil?.nome_canonico || identidade.credor_nome,
     resumo: {

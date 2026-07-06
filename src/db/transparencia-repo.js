@@ -658,7 +658,8 @@ function getDespesas({
   const params = [];
 
   if (exercicio) { filters.push('exercicio_orcamento = ?'); params.push(Number(exercicio)); }
-  if (credor_cnpj) { filters.push('credor_cnpj = ?'); params.push(credor_cnpj); }
+  // Aceita CNPJ (idêntico à chave PJ) ou chave 'pf-…' — perfil PF reusa a rota
+  if (credor_cnpj) { filters.push('credor_chave = ?'); params.push(credor_cnpj); }
   if (documento_id) { filters.push('documento_id = ?'); params.push(Number(documento_id)); }
   if (categoriaPrefixos?.length) {
     filters.push(`(${categoriaPrefixos.map(() => 'categoria_economica LIKE ?').join(' OR ')})`);

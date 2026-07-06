@@ -77,8 +77,8 @@ export default async function CredoresPage({ searchParams }) {
               </div>
               {dados.map((c, idx) => (
                 <Link
-                  key={c.credor_cnpj}
-                  href={`/credores/${c.credor_cnpj}`}
+                  key={c.credor_chave || c.credor_cnpj}
+                  href={`/credores/${c.credor_chave || c.credor_cnpj}`}
                   className="table-row"
                   style={{
                     textDecoration: 'none',
@@ -94,7 +94,9 @@ export default async function CredoresPage({ searchParams }) {
                   </span>
                   <span style={{ fontWeight: 500, fontSize: 14 }}>{c.credor_nome}</span>
                   <span style={{ fontSize: 12, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
-                    {c.credor_cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')}
+                    {c.credor_cnpj
+                      ? c.credor_cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
+                      : 'Pessoa física'}
                   </span>
                   <span style={{ fontSize: 13, fontVariantNumeric: 'tabular-nums', textAlign: 'center' }}>
                     {c.primeiro_ano === c.ultimo_ano ? c.primeiro_ano : `${c.primeiro_ano}–${c.ultimo_ano}`}
