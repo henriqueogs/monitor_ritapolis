@@ -12,8 +12,8 @@ export default function StatusColeta({ logs }) {
       {!logs?.length && <p className="empty-state">Nenhum log de coleta disponível.</p>}
       {logs?.length > 0 && (
         <dl className="keyvalue-list">
-          {logs.map((log) => (
-            <div key={log.exercicio} className="keyvalue-row">
+          {logs.map((log, i) => (
+            <div key={`${log.tipo ?? 't'}-${log.exercicio}-${i}`} className="keyvalue-row">
               <dt>Exercício {log.exercicio}</dt>
               <dd>
                 <span

@@ -111,6 +111,26 @@
   align-items: center;
   gap: 4px;
   padding: 0 28px;
+  text-decoration: none;
+  transition: opacity var(--motion-fast) var(--ease-out);
+}
+
+.heroStat:hover {
+  opacity: 0.72;
+}
+
+.heroSource {
+  margin: 14px auto 0;
+  max-width: 640px;
+  text-align: center;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.heroSource a {
+  color: var(--text-secondary);
+  text-decoration: underline;
 }
 
 .heroStatDivider {

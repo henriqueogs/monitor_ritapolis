@@ -48,21 +48,29 @@ export default function HomeHero({ resumo, licitacoesAno }) {
         </div>
 
         <div className={styles.heroStats}>
-          <div className={styles.heroStat}>
+          <Link href="/acervo" className={styles.heroStat}>
             <strong>{(resumo?.total_documentos || 0).toLocaleString('pt-BR')}</strong>
             <span>Documentos</span>
-          </div>
+          </Link>
           <div className={styles.heroStatDivider} />
-          <div className={styles.heroStat}>
+          <Link href="/licitacoes" className={styles.heroStat}>
             <strong>{(resumo?.total_licitacoes || 0).toLocaleString('pt-BR')}</strong>
             <span>Licitações</span>
-          </div>
+          </Link>
           <div className={styles.heroStatDivider} />
-          <div className={styles.heroStat}>
+          <Link href={`/licitacoes?ano=${resumo?.ano_padrao || anoCorrente}`} className={styles.heroStat}>
             <strong>{formatMoneyCompact(resumo?.valor_estimado_ano)}</strong>
-            <span>Estimado em {resumo?.ano_padrao || anoCorrente}</span>
-          </div>
+            <span>Estimado em editais de {resumo?.ano_padrao || anoCorrente}</span>
+          </Link>
         </div>
+
+        <p className={styles.heroSource}>
+          Coletado automaticamente do{' '}
+          <a href="https://ritapolis.mg.gov.br" target="_blank" rel="noopener noreferrer">portal da Prefeitura de Ritápolis</a>
+          {' '}e do{' '}
+          <a href="https://pncp.gov.br" target="_blank" rel="noopener noreferrer">PNCP</a>.
+          Valor estimado somado só dos editais do ano.
+        </p>
       </div>
     </section>
   );
