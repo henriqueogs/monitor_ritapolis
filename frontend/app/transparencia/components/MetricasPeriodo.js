@@ -1,16 +1,10 @@
 import { formatMoney } from '../../lib/format';
 
 function MetricCard({ label, value, sub, accent }) {
-  const valueStyle = {
-    ...(accent ? { color: `var(${accent})` } : {}),
-    // Valor monetário longo (R$ 49.552.097,41) estoura 1.7rem fixo — escala com a largura do card.
-    fontSize: 'clamp(1.15rem, 2.4vw, 1.7rem)',
-    overflowWrap: 'anywhere',
-  };
   return (
     <div className="admin-metric-card">
       <span>{label}</span>
-      <strong style={valueStyle}>{value ?? '—'}</strong>
+      <strong style={accent ? { color: `var(${accent})` } : undefined}>{value ?? '—'}</strong>
       {sub ? <p style={{ margin: '6px 0 0', fontSize: 12, opacity: 0.55 }}>{sub}</p> : null}
     </div>
   );
@@ -25,7 +19,7 @@ export default function MetricasPeriodo({ total, periodoLabel, pctVinculado }) {
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
         gap: 16,
         marginBottom: 28,
       }}
