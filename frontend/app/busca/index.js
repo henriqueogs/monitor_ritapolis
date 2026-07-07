@@ -27,7 +27,7 @@ export default async function BuscaPage({ searchParams }) {
           <h1>Busca</h1>
           <p className="page-hero-sub">
             Digite um termo com pelo menos {MIN_CHARS_BUSCA} caracteres — nome de pessoa ou empresa,
-            objeto de licitação, número de empenho — pra buscar em documentos, empenhos e fornecedores
+            objeto de licitação, número de empenho — pra buscar em documentos, empenhos e credores
             ao mesmo tempo.
           </p>
         </div>
@@ -43,7 +43,7 @@ export default async function BuscaPage({ searchParams }) {
         <h1>Busca: “{q}”</h1>
         <p className="page-hero-sub">
           Resultados em três índices — documentos do acervo coletado, empenhos do Portal da
-          Transparência e fornecedores/pessoas que receberam pagamentos.
+          Transparência e credores (empresas, pessoas, ONGs, órgãos) que receberam pagamentos.
         </p>
       </div>
 
@@ -95,11 +95,11 @@ export default async function BuscaPage({ searchParams }) {
       </SectionBlock>
 
       <SectionBlock
-        title="Fornecedores e pessoas"
+        title="Credores"
         aside={r.credores.total > 0 ? <VerTodos href={`/credores?busca=${encodeURIComponent(q)}`} total={r.credores.total} /> : null}
       >
         {r.credores.dados.length === 0 ? (
-          <LinhaVazia texto={`Nenhum fornecedor ou pessoa com “${q}” nos pagamentos coletados.`} />
+          <LinhaVazia texto={`Nenhum credor com “${q}” nos pagamentos coletados.`} />
         ) : (
           <ul className="plain-list">
             {r.credores.dados.map((c) => (

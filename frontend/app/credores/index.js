@@ -4,8 +4,8 @@ import { formatMoney } from '../lib/format';
 import SectionBlock from '../components/SectionBlock';
 
 export const metadata = {
-  title: 'Fornecedores — Monitor Ritápolis',
-  description: 'Ranking de fornecedores por valor recebido da Prefeitura de Ritápolis/MG.',
+  title: 'Credores — Monitor Ritápolis',
+  description: 'Quem recebe dinheiro da Prefeitura de Ritápolis/MG: empresas, pessoas, ONGs, órgãos públicos.',
 };
 
 export default async function CredoresPage({ searchParams }) {
@@ -20,8 +20,8 @@ export default async function CredoresPage({ searchParams }) {
     <main className="page-container">
       <div className="page-title">
         <div>
-          <h1>Fornecedores</h1>
-          <p>Empresas e pessoas que receberam pagamentos da Prefeitura. Clique em um fornecedor para ver o perfil completo.</p>
+          <h1>Credores</h1>
+          <p>Quem recebeu dinheiro da Prefeitura — empresas, pessoas, ONGs e órgãos públicos. Clique em um credor para ver o perfil completo.</p>
         </div>
       </div>
 
@@ -58,7 +58,7 @@ export default async function CredoresPage({ searchParams }) {
       </form>
 
       <SectionBlock
-        title={`${resultado?.total || 0} fornecedores encontrados`}
+        title={`${resultado?.total || 0} credores encontrados`}
         description="Excluindo folha de pagamento e repasses obrigatórios."
       >
         {dados.length === 0 && (
@@ -69,7 +69,7 @@ export default async function CredoresPage({ searchParams }) {
             <div className="simple-table" style={{ minWidth: 720 }}>
               <div className="table-row table-row-header" style={{ display: 'grid', gridTemplateColumns: '50px 1fr 160px 100px 90px 130px', gap: 12, alignItems: 'center' }}>
                 <span>#</span>
-                <span>Fornecedor</span>
+                <span>Credor</span>
                 <span>CNPJ</span>
                 <span style={{ textAlign: 'center' }}>Anos</span>
                 <span style={{ textAlign: 'center' }}>Empenhos</span>

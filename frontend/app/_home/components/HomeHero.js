@@ -23,16 +23,17 @@ export default function HomeHero({ resumo, licitacoesAno }) {
           sempre com caminho para a fonte oficial.
         </p>
 
-        <div className={`${styles.heroSearch} hero-search`}>
+        <form action="/busca" method="get" role="search" className={`${styles.heroSearch} hero-search`}>
           <Search size={20} className="hero-search-icon" />
-          <form action="/acervo" className={styles.searchForm}>
-            <input
-              name="q"
-              className="hero-search-input"
-              placeholder="Buscar edital, decreto, portaria, contrato…"
-            />
-          </form>
-        </div>
+          <input
+            name="q"
+            className="hero-search-input"
+            placeholder="Buscar documento, empenho, credor…"
+            aria-label="Buscar em documentos, empenhos e credores"
+            minLength={2}
+          />
+          <button type="submit" className="hero-search-button">Procurar</button>
+        </form>
 
         <div className={`${styles.promptList} prompt-chips`}>
           {CATEGORIAS.map((cat) => (

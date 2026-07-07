@@ -655,10 +655,14 @@ h1, h2, h3, h4, p {
   position: relative;
   max-width: 720px;
   margin: 0 auto;
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
 }
 
 .hero-search-input {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   min-height: 58px;
   border: 1.5px solid var(--border-strong);
   border-radius: var(--radius-md);
@@ -690,6 +694,25 @@ h1, h2, h3, h4, p {
 
 .hero-search:focus-within .hero-search-icon {
   color: var(--accent);
+}
+
+.hero-search-button {
+  flex: 0 0 auto;
+  min-height: 58px;
+  padding: 0 26px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: filter var(--motion-fast) var(--ease-out);
+}
+
+.hero-search-button:hover {
+  filter: brightness(1.08);
 }
 
 /* ── Buttons ───────────────────────────────────────────────── */

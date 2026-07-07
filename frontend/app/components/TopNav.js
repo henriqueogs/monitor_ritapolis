@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Sparkles } from 'lucide-react';
-import AdminModeToggle from './AdminModeToggle';
+import AuthControl from './AuthControl';
 import NavLinks from './NavLinks';
 
 export default function TopNav() {
@@ -19,18 +19,7 @@ export default function TopNav() {
 
         <NavLinks />
 
-        {/* Form HTML puro: funciona sem JS e mantém o TopNav server component */}
-        <form action="/busca" method="get" className="topbar-search" role="search">
-          <input
-            type="search"
-            name="q"
-            placeholder="Buscar nome, empresa, empenho…"
-            aria-label="Buscar em documentos, empenhos e fornecedores"
-            minLength={2}
-          />
-        </form>
-
-        <AdminModeToggle />
+        <AuthControl />
       </div>
     </header>
   );
