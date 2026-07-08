@@ -19,8 +19,8 @@ export default function HomeHero({ resumo, licitacoesAno }) {
         <h1>Entenda o que acontece<br />em Ritápolis</h1>
 
         <p>
-          Editais, decretos e licitações organizados com dados reais —
-          sempre com caminho para a fonte oficial.
+          Editais, decretos, licitações e gastos de Ritápolis, Minas Gerais —
+          organizados com dados reais, sempre com caminho para a fonte oficial.
         </p>
 
         <form action="/busca" method="get" role="search" className={`${styles.heroSearch} hero-search`}>

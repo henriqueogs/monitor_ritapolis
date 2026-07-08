@@ -4,6 +4,18 @@ import { formatDate } from '../../lib/format';
 import AnexoResumoAction from '../../components/AnexoResumoAction';
 import styles from '../../documento/[id]/styles.module.css';
 
+export async function generateMetadata({ params }) {
+  const anexo = await fetchAnexo(params.id).catch(() => null);
+  if (!anexo?.nome) {
+    return { title: 'Anexo de documento oficial de Ritápolis' };
+  }
+  const titulo = `${anexo.nome}${anexo.documento_pai?.titulo ? ` — ${anexo.documento_pai.titulo}` : ''}`;
+  return {
+    title: titulo.slice(0, 90),
+    description: `Anexo de documento oficial de Ritápolis/MG${anexo.tipo ? ` (${anexo.tipo})` : ''}, com link pra fonte na Prefeitura.`,
+  };
+}
+
 function statusLabel(status) {
   const labels = {
     ok: 'conteudo legivel',

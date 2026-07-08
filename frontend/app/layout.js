@@ -2,25 +2,60 @@ import './globals.css';
 import Link from 'next/link';
 import TopNav from './components/TopNav';
 import { DISCLAIMER_RODAPE } from './lib/disclaimer';
+import { BRAND, BRAND_TAGLINE, SITE_URL } from './lib/brand';
 
 export const metadata = {
-  title: 'Monitor Ritápolis — Inteligência Pública com IA',
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: `${BRAND} — ${BRAND_TAGLINE}`,
+    template: `%s — ${BRAND}`,
+  },
   description:
-    'Entenda documentos públicos em segundos. O Monitor Ritápolis usa IA para transformar editais, decretos e licitações em informações compreensíveis.',
+    'Licitações, gastos, empenhos e documentos oficiais de Ritápolis, Minas Gerais — organizados com IA e sempre com link pra fonte oficial.',
+  alternates: { canonical: './' },
+  openGraph: {
+    type: 'website',
+    locale: 'pt_BR',
+    siteName: BRAND,
+    title: `${BRAND} — ${BRAND_TAGLINE}`,
+    description:
+      'Licitações, gastos, empenhos e documentos oficiais de Ritápolis/MG, com fonte em cada dado.',
+  },
+  twitter: { card: 'summary_large_image' },
+};
+
+// Dados estruturados: WebSite + SearchAction (caixa de busca de sitelinks)
+const jsonLdWebSite = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: BRAND,
+  alternateName: 'Ritápolis',
+  url: SITE_URL,
+  description: 'A cidade de Ritápolis/MG em dados abertos.',
+  inLanguage: 'pt-BR',
+  potentialAction: {
+    '@type': 'SearchAction',
+    target: { '@type': 'EntryPoint', urlTemplate: `${SITE_URL}/busca?q={search_term_string}` },
+    'query-input': 'required name=search_term_string',
+  },
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="pt-BR">
       <body>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdWebSite) }}
+        />
         <TopNav />
         <div className="app-shell">
           {children}
           <footer className="site-footer">
             <div className="site-footer-inner">
               <div className="footer-brand">
-                <strong>Monitor Ritápolis</strong>
-                <span>Transparência municipal com IA verificável</span>
+                <strong>{BRAND}</strong>
+                <span>{BRAND_TAGLINE}</span>
               </div>
               <div className="footer-meta">
                 <span>Dados coletados das fontes oficiais da Prefeitura e da Câmara</span>

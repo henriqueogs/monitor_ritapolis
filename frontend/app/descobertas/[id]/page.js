@@ -22,6 +22,17 @@ function metricLabel(alerta) {
   return alerta.valor_total ? formatMoney(alerta.valor_total) : null;
 }
 
+export async function generateMetadata({ params }) {
+  const alerta = await fetchAlerta(params.id).catch(() => null);
+  if (!alerta?.titulo) {
+    return { title: 'Descoberta nos dados públicos de Ritápolis' };
+  }
+  return {
+    title: alerta.titulo,
+    description: `${String(alerta.resumo_cidadao || alerta.objeto || alerta.titulo).slice(0, 155)} — descoberta nos dados públicos de Ritápolis/MG.`,
+  };
+}
+
 function investigationLabel(discovery, alerta) {
   const tipo = discovery?.tipo_investigacao || alerta?.metadados?.investigacao_tipo;
   const labels = {

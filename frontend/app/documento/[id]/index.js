@@ -33,8 +33,23 @@ export default async function DocumentoPage({ params }) {
     ? await fetchDocumentoEmpenhos(params.id)
     : null;
 
+  // Dados estruturados da página de documento (SEO)
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: String(documento.titulo || '').slice(0, 110),
+    datePublished: documento.data_publicacao || undefined,
+    inLanguage: 'pt-BR',
+    publisher: { '@type': 'Organization', name: 'Ritápolis.com' },
+    isBasedOn: documento.url_origem || undefined,
+  };
+
   return (
     <main className="page-container">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <DocumentHeader documento={documento} licitacao={licitacao} />
       <SummaryAndSource documento={documento} />
       <DocumentPreviewPane documento={documento} />
