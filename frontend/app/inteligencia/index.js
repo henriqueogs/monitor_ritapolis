@@ -6,7 +6,7 @@ import { formatMoney } from '../lib/format';
 import FornecedoresRanking from '../estatisticas/components/FornecedoresRanking';
 
 export const metadata = {
-  title: 'Inteligência pública — Monitor Ritápolis',
+  title: 'Inteligência pública',
   description: 'Visão cruzada de contratos, fornecedores e categorias de Ritápolis/MG.'
 };
 

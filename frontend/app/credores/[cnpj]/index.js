@@ -8,7 +8,7 @@ import HistoricoPorMandato from './components/HistoricoPorMandato';
 export async function generateMetadata({ params }) {
   const perfil = await fetchCredorProfile(params.cnpj).catch(() => null);
   return {
-    title: perfil ? `${perfil.nome} — Fornecedor — Monitor Ritápolis` : 'Fornecedor — Monitor Ritápolis',
+    title: perfil ? `${perfil.nome} — Fornecedor` : 'Fornecedor',
   };
 }
 
@@ -32,11 +32,62 @@ function formatCnpj(cnpj) {
   return c.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
 }
 
+function EnriquecimentoCredor({ enriquecimento, isPf }) {
+  if (!enriquecimento) return null;
+  const receita = enriquecimento.receita;
+  const fontes = enriquecimento.fontes_previstas || [];
+  return (
+    <SectionBlock
+      title={isPf ? 'Identidade e limites' : 'Dados externos do credor'}
+      description={enriquecimento.limites}
+    >
+      {!isPf && receita && (
+        <dl className="keyvalue-list" style={{ marginBottom: 12 }}>
+          <div className="keyvalue-row">
+            <dt>Natureza juridica</dt>
+            <dd style={{ fontSize: 13 }}>{receita.natureza_juridica || 'Nao informada'}</dd>
+          </div>
+          <div className="keyvalue-row">
+            <dt>Situacao cadastral</dt>
+            <dd style={{ fontSize: 13 }}>{receita.situacao_cadastral || 'Nao informada'}</dd>
+          </div>
+          <div className="keyvalue-row">
+            <dt>QSA</dt>
+            <dd style={{ fontSize: 13 }}>
+              {receita.qsa?.length
+                ? receita.qsa.map((item) => item.nome || item.nome_socio || item).join(', ')
+                : 'Sem QSA importado'}
+            </dd>
+          </div>
+        </dl>
+      )}
+      {!isPf && !receita && (
+        <p style={{ margin: '0 0 12px', color: 'var(--text-muted)', fontSize: 13 }}>
+          Ainda nao ha cache de Receita/QSA para este CNPJ. Os valores desta pagina continuam vindo dos empenhos municipais.
+        </p>
+      )}
+      {enriquecimento.tse?.length > 0 && (
+        <p style={{ margin: '0 0 12px', color: 'var(--text-muted)', fontSize: 13 }}>
+          Ha {enriquecimento.tse.length} registro{enriquecimento.tse.length !== 1 ? 's' : ''} eleitoral(is) em cache, tratado(s) como contexto e nao como identificacao civil.
+        </p>
+      )}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {fontes.map((fonte) => (
+          <a key={fonte.id} href={fonte.url} target="_blank" rel="noreferrer" className="availability-badge is-gov">
+            {fonte.rotulo}
+          </a>
+        ))}
+      </div>
+    </SectionBlock>
+  );
+}
+
 export default async function CredorProfilePage({ params, searchParams }) {
   const perfil = await fetchCredorProfile(params.cnpj).catch(() => null);
   const empPagina = searchParams?.pagina ? Number(searchParams.pagina) : 1;
   const empExercicio = searchParams?.exercicio ? Number(searchParams.exercicio) : undefined;
   const empBusca = searchParams?.q || '';
+  const empFinalidade = searchParams?.finalidade || '';
 
   if (!perfil) {
     return (
@@ -50,7 +101,7 @@ export default async function CredorProfilePage({ params, searchParams }) {
     );
   }
 
-  const { nome, cnpj, chave, tipo, cargo, resumo, por_ano, por_mandato, por_funcao, licitacoes_ganhas } = perfil;
+  const { nome, cnpj, chave, tipo, cargo, resumo, por_ano, por_mandato, por_funcao, licitacoes_ganhas, enriquecimento } = perfil;
   const isPf = tipo === 'pf';
 
   return (
@@ -81,6 +132,8 @@ export default async function CredorProfilePage({ params, searchParams }) {
       </div>
 
       {/* Métricas */}
+      <EnriquecimentoCredor enriquecimento={enriquecimento} isPf={isPf} />
+
       <div className="admin-metric-grid" style={{ marginBottom: 24 }}>
         <div className="admin-metric-card">
           <span>
@@ -216,7 +269,14 @@ export default async function CredorProfilePage({ params, searchParams }) {
       )}
 
       {/* Todos os empenhos — lista paginada com detalhamento e link pra fonte */}
-      <EmpenhosCredor cnpj={chave || cnpj} porAno={por_ano} pagina={empPagina} exercicio={empExercicio} q={empBusca} />
+      <EmpenhosCredor
+        cnpj={chave || cnpj}
+        porAno={por_ano}
+        pagina={empPagina}
+        exercicio={empExercicio}
+        q={empBusca}
+        finalidade={empFinalidade}
+      />
     </main>
   );
 }

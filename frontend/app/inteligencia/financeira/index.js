@@ -6,7 +6,7 @@ import EvolucaoFuncoes from '../components/EvolucaoFuncoes';
 import RankingFuncoes from '../components/RankingFuncoes';
 
 export const metadata = {
-  title: 'Análise financeira — Monitor Ritápolis',
+  title: 'Análise financeira',
   description: 'Concentração de fornecedores, empenhos atípicos, evolução de gastos e ranking por área de governo de Ritápolis/MG.',
 };
 

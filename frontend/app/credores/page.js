@@ -1,3 +1,3 @@
-import CredoresPage from './index';
-export const metadata = { title: 'Fornecedores — Monitor Ritápolis' };
+import CredoresPage, { metadata } from './index';
+export { metadata };
 export default CredoresPage;

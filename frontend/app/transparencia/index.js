@@ -13,7 +13,7 @@ import TiposEmpenho from './components/TiposEmpenho';
 import StatusColeta from './components/StatusColeta';
 
 export const metadata = {
-  title: 'Dinheiro público — Monitor Ritápolis',
+  title: 'Dinheiro público',
   description:
     'Orçamento, empenhos, pagamentos e fornecedores da Prefeitura de Ritápolis, por mandato e exercício.',
 };

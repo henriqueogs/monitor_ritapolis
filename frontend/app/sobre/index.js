@@ -5,8 +5,8 @@ import { formatMoney, formatDate } from '../lib/format';
 import styles from './styles.module.css';
 
 export const metadata = {
-  title: 'Sobre — Monitor Ritápolis',
-  description: 'Como o Monitor Ritápolis funciona, o que monitora e quais são os limites atuais.'
+  title: 'Sobre',
+  description: 'Como o Ritápolis.com funciona, o que monitora e quais são os limites atuais.'
 };
 
 export default async function SobrePage() {
@@ -20,7 +20,7 @@ export default async function SobrePage() {
     <main className="page-container">
       <div className="page-title">
         <div>
-          <h1>Sobre o Monitor Ritápolis</h1>
+          <h1>Sobre o Ritápolis.com</h1>
           <p>
             Uma plataforma de inteligência pública verificável para Ritápolis/MG. Coleta documentos
             oficiais, estrutura os dados com parsers determinísticos e enriquece com IA — sempre com

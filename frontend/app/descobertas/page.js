@@ -6,7 +6,7 @@ import { DISCLAIMER_DESCOBERTAS } from '../lib/disclaimer';
 import styles from './styles.module.css';
 
 export const metadata = {
-  title: 'Descobertas — Monitor Ritápolis',
+  title: 'Descobertas',
   description: 'Curiosidades e padrões encontrados nos documentos públicos de Ritápolis/MG.',
 };
 
@@ -184,7 +184,7 @@ export default async function DescobertasPage({ searchParams }) {
   return (
     <main className={styles.container}>
       <header className={styles.header}>
-        <span className={styles.eyebrow}>Monitor Ritápolis</span>
+        <span className={styles.eyebrow}>Ritápolis.com</span>
         <h1 className={styles.title}>Descobertas nos dados</h1>
         <p className={styles.subtitle}>
           Curiosidades e padrões que a análise encontrou nos documentos públicos. São pontos para

@@ -2,7 +2,7 @@ import LoginForm from './LoginForm';
 import styles from './styles.module.css';
 
 export const metadata = {
-  title: 'Login administrativo | Monitor Ritapolis',
+  title: 'Login administrativo',
 };
 
 export default function LoginPage() {
@@ -12,7 +12,7 @@ export default function LoginPage() {
         <div className={styles.brandBlock}>
           <span className={styles.brandMark}>MR</span>
           <div>
-            <p>Monitor Ritapolis</p>
+            <p>Ritápolis.com</p>
             <h1>Acesso administrativo</h1>
           </div>
         </div>

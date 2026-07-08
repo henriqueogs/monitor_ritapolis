@@ -4,7 +4,7 @@ import { formatMoney, formatDate } from '../lib/format';
 import styles from './styles.module.css';
 
 export const metadata = {
-  title: 'Emendas Parlamentares | Monitor Ritápolis',
+  title: 'Emendas Parlamentares',
   description: 'Emendas parlamentares estaduais e federais recebidas por Ritápolis'
 };
 

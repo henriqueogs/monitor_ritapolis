@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { fetchEmpenho } from '../../lib/api';
 import { formatMoney } from '../../lib/format';
 import SectionBlock from '../../components/SectionBlock';
+import FinalidadeBadge from '../../components/FinalidadeBadge';
 import LinhaDoTempoPagamento from './components/LinhaDoTempoPagamento';
 import EmpenhosRelacionados from './components/EmpenhosRelacionados';
 
@@ -9,8 +10,8 @@ export async function generateMetadata({ params }) {
   const dossie = await fetchEmpenho(params.id);
   return {
     title: dossie
-      ? `Empenho ${dossie.empenho.empenho}/${dossie.empenho.exercicio_orcamento} — Monitor Ritápolis`
-      : 'Empenho — Monitor Ritápolis',
+      ? `Empenho ${dossie.empenho.empenho}/${dossie.empenho.exercicio_orcamento}`
+      : 'Empenho',
   };
 }
 
@@ -64,6 +65,7 @@ export default async function EmpenhoPage({ params }) {
           </h1>
           <p style={{ margin: '4px 0 0', display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
             <span className="availability-badge is-real">{empenho.categoria_cidada.rotulo}</span>
+            <FinalidadeBadge finalidade={empenho.finalidade} />
             <span style={{ fontSize: 13, fontWeight: 600, color: status.cor }}>{status.texto}</span>
             {empenho.portal?.url && (
               <a href={empenho.portal.url} target="_blank" rel="noopener noreferrer" className="availability-badge is-gov">
@@ -106,6 +108,36 @@ export default async function EmpenhoPage({ params }) {
           </div>
         </div>
       </SectionBlock>
+
+      {empenho.finalidade && (
+        <SectionBlock
+          title="Por que esta finalidade"
+          description="Classificacao derivada dos campos oficiais do empenho. Ela nao substitui o registro bruto do Portal da Transparencia."
+        >
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
+            <FinalidadeBadge finalidade={empenho.finalidade} />
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              Confianca {Math.round((empenho.finalidade.confianca || 0) * 100)}%
+              {empenho.finalidade.subclasse ? ` - ${empenho.finalidade.subclasse}` : ''}
+            </span>
+          </div>
+          {empenho.finalidade.evidencias?.length ? (
+            <dl className="keyvalue-list">
+              {empenho.finalidade.evidencias.slice(0, 5).map((ev, idx) => (
+                <div key={`${ev.campo}-${idx}`} className="keyvalue-row">
+                  <dt>{ev.campo}</dt>
+                  <dd style={{ fontSize: 13 }}>
+                    <span style={{ display: 'block' }}>{ev.valor}</span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>{ev.motivo}</span>
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          ) : (
+            <p style={{ color: 'var(--text-muted)', margin: 0 }}>Sem evidencias detalhadas para esta regra.</p>
+          )}
+        </SectionBlock>
+      )}
 
       {/* Linha do tempo */}
       <SectionBlock

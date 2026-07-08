@@ -17,7 +17,7 @@ export default function AdminLayout({ children }) {
       <aside className="admin-sidebar">
         <div className="admin-sidebar-title">
           <strong>Operacao</strong>
-          <span>Monitor Ritapolis</span>
+          <span>Ritápolis.com</span>
         </div>
         <nav aria-label="Administracao">
           {adminLinks.map((link) => (

@@ -1,10 +1,10 @@
-// Textos padrão de "blindagem" — fonte única. O Monitor Ritápolis tem caráter
+// Textos padrão de "blindagem" — fonte única. O Ritápolis.com tem caráter
 // informativo/organizacional: NÃO é fonte oficial nem afirma verdade. Reusar
 // estes textos em vez de reescrever (consistência + segurança jurídica).
 
 // Rodapé (site inteiro). Uma linha, sóbria.
 export const DISCLAIMER_RODAPE =
-  'O Monitor Ritápolis organiza e resume informações públicas com apoio de inteligência artificial. ' +
+  'O Ritápolis.com organiza e resume informações públicas com apoio de inteligência artificial. ' +
   'Tem caráter informativo e não é fonte oficial — pode conter imprecisões. ' +
   'Confira sempre os documentos originais e os portais oficiais antes de qualquer uso.';
 

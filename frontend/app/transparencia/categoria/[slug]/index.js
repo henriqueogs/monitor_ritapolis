@@ -8,8 +8,8 @@ export async function generateMetadata({ params }) {
   const dossie = await fetchTransparenciaCategoria(params.slug);
   return {
     title: dossie
-      ? `${dossie.categoria.rotulo} — Dinheiro público — Monitor Ritápolis`
-      : 'Categoria — Monitor Ritápolis',
+      ? `${dossie.categoria.rotulo} — Dinheiro público`
+      : 'Categoria',
   };
 }
 
@@ -95,14 +95,6 @@ export default async function CategoriaPage({ params, searchParams }) {
         </p>
       </div>
 
-      <PeriodoSelector
-        porMandato={por_mandato}
-        periodo={periodo}
-        anosCobertos={periodo.anos_cobertos}
-        modo={modo}
-        basePath={`/transparencia/categoria/${categoria.slug}`}
-      />
-
       {/* Série por ano */}
       {por_ano?.length > 0 && (
         <SectionBlock title={`Por ano (${periodo.anos_cobertos.join('–')})`}>
@@ -122,6 +114,14 @@ export default async function CategoriaPage({ params, searchParams }) {
           ))}
         </SectionBlock>
       )}
+
+      <PeriodoSelector
+        porMandato={por_mandato}
+        periodo={periodo}
+        anosCobertos={periodo.anos_cobertos}
+        modo={modo}
+        basePath={`/transparencia/categoria/${categoria.slug}`}
+      />
 
       {/* Quem mais recebe */}
       {top_credores?.length > 0 && (

@@ -2,19 +2,40 @@ import Link from 'next/link';
 import { fetchCredores } from '../lib/api';
 import { formatMoney } from '../lib/format';
 import SectionBlock from '../components/SectionBlock';
+import FinalidadeBadge from '../components/FinalidadeBadge';
 
 export const metadata = {
-  title: 'Credores — Monitor Ritápolis',
+  title: 'Credores',
   description: 'Quem recebe dinheiro da Prefeitura de Ritápolis/MG: empresas, pessoas, ONGs, órgãos públicos.',
 };
+
+const FINALIDADES = [
+  { value: 'licitacao', label: 'Licitação' },
+  { value: 'diaria_servidor', label: 'Diária' },
+  { value: 'transferencia_entidade', label: 'Entidade' },
+  { value: 'pessoal_encargos', label: 'Folha' },
+  { value: 'auxilio_pf', label: 'Auxílio' },
+  { value: 'servico_pf', label: 'Serviço PF' },
+  { value: 'servico_pj_sem_licitacao', label: 'Serviço PJ' },
+  { value: 'investimento', label: 'Investimento' },
+  { value: 'ordem_pagamento', label: 'Ordem de pagamento' },
+  { value: 'outros', label: 'Outros' },
+];
 
 export default async function CredoresPage({ searchParams }) {
   const busca = searchParams?.busca || '';
   const exercicio = searchParams?.exercicio ? Number(searchParams.exercicio) : undefined;
+  const finalidade = searchParams?.finalidade || '';
   const pagina = searchParams?.pagina ? Number(searchParams.pagina) : 1;
 
-  const resultado = await fetchCredores({ busca, exercicio, pagina, limite: 50 }).catch(() => null);
+  const resultado = await fetchCredores({ busca, exercicio, finalidade, pagina, limite: 50 }).catch(() => null);
   const dados = resultado?.dados || [];
+  const queryPagina = (p) => `/credores?${new URLSearchParams({
+    ...(busca ? { busca } : {}),
+    ...(exercicio ? { exercicio: String(exercicio) } : {}),
+    ...(finalidade ? { finalidade } : {}),
+    ...(p > 1 ? { pagina: String(p) } : {}),
+  })}`;
 
   return (
     <main className="page-container">
@@ -46,6 +67,16 @@ export default async function CredoresPage({ searchParams }) {
             <option key={a} value={a}>{a}</option>
           ))}
         </select>
+        <select
+          name="finalidade"
+          defaultValue={finalidade}
+          style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 14, background: 'var(--surface)' }}
+        >
+          <option value="">Todas as finalidades</option>
+          {FINALIDADES.map((item) => (
+            <option key={item.value} value={item.value}>{item.label}</option>
+          ))}
+        </select>
         <button
           type="submit"
           style={{
@@ -59,18 +90,21 @@ export default async function CredoresPage({ searchParams }) {
 
       <SectionBlock
         title={`${resultado?.total || 0} credores encontrados`}
-        description="Excluindo folha de pagamento e repasses obrigatórios."
+        description={finalidade
+          ? `Filtrando credores com empenhos de finalidade ${FINALIDADES.find((item) => item.value === finalidade)?.label || finalidade}.`
+          : 'Excluindo folha de pagamento e repasses obrigatórios.'}
       >
         {dados.length === 0 && (
           <p style={{ color: 'var(--text-muted)' }}>Nenhum fornecedor encontrado.</p>
         )}
         {dados.length > 0 && (
           <div className="table-scroll-x">
-            <div className="simple-table" style={{ minWidth: 720 }}>
-              <div className="table-row table-row-header" style={{ display: 'grid', gridTemplateColumns: '50px 1fr 160px 100px 90px 130px', gap: 12, alignItems: 'center' }}>
+            <div className="simple-table" style={{ minWidth: 900 }}>
+              <div className="table-row table-row-header" style={{ display: 'grid', gridTemplateColumns: '50px 1fr 170px 150px 90px 90px 130px', gap: 12, alignItems: 'center' }}>
                 <span>#</span>
                 <span>Credor</span>
                 <span>CNPJ</span>
+                <span>Finalidade</span>
                 <span style={{ textAlign: 'center' }}>Anos</span>
                 <span style={{ textAlign: 'center' }}>Empenhos</span>
                 <span style={{ textAlign: 'right' }}>Total recebido</span>
@@ -84,7 +118,7 @@ export default async function CredoresPage({ searchParams }) {
                     textDecoration: 'none',
                     color: 'inherit',
                     display: 'grid',
-                    gridTemplateColumns: '50px 1fr 160px 100px 90px 130px',
+                    gridTemplateColumns: '50px 1fr 170px 150px 90px 90px 130px',
                     gap: 12,
                     alignItems: 'center'
                   }}
@@ -97,6 +131,18 @@ export default async function CredoresPage({ searchParams }) {
                     {c.credor_cnpj
                       ? c.credor_cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
                       : 'Pessoa física'}
+                  </span>
+                  <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                    {(c.finalidades || []).slice(0, 2).map((finalidade) => (
+                      <FinalidadeBadge
+                        key={finalidade.classe}
+                        finalidade={finalidade}
+                        title={`${finalidade.rotulo}: ${finalidade.n?.toLocaleString('pt-BR')} empenho${finalidade.n === 1 ? '' : 's'}`}
+                      />
+                    ))}
+                    {!c.finalidades?.length ? (
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Sem classe</span>
+                    ) : null}
                   </span>
                   <span style={{ fontSize: 13, fontVariantNumeric: 'tabular-nums', textAlign: 'center' }}>
                     {c.primeiro_ano === c.ultimo_ano ? c.primeiro_ano : `${c.primeiro_ano}–${c.ultimo_ano}`}
@@ -116,7 +162,7 @@ export default async function CredoresPage({ searchParams }) {
           <div style={{ marginTop: 16, display: 'flex', gap: 8, justifyContent: 'center' }}>
             {pagina > 1 && (
               <Link
-                href={`/credores?busca=${busca}&exercicio=${exercicio || ''}&pagina=${pagina - 1}`}
+                href={queryPagina(pagina - 1)}
                 style={{ padding: '6px 16px', borderRadius: 6, background: 'var(--surface-muted)', fontSize: 13 }}
               >
                 ← Anterior
@@ -127,7 +173,7 @@ export default async function CredoresPage({ searchParams }) {
             </span>
             {pagina * 50 < resultado.total && (
               <Link
-                href={`/credores?busca=${busca}&exercicio=${exercicio || ''}&pagina=${pagina + 1}`}
+                href={queryPagina(pagina + 1)}
                 style={{ padding: '6px 16px', borderRadius: 6, background: 'var(--surface-muted)', fontSize: 13 }}
               >
                 Próxima →
