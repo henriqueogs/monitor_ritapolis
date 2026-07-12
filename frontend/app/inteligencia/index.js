@@ -138,16 +138,16 @@ export default async function InteligenciaPage() {
       {/* ── Alertas de inteligência ── */}
       {alertasInteligencia?.length > 0 && (
         <SectionBlock
-          title="Descobertas nos dados"
-          description="Curiosidades e padrões encontrados nos resumos: repetição temática, valores que somam, e pontos para investigar."
-          aside={<Link href="/descobertas" style={{ fontSize: 13, color: 'var(--text-muted)' }}>Ver todas →</Link>}
+          title="Na Lupa"
+          description="Gastos e contratos que valem um segundo olhar: repetição temática, valores que somam, e pontos para investigar."
+          aside={<Link href="/na-lupa" style={{ fontSize: 13, color: 'var(--text-muted)' }}>Ver todos →</Link>}
         >
           {alertasInteligencia.map((a) => {
             const cor = a.severidade === 'critico' ? 'var(--error)' : a.severidade === 'atencao' ? 'var(--warning)' : 'var(--accent)';
             return (
               <Link
                 key={a.id}
-                href={`/descobertas/${a.id}`}
+                href={`/na-lupa/${a.id}`}
                 className="quality-row"
                 style={{ borderLeft: `4px solid ${cor}`, paddingLeft: 12 }}
               >

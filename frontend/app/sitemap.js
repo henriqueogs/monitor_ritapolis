@@ -15,7 +15,7 @@ const PAGINAS_ESTATICAS = [
   '/transparencia',
   '/transparencia/empenhos',
   '/emendas',
-  '/descobertas',
+  '/na-lupa',
   '/acervo',
   '/finalidade',
   '/inteligencia',
@@ -57,7 +57,7 @@ export default async function sitemap() {
   const urlsDescobertas = (descobertas?.dados || descobertas?.itens || [])
     .filter((a) => a.id)
     .map((a) => ({
-      url: `${SITE_URL}/descobertas/${a.id}`,
+      url: `${SITE_URL}/na-lupa/${a.id}`,
       lastModified: agora,
       changeFrequency: 'monthly',
       priority: 0.5,

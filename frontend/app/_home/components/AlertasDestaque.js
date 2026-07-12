@@ -2,7 +2,7 @@ import Link from 'next/link';
 import SectionBlock from '../../components/SectionBlock';
 import { formatMoney } from '../../lib/format';
 import { nivelLabel } from '../../lib/descobertas';
-import styles from '../../descobertas/styles.module.css';
+import styles from '../../na-lupa/styles.module.css';
 
 export default function AlertasDestaque({ alertas }) {
   if (!alertas || alertas.length === 0) {
@@ -12,15 +12,15 @@ export default function AlertasDestaque({ alertas }) {
   return (
     <div className="content-stack">
       <SectionBlock
-        title="Descobertas nos dados"
-        description="Curiosidades e padrões que a análise encontrou nos documentos públicos — para explorar, não para alarmar."
-        aside={<Link href="/descobertas">Ver todas &rarr;</Link>}
+        title="Na Lupa"
+        description="Gastos e contratos públicos que valem um segundo olhar — com a fonte oficial e como pedir explicação."
+        aside={<Link href="/na-lupa">Ver todos &rarr;</Link>}
       >
         <div className={styles.grid}>
           {alertas.map((alerta) => (
             <Link
               key={alerta.id}
-              href={`/descobertas/${alerta.id}`}
+              href={`/na-lupa/${alerta.id}`}
               className={styles.card}
               data-nivel={alerta.severidade || 'info'}
             >

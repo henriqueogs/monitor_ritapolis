@@ -6,18 +6,13 @@ import { DISCLAIMER_DESCOBERTAS } from '../lib/disclaimer';
 import styles from './styles.module.css';
 
 export const metadata = {
-  title: 'Descobertas',
-  description: 'Curiosidades e padrões encontrados nos documentos públicos de Ritápolis/MG.',
+  title: 'Na Lupa',
+  description:
+    'Gastos e contratos públicos de Ritápolis/MG que valem um segundo olhar — em linguagem simples, com a fonte oficial e como pedir explicação.',
 };
 
-const FILTROS = [
-  { href: '/descobertas', label: 'Todas' },
-  { href: '/descobertas?severidade=critico', label: 'Merece atenção', nivel: 'critico' },
-  { href: '/descobertas?severidade=atencao', label: 'Vale conferir', nivel: 'atencao' },
-  { href: '/descobertas?severidade=info', label: 'Curiosidades', nivel: 'info' },
-  { href: '/descobertas?tipo=tematico', label: 'Padrões' },
-  { href: '/descobertas?tipo=processo', label: 'Por processo' },
-];
+// Quantos temas mostrar como filtro antes de agrupar o resto em "Todas".
+const MAX_CHIPS_TEMA = 8;
 
 function IconDoc() {
   return (
@@ -41,6 +36,18 @@ function discoveryV2(alerta) {
   return alerta?.metadados?.discovery_v2 || null;
 }
 
+// Título que o cidadão lê: a pergunta gerada pela IA quando existe; senão o
+// título factual. Não forçamos "?" em títulos antigos — seria falso.
+function tituloCidadao(alerta) {
+  return discoveryV2(alerta)?.pergunta_cidada || alerta.titulo;
+}
+
+// Resposta curta: a frase direta da IA quando existe; senão a narrativa consolidada.
+function respostaCurta(alerta) {
+  const d = discoveryV2(alerta);
+  return d?.resposta_direta || d?.narrativa_consolidada || d?.hipotese_publica || alerta.narrativa || null;
+}
+
 function metricLabel(alerta) {
   const unidade = alerta?.metadados?.unidade;
   if (unidade === 'R$' && alerta.valor_total != null) {
@@ -52,31 +59,18 @@ function metricLabel(alerta) {
   return alerta.valor_total ? formatMoney(alerta.valor_total) : null;
 }
 
-function investigationLabel(alerta) {
-  const tipo = alerta?.metadados?.discovery_v2?.tipo_investigacao || alerta?.metadados?.investigacao_tipo;
-  const labels = {
-    'meio_ambiente.supressao_arvores': 'meio ambiente',
-    supressao_arvores: 'meio ambiente',
-    'compras.precos_itens': 'compras/precos',
-    'contratos.recorrencia_fornecedor_objeto': 'contratos',
-    'eventos.gastos_eventos_publicos': 'eventos',
-  };
-  return labels[tipo] || tipo || null;
-}
-
-// Ano da descoberta: 3ª parte da chave (tematico|cat|2026) ou ano do fim do
-// período / última publicação. Sem ano → null (vai pro fim).
+// Ano da descoberta: metadado explícito ou ano do fim do período / publicação.
 function anoDescoberta(alerta) {
-  const daChave = String(alerta.chave_unica || '').split('|')[2];
-  if (/^\d{4}$/.test(daChave)) {
-    return Number(daChave);
+  const anoMetadado = Number(alerta?.metadados?.ano);
+  if (Number.isInteger(anoMetadado)) {
+    return anoMetadado;
   }
   const dataFonte = alerta.periodo_fim || alerta.ultima_publicacao_documento || '';
   const m = String(dataFonte).match(/^(\d{4})/);
   return m ? Number(m[1]) : null;
 }
 
-// Agrupa por ano, mais recente primeiro (ano corrente no topo). Sem ano por último.
+// Agrupa por ano, mais recente primeiro. Sem ano por último.
 function agruparPorAno(alertas) {
   const grupos = new Map();
   for (const a of alertas) {
@@ -94,53 +88,37 @@ function agruparPorAno(alertas) {
   });
 }
 
-function chipAtivo(filtro, params) {
-  if (filtro.nivel) {
-    return params.severidade === filtro.nivel;
+// Chips de tema vindos das categorias reais do acervo (nada hard-coded que
+// possa mostrar filtro vazio). Ordena por volume e limita a MAX_CHIPS_TEMA.
+function chipsTema(alertas) {
+  const contagem = new Map();
+  for (const a of alertas) {
+    const cat = a.categoria || 'Geral';
+    contagem.set(cat, (contagem.get(cat) || 0) + 1);
   }
-  if (filtro.href.includes('tipo=tematico')) {
-    return params.tipo === 'tematico';
-  }
-  if (filtro.href.includes('tipo=processo')) {
-    return params.tipo === 'processo';
-  }
-  return !params.severidade && !params.tipo;
+  return [...contagem.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, MAX_CHIPS_TEMA)
+    .map(([categoria, count]) => ({ categoria, count }));
 }
 
-function DescobertaCard({ alerta }) {
-  const discovery = discoveryV2(alerta);
-  const summary = discovery?.narrativa_consolidada || discovery?.hipotese_publica || alerta.narrativa;
-  const lacunas = discovery?.lacunas_encontradas || [];
+function NaLupaCard({ alerta }) {
+  const resposta = respostaCurta(alerta);
   const metric = metricLabel(alerta);
-  const investigation = investigationLabel(alerta);
 
   return (
-    <Link
-      href={`/descobertas/${alerta.id}`}
-      className={styles.card}
-      data-nivel={alerta.severidade || 'info'}
-    >
+    <Link href={`/na-lupa/${alerta.id}`} className={styles.card} data-nivel={alerta.severidade || 'info'}>
       <div className={styles.cardTop}>
+        <span className={styles.tag}>{alerta.categoria || 'Geral'}</span>
         <span className={styles.nivel}>
           <span className={styles.nivelDot} />
           {nivelLabel(alerta.severidade)}
         </span>
-        <span className={styles.tag}>{alerta.categoria || 'Geral'}</span>
-        {investigation ? <span className={styles.tag}>{investigation}</span> : null}
-        <span className={styles.tagSep}>•</span>
-        <span className={styles.tag}>{alerta.tipo === 'processo' ? 'por processo' : 'padrão'}</span>
       </div>
 
-      <h3 className={styles.cardTitle}>{alerta.titulo}</h3>
+      <h3 className={styles.cardTitle}>{tituloCidadao(alerta)}</h3>
 
-      {summary ? <p className={styles.cardSummary}>{summary}</p> : null}
-
-      {lacunas.length ? (
-        <div className={styles.lacunaPreview}>
-          <span>{lacunas.length} lacuna{lacunas.length === 1 ? '' : 's'} nos documentos analisados</span>
-          <small>{lacunas[0]}</small>
-        </div>
-      ) : null}
+      {resposta ? <p className={styles.cardSummary}>{resposta}</p> : null}
 
       <div className={styles.cardFooter}>
         {metric ? (
@@ -168,44 +146,49 @@ function DescobertaCard({ alerta }) {
   );
 }
 
-export default async function DescobertasPage({ searchParams }) {
+export default async function NaLupaPage({ searchParams }) {
   const params = searchParams || {};
   const resultado = await fetchAlertas({
-    tipo: params.tipo || undefined,
-    categoria: params.categoria || undefined,
-    severidade: params.severidade || undefined,
-    status: params.status || 'ativo',
-    pagina: params.pagina || 1,
-    limite: params.limite || 200,
-  }).catch(() => ({ total: 0, dados: [], pagina: 1, limite: 200 }));
+    status: 'ativo',
+    pagina: 1,
+    limite: 200,
+  }).catch(() => ({ total: 0, dados: [] }));
 
-  const alertas = resultado.dados || [];
+  const todos = resultado.dados || [];
+  const temas = chipsTema(todos);
+  const temaAtivo = params.tema || null;
+  const alertas = temaAtivo ? todos.filter((a) => (a.categoria || 'Geral') === temaAtivo) : todos;
 
   return (
     <main className={styles.container}>
       <header className={styles.header}>
         <span className={styles.eyebrow}>Ritápolis.com</span>
-        <h1 className={styles.title}>Descobertas nos dados</h1>
+        <h1 className={styles.title}>Na Lupa</h1>
         <p className={styles.subtitle}>
-          Curiosidades e padrões que a análise encontrou nos documentos públicos. São pontos para
-          explorar e entender — a maioria é perfeitamente normal. O objetivo é dar visibilidade, não
-          alarmar.
+          Gastos e contratos públicos que valem um segundo olhar. Analisamos os documentos para
+          você: cada item traz o que foi encontrado, por que chama atenção e como pedir explicação
+          à Prefeitura. Não é acusação — é ponto de partida para o cidadão fiscalizar.
         </p>
-        <p className={styles.disclaimer}>{DISCLAIMER_DESCOBERTAS}</p>
       </header>
 
-      <nav className={styles.filters} aria-label="Filtrar descobertas">
-        {FILTROS.map((f) => {
-          const ativo = chipAtivo(f, params);
+      <nav className={styles.filters} aria-label="Filtrar por tema">
+        <Link
+          href="/na-lupa"
+          className={`${styles.chip} ${!temaAtivo ? styles.chipActive : ''}`}
+          aria-current={!temaAtivo ? 'page' : undefined}
+        >
+          Todos os temas
+        </Link>
+        {temas.map((t) => {
+          const ativo = temaAtivo === t.categoria;
           return (
             <Link
-              key={f.href}
-              href={f.href}
+              key={t.categoria}
+              href={`/na-lupa?tema=${encodeURIComponent(t.categoria)}`}
               className={`${styles.chip} ${ativo ? styles.chipActive : ''}`}
               aria-current={ativo ? 'page' : undefined}
             >
-              {f.nivel ? <span className={styles.chipDot} data-nivel={f.nivel} /> : null}
-              {f.label}
+              {t.categoria} <span className={styles.chipCount}>{t.count}</span>
             </Link>
           );
         })}
@@ -213,8 +196,8 @@ export default async function DescobertasPage({ searchParams }) {
 
       {alertas.length === 0 ? (
         <div className={styles.empty}>
-          <p className={styles.emptyTitle}>Nenhuma descoberta por aqui</p>
-          <p>Nenhum padrão corresponde a este filtro no momento.</p>
+          <p className={styles.emptyTitle}>Nada neste tema por enquanto</p>
+          <p>Escolha outro tema ou volte para todos.</p>
         </div>
       ) : (
         agruparPorAno(alertas).map((grupo) => (
@@ -222,12 +205,12 @@ export default async function DescobertasPage({ searchParams }) {
             <div className={styles.yearHead}>
               <h2 className={styles.yearTitle}>{grupo.ano ?? 'Sem ano'}</h2>
               <span className={styles.yearCount}>
-                {grupo.itens.length} descoberta{grupo.itens.length === 1 ? '' : 's'}
+                {grupo.itens.length} item{grupo.itens.length === 1 ? '' : 's'}
               </span>
             </div>
             <div className={styles.grid}>
               {grupo.itens.map((alerta) => (
-                <DescobertaCard key={alerta.id} alerta={alerta} />
+                <NaLupaCard key={alerta.id} alerta={alerta} />
               ))}
             </div>
           </section>
@@ -235,8 +218,10 @@ export default async function DescobertasPage({ searchParams }) {
       )}
 
       <p className={styles.count}>
-        {resultado.total} descoberta{resultado.total === 1 ? '' : 's'}
+        {alertas.length} item{alertas.length === 1 ? '' : 's'}
+        {temaAtivo ? ` em "${temaAtivo}"` : ''}
       </p>
+      <p className={styles.disclaimer}>{DISCLAIMER_DESCOBERTAS}</p>
     </main>
   );
 }

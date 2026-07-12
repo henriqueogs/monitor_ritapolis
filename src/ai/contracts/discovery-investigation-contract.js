@@ -6,6 +6,13 @@ const textoPublico = z.string().trim().min(1).max(1400);
 
 const DiscoveryInvestigationContract = z.object({
   hipotese_publica: textoPublico,
+  // Camada "cidadã" (opcional, aditiva): o texto que o público lê primeiro.
+  // pergunta_cidada vira o título; resposta_direta, a frase de abertura;
+  // por_que_olhar, o motivo em uma linha. Opcionais para não invalidar
+  // investigações geradas antes destes campos existirem.
+  pergunta_cidada: z.string().trim().min(1).max(160).optional(),
+  resposta_direta: textoPublico.optional(),
+  por_que_olhar: textoPublico.optional(),
   // Narrativa consolidada (opcional): parágrafo único que já incorpora os
   // fatos relevantes e a lacuna relevante em prosa corrida — a leitura
   // principal do público quando presente. `o_que_os_dados_mostram`/
@@ -53,6 +60,9 @@ const TERMOS_ACUSATORIOS_PUBLICOS = [
 function assertPublicoCauteloso(data) {
   const campos = [
     data.hipotese_publica,
+    data.pergunta_cidada || '',
+    data.resposta_direta || '',
+    data.por_que_olhar || '',
     data.narrativa_consolidada || '',
     ...(data.o_que_os_dados_mostram || []),
     ...(data.lacunas_encontradas || []),

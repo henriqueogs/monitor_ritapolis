@@ -112,6 +112,12 @@ Regras obrigatorias:
 - Toda evidencia_usada deve se referir a documento_id/anexo_id existente no JSON de entrada.
 - nivel_confianca deve ser numero entre 0 e 1.
 - Inclua em limites_publicacao qualquer cuidado que impeça leitura exagerada do caso.
+- pergunta_cidada: uma PERGUNTA curta e concreta que um morador faria sobre este gasto/tema
+  (ex.: "Quanto a prefeitura gastou com eventos em 2025?"). Sem jargao, sem acusacao. Vira o titulo.
+- resposta_direta: UMA frase que responde a pergunta com o fato principal (numero + periodo quando houver),
+  sem preambulo tipo "os dados mostram". Ex.: "Foram R$ X em N contratos de eventos em 2025."
+- por_que_olhar: UMA frase dizendo por que vale um segundo olhar, em linguagem simples e sem alarmismo
+  (ex.: concentracao de fornecedor, valor alto para o porte, informacao ausente na fonte).
 ${narrativaConsolidadaAtiva ? `- narrativa_consolidada: paragrafo UNICO (2-4 frases) que e a leitura principal do publico.
   Some/consolide os fatos relevantes (o_que_os_dados_mostram) e a lacuna mais relevante
   (lacunas_encontradas) na MESMA prosa, em vez de listar fatos soltos. Cite os documentos
@@ -125,6 +131,9 @@ Formato:
 {
   "tema": "tema publico",
   "tipo_investigacao": "tipo.estavel",
+  "pergunta_cidada": "pergunta curta que o morador faria",
+  "resposta_direta": "uma frase respondendo com o fato principal",
+  "por_que_olhar": "uma frase sobre por que vale um segundo olhar",
   "hipotese_publica": "frase cautelosa sobre por que vale olhar",${narrativaConsolidadaAtiva ? `
   "narrativa_consolidada": "paragrafo unico consolidando fatos + lacuna relevante em prosa",` : ''}
   "o_que_os_dados_mostram": ["fato verificavel 1"],

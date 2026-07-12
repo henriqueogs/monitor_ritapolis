@@ -13,7 +13,7 @@ export const DISCLAIMER_IA =
   'Conteúdo organizado automaticamente a partir do documento oficial. ' +
   'Pode conter imprecisões — confira sempre na fonte. Caráter informativo; não substitui o documento original.';
 
-// Descobertas (padrões observados). Evita tom de acusação.
+// Na Lupa (itens que valem um segundo olhar). Evita tom de acusação.
 export const DISCLAIMER_DESCOBERTAS =
-  'Descobertas são padrões observados automaticamente nos dados públicos — não indicam irregularidade ' +
-  'e podem conter imprecisões. Sempre confira na fonte oficial.';
+  'Estes itens são pontos de partida para o cidadão fiscalizar — não são acusação nem indicam ' +
+  'irregularidade, e podem conter imprecisões. Confira sempre na fonte oficial.';
