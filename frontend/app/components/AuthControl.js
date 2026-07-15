@@ -4,26 +4,22 @@ import Link from 'next/link';
 import { LogIn, LogOut, Shield } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-// admin-mode (classe que revela blocos .admin-only) agora segue a sessão real,
-// não um toggle localStorage. ponytail: mantém o flag localStorage como OR só
-// pra preview/E2E ativarem blocos internos sem login; conteúdo .admin-only é
-// ruído interno, não segredo — proteção real é o middleware /admin + requireAdmin.
 const LEGACY_KEY = 'monitor-ritapolis-admin-mode';
 
 export default function AuthControl() {
   const [state, setState] = useState({ ready: false, authenticated: false, user: null });
 
   useEffect(() => {
-    const legacy = window.localStorage.getItem(LEGACY_KEY) === 'true';
+    window.localStorage.removeItem(LEGACY_KEY);
     fetch('/api/auth/session', { cache: 'no-store' })
       .then((r) => r.json())
       .then((body) => {
         const authed = Boolean(body?.authenticated);
-        document.documentElement.classList.toggle('admin-mode', authed || legacy);
+        document.documentElement.classList.toggle('admin-mode', authed);
         setState({ ready: true, authenticated: authed, user: body?.user || null });
       })
       .catch(() => {
-        document.documentElement.classList.toggle('admin-mode', legacy);
+        document.documentElement.classList.remove('admin-mode');
         setState({ ready: true, authenticated: false, user: null });
       });
   }, []);
