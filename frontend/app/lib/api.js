@@ -44,11 +44,30 @@ function buildRequestUrl(path, { forceProxy = false } = {}) {
   return `${backendApiUrl}${path}`;
 }
 
+// No servidor (server components), o fetch nao herda os cookies da requisicao.
+// Encaminha a sessao admin do usuario logado para que os reads protegidos
+// (ex: historico de coletas) autentiquem pela sessao — sem exigir Basic auth.
+function getServerCookieHeader() {
+  try {
+    // require dinamico: next/headers e server-only e so e alcancado no servidor.
+    const { cookies } = require('next/headers');
+    const todos = cookies().getAll();
+    if (!todos.length) return null;
+    return todos.map((c) => `${c.name}=${c.value}`).join('; ');
+  } catch {
+    return null;
+  }
+}
+
 function buildRequestHeaders(path, headers = {}) {
   const finalHeaders = { ...headers };
   if (typeof window === 'undefined' && isProtectedApiPath(path) && !finalHeaders.Authorization) {
+    const cookie = getServerCookieHeader();
+    if (cookie) {
+      finalHeaders.Cookie = cookie;
+    }
     const auth = buildAdminBasicAuthHeader();
-    if (auth) {
+    if (auth && !finalHeaders.Cookie) {
       finalHeaders.Authorization = auth;
     }
   }
