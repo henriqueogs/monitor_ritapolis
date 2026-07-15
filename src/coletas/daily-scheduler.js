@@ -59,7 +59,14 @@ async function coletarTransparencia() {
     // Importação dinâmica para evitar ciclo no momento da injeção
     const ColetorPortalTransparencia = require('../coletores/portal-transparencia');
     const coletor = new ColetorPortalTransparencia();
-    const resultado = { novos: 0, atualizados: 0, erros: 0 };
+    const resultado = {
+      fonte: 'portal_transparencia',
+      status: 'processando',
+      itens_novos: 0,
+      itens_atualizados: 0,
+      itens_com_erro: 0,
+      detalhes: []
+    };
     await coletor.executar(resultado);
 
     logger.info('daily-scheduler: transparência concluída', resultado);
