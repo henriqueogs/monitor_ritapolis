@@ -1,4 +1,4 @@
-/** @type {import('next').NextConfig} */
+const { PHASE_DEVELOPMENT_SERVER } = require('next/constants');
 
 // connect-src precisa da origem da API quando o browser chama direto; chamadas
 // admin passam pelo proxy same-origin, então 'self' cobre a maioria.
@@ -33,11 +33,22 @@ const securityHeaders = [
   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
 ];
 
-const nextConfig = {
+/** @type {(phase: string) => import('next').NextConfig} */
+module.exports = (phase) => ({
   reactStrictMode: true,
+  // Evita que `next build` sobrescreva assets CSS/chunks usados por `next dev`.
+  // Esse conflito deixava o navegador com links para CSS inexistente ou antigo.
+  distDir: phase === PHASE_DEVELOPMENT_SERVER ? '.next-dev' : '.next',
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },
-};
-
-module.exports = nextConfig;
+  async redirects() {
+    return [
+      {
+        source: '/finalidade',
+        destination: '/transparencia/finalidades',
+        permanent: true,
+      },
+    ];
+  },
+});
