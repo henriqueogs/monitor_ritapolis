@@ -93,10 +93,20 @@
 .iaStatusHead,
 .iaStatusRow {
   display: grid;
-  grid-template-columns: 86px minmax(140px, 1fr) 82px 82px 100px 100px 120px;
+  grid-template-columns: 68px minmax(120px, 1fr) 86px 86px 84px 90px 92px 132px;
   gap: 10px;
   align-items: center;
   padding: 12px 14px;
+}
+
+.iaStatusHead span:not(:nth-child(1)):not(:nth-child(2)):not(:last-child),
+.iaStatusRow > span:not([data-label='Tipo']) {
+  font-variant-numeric: tabular-nums;
+}
+
+.iaGap {
+  color: var(--warning);
+  font-weight: 600;
 }
 
 .iaStatusHead {
@@ -126,17 +136,65 @@
   }
 }
 
-@media (max-width: 720px) {
-  .statsGrid {
-    grid-template-columns: 1fr;
+/* Tabela vira cards empilhados: sem scroll horizontal em telas estreitas. */
+@media (max-width: 860px) {
+  .iaStatusHead {
+    display: none;
   }
 
   .iaStatusTable {
-    overflow-x: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border: 0;
+    overflow: visible;
   }
 
-  .iaStatusHead,
   .iaStatusRow {
-    min-width: 760px;
+    grid-template-columns: 1fr;
+    gap: 6px;
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+  }
+
+  .iaStatusRow > * {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+  }
+
+  .iaStatusRow > *::before {
+    content: attr(data-label);
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 0.82rem;
+  }
+
+  .iaStatusRow > strong {
+    font-size: 1.05rem;
+    padding-bottom: 6px;
+    margin-bottom: 2px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .iaStatusRow > a {
+    justify-content: center;
+    align-items: center;
+    min-height: 44px;
+    margin-top: 6px;
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-md);
+  }
+
+  .iaStatusRow > a::before {
+    content: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .statsGrid {
+    grid-template-columns: 1fr;
   }
 }

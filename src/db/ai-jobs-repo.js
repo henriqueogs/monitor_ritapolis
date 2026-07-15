@@ -426,14 +426,33 @@ function listDocumentosParaResumoAi({
 // ── Status e análises ─────────────────────────────────────────────────────────
 
 function getResumoAiStatus({ fonte, tipo, ano } = {}) {
-  const filters = ["IFNULL(d.texto_completo, '') <> ''"];
+  // Filtros de escopo (fonte/tipo/ano) valem para tudo. O filtro de "tem texto"
+  // vale só para o universo elegível a resumo — o acervo total ignora ele, para
+  // que a UI possa mostrar quantos documentos ainda não têm texto (OCR pendente).
+  const baseFilters = [];
   const params = {};
+  if (fonte) { baseFilters.push('d.fonte = @fonte'); params.fonte = fonte; }
+  if (tipo) { baseFilters.push('d.tipo = @tipo'); params.tipo = tipo; }
+  if (ano) { baseFilters.push('d.ano = @ano'); params.ano = Number(ano); }
 
-  if (fonte) { filters.push('d.fonte = @fonte'); params.fonte = fonte; }
-  if (tipo) { filters.push('d.tipo = @tipo'); params.tipo = tipo; }
-  if (ano) { filters.push('d.ano = @ano'); params.ano = Number(ano); }
-
+  const textoFilter = "IFNULL(d.texto_completo, '') <> ''";
+  const filters = [textoFilter, ...baseFilters];
   const whereClause = `WHERE ${filters.join(' AND ')}`;
+  const acervoWhere = baseFilters.length ? `WHERE ${baseFilters.join(' AND ')}` : '';
+
+  // Total no acervo (ignorando o filtro de texto), por ano+tipo, para reconciliar
+  // com a listagem de documentos. Chave "ano|tipo".
+  const acervoPorAnoTipo = new Map(
+    db
+      .prepare(
+        `SELECT d.ano, d.tipo, COUNT(*) AS total_acervo
+         FROM documentos d
+         ${acervoWhere}
+         GROUP BY d.ano, d.tipo`
+      )
+      .all(params)
+      .map((row) => [`${row.ano ?? ''}|${row.tipo ?? ''}`, row.total_acervo])
+  );
 
   const porAnoTipo = db
     .prepare(
@@ -450,10 +469,15 @@ function getResumoAiStatus({ fonte, tipo, ano } = {}) {
        ORDER BY COALESCE(d.ano, 0) DESC, total_documentos DESC`
     )
     .all(params)
-    .map((row) => ({
-      ...row,
-      sem_resumo_ok: row.total_documentos - row.com_resumo_ok,
-    }));
+    .map((row) => {
+      const totalAcervo = acervoPorAnoTipo.get(`${row.ano ?? ''}|${row.tipo ?? ''}`) ?? row.total_documentos;
+      return {
+        ...row,
+        sem_resumo_ok: row.total_documentos - row.com_resumo_ok,
+        total_acervo: totalAcervo,
+        sem_texto: Math.max(0, totalAcervo - row.total_documentos),
+      };
+    });
 
   const porProvider = db
     .prepare(
@@ -482,6 +506,10 @@ function getResumoAiStatus({ fonte, tipo, ano } = {}) {
     )
     .get(params);
 
+  const totalAcervo = db
+    .prepare(`SELECT COUNT(*) AS total FROM documentos d ${acervoWhere}`)
+    .get(params).total;
+
   return {
     filtros: {
       fonte: fonte || null,
@@ -491,6 +519,8 @@ function getResumoAiStatus({ fonte, tipo, ano } = {}) {
     totais: {
       ...totais,
       sem_resumo_ok: totais.total_documentos - totais.com_resumo_ok,
+      total_acervo: totalAcervo,
+      sem_texto: Math.max(0, totalAcervo - totais.total_documentos),
     },
     por_ano_tipo: porAnoTipo,
     por_provider: porProvider,
