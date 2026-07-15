@@ -2,7 +2,7 @@
 
 const { classificarCategoria } = require('./categorias');
 
-const CLASSIFICACAO_FINALIDADE_VERSAO = 'finalidade-v1';
+const CLASSIFICACAO_FINALIDADE_VERSAO = 'finalidade-v2';
 
 const FINALIDADES = Object.freeze({
   ordem_pagamento: { rotulo: 'Ordem de pagamento', tom: 'neutro' },
@@ -11,9 +11,13 @@ const FINALIDADES = Object.freeze({
   transferencia_entidade: { rotulo: 'Entidade', tom: 'entidade' },
   pessoal_encargos: { rotulo: 'Folha', tom: 'pessoal' },
   auxilio_pf: { rotulo: 'Aux\u00edlio', tom: 'auxilio' },
+  distribuicao_gratuita: { rotulo: 'Distribui\u00e7\u00e3o gratuita', tom: 'auxilio' },
+  premiacao: { rotulo: 'Premia\u00e7\u00e3o', tom: 'auxilio' },
   servico_pf: { rotulo: 'Servi\u00e7o PF', tom: 'servico' },
   servico_pj_sem_licitacao: { rotulo: 'Servi\u00e7o PJ', tom: 'servico' },
   investimento: { rotulo: 'Investimento', tom: 'investimento' },
+  sentenca_judicial: { rotulo: 'Senten\u00e7a judicial', tom: 'gov' },
+  indenizacao_restituicao: { rotulo: 'Indeniza\u00e7\u00e3o/Restitui\u00e7\u00e3o', tom: 'neutro' },
   outros: { rotulo: 'Outros', tom: 'neutro' },
 });
 
@@ -205,6 +209,56 @@ function classificarFinalidadeDespesa(despesa = {}) {
       evidencias,
       marcadores,
       regra: 'auxilio_pf_categoria_ou_texto',
+    });
+  }
+
+  if (categoriaComecaCom(despesa, ['3.3.90.91'])) {
+    evidencia(evidencias, 'categoria_economica', despesa.categoria_economica, 'pagamento de sentenca judicial');
+    evidencia(evidencias, 'historico', despesa.historico, 'historico do processo judicial');
+    return finalizar({
+      classe: 'sentenca_judicial',
+      subclasse: categoria.slug,
+      confianca: 0.92,
+      evidencias,
+      marcadores,
+      regra: 'sentenca_judicial_categoria',
+    });
+  }
+
+  if (categoriaComecaCom(despesa, ['3.3.90.93', '3.3.90.94', '3.3.90.95'])) {
+    evidencia(evidencias, 'categoria_economica', despesa.categoria_economica, 'indenizacao ou restituicao');
+    evidencia(evidencias, 'historico', despesa.historico, 'historico da indenizacao/restituicao');
+    return finalizar({
+      classe: 'indenizacao_restituicao',
+      subclasse: categoria.slug,
+      confianca: 0.9,
+      evidencias,
+      marcadores,
+      regra: 'indenizacao_restituicao_categoria',
+    });
+  }
+
+  if (categoriaComecaCom(despesa, ['3.3.90.31'])) {
+    evidencia(evidencias, 'categoria_economica', despesa.categoria_economica, 'premiacao cultural, cientifica, artistica ou desportiva');
+    return finalizar({
+      classe: 'premiacao',
+      subclasse: categoria.slug,
+      confianca: 0.9,
+      evidencias,
+      marcadores,
+      regra: 'premiacao_categoria',
+    });
+  }
+
+  if (categoriaComecaCom(despesa, ['3.3.90.32'])) {
+    evidencia(evidencias, 'categoria_economica', despesa.categoria_economica, 'material/bem/servico para distribuicao gratuita');
+    return finalizar({
+      classe: 'distribuicao_gratuita',
+      subclasse: categoria.slug,
+      confianca: 0.9,
+      evidencias,
+      marcadores,
+      regra: 'distribuicao_gratuita_categoria',
     });
   }
 

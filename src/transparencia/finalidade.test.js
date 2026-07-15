@@ -1,6 +1,6 @@
 'use strict';
 
-const { classificarFinalidadeDespesa, FINALIDADES } = require('./finalidade');
+const { classificarFinalidadeDespesa, FINALIDADES, getFinalidadeMeta } = require('./finalidade');
 
 function despesa(base = {}) {
   return {
@@ -82,5 +82,97 @@ describe('finalidade de empenhos', () => {
     expect(c.classe_principal).toBe('outros');
     expect(c.subclasse).toBe('material');
     expect(c.marcadores).toEqual(expect.arrayContaining(['categoria:material']));
+  });
+
+  it('classifica indenizacao/restituicao pelo elemento 3.3.90.93', () => {
+    const c = classificarFinalidadeDespesa(despesa({
+      categoria_economica: '3.3.90.93.00 - INDENIZACOES E RESTITUICOES',
+      historico: 'RESTITUICAO DE VALOR PAGO A MAIOR',
+    }));
+
+    expect(c.classe_principal).toBe('indenizacao_restituicao');
+    expect(c.confianca).toBeGreaterThanOrEqual(0.85);
+  });
+
+  it('classifica sentenca judicial pelo elemento 3.3.90.91', () => {
+    const c = classificarFinalidadeDespesa(despesa({
+      categoria_economica: '3.3.90.91.00 - SENTENCAS JUDICIAIS',
+    }));
+
+    expect(c.classe_principal).toBe('sentenca_judicial');
+  });
+
+  it('classifica premiacao pelo elemento 3.3.90.31', () => {
+    const c = classificarFinalidadeDespesa(despesa({
+      categoria_economica: '3.3.90.31.00 - PREMIACOES CULT, CIENT, ARTIST, DESPORT, OUTR',
+    }));
+
+    expect(c.classe_principal).toBe('premiacao');
+  });
+
+  it('classifica distribuicao gratuita pelo elemento 3.3.90.32', () => {
+    const c = classificarFinalidadeDespesa(despesa({
+      categoria_economica: '3.3.90.32.00 - MATERIAL BEM OU SERVICO. P/ DISTRIB. GRATUITA',
+    }));
+
+    expect(c.classe_principal).toBe('distribuicao_gratuita');
+  });
+
+  it('classifica pessoal por texto de folha quando categoria nao e 3.1', () => {
+    const c = classificarFinalidadeDespesa(despesa({
+      categoria_economica: '3.3.90.47.00 - OBRIGACOES TRIBUTARIAS E CONTRIBUTIVAS',
+      historico: 'PAGAMENTO FOLHA E OBRIGACOES PATRONAIS INSS',
+    }));
+
+    expect(c.classe_principal).toBe('pessoal_encargos');
+    expect(c.regra).toBe('pessoal_categoria_ou_texto');
+  });
+
+  it('classifica auxilio por texto quando categoria nao e 3.3.90.48', () => {
+    const c = classificarFinalidadeDespesa(despesa({
+      categoria_economica: '3.3.90.18.00 - AUXILIO FINANCEIRO A ESTUDANTES',
+      historico: 'AUXILIO TRANSPORTE ESCOLAR',
+    }));
+
+    expect(c.classe_principal).toBe('auxilio_pf');
+  });
+
+  it('classifica servico PF pelo elemento 3.3.90.36', () => {
+    const c = classificarFinalidadeDespesa(despesa({
+      categoria_economica: '3.3.90.36.00 - OUTROS SERVICOS DE TERCEIROS - PESSOA FISICA',
+    }));
+
+    expect(c.classe_principal).toBe('servico_pf');
+  });
+
+  it('classifica servico PJ sem licitacao pelo elemento 3.3.90.39', () => {
+    const c = classificarFinalidadeDespesa(despesa({
+      categoria_economica: '3.3.90.39.00 - OUTROS SERVICOS DE TERCEIROS - PESSOA JURIDICA',
+    }));
+
+    expect(c.classe_principal).toBe('servico_pj_sem_licitacao');
+  });
+
+  it('classifica investimento pelo grupo 4', () => {
+    const c = classificarFinalidadeDespesa(despesa({
+      categoria_economica: '4.4.90.52.00 - EQUIPAMENTOS E MATERIAL PERMANENTE',
+    }));
+
+    expect(c.classe_principal).toBe('investimento');
+  });
+
+  it('getFinalidadeMeta cai em outros para classe desconhecida', () => {
+    expect(getFinalidadeMeta('inexistente')).toBe(FINALIDADES.outros);
+  });
+
+  it('deriva subclasse de modalidade nao padronizada via slug', () => {
+    const c = classificarFinalidadeDespesa(despesa({
+      documento_id: null,
+      modalidade: 'Chamamento Publico - 0007/2026',
+      categoria_economica: '3.3.90.39.00 - OUTROS SERVICOS DE TERCEIROS - PESSOA JURIDICA',
+    }));
+
+    expect(c.classe_principal).toBe('licitacao');
+    expect(c.subclasse).toMatch(/^chamamento_publico/);
   });
 });

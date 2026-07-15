@@ -4,6 +4,7 @@ import SectionBlock from '../../components/SectionBlock';
 import TabelaEmpenhos from '../../components/TabelaEmpenhos';
 import SearchInput from '../../components/SearchInput';
 import TransparenciaSubnav from '../../components/TransparenciaSubnav';
+import { FINALIDADE_OPCOES } from '../../lib/finalidades';
 
 export const metadata = {
   title: 'Empenhos — Dinheiro público',
@@ -12,18 +13,7 @@ export const metadata = {
 
 const LIMITE = 25;
 const ANO_MIN = 2022;
-const FINALIDADES = [
-  { value: 'licitacao', label: 'Licita\u00e7\u00e3o' },
-  { value: 'diaria_servidor', label: 'Di\u00e1ria' },
-  { value: 'transferencia_entidade', label: 'Entidade' },
-  { value: 'pessoal_encargos', label: 'Folha' },
-  { value: 'auxilio_pf', label: 'Aux\u00edlio' },
-  { value: 'servico_pf', label: 'Servi\u00e7o PF' },
-  { value: 'servico_pj_sem_licitacao', label: 'Servi\u00e7o PJ' },
-  { value: 'investimento', label: 'Investimento' },
-  { value: 'ordem_pagamento', label: 'Ordem de pagamento' },
-  { value: 'outros', label: 'Outros' },
-];
+const FINALIDADES = FINALIDADE_OPCOES;
 
 export default async function EmpenhosPage({ searchParams }) {
   const q = searchParams?.q || '';

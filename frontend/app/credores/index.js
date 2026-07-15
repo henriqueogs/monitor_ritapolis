@@ -4,24 +4,14 @@ import { formatMoney } from '../lib/format';
 import SectionBlock from '../components/SectionBlock';
 import FinalidadeBadge from '../components/FinalidadeBadge';
 import TransparenciaSubnav from '../components/TransparenciaSubnav';
+import { FINALIDADE_OPCOES } from '../lib/finalidades';
 
 export const metadata = {
   title: 'Credores',
   description: 'Quem recebe dinheiro da Prefeitura de Ritápolis/MG: empresas, pessoas, ONGs, órgãos públicos.',
 };
 
-const FINALIDADES = [
-  { value: 'licitacao', label: 'Licitação' },
-  { value: 'diaria_servidor', label: 'Diária' },
-  { value: 'transferencia_entidade', label: 'Entidade' },
-  { value: 'pessoal_encargos', label: 'Folha' },
-  { value: 'auxilio_pf', label: 'Auxílio' },
-  { value: 'servico_pf', label: 'Serviço PF' },
-  { value: 'servico_pj_sem_licitacao', label: 'Serviço PJ' },
-  { value: 'investimento', label: 'Investimento' },
-  { value: 'ordem_pagamento', label: 'Ordem de pagamento' },
-  { value: 'outros', label: 'Outros' },
-];
+const FINALIDADES = FINALIDADE_OPCOES;
 
 export default async function CredoresPage({ searchParams }) {
   const busca = searchParams?.busca || '';

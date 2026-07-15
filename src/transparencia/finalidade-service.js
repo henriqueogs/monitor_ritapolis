@@ -26,9 +26,13 @@ const DESCRICOES = Object.freeze({
   transferencia_entidade: 'Repasses, subvencoes, convenios, termos de fomento ou colaboracao com entidades.',
   pessoal_encargos: 'Folha, vencimentos, encargos patronais e obrigacoes de pessoal.',
   auxilio_pf: 'Auxilios e apoios financeiros a pessoa fisica, sem identificacao de CPF publico.',
+  distribuicao_gratuita: 'Material, bem ou servico adquirido para distribuicao gratuita a cidadaos.',
+  premiacao: 'Premiacoes culturais, cientificas, artisticas ou desportivas.',
   servico_pf: 'Contratacao de servicos de pessoa fisica.',
   servico_pj_sem_licitacao: 'Servicos de pessoa juridica sem licitacao vinculada na base municipal.',
   investimento: 'Obras, equipamentos e outros itens do grupo de investimento.',
+  sentenca_judicial: 'Pagamentos de sentencas judiciais.',
+  indenizacao_restituicao: 'Indenizacoes e restituicoes pagas pelo municipio.',
   outros: 'Empenhos sem evidencia suficiente para uma regra mais especifica.',
 });
 
@@ -39,9 +43,13 @@ const REGRAS = Object.freeze({
   transferencia_entidade: 'Detectada por elemento 3.3.50 ou texto de repasse, convenio, APAE ou associacao.',
   pessoal_encargos: 'Detectada por grupo 3.1 ou textos de folha, vencimentos e encargos.',
   auxilio_pf: 'Detectada por elemento 3.3.90.48 ou textos de auxilio/subsidio.',
+  distribuicao_gratuita: 'Detectada por elemento 3.3.90.32.',
+  premiacao: 'Detectada por elemento 3.3.90.31.',
   servico_pf: 'Detectada por elemento 3.3.90.36.',
   servico_pj_sem_licitacao: 'Detectada por elementos 3.3.90.39 ou 3.3.93.39 sem licitacao vinculada.',
   investimento: 'Detectada por grupo 4.',
+  sentenca_judicial: 'Detectada por elemento 3.3.90.91.',
+  indenizacao_restituicao: 'Detectada por elementos 3.3.90.93, 94 ou 95.',
   outros: 'Fallback quando nenhuma regra anterior explica o empenho.',
 });
 
