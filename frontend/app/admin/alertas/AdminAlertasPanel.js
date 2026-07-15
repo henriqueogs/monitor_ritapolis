@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import {
-  fetchAlertas,
+  fetchAlertasAdmin,
   fetchAlertasStats,
   fetchAlertasConfig,
   updateAlertaStatus,
@@ -37,7 +37,7 @@ export default function AdminAlertasPanel({ initialStats, initialConfig, initial
   const recarregar = useCallback(async () => {
     const [s, a] = await Promise.all([
       fetchAlertasStats().catch(() => null),
-      fetchAlertas({ status: 'ativo', limite: 50 }).catch(() => null),
+      fetchAlertasAdmin({ status: 'ativo', limite: 50 }).catch(() => null),
     ]);
     if (s) setStats(s);
     if (a) setAlertas(a.dados || []);
@@ -170,7 +170,7 @@ export default function AdminAlertasPanel({ initialStats, initialConfig, initial
                 </span>
               </div>
               <div className={styles.alertaAcoes}>
-                <a className="button button-secondary" href={`/descobertas/${a.id}`} target="_blank" rel="noreferrer">
+                <a className="button button-secondary" href={`/na-lupa/${a.id}`} target="_blank" rel="noreferrer">
                   ver
                 </a>
                 <button className="button button-secondary" disabled={loading === `alerta-${a.id}`} onClick={() => handleStatus(a.id, 'arquivado')}>

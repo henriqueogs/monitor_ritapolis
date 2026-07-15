@@ -745,12 +745,11 @@ function createServer() {
 
   // GET /api/alertas — lista paginada (filtros: tipo, categoria, severidade, status, periodo)
   app.get('/api/alertas', (req, res) => {
-    const { tipo, categoria, severidade, status, periodoInicio, periodoFim, pagina, limite } = req.query;
-    return res.json(alertasRepo.listarAlertas({
+    const { tipo, categoria, severidade, periodoInicio, periodoFim, pagina, limite } = req.query;
+    return res.json(alertasRepo.listarAlertasPublicos({
       tipo: tipo || undefined,
       categoria: categoria || undefined,
       severidade: severidade || undefined,
-      status: status || undefined,
       periodoInicio: periodoInicio || undefined,
       periodoFim: periodoFim || undefined,
       pagina: pagina ? Number(pagina) : 1,
@@ -761,13 +760,12 @@ function createServer() {
   // GET /api/alertas/destaques — top N para home (ativos, mais recentes)
   app.get('/api/alertas/destaques', (req, res) => {
     const limite = req.query.limite ? Number(req.query.limite) : 5;
-    return res.json(alertasRepo.listarDestaques(limite));
+    return res.json(alertasRepo.listarDestaquesPublicos(limite));
   });
 
   // GET /api/alertas/stats — contagem por severidade
   app.get('/api/alertas/stats', (req, res) => {
-    const status = req.query.status || 'ativo';
-    return res.json(alertasRepo.contarPorSeveridade(status));
+    return res.json(alertasRepo.contarPorSeveridade('ativo'));
   });
 
   // GET /api/alertas/config — ler configurações
@@ -811,12 +809,38 @@ function createServer() {
   });
 
   // GET /api/alertas/:id — detalhe com documentos vinculados
+  app.get('/api/admin/alertas', (req, res) => {
+    const { tipo, categoria, severidade, status, periodoInicio, periodoFim, pagina, limite } = req.query;
+    return res.json(alertasRepo.listarAlertas({
+      tipo: tipo || undefined,
+      categoria: categoria || undefined,
+      severidade: severidade || undefined,
+      status: status || undefined,
+      periodoInicio: periodoInicio || undefined,
+      periodoFim: periodoFim || undefined,
+      pagina: pagina ? Number(pagina) : 1,
+      limite: limite ? Number(limite) : 20,
+    }));
+  });
+
+  app.get('/api/admin/alertas/:id', (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'id invalido' });
+    }
+    const alerta = alertasRepo.getAlerta(id);
+    if (!alerta) {
+      return res.status(404).json({ error: 'Alerta nao encontrado' });
+    }
+    return res.json(alerta);
+  });
+
   app.get('/api/alertas/:id', (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) {
       return res.status(400).json({ error: 'id inválido' });
     }
-    const alerta = alertasRepo.getAlerta(id);
+    const alerta = alertasRepo.getAlertaPublico(id);
     if (!alerta) {
       return res.status(404).json({ error: 'Alerta não encontrado' });
     }

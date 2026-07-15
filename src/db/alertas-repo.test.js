@@ -141,6 +141,75 @@ describe('alertas-repo', () => {
     });
   });
 
+  describe('payload publico', () => {
+    it('remove campos administrativos de descobertas e evidencias', () => {
+      seedDocumento(1, '2026-03-01');
+      const { id } = repo.upsertAlerta(
+        {
+          tipo: 'tematico',
+          categoria: 'Meio ambiente',
+          severidade: 'atencao',
+          titulo: 'Sinal publico',
+          narrativa: 'Resumo publico.',
+          metadados: {
+            unidade: 'R$',
+            segredo: 'interno',
+            discovery_v2: {
+              tipo_investigacao: 'meio_ambiente.supressao_arvores',
+              narrativa_consolidada: 'Narrativa publica.',
+              lacunas_encontradas: ['Laudo nao apareceu.'],
+              metricas: { total: 2 },
+              analise_admin: 'Texto interno incisivo.',
+              status: 'fallback',
+              provider: 'nvidia',
+              modelo: 'modelo-interno',
+              erro: 'timeout',
+              payload_json: { raw: true },
+            },
+          },
+          documentos_ids: [1],
+          chave_unica: 'tematico|meio-ambiente|2026',
+        },
+        [{ documento_id: 1, papel: 'origem', trecho_fonte: 'trecho bruto' }],
+        [{
+          documento_id: 1,
+          papel: 'evidencia',
+          trecho_fonte: 'trecho publico',
+          metadados: {
+            valor: 100,
+            portal_url: 'https://portal.example',
+            segredo: 'nao expor',
+          },
+        }]
+      );
+
+      const publico = repo.getAlertaPublico(id);
+
+      expect(publico.chave_unica).toBeUndefined();
+      expect(publico.metadados_json).toBeUndefined();
+      expect(publico.metadados.segredo).toBeUndefined();
+      expect(publico.metadados.discovery_v2.narrativa_consolidada).toBe('Narrativa publica.');
+      expect(publico.metadados.discovery_v2.analise_admin).toBeUndefined();
+      expect(publico.metadados.discovery_v2.status).toBeUndefined();
+      expect(publico.metadados.discovery_v2.provider).toBeUndefined();
+      expect(publico.metadados.discovery_v2.modelo).toBeUndefined();
+      expect(publico.metadados.discovery_v2.erro).toBeUndefined();
+      expect(publico.documentos[0].trecho_fonte).toBeUndefined();
+      expect(publico.evidencias[0].metadados).toEqual({
+        valor: 100,
+        portal_url: 'https://portal.example',
+      });
+    });
+
+    it('nao expõe alertas arquivados no payload publico', () => {
+      const { id } = repo.upsertAlerta({ tipo: 'tematico', titulo: 'Arquivar', chave_unica: 'pub-archive', severidade: 'info' }, []);
+      repo.setAlertaStatus(id, 'arquivado');
+
+      expect(repo.getAlertaPublico(id)).toBeNull();
+      expect(repo.listarAlertasPublicos({ status: 'arquivado' }).total).toBe(0);
+    });
+  });
+
   describe('watermark', () => {
     it('cria e acumula total_gerados', () => {
       repo.setWatermark('ciclo', { ultimoProcessadoEm: '2026-06-01T00:00:00Z', totalGerados: 2 });

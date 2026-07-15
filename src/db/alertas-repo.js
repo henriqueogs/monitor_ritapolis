@@ -45,6 +45,110 @@ function mapAlerta(row) {
   };
 }
 
+function pickDefined(source, keys) {
+  const out = {};
+  for (const key of keys) {
+    if (source && source[key] !== undefined && source[key] !== null) {
+      out[key] = source[key];
+    }
+  }
+  return out;
+}
+
+function discoveryPublico(discovery) {
+  if (!discovery || typeof discovery !== 'object') {
+    return null;
+  }
+  return pickDefined(discovery, [
+    'tipo_investigacao',
+    'hipotese_publica',
+    'narrativa_consolidada',
+    'o_que_os_dados_mostram',
+    'lacunas_encontradas',
+    'perguntas_abertas',
+    'metricas',
+    'comparativos',
+  ]);
+}
+
+function metadadosPublicos(metadados) {
+  if (!metadados || typeof metadados !== 'object') {
+    return {};
+  }
+  const out = pickDefined(metadados, ['unidade', 'ano', 'investigacao_tipo']);
+  const discovery = discoveryPublico(metadados.discovery_v2);
+  if (discovery && Object.keys(discovery).length) {
+    out.discovery_v2 = discovery;
+  }
+  return out;
+}
+
+function evidenciaPublica(evidencia) {
+  if (!evidencia) {
+    return evidencia;
+  }
+  const metadados = pickDefined(evidencia.metadados, [
+    'empenho_id',
+    'empenho',
+    'exercicio',
+    'credor_nome',
+    'valor',
+    'portal_url',
+  ]);
+
+  return {
+    id: evidencia.id,
+    documento_id: evidencia.documento_id,
+    anexo_id: evidencia.anexo_id,
+    papel: evidencia.papel,
+    trecho_fonte: metadados.empenho_id ? evidencia.trecho_fonte : undefined,
+    documento_titulo: evidencia.documento_titulo,
+    documento_tipo: evidencia.documento_tipo,
+    documento_ano: evidencia.documento_ano,
+    documento_data_publicacao: evidencia.documento_data_publicacao,
+    anexo_nome: evidencia.anexo_nome,
+    anexo_tipo: evidencia.anexo_tipo,
+    anexo_url: evidencia.anexo_url,
+    fato_descricao: evidencia.fato_descricao,
+    fato_quantidade: evidencia.fato_quantidade,
+    fato_unidade: evidencia.fato_unidade,
+    fato_valor: evidencia.fato_valor,
+    metadados,
+  };
+}
+
+function alertaPublico(alerta) {
+  if (!alerta || alerta.status !== 'ativo') {
+    return null;
+  }
+  const documentos = Array.isArray(alerta.documentos)
+    ? alerta.documentos.map(({ trecho_fonte: _trecho, ...documento }) => documento)
+    : undefined;
+  const evidencias = Array.isArray(alerta.evidencias)
+    ? alerta.evidencias.map(evidenciaPublica)
+    : undefined;
+
+  return {
+    id: alerta.id,
+    tipo: alerta.tipo,
+    categoria: alerta.categoria,
+    subcategoria: alerta.subcategoria,
+    severidade: alerta.severidade,
+    titulo: alerta.titulo,
+    narrativa: alerta.narrativa,
+    metadados: metadadosPublicos(alerta.metadados),
+    periodo_inicio: alerta.periodo_inicio,
+    periodo_fim: alerta.periodo_fim,
+    valor_total: alerta.valor_total,
+    valor_periodo_label: alerta.valor_periodo_label,
+    documentos_ids: alerta.documentos_ids,
+    questionamentos: alerta.questionamentos,
+    ultima_publicacao_documento: alerta.ultima_publicacao_documento,
+    ...(documentos ? { documentos } : {}),
+    ...(evidencias ? { evidencias } : {}),
+  };
+}
+
 function camposDe(alerta) {
   return {
     tipo: alerta.tipo,
@@ -202,6 +306,14 @@ function listarAlertas({
 }
 
 // Destaques para a home: ativos, mais severos e mais recentes (por publicação).
+function listarAlertasPublicos(params = {}) {
+  const resultado = listarAlertas({ ...params, status: 'ativo' });
+  return {
+    ...resultado,
+    dados: resultado.dados.map(alertaPublico).filter(Boolean),
+  };
+}
+
 function listarDestaques(limite = 5) {
   const rows = db
     .prepare(
@@ -212,6 +324,10 @@ function listarDestaques(limite = 5) {
     )
     .all(limite);
   return rows.map(mapAlerta);
+}
+
+function listarDestaquesPublicos(limite = 5) {
+  return listarDestaques(limite).map(alertaPublico).filter(Boolean);
 }
 
 function getAlerta(id) {
@@ -252,6 +368,10 @@ function getAlerta(id) {
       metadados: fromJson(e.metadados_json, {}),
     }));
   return { ...mapAlerta(row), documentos, evidencias };
+}
+
+function getAlertaPublico(id) {
+  return alertaPublico(getAlerta(id));
 }
 
 function listarInvestigacoesPendentes({ limite = 5 } = {}) {
@@ -344,9 +464,13 @@ module.exports = {
   ORDEM_SEVERIDADE,
   upsertAlerta,
   removerAtivosNaoListados,
+  alertaPublico,
   listarAlertas,
+  listarAlertasPublicos,
   listarDestaques,
+  listarDestaquesPublicos,
   getAlerta,
+  getAlertaPublico,
   listarInvestigacoesPendentes,
   setAlertaStatus,
   contarPorSeveridade,

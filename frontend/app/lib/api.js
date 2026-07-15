@@ -508,12 +508,20 @@ export function fetchAlertas(params = {}) {
   return fetchJson(`/alertas${buildQuery(params)}`);
 }
 
+export function fetchAlertasAdmin(params = {}) {
+  return fetchJson(`/admin/alertas${buildQuery(params)}`, { revalidate: 0 });
+}
+
 export function fetchAlertasDestaques(limite = 5) {
   return fetchJson(`/alertas/destaques?limite=${limite}`);
 }
 
 export function fetchAlerta(id) {
   return fetchJson(`/alertas/${id}`);
+}
+
+export function fetchAlertaAdmin(id) {
+  return fetchJson(`/admin/alertas/${id}`, { revalidate: 0 });
 }
 
 export function fetchAlertasStats() {
