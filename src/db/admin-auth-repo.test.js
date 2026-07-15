@@ -29,6 +29,12 @@ describe('admin-auth-repo lockout + purge', () => {
     expect(r.locked).toBeFalsy();
   });
 
+  it('aceita e-mail como usuario e autentica normalizando o caso', () => {
+    repo.createAdminUser({ username: 'Admin@Ritapolis.COM', password: SENHA });
+    const r = repo.verifyAdminLogin({ username: 'admin@ritapolis.com', password: SENHA });
+    expect(r.user?.username).toBe('admin@ritapolis.com');
+  });
+
   it('bloqueia conta após N falhas e rejeita mesmo com senha certa durante lockout', () => {
     for (let i = 0; i < 5; i += 1) {
       repo.verifyAdminLogin({ username: 'chefe', password: 'errada' }, { maxFailed: 5, lockMs: 60000 });

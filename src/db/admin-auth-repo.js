@@ -4,7 +4,8 @@ const crypto = require('crypto');
 const { db } = require('./connection');
 const { hashPassword, verifyPassword, validatePasswordStrength } = require('../auth/admin-password');
 
-const USERNAME_RE = /^[a-zA-Z0-9._-]{3,64}$/;
+// Aceita usuário simples e e-mail (local@dominio): letras, números e . _ - % + @
+const USERNAME_RE = /^[a-zA-Z0-9._%+@-]{3,64}$/;
 
 function nowIso() {
   return new Date().toISOString();
@@ -67,7 +68,7 @@ function validateUsername(username) {
   if (!USERNAME_RE.test(value)) {
     return {
       ok: false,
-      error: 'Usuario deve ter 3 a 64 caracteres e usar letras, numeros, ponto, hifen ou sublinhado',
+      error: 'Usuario deve ter 3 a 64 caracteres (letras, numeros, . _ - % + @); e-mail e aceito',
     };
   }
   return { ok: true, value };
