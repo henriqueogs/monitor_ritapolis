@@ -16,6 +16,12 @@ const logger = require('../logger');
 const config = require('../config');
 const { db } = require('../db');
 const { consolidarFornecedores } = require('../db');
+const { backfillClassificacoesDespesas } = require('../db/transparencia-repo');
+
+// Máximo de empenhos reclassificados por tick quando a versão da classificação
+// de finalidade muda. Empenhos novos já são classificados no insert; isto só
+// dilui o reprocessamento do acervo antigo em lotes, evitando um passe pesado.
+const LIMITE_RECLASSIFICACAO_TICK = 2000;
 
 // ── Controle de estado ────────────────────────────────────────────────────────
 
@@ -146,10 +152,32 @@ async function sincronizarPncp() {
   }
 }
 
+// ── Reprocessamento de classificação de finalidade ────────────────────────────
+
+/**
+ * Reclassifica em lote os empenhos com versão de finalidade defasada. Quando
+ * nenhuma versão está defasada, não seleciona nada e sai barato.
+ */
+function reprocessarFinalidades() {
+  try {
+    const r = backfillClassificacoesDespesas({ limite: LIMITE_RECLASSIFICACAO_TICK });
+    if (r.atualizadas > 0) {
+      logger.info('daily-scheduler: finalidades reclassificadas', {
+        atualizadas: r.atualizadas,
+        pendentes: r.pendentes,
+        versao: r.versao,
+      });
+    }
+  } catch (err) {
+    logger.warn('daily-scheduler: erro ao reclassificar finalidades', { erro: err.message });
+  }
+}
+
 // ── Tick ─────────────────────────────────────────────────────────────────────
 
 async function tick() {
   await coletarTransparencia();
+  reprocessarFinalidades();
   await sincronizarPncp();
 }
 
