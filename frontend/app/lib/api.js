@@ -315,6 +315,14 @@ export function fetchTransparenciaGastos(params = {}) {
   return fetchJson(`/transparencia/gastos${buildQuery(params)}`).catch(() => null);
 }
 
+export function fetchTransparenciaFinalidades(params = {}) {
+  return fetchJson(`/transparencia/finalidades${buildQuery(params)}`).catch(() => null);
+}
+
+export function fetchTransparenciaFinalidade(classe, params = {}) {
+  return fetchJson(`/transparencia/finalidades/${classe}${buildQuery(params)}`).catch(() => null);
+}
+
 export function fetchFilaPagamentos(params = {}) {
   return fetchJson(`/transparencia/fila-pagamentos${buildQuery(params)}`).catch(() => null);
 }

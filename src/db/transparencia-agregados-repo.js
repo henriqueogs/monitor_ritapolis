@@ -8,6 +8,11 @@
  */
 
 const { db } = require('./index');
+const {
+  CLASSIFICACAO_SELECT,
+  CLASSIFICACAO_JOIN,
+  decorarDespesaComFinalidade,
+} = require('./transparencia-classificacao-repo');
 
 const LIMITE_EXEMPLOS = 5;
 
@@ -20,13 +25,15 @@ function prefixosWhere(prefixos, coluna = 'categoria_economica') {
 function getDespesaById(id) {
   const row = db
     .prepare(
-      `SELECT td.*, d.titulo AS documento_titulo, d.numero AS documento_numero
+      `SELECT td.*, d.titulo AS documento_titulo, d.numero AS documento_numero,
+              ${CLASSIFICACAO_SELECT}
        FROM transparencia_despesas td
+       ${CLASSIFICACAO_JOIN}
        LEFT JOIN documentos d ON d.id = td.documento_id
        WHERE td.id = ?`
     )
     .get(Number(id));
-  return row || null;
+  return row ? decorarDespesaComFinalidade(row) : null;
 }
 
 /**

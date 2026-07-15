@@ -5,9 +5,23 @@ import TabelaEmpenhos from '../../../components/TabelaEmpenhos';
 import SearchInput from '../../../components/SearchInput';
 
 const LIMITE = 25;
+const FINALIDADES = [
+  { value: 'licitacao', label: 'Licita\u00e7\u00e3o' },
+  { value: 'diaria_servidor', label: 'Di\u00e1ria' },
+  { value: 'transferencia_entidade', label: 'Entidade' },
+  { value: 'pessoal_encargos', label: 'Folha' },
+  { value: 'auxilio_pf', label: 'Aux\u00edlio' },
+  { value: 'servico_pf', label: 'Servi\u00e7o PF' },
+  { value: 'servico_pj_sem_licitacao', label: 'Servi\u00e7o PJ' },
+  { value: 'investimento', label: 'Investimento' },
+  { value: 'ordem_pagamento', label: 'Ordem de pagamento' },
+  { value: 'outros', label: 'Outros' },
+];
 
-function tituloPeriodo(exercicio, porAno) {
+function tituloPeriodo({ exercicio, mandato, periodoTodos, porAno }) {
   if (exercicio) {return `Empenhos de ${exercicio}`;}
+  if (mandato) {return `Empenhos do mandato ${mandato}-${mandato + 3}`;}
+  if (periodoTodos) {return 'Todos os empenhos';}
   const anos = (porAno || []).map((r) => r.ano).filter(Boolean);
   if (!anos.length) {return 'Todos os empenhos';}
   const min = Math.min(...anos);
@@ -19,10 +33,12 @@ function tituloPeriodo(exercicio, porAno) {
  * Lista completa e paginada de empenhos do credor, com filtro por exercício.
  * Server component — paginação via query params, como em /credores.
  */
-export default async function EmpenhosCredor({ cnpj, porAno, pagina = 1, exercicio, q }) {
+export default async function EmpenhosCredor({ cnpj, porAno, pagina = 1, exercicio, mandato, periodoTodos, q, finalidade }) {
   const resultado = await fetchTransparenciaDespesas({
     credor_cnpj: cnpj,
     exercicio,
+    mandato,
+    finalidade: finalidade || undefined,
     q: q || undefined,
     pagina,
     limite: LIMITE,
@@ -31,18 +47,24 @@ export default async function EmpenhosCredor({ cnpj, porAno, pagina = 1, exercic
   const total = resultado?.total || 0;
   const totalPaginas = Math.max(1, Math.ceil(total / LIMITE));
   const anosDisponiveis = (porAno || []).map((r) => r.ano).sort((a, b) => b - a);
+  const periodoParams = {
+    ...(exercicio ? { exercicio: String(exercicio) } : {}),
+    ...(mandato ? { mandato: String(mandato) } : {}),
+    ...(periodoTodos ? { periodo: 'todos' } : {}),
+  };
 
   const hrefPagina = (p, ex = exercicio) =>
     `/credores/${cnpj}?${new URLSearchParams({
-      ...(ex ? { exercicio: String(ex) } : {}),
+      ...(ex ? { exercicio: String(ex) } : periodoParams),
       ...(q ? { q } : {}),
+      ...(finalidade ? { finalidade } : {}),
       ...(p > 1 ? { pagina: String(p) } : {}),
     })}#empenhos`;
 
   return (
     <div id="empenhos">
       <SectionBlock
-        title={tituloPeriodo(exercicio, porAno)}
+        title={tituloPeriodo({ exercicio, mandato, periodoTodos, porAno })}
         description={`${total} empenho${total !== 1 ? 's' : ''} registrado${total !== 1 ? 's' : ''} no Portal da Transparência da Prefeitura. Cada linha tem link para o detalhamento oficial na fonte.`}
       >
         {anosDisponiveis.length > 1 && (
@@ -73,9 +95,21 @@ export default async function EmpenhosCredor({ cnpj, porAno, pagina = 1, exercic
           </div>
         )}
 
-        <form method="get" action={`/credores/${cnpj}`} style={{ marginBottom: 14 }}>
+        <form method="get" action={`/credores/${cnpj}`} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
           {exercicio ? <input type="hidden" name="exercicio" value={exercicio} /> : null}
+          {mandato ? <input type="hidden" name="mandato" value={mandato} /> : null}
+          {periodoTodos ? <input type="hidden" name="periodo" value="todos" /> : null}
           <SearchInput name="q" defaultValue={q || ''} placeholder="Buscar na descrição dos empenhos…" compact />
+          <select
+            name="finalidade"
+            defaultValue={finalidade || ''}
+            style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 14, background: 'var(--surface)' }}
+          >
+            <option value="">Todas as finalidades</option>
+            {FINALIDADES.map((item) => (
+              <option key={item.value} value={item.value}>{item.label}</option>
+            ))}
+          </select>
         </form>
 
         <TabelaEmpenhos dados={dados} />

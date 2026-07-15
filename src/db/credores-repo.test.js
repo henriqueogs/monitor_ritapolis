@@ -13,18 +13,28 @@ function criarBancoMemoria() {
 const mockConn = criarBancoMemoria();
 jest.mock('./index', () => ({ db: mockConn }));
 
-const { listCredores, getCredorProfile } = require('./credores-repo');
+const { listCredores, getCredorProfile, upsertCredorEnriquecimento } = require('./credores-repo');
+const { backfillClassificacoesDespesas } = require('./transparencia-classificacao-repo');
 const { buildCredorChave } = require('../transparencia/credor-chave');
 
 let seq = 0;
-function seedDespesa({ nome, cnpj = null, valor = 100, exercicio = 2026, cargo = null, funcao = '10 - SAÚDE' }) {
+function seedDespesa({
+  nome,
+  cnpj = null,
+  valor = 100,
+  exercicio = 2026,
+  cargo = null,
+  funcao = '10 - SAÚDE',
+  categoriaEconomica = '3.3.90.39.00 - OUTROS SERVICOS PJ',
+  historico = null,
+}) {
   seq += 1;
   mockConn
     .prepare(
       `INSERT INTO transparencia_despesas
          (exercicio_orcamento, empenho, tipo, data_empenho, credor_nome, credor_cnpj,
-          credor_cargo, credor_chave, valor, funcao, hash_despesa)
-       VALUES (?, ?, 'EO - Empenho Ordinário', ?, ?, ?, ?, ?, ?, ?, ?)`
+          credor_cargo, credor_chave, valor, funcao, categoria_economica, historico, hash_despesa)
+       VALUES (?, ?, 'EO - Empenho Ordinário', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       exercicio,
@@ -36,13 +46,15 @@ function seedDespesa({ nome, cnpj = null, valor = 100, exercicio = 2026, cargo =
       buildCredorChave({ cnpj, nome }),
       valor,
       funcao,
+      categoriaEconomica,
+      historico,
       `hash-${seq}`
     );
 }
 
 describe('credores-repo', () => {
   beforeEach(() => {
-    mockConn.exec('DELETE FROM transparencia_despesas; DELETE FROM licitacoes_detalhes; DELETE FROM fornecedores_perfil; DELETE FROM documentos;');
+    mockConn.exec('DELETE FROM credores_enriquecimentos; DELETE FROM transparencia_despesas_classificacoes; DELETE FROM transparencia_despesas; DELETE FROM licitacoes_detalhes; DELETE FROM fornecedores_perfil; DELETE FROM documentos;');
     seq = 0;
   });
 
@@ -78,6 +90,30 @@ describe('credores-repo', () => {
       expect(r.total).toBe(1);
       expect(r.dados[0].credor_chave).toBe('pf-maria-teresa-de-resende');
     });
+
+    it('inclui finalidade predominante por credor', () => {
+      seedDespesa({
+        nome: 'EMPRESA X LTDA',
+        cnpj: '12345678000190',
+        valor: 1000,
+        categoriaEconomica: '3.3.90.39.00 - OUTROS SERVICOS DE TERCEIROS - PESSOA JURIDICA',
+      });
+      seedDespesa({
+        nome: 'ADILSON DE SOUZA MELO',
+        valor: 500,
+        cargo: 'MOTORISTA',
+        categoriaEconomica: '3.3.90.14.00 - DIARIAS',
+        historico: 'DIARIA PARA MOTORISTA',
+      });
+      backfillClassificacoesDespesas({ force: true });
+
+      const r = listCredores({});
+      const pj = r.dados.find((c) => c.credor_chave === '12345678000190');
+      const pf = r.dados.find((c) => c.credor_chave === 'pf-adilson-de-souza-melo');
+
+      expect(pj.finalidades[0]).toMatchObject({ classe: 'servico_pj_sem_licitacao', rotulo: 'Serviço PJ' });
+      expect(pf.finalidades[0]).toMatchObject({ classe: 'diaria_servidor', rotulo: 'Diária' });
+    });
   });
 
   describe('getCredorProfile', () => {
@@ -109,10 +145,97 @@ describe('credores-repo', () => {
       expect(p.resumo.valor_total).toBe(1000);
     });
 
+    it('perfil PJ expõe cache auditavel de Receita/QSA quando importado', () => {
+      seedDespesa({ nome: 'EMPRESA X LTDA', cnpj: '12345678000190', valor: 1000 });
+      upsertCredorEnriquecimento({
+        credor_chave: '12345678000190',
+        tipo_credor: 'pj',
+        fonte: 'receita_cnpj',
+        identificador: '12345678000190',
+        confianca: 0.98,
+        dados: {
+          natureza_juridica: '206-2 - Sociedade Empresaria Limitada',
+          situacao_cadastral: 'ATIVA',
+          qsa: [{ nome: 'MARIA SOCIA' }],
+        },
+      });
+
+      const p = getCredorProfile('12.345.678/0001-90');
+
+      expect(p.enriquecimento.receita).toMatchObject({
+        natureza_juridica: '206-2 - Sociedade Empresaria Limitada',
+        situacao_cadastral: 'ATIVA',
+        confianca: 0.98,
+      });
+      expect(p.enriquecimento.receita.qsa[0].nome).toBe('MARIA SOCIA');
+      expect(p.enriquecimento.fontes_previstas.map((fonte) => fonte.id)).toEqual(
+        expect.arrayContaining(['receita_cnpj', 'consulta_cnpj', 'tse_candidatos', 'tse_prestacao_contas'])
+      );
+    });
+
+    it('perfil PF mantém cargo do portal e TSE apenas como contexto por nome', () => {
+      seedDespesa({ nome: 'ADILSON DE SOUZA MELO', valor: 45, cargo: 'MOTORISTA' });
+      upsertCredorEnriquecimento({
+        credor_chave: 'pf-adilson-de-souza-melo',
+        tipo_credor: 'pf',
+        fonte: 'tse_candidatos',
+        identificador: 'ADILSON DE SOUZA MELO|2024',
+        confianca: 0.35,
+        dados: {
+          cargo_disputado: 'VEREADOR',
+          partido: 'XYZ',
+          observacao: 'match apenas por nome',
+        },
+      });
+
+      const p = getCredorProfile('pf-adilson-de-souza-melo');
+
+      expect(p.tipo).toBe('pf');
+      expect(p.cargo).toBe('MOTORISTA');
+      expect(p.enriquecimento.receita).toBeNull();
+      expect(p.enriquecimento.tse).toHaveLength(1);
+      expect(p.enriquecimento.tse[0].confianca).toBe(0.35);
+      expect(p.enriquecimento.limites).toContain('Pessoa fisica sem CPF publico');
+      expect(p.enriquecimento.limites).toContain('MOTORISTA');
+    });
+
     it('chave inválida ou inexistente retorna null', () => {
       expect(getCredorProfile('abc')).toBeNull();
       expect(getCredorProfile('pf-nao-existe')).toBeNull();
       expect(getCredorProfile(null)).toBeNull();
     });
+  });
+});
+
+describe('credores-repo finalidade no perfil', () => {
+  beforeEach(() => {
+    mockConn.exec('DELETE FROM credores_enriquecimentos; DELETE FROM transparencia_despesas_classificacoes; DELETE FROM transparencia_despesas; DELETE FROM licitacoes_detalhes; DELETE FROM fornecedores_perfil; DELETE FROM documentos;');
+    seq = 0;
+  });
+
+  it('perfil expoe distribuicao por finalidade do credor', () => {
+    seedDespesa({
+      nome: 'EMPRESA X LTDA',
+      cnpj: '12345678000190',
+      valor: 1000,
+      categoriaEconomica: '3.3.90.39.00 - OUTROS SERVICOS DE TERCEIROS - PESSOA JURIDICA',
+    });
+    seedDespesa({
+      nome: 'EMPRESA X LTDA',
+      cnpj: '12345678000190',
+      valor: 500,
+      categoriaEconomica: '4.4.90.52.00 - EQUIPAMENTOS',
+    });
+    backfillClassificacoesDespesas({ force: true });
+
+    const p = getCredorProfile('12.345.678/0001-90');
+
+    expect(p.finalidades).toHaveLength(2);
+    expect(p.finalidades[0]).toMatchObject({
+      classe: 'servico_pj_sem_licitacao',
+      n: 1,
+      valor_total: 1000,
+    });
+    expect(p.finalidades[1]).toMatchObject({ classe: 'investimento', valor_total: 500 });
   });
 });

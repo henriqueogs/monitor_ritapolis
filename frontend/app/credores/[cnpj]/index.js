@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { fetchCredorProfile } from '../../lib/api';
 import { formatMoney } from '../../lib/format';
 import SectionBlock from '../../components/SectionBlock';
+import FinalidadeBadge from '../../components/FinalidadeBadge';
+import TransparenciaSubnav from '../../components/TransparenciaSubnav';
 import EmpenhosCredor from './components/EmpenhosCredor';
 import HistoricoPorMandato from './components/HistoricoPorMandato';
 
@@ -82,10 +84,56 @@ function EnriquecimentoCredor({ enriquecimento, isPf }) {
   );
 }
 
+function FinalidadesCredor({ finalidades, chave, valorTotal, periodoQuery = '' }) {
+  if (!finalidades?.length) { return null; }
+  return (
+    <SectionBlock
+      title="Finalidades deste credor"
+      description="Distribuicao do que este credor recebeu por finalidade. Os links abrem os empenhos do proprio credor ja filtrados."
+    >
+      <div className="simple-table">
+        {finalidades.map((item) => {
+          const pct = valorTotal ? Math.round((Number(item.valor_total || 0) / valorTotal) * 100) : 0;
+          const query = new URLSearchParams({
+            finalidade: item.classe,
+            ...(periodoQuery ? Object.fromEntries(new URLSearchParams(periodoQuery)) : {}),
+          }).toString();
+          return (
+            <div key={item.classe} className="table-row" style={{ display: 'grid', gridTemplateColumns: '1fr 90px 130px 150px', gap: 12, alignItems: 'center' }}>
+              <span style={{ minWidth: 0 }}>
+                <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <FinalidadeBadge finalidade={item} />
+                  <Link href={`/transparencia/finalidades/${item.classe}${periodoQuery ? `?${periodoQuery}` : ''}`} style={{ fontSize: 13, fontWeight: 600 }}>
+                    {item.rotulo}
+                  </Link>
+                </span>
+                <span style={{ display: 'block', marginTop: 3, fontSize: 11, color: 'var(--text-muted)' }}>
+                  {pct}% do total recebido por este credor
+                </span>
+              </span>
+              <span style={{ fontSize: 13, textAlign: 'center', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+                {item.n.toLocaleString('pt-BR')}
+              </span>
+              <span style={{ fontWeight: 700, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                {formatMoney(item.valor_total)}
+              </span>
+              <Link href={`/credores/${chave}?${query}#empenhos`} className="availability-badge is-gov" style={{ justifySelf: 'end', textDecoration: 'none' }}>
+                Ver empenhos
+              </Link>
+            </div>
+          );
+        })}
+      </div>
+    </SectionBlock>
+  );
+}
+
 export default async function CredorProfilePage({ params, searchParams }) {
   const perfil = await fetchCredorProfile(params.cnpj).catch(() => null);
   const empPagina = searchParams?.pagina ? Number(searchParams.pagina) : 1;
   const empExercicio = searchParams?.exercicio ? Number(searchParams.exercicio) : undefined;
+  const empMandato = !empExercicio && searchParams?.mandato ? Number(searchParams.mandato) : undefined;
+  const empPeriodoTodos = !empExercicio && !empMandato && searchParams?.periodo === 'todos';
   const empBusca = searchParams?.q || '';
   const empFinalidade = searchParams?.finalidade || '';
 
@@ -101,8 +149,13 @@ export default async function CredorProfilePage({ params, searchParams }) {
     );
   }
 
-  const { nome, cnpj, chave, tipo, cargo, resumo, por_ano, por_mandato, por_funcao, licitacoes_ganhas, enriquecimento } = perfil;
+  const { nome, cnpj, chave, tipo, cargo, resumo, por_ano, por_mandato, por_funcao, finalidades, licitacoes_ganhas, enriquecimento } = perfil;
   const isPf = tipo === 'pf';
+  const periodoQuery = new URLSearchParams({
+    ...(empExercicio ? { exercicio: String(empExercicio) } : {}),
+    ...(empMandato ? { mandato: String(empMandato) } : {}),
+    ...(empPeriodoTodos ? { periodo: 'todos' } : {}),
+  }).toString();
 
   return (
     <main className="page-container">
@@ -132,7 +185,14 @@ export default async function CredorProfilePage({ params, searchParams }) {
       </div>
 
       {/* Métricas */}
-      <EnriquecimentoCredor enriquecimento={enriquecimento} isPf={isPf} />
+      <TransparenciaSubnav />
+
+      <FinalidadesCredor
+        finalidades={finalidades}
+        chave={chave || cnpj}
+        valorTotal={resumo.valor_total}
+        periodoQuery={periodoQuery}
+      />
 
       <div className="admin-metric-grid" style={{ marginBottom: 24 }}>
         <div className="admin-metric-card">
@@ -269,11 +329,15 @@ export default async function CredorProfilePage({ params, searchParams }) {
       )}
 
       {/* Todos os empenhos — lista paginada com detalhamento e link pra fonte */}
+      <EnriquecimentoCredor enriquecimento={enriquecimento} isPf={isPf} />
+
       <EmpenhosCredor
         cnpj={chave || cnpj}
         porAno={por_ano}
         pagina={empPagina}
         exercicio={empExercicio}
+        mandato={empMandato}
+        periodoTodos={empPeriodoTodos}
         q={empBusca}
         finalidade={empFinalidade}
       />

@@ -3,6 +3,7 @@ import { fetchEmpenho } from '../../lib/api';
 import { formatMoney } from '../../lib/format';
 import SectionBlock from '../../components/SectionBlock';
 import FinalidadeBadge from '../../components/FinalidadeBadge';
+import TransparenciaSubnav from '../../components/TransparenciaSubnav';
 import LinhaDoTempoPagamento from './components/LinhaDoTempoPagamento';
 import EmpenhosRelacionados from './components/EmpenhosRelacionados';
 
@@ -52,6 +53,10 @@ export default async function EmpenhoPage({ params }) {
 
   const { empenho, documento, relacionados } = dossie;
   const status = STATUS_LABEL[empenho.status_pagamento] || STATUS_LABEL.empenhado;
+  const finalidadeHref = empenho.finalidade?.classe
+    ? `/transparencia/finalidades/${empenho.finalidade.classe}`
+    : '/transparencia/finalidades';
+  const credorHref = empenho.credor_chave || empenho.credor_cnpj;
 
   return (
     <main className="page-container">
@@ -60,12 +65,26 @@ export default async function EmpenhoPage({ params }) {
           <p style={{ margin: '0 0 6px', fontSize: 13, color: 'var(--text-muted)' }}>
             <Link href="/transparencia" style={{ color: 'var(--text-muted)' }}>← Dinheiro público</Link>
           </p>
+          <p style={{ margin: '0 0 8px', fontSize: 12, color: 'var(--text-muted)' }}>
+            <Link href="/transparencia" style={{ color: 'var(--text-muted)' }}>Dinheiro publico</Link>
+            {' > '}
+            <Link href={finalidadeHref} style={{ color: 'var(--text-muted)' }}>{empenho.finalidade?.rotulo || 'Finalidade'}</Link>
+            {' > '}
+            {credorHref ? (
+              <Link href={`/credores/${credorHref}`} style={{ color: 'var(--text-muted)' }}>{empenho.credor_nome || 'Credor'}</Link>
+            ) : (
+              <span>{empenho.credor_nome || 'Credor'}</span>
+            )}
+            {' > Empenho'}
+          </p>
           <h1>
             Empenho {empenho.empenho} <span style={{ color: 'var(--text-muted)' }}>· {empenho.exercicio_orcamento}</span>
           </h1>
           <p style={{ margin: '4px 0 0', display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
             <span className="availability-badge is-real">{empenho.categoria_cidada.rotulo}</span>
-            <FinalidadeBadge finalidade={empenho.finalidade} />
+            <Link href={finalidadeHref} style={{ textDecoration: 'none' }}>
+              <FinalidadeBadge finalidade={empenho.finalidade} />
+            </Link>
             <span style={{ fontSize: 13, fontWeight: 600, color: status.cor }}>{status.texto}</span>
             {empenho.portal?.url && (
               <a href={empenho.portal.url} target="_blank" rel="noopener noreferrer" className="availability-badge is-gov">
@@ -77,6 +96,8 @@ export default async function EmpenhoPage({ params }) {
       </div>
 
       {/* O quê e quanto */}
+      <TransparenciaSubnav />
+
       <SectionBlock
         title={`O que foi este gasto (${empenho.exercicio_orcamento})`}
         description="Descrição oficial registrada pela Prefeitura no ato do empenho."
@@ -90,8 +111,8 @@ export default async function EmpenhoPage({ params }) {
           <div className="admin-metric-card">
             <span>Credor</span>
             <strong style={{ fontSize: 16, wordBreak: 'break-word' }}>
-              {empenho.credor_cnpj ? (
-                <Link href={`/credores/${empenho.credor_cnpj}`} style={{ color: 'inherit' }}>
+              {credorHref ? (
+                <Link href={`/credores/${credorHref}`} style={{ color: 'inherit' }}>
                   {empenho.credor_nome}
                 </Link>
               ) : (
@@ -115,7 +136,9 @@ export default async function EmpenhoPage({ params }) {
           description="Classificacao derivada dos campos oficiais do empenho. Ela nao substitui o registro bruto do Portal da Transparencia."
         >
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
-            <FinalidadeBadge finalidade={empenho.finalidade} />
+            <Link href={finalidadeHref} style={{ textDecoration: 'none' }}>
+              <FinalidadeBadge finalidade={empenho.finalidade} />
+            </Link>
             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
               Confianca {Math.round((empenho.finalidade.confianca || 0) * 100)}%
               {empenho.finalidade.subclasse ? ` - ${empenho.finalidade.subclasse}` : ''}

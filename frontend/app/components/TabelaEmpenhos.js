@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { formatMoney, formatDate } from '../lib/format';
+import FinalidadeBadge from './FinalidadeBadge';
 
 function StatusPagamento({ emp }) {
   if (emp.data_pagamento) {
@@ -15,6 +16,7 @@ function LinhaEmpenho({ emp, mostrarCredor }) {
   const area = emp.funcao?.replace(/^\d+\s*-\s*/, '');
   const unidade = emp.unidade?.replace(/^[\d.]+\s*-\s*/, '');
   const fonte = emp.fonte_recurso?.replace(/^[\d.]+\s*-\s*/, '');
+  const credorHref = emp.credor_chave || emp.credor_cnpj;
 
   return (
     <div className="table-row" style={{ display: 'grid', gridTemplateColumns: '92px 1fr 190px 120px', gap: 12, alignItems: 'start', padding: '10px 0' }}>
@@ -26,6 +28,7 @@ function LinhaEmpenho({ emp, mostrarCredor }) {
           <Link href={`/empenho/${emp.id}`} style={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
             {emp.empenho}
           </Link>
+          <FinalidadeBadge finalidade={emp.finalidade} />
           <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{emp.tipo}</span>
           {emp.portal?.url && (
             <a href={emp.portal.url} target="_blank" rel="noreferrer" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
@@ -35,8 +38,8 @@ function LinhaEmpenho({ emp, mostrarCredor }) {
         </span>
         {mostrarCredor && emp.credor_nome && (
           <span style={{ display: 'block', fontSize: 13, fontWeight: 500, marginTop: 3 }}>
-            {emp.credor_cnpj ? (
-              <Link href={`/credores/${emp.credor_cnpj}`} style={{ color: 'inherit' }}>{emp.credor_nome}</Link>
+            {credorHref ? (
+              <Link href={`/credores/${credorHref}`} style={{ color: 'inherit' }}>{emp.credor_nome}</Link>
             ) : (
               emp.credor_nome
             )}

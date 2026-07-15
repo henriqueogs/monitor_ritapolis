@@ -3,6 +3,7 @@ import { fetchTransparenciaDespesas } from '../../lib/api';
 import SectionBlock from '../../components/SectionBlock';
 import TabelaEmpenhos from '../../components/TabelaEmpenhos';
 import SearchInput from '../../components/SearchInput';
+import TransparenciaSubnav from '../../components/TransparenciaSubnav';
 
 export const metadata = {
   title: 'Empenhos — Dinheiro público',
@@ -29,6 +30,8 @@ export default async function EmpenhosPage({ searchParams }) {
   const categoria = searchParams?.categoria || '';
   const finalidade = searchParams?.finalidade || '';
   const exercicio = searchParams?.exercicio ? Number(searchParams.exercicio) : undefined;
+  const mandato = !exercicio && searchParams?.mandato ? Number(searchParams.mandato) : undefined;
+  const periodoTodos = !exercicio && !mandato && searchParams?.periodo === 'todos';
   const pagina = searchParams?.pagina ? Number(searchParams.pagina) : 1;
 
   const resultado = await fetchTransparenciaDespesas({
@@ -36,6 +39,7 @@ export default async function EmpenhosPage({ searchParams }) {
     categoria: categoria || undefined,
     finalidade: finalidade || undefined,
     exercicio,
+    mandato,
     pagina,
     limite: LIMITE,
   });
@@ -43,13 +47,23 @@ export default async function EmpenhosPage({ searchParams }) {
   const total = resultado?.total || 0;
   const totalPaginas = Math.max(1, Math.ceil(total / LIMITE));
   const anoAtual = new Date().getFullYear();
+  const periodoParams = {
+    ...(exercicio ? { exercicio: String(exercicio) } : {}),
+    ...(mandato ? { mandato: String(mandato) } : {}),
+    ...(periodoTodos ? { periodo: 'todos' } : {}),
+  };
+  const periodoTitulo = exercicio
+    ? String(exercicio)
+    : mandato
+      ? `mandato ${mandato}-${mandato + 3}`
+      : 'todos os anos coletados';
 
   const href = (params) =>
     `/transparencia/empenhos?${new URLSearchParams({
       ...(q ? { q } : {}),
       ...(categoria ? { categoria } : {}),
       ...(finalidade ? { finalidade } : {}),
-      ...(exercicio ? { exercicio: String(exercicio) } : {}),
+      ...periodoParams,
       ...params,
     })}`;
 
@@ -65,10 +79,14 @@ export default async function EmpenhosPage({ searchParams }) {
         </p>
       </div>
 
+      <TransparenciaSubnav />
+
       {/* Filtros */}
       <form method="get" action="/transparencia/empenhos" style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         <SearchInput name="q" defaultValue={q} placeholder="Buscar na descrição ou credor…" />
         {categoria && <input type="hidden" name="categoria" value={categoria} />}
+        {mandato && <input type="hidden" name="mandato" value={mandato} />}
+        {periodoTodos && <input type="hidden" name="periodo" value="todos" />}
         <select
           name="finalidade"
           defaultValue={finalidade}
@@ -92,7 +110,7 @@ export default async function EmpenhosPage({ searchParams }) {
       </form>
 
       <SectionBlock
-        title={`${total.toLocaleString('pt-BR')} empenho${total !== 1 ? 's' : ''} encontrado${total !== 1 ? 's' : ''}${exercicio ? ` (${exercicio})` : ' (todos os anos coletados)'}`}
+        title={`${total.toLocaleString('pt-BR')} empenho${total !== 1 ? 's' : ''} encontrado${total !== 1 ? 's' : ''} (${periodoTitulo})`}
         description={categoria || finalidade ? (
           <>
             {categoria ? <>Categoria: <strong>{categoria}</strong>. </> : null}

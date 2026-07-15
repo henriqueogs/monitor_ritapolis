@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import SectionBlock from '../components/SectionBlock';
 import { fetchTransparenciaResumo, fetchTransparenciaGastos, fetchFilaPagamentos } from '../lib/api';
+import TransparenciaSubnav from '../components/TransparenciaSubnav';
 import FilaPagamentos from './components/FilaPagamentos';
+import FinalidadesResumo from './components/FinalidadesResumo';
 import GastosPorCategoria from './components/GastosPorCategoria';
 import PeriodoSelector from '../components/PeriodoSelector';
 import MetricasPeriodo from './components/MetricasPeriodo';
@@ -67,8 +69,13 @@ export default async function TransparenciaPage({ searchParams }) {
     );
   }
 
-  const { total, porAno, porMandato, periodo, topCredores, ultimosEmpenhos, logs, tiposEmpenho, receitasPorAno } = dados;
+  const { total, porAno, porMandato, periodo, topCredores, ultimosEmpenhos, logs, tiposEmpenho, receitasPorAno, finalidadesEmpenho } = dados;
   const periodoLabel = montarPeriodoLabel(modo, periodo, porMandato);
+  const queryPeriodo = modo === 'todos'
+    ? 'periodo=todos'
+    : new URLSearchParams(
+      Object.fromEntries(Object.entries(fetchParams).map(([k, v]) => [k, String(v)]))
+    ).toString();
   const pctVinculado = total.n_empenhos
     ? Math.round((total.n_licitacoes_vinculadas / total.n_empenhos) * 100)
     : 0;
@@ -86,16 +93,22 @@ export default async function TransparenciaPage({ searchParams }) {
         </p>
       </div>
 
+      <TransparenciaSubnav />
+
       <PeriodoSelector porMandato={porMandato} periodo={periodo} anosCobertos={periodo.anos_cobertos} modo={modo} />
 
       <MetricasPeriodo total={total} periodoLabel={periodoLabel} pctVinculado={pctVinculado} />
 
+      <FinalidadesResumo
+        finalidades={finalidadesEmpenho}
+        periodoLabel={periodoLabel}
+        queryPeriodo={queryPeriodo}
+      />
+
       <GastosPorCategoria
         categorias={gastos?.categorias}
         periodoLabel={periodoLabel}
-        queryPeriodo={new URLSearchParams(
-          Object.fromEntries(Object.entries(fetchParams).map(([k, v]) => [k, String(v)]))
-        ).toString()}
+        queryPeriodo={queryPeriodo}
       />
 
       <TabelaExercicios porAno={porAno} porMandato={porMandato} />

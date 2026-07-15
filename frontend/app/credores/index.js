@@ -3,6 +3,7 @@ import { fetchCredores } from '../lib/api';
 import { formatMoney } from '../lib/format';
 import SectionBlock from '../components/SectionBlock';
 import FinalidadeBadge from '../components/FinalidadeBadge';
+import TransparenciaSubnav from '../components/TransparenciaSubnav';
 
 export const metadata = {
   title: 'Credores',
@@ -25,14 +26,21 @@ const FINALIDADES = [
 export default async function CredoresPage({ searchParams }) {
   const busca = searchParams?.busca || '';
   const exercicio = searchParams?.exercicio ? Number(searchParams.exercicio) : undefined;
+  const mandato = !exercicio && searchParams?.mandato ? Number(searchParams.mandato) : undefined;
+  const periodoTodos = !exercicio && !mandato && searchParams?.periodo === 'todos';
   const finalidade = searchParams?.finalidade || '';
   const pagina = searchParams?.pagina ? Number(searchParams.pagina) : 1;
 
-  const resultado = await fetchCredores({ busca, exercicio, finalidade, pagina, limite: 50 }).catch(() => null);
+  const resultado = await fetchCredores({ busca, exercicio, mandato, finalidade, pagina, limite: 50 }).catch(() => null);
   const dados = resultado?.dados || [];
+  const periodoParams = {
+    ...(exercicio ? { exercicio: String(exercicio) } : {}),
+    ...(mandato ? { mandato: String(mandato) } : {}),
+    ...(periodoTodos ? { periodo: 'todos' } : {}),
+  };
   const queryPagina = (p) => `/credores?${new URLSearchParams({
     ...(busca ? { busca } : {}),
-    ...(exercicio ? { exercicio: String(exercicio) } : {}),
+    ...periodoParams,
     ...(finalidade ? { finalidade } : {}),
     ...(p > 1 ? { pagina: String(p) } : {}),
   })}`;
@@ -46,6 +54,8 @@ export default async function CredoresPage({ searchParams }) {
         </div>
       </div>
 
+      <TransparenciaSubnav />
+
       {/* Filtros */}
       <form method="get" style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         <input
@@ -57,6 +67,8 @@ export default async function CredoresPage({ searchParams }) {
             borderRadius: 6, fontSize: 14, background: 'var(--surface)',
           }}
         />
+        {mandato && <input type="hidden" name="mandato" value={mandato} />}
+        {periodoTodos && <input type="hidden" name="periodo" value="todos" />}
         <select
           name="exercicio"
           defaultValue={exercicio || ''}

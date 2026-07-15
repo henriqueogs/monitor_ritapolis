@@ -28,6 +28,12 @@ const despesaBase = {
   documento_id: 7,
   documento_titulo: 'Pregão 1/2026',
   documento_numero: '1/2026',
+  finalidade: {
+    classe: 'licitacao',
+    rotulo: 'Licitação',
+    confianca: 0.95,
+    evidencias: [{ campo: 'documento_id', valor: '7', motivo: 'empenho vinculado a documento municipal' }],
+  },
 };
 
 describe('empenho-service', () => {
@@ -52,6 +58,7 @@ describe('empenho-service', () => {
       grupo: 'custeio',
     });
     expect(dossie.empenho.status_pagamento).toBe('pago');
+    expect(dossie.empenho.finalidade).toBe(despesaBase.finalidade);
     expect(dossie.empenho.portal.especifico).toBe(true);
     expect(dossie.empenho.portal.url).toContain('ID8_DESP=02119000');
     expect(dossie.documento).toEqual({ id: 7, titulo: 'Pregão 1/2026', numero: '1/2026' });

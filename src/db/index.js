@@ -257,6 +257,23 @@ function ensureRuntimeSchema() {
     )
   `);
   db.exec(`
+    CREATE TABLE IF NOT EXISTS credores_enriquecimentos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      credor_chave TEXT NOT NULL,
+      tipo_credor TEXT NOT NULL,
+      fonte TEXT NOT NULL,
+      identificador TEXT NOT NULL,
+      dados_json TEXT NOT NULL,
+      confianca REAL NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'ok',
+      consultado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+      atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (credor_chave, fonte, identificador)
+    )
+  `);
+  db.exec('CREATE INDEX IF NOT EXISTS idx_credores_enriq_chave ON credores_enriquecimentos(credor_chave);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_credores_enriq_fonte ON credores_enriquecimentos(fonte);');
+  db.exec(`
     CREATE TABLE IF NOT EXISTS licitacoes_categorias (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       documento_id INTEGER NOT NULL REFERENCES documentos(id) ON DELETE CASCADE,

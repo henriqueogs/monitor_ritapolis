@@ -57,7 +57,9 @@ const { parseCredorChave } = require('../transparencia/credor-chave');
 const { buscaUnificada } = require('../busca/busca-unificada');
 const { getEmpenhoDossie } = require('../transparencia/empenho-service');
 const { getGastosPanorama, getCategoriaDossie } = require('../transparencia/gastos-service');
+const { getFinalidadesResumo, getFinalidadeDossie, resolverExercicios } = require('../transparencia/finalidade-service');
 const { slugParaPrefixos } = require('../transparencia/categorias');
+const { FINALIDADES } = require('../transparencia/finalidade');
 const {
   getConcentracaoCredores,
   getConcentracaoHistorico,
@@ -628,11 +630,13 @@ function createServer() {
   });
 
   app.get('/api/transparencia/despesas', (req, res) => {
-    const { exercicio, credor_cnpj, documento_id, categoria, q, pagina, limite } = req.query;
+    const { exercicio, mandato, credor_cnpj, documento_id, categoria, finalidade, q, pagina, limite } = req.query;
     const categoriaPrefixos = categoria ? slugParaPrefixos(categoria) : undefined;
+    const exercicios = !exercicio && mandato ? resolverExercicios({ mandato: Number(mandato) }) : undefined;
     if (categoria && !categoriaPrefixos) { return res.status(400).json({ error: 'Categoria desconhecida' }); }
+    if (finalidade && !FINALIDADES[finalidade]) { return res.status(400).json({ error: 'Finalidade desconhecida' }); }
     return res.json(
-      getDespesasComPortal({ exercicio, credor_cnpj, documento_id, categoriaPrefixos, q, pagina, limite })
+      getDespesasComPortal({ exercicio, exercicios, credor_cnpj, documento_id, categoriaPrefixos, finalidade, q, pagina, limite })
     );
   });
 
@@ -640,6 +644,20 @@ function createServer() {
     const exercicio = req.query.exercicio ? Number(req.query.exercicio) : undefined;
     const mandato = req.query.mandato ? Number(req.query.mandato) : undefined;
     return res.json(getGastosPanorama({ exercicio, mandato }));
+  });
+
+  app.get('/api/transparencia/finalidades', (req, res) => {
+    const exercicio = req.query.exercicio ? Number(req.query.exercicio) : undefined;
+    const mandato = req.query.mandato ? Number(req.query.mandato) : undefined;
+    return res.json(getFinalidadesResumo({ exercicio, mandato }));
+  });
+
+  app.get('/api/transparencia/finalidades/:classe', (req, res) => {
+    const exercicio = req.query.exercicio ? Number(req.query.exercicio) : undefined;
+    const mandato = req.query.mandato ? Number(req.query.mandato) : undefined;
+    const dossie = getFinalidadeDossie(req.params.classe, { exercicio, mandato });
+    if (!dossie) { return res.status(404).json({ error: 'Finalidade nao encontrada' }); }
+    return res.json(dossie);
   });
 
   app.get('/api/transparencia/categoria/:slug', (req, res) => {
@@ -823,12 +841,16 @@ function createServer() {
 
   // GET /api/credores — lista de credores
   app.get('/api/credores', (req, res) => {
-    const { limite, pagina, busca, exercicio } = req.query;
+    const { limite, pagina, busca, exercicio, mandato, finalidade } = req.query;
+    const exercicios = !exercicio && mandato ? resolverExercicios({ mandato: Number(mandato) }) : undefined;
+    if (finalidade && !FINALIDADES[finalidade]) { return res.status(400).json({ error: 'Finalidade desconhecida' }); }
     return res.json(listCredores({
       limite: limite ? Number(limite) : 50,
       pagina: pagina ? Number(pagina) : 1,
       busca: busca || undefined,
       exercicio: exercicio ? Number(exercicio) : undefined,
+      exercicios,
+      finalidade: finalidade || undefined,
     }));
   });
 

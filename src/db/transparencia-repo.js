@@ -9,6 +9,14 @@
 const crypto = require('crypto');
 const { db } = require('./index');
 const { ensureDespesasMigracoes } = require('./transparencia-migracoes');
+const {
+  CLASSIFICACAO_SELECT,
+  CLASSIFICACAO_JOIN,
+  upsertClassificacaoDespesa,
+  reclassificarDespesasPorIds,
+  decorarDespesaComFinalidade,
+  backfillClassificacoesDespesas,
+} = require('./transparencia-classificacao-repo');
 const { buildCredorChave } = require('../transparencia/credor-chave');
 const { parseModalidadeDespesa, parseModalidadeEdital } = require('../licitacoes/modalidade');
 const { sanitizeFtsQuery } = require('./fts-repo');
@@ -91,6 +99,23 @@ function ensureTransparenciaSchema() {
   db.exec('CREATE INDEX IF NOT EXISTS idx_transp_despesas_data_empenho ON transparencia_despesas(data_empenho);');
   db.exec('CREATE INDEX IF NOT EXISTS idx_transp_despesas_licitacao_ref ON transparencia_despesas(licitacao_ref);');
   db.exec('CREATE INDEX IF NOT EXISTS idx_transp_despesas_documento_id ON transparencia_despesas(documento_id);');
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS transparencia_despesas_classificacoes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      despesa_id INTEGER NOT NULL REFERENCES transparencia_despesas(id) ON DELETE CASCADE,
+      classe_principal TEXT NOT NULL,
+      subclasse TEXT,
+      marcadores_json TEXT,
+      confianca REAL NOT NULL DEFAULT 0,
+      evidencias_json TEXT NOT NULL,
+      versao TEXT NOT NULL,
+      criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+      atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (despesa_id)
+    );
+  `);
+  db.exec('CREATE INDEX IF NOT EXISTS idx_transp_classif_classe ON transparencia_despesas_classificacoes(classe_principal);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_transp_classif_versao ON transparencia_despesas_classificacoes(versao);');
 }
 
 ensureTransparenciaSchema();
@@ -214,6 +239,11 @@ function upsertDespesa(dadosPrincipais) {
     hash_despesa: hash,
   });
 
+  const despesaPersistida = db.prepare(
+    'SELECT * FROM transparencia_despesas WHERE exercicio_orcamento = ? AND empenho = ?'
+  ).get(exercicio, empenho);
+  upsertClassificacaoDespesa(despesaPersistida);
+
   return existing ? 'updated' : 'inserted';
 }
 
@@ -274,6 +304,7 @@ function crosswalkDespesasDocumentos({ relink = false } = {}) {
   );
 
   let vinculados = 0;
+  const idsVinculados = [];
   for (const desp of pendentes) {
     const mod = parseModalidadeDespesa(desp.modalidade);
     if (!mod || mod.numero === null) {
@@ -283,8 +314,11 @@ function crosswalkDespesasDocumentos({ relink = false } = {}) {
     if (documentoId) {
       update.run(documentoId, desp.id);
       vinculados += 1;
+      idsVinculados.push(desp.id);
     }
   }
+
+  reclassificarDespesasPorIds(idsVinculados);
 
   return vinculados;
 }
@@ -462,14 +496,16 @@ function getColetaLog(tipo, exercicio, mes) {
 
 function getDespesasPorDocumento(documentoId) {
   return db.prepare(`
-    SELECT id, exercicio_orcamento, empenho, tipo,
-           data_empenho, data_liquidacao, data_pagamento,
-           credor_nome, credor_cnpj, valor,
-           historico, licitacao_ref, modalidade
-    FROM transparencia_despesas
-    WHERE documento_id = ?
-    ORDER BY data_empenho ASC
-  `).all(documentoId);
+    SELECT td.id, td.exercicio_orcamento, td.empenho, td.tipo,
+           td.data_empenho, td.data_liquidacao, td.data_pagamento,
+           td.credor_nome, td.credor_cnpj, td.valor,
+           td.historico, td.licitacao_ref, td.modalidade,
+           ${CLASSIFICACAO_SELECT}
+    FROM transparencia_despesas td
+    ${CLASSIFICACAO_JOIN}
+    WHERE td.documento_id = ?
+    ORDER BY td.data_empenho ASC
+  `).all(documentoId).map(decorarDespesaComFinalidade);
 }
 
 function getResumoFinanceiroPorDocumento(documentoId) {
@@ -561,17 +597,19 @@ function getPainelResumo({ exercicio, exercicios } = {}) {
   const ultimosEmpenhos = db.prepare(`
     SELECT
       td.id, td.exercicio_orcamento, td.empenho, td.tipo,
-      td.data_empenho, td.credor_nome, td.credor_cnpj,
+      td.data_empenho, td.credor_nome, td.credor_cnpj, td.credor_chave,
       td.valor, td.historico, td.modalidade,
       td.documento_id,
-      d.titulo AS documento_titulo, d.numero AS documento_numero
+      d.titulo AS documento_titulo, d.numero AS documento_numero,
+      ${CLASSIFICACAO_SELECT}
     FROM transparencia_despesas td
+    ${CLASSIFICACAO_JOIN}
     LEFT JOIN documentos d ON d.id = td.documento_id
     WHERE td.data_empenho IS NOT NULL
       ${temFiltro ? `AND td.exercicio_orcamento IN (${placeholders})` : ''}
     ORDER BY td.data_empenho DESC, td.id DESC
     LIMIT 20
-  `).all(...paramsExercicio);
+  `).all(...paramsExercicio).map(decorarDespesaComFinalidade);
 
   const logs = db.prepare(`
     SELECT exercicio, registros, novos, atualizados, status, erro, coletado_em
@@ -587,6 +625,15 @@ function getPainelResumo({ exercicio, exercicios } = {}) {
     ORDER BY valor DESC
   `).all(...paramsExercicio);
 
+  const finalidadesEmpenho = db.prepare(`
+    SELECT tdc.classe_principal, COUNT(*) AS n, ROUND(SUM(td.valor), 2) AS valor
+    FROM transparencia_despesas td
+    JOIN transparencia_despesas_classificacoes tdc ON tdc.despesa_id = td.id
+    ${whereExercicio}
+    GROUP BY tdc.classe_principal
+    ORDER BY valor DESC
+  `).all(...paramsExercicio);
+
   // Receitas previstas — cruzar com despesas executadas por exercício
   const receitasPorAno = getReceitasPorAno();
   // Mapear receitas por exercício para lookup rápido
@@ -597,7 +644,7 @@ function getPainelResumo({ exercicio, exercicios } = {}) {
     valor_receita_previsto: receitasMap.get(row.exercicio) ?? null,
   }));
 
-  return { total, porAno: porAnoComReceita, topCredores, ultimosEmpenhos, logs, tiposEmpenho, receitasPorAno };
+  return { total, porAno: porAnoComReceita, topCredores, ultimosEmpenhos, logs, tiposEmpenho, finalidadesEmpenho, receitasPorAno };
 }
 
 /**
@@ -647,23 +694,35 @@ const LIMITE_MAX_DESPESAS = 100;
 
 function getDespesas({
   exercicio,
+  exercicios,
   credor_cnpj,
   documento_id,
   categoriaPrefixos,
+  finalidade,
   q,
   pagina = 1,
   limite = 50,
 } = {}) {
   const filters = [];
   const params = [];
+  const listaExercicios = (Array.isArray(exercicios) ? exercicios : [])
+    .map(Number)
+    .filter((n) => Number.isInteger(n) && n > 0);
 
-  if (exercicio) { filters.push('exercicio_orcamento = ?'); params.push(Number(exercicio)); }
+  if (listaExercicios.length) {
+    filters.push(`td.exercicio_orcamento IN (${listaExercicios.map(() => '?').join(', ')})`);
+    params.push(...listaExercicios);
+  } else if (exercicio) { filters.push('td.exercicio_orcamento = ?'); params.push(Number(exercicio)); }
   // Aceita CNPJ (idêntico à chave PJ) ou chave 'pf-…' — perfil PF reusa a rota
-  if (credor_cnpj) { filters.push('credor_chave = ?'); params.push(credor_cnpj); }
-  if (documento_id) { filters.push('documento_id = ?'); params.push(Number(documento_id)); }
+  if (credor_cnpj) { filters.push('td.credor_chave = ?'); params.push(credor_cnpj); }
+  if (documento_id) { filters.push('td.documento_id = ?'); params.push(Number(documento_id)); }
   if (categoriaPrefixos?.length) {
-    filters.push(`(${categoriaPrefixos.map(() => 'categoria_economica LIKE ?').join(' OR ')})`);
+    filters.push(`(${categoriaPrefixos.map(() => 'td.categoria_economica LIKE ?').join(' OR ')})`);
     params.push(...categoriaPrefixos.map((p) => `${p}%`));
+  }
+  if (finalidade) {
+    filters.push('tdc.classe_principal = ?');
+    params.push(finalidade);
   }
 
   limite = Math.min(Math.max(1, Number(limite) || 50), LIMITE_MAX_DESPESAS);
@@ -671,22 +730,29 @@ function getDespesas({
 
   const executar = (filtersFinais, paramsFinais) => {
     const where = filtersFinais.length ? `WHERE ${filtersFinais.join(' AND ')}` : '';
-    const total = db.prepare(`SELECT COUNT(*) AS n FROM transparencia_despesas td ${where}`).get(...paramsFinais).n;
+    const total = db.prepare(`
+      SELECT COUNT(*) AS n
+      FROM transparencia_despesas td
+      ${CLASSIFICACAO_JOIN}
+      ${where}
+    `).get(...paramsFinais).n;
     const dados = db.prepare(`
       SELECT
         td.id, td.exercicio_orcamento, td.empenho, td.tipo,
         td.data_empenho, td.data_liquidacao, td.data_pagamento,
-        td.credor_nome, td.credor_cnpj, td.valor,
+        td.credor_nome, td.credor_cnpj, td.credor_chave, td.valor,
         td.funcao, td.unidade, td.programa, td.categoria_economica, td.fonte_recurso,
         td.historico, td.modalidade, td.licitacao_ref,
         td.documento_id,
-        d.titulo AS documento_titulo, d.numero AS documento_numero
+        d.titulo AS documento_titulo, d.numero AS documento_numero,
+        ${CLASSIFICACAO_SELECT}
       FROM transparencia_despesas td
+      ${CLASSIFICACAO_JOIN}
       LEFT JOIN documentos d ON d.id = td.documento_id
       ${where}
       ORDER BY td.data_empenho DESC, td.id DESC
       LIMIT ? OFFSET ?
-    `).all(...paramsFinais, limite, offset);
+    `).all(...paramsFinais, limite, offset).map(decorarDespesaComFinalidade);
     return { total, pagina: Number(pagina), limite, dados };
   };
 
@@ -725,4 +791,5 @@ module.exports = {
   getFilaPagamentos,
   getReceitasPorAno,
   getReceitasDetalheExercicio,
+  backfillClassificacoesDespesas,
 };

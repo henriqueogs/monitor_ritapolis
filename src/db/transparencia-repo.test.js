@@ -30,6 +30,10 @@ function seedDespesa({
   programa = '0402 - ATIVIDADE ADMINISTRATIVA',
   categoriaEconomica = '3.3.50.43.00 - SUBVENÇÕES SOCIAIS',
   fonteRecurso = '1.621.000 - SUS ESTADUAL',
+  historico = null,
+  modalidade = null,
+  licitacaoRef = null,
+  credorCargo = null,
   documentoId = null,
 } = {}) {
   seq += 1;
@@ -38,8 +42,9 @@ function seedDespesa({
       `INSERT INTO transparencia_despesas
          (exercicio_orcamento, empenho, tipo, data_empenho, credor_cnpj, credor_nome,
           credor_chave, valor, funcao, unidade, programa, categoria_economica,
-          fonte_recurso, documento_id, hash_despesa)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          fonte_recurso, historico, modalidade, licitacao_ref, credor_cargo,
+          documento_id, hash_despesa)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       exercicio,
@@ -55,6 +60,10 @@ function seedDespesa({
       programa,
       categoriaEconomica,
       fonteRecurso,
+      historico,
+      modalidade,
+      licitacaoRef,
+      credorCargo,
       documentoId,
       `hash-${exercicio}-${seq}`
     );
@@ -63,7 +72,7 @@ function seedDespesa({
 describe('transparencia-repo', () => {
   beforeEach(() => {
     mockConn.exec(
-      'DELETE FROM transparencia_despesas; DELETE FROM transparencia_receitas; DELETE FROM transparencia_coletas_log; DELETE FROM documentos;'
+      'DELETE FROM transparencia_despesas_classificacoes; DELETE FROM transparencia_despesas; DELETE FROM transparencia_receitas; DELETE FROM transparencia_coletas_log; DELETE FROM documentos;'
     );
     seq = 0;
   });
@@ -113,6 +122,43 @@ describe('transparencia-repo', () => {
       const pag = repo.getDespesas({ credor_cnpj: '01991246000135', limite: 1, pagina: 2 });
       expect(pag.total).toBe(2);
       expect(pag.dados).toHaveLength(1);
+    });
+
+    it('filtra por finalidade e devolve evidencias auditaveis', () => {
+      seedDespesa({
+        credorCnpj: null,
+        credorNome: 'JOAO DA SILVA',
+        credorCargo: 'MOTORISTA',
+        categoriaEconomica: '3.3.90.14.00 - DIARIAS',
+        historico: 'DIARIA DE VIAGEM PARA SERVIDOR',
+      });
+      mockConn.prepare(`
+        INSERT INTO documentos (id, fonte, tipo, numero, ano, titulo, url_origem)
+        VALUES (77, 'prefeitura', 'edital', '1/2026', 2026, 'Pregao Presencial 1/2026', 'https://example.invalid/pregao')
+      `).run();
+      seedDespesa({
+        credorCnpj: '12345678000190',
+        credorNome: 'EMPRESA X LTDA',
+        categoriaEconomica: '3.3.90.39.00 - OUTROS SERVICOS PJ',
+        modalidade: 'Pregao Presencial 1/2026',
+        documentoId: 77,
+      });
+
+      repo.backfillClassificacoesDespesas({ force: true });
+
+      const diaria = repo.getDespesas({ finalidade: 'diaria_servidor' });
+      expect(diaria.total).toBe(1);
+      expect(diaria.dados[0].finalidade).toMatchObject({
+        classe: 'diaria_servidor',
+        subclasse: 'diarias',
+      });
+      expect(diaria.dados[0].finalidade.marcadores).toContain('cargo_credor');
+      expect(diaria.dados[0].finalidade.evidencias.some((ev) => ev.campo === 'credor_cargo')).toBe(true);
+
+      const licitacao = repo.getDespesas({ finalidade: 'licitacao' });
+      expect(licitacao.total).toBe(1);
+      expect(licitacao.dados[0].finalidade.classe).toBe('licitacao');
+      expect(licitacao.dados[0].finalidade.marcadores).toContain('documento_vinculado');
     });
   });
 

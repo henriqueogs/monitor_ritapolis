@@ -318,6 +318,20 @@ CREATE TABLE IF NOT EXISTS fornecedores_perfil (
   atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS credores_enriquecimentos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  credor_chave TEXT NOT NULL,
+  tipo_credor TEXT NOT NULL,
+  fonte TEXT NOT NULL,
+  identificador TEXT NOT NULL,
+  dados_json TEXT NOT NULL,
+  confianca REAL NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'ok',
+  consultado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (credor_chave, fonte, identificador)
+);
+
 CREATE TABLE IF NOT EXISTS licitacoes_categorias (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   documento_id INTEGER NOT NULL REFERENCES documentos(id) ON DELETE CASCADE,
@@ -364,6 +378,20 @@ CREATE TABLE IF NOT EXISTS transparencia_despesas (
 );
 -- Índice de credor_chave é criado em transparencia-migracoes.js (após o
 -- ALTER TABLE em bancos existentes — aqui quebraria em banco pré-migração).
+
+CREATE TABLE IF NOT EXISTS transparencia_despesas_classificacoes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  despesa_id INTEGER NOT NULL REFERENCES transparencia_despesas(id) ON DELETE CASCADE,
+  classe_principal TEXT NOT NULL,
+  subclasse TEXT,
+  marcadores_json TEXT,
+  confianca REAL NOT NULL DEFAULT 0,
+  evidencias_json TEXT NOT NULL,
+  versao TEXT NOT NULL,
+  criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (despesa_id)
+);
 
 CREATE TABLE IF NOT EXISTS transparencia_receitas (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -441,6 +469,8 @@ CREATE INDEX IF NOT EXISTS idx_resumos_ai_jobs_documento_hash
   ON documentos_resumos_ai_jobs(documento_id, texto_hash, contrato_versao, status);
 CREATE INDEX IF NOT EXISTS idx_resumos_ai_jobs_status
   ON documentos_resumos_ai_jobs(status, atualizado_em);
+CREATE INDEX IF NOT EXISTS idx_credores_enriq_chave ON credores_enriquecimentos(credor_chave);
+CREATE INDEX IF NOT EXISTS idx_credores_enriq_fonte ON credores_enriquecimentos(fonte);
 CREATE INDEX IF NOT EXISTS idx_licitacoes_categorias_documento ON licitacoes_categorias(documento_id);
 CREATE INDEX IF NOT EXISTS idx_licitacoes_categorias_categoria ON licitacoes_categorias(categoria);
 CREATE INDEX IF NOT EXISTS idx_transp_despesas_exercicio ON transparencia_despesas(exercicio_orcamento);
@@ -449,6 +479,8 @@ CREATE INDEX IF NOT EXISTS idx_transp_despesas_credor_cnpj ON transparencia_desp
 CREATE INDEX IF NOT EXISTS idx_transp_despesas_data_empenho ON transparencia_despesas(data_empenho);
 CREATE INDEX IF NOT EXISTS idx_transp_despesas_licitacao_ref ON transparencia_despesas(licitacao_ref);
 CREATE INDEX IF NOT EXISTS idx_transp_despesas_documento_id ON transparencia_despesas(documento_id);
+CREATE INDEX IF NOT EXISTS idx_transp_classif_classe ON transparencia_despesas_classificacoes(classe_principal);
+CREATE INDEX IF NOT EXISTS idx_transp_classif_versao ON transparencia_despesas_classificacoes(versao);
 CREATE INDEX IF NOT EXISTS idx_transp_receitas_exercicio ON transparencia_receitas(exercicio);
 CREATE INDEX IF NOT EXISTS idx_licitacoes_produtos_grupo_id ON licitacoes_produtos(grupo_id);
 

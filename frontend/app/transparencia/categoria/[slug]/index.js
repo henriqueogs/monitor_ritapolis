@@ -3,6 +3,7 @@ import { fetchTransparenciaCategoria } from '../../../lib/api';
 import { formatMoney } from '../../../lib/format';
 import SectionBlock from '../../../components/SectionBlock';
 import PeriodoSelector from '../../../components/PeriodoSelector';
+import TransparenciaSubnav from '../../../components/TransparenciaSubnav';
 
 export async function generateMetadata({ params }) {
   const dossie = await fetchTransparenciaCategoria(params.slug);
@@ -96,6 +97,8 @@ export default async function CategoriaPage({ params, searchParams }) {
       </div>
 
       {/* Série por ano */}
+      <TransparenciaSubnav />
+
       {por_ano?.length > 0 && (
         <SectionBlock title={`Por ano (${periodo.anos_cobertos.join('–')})`}>
           {por_ano.slice().reverse().map((r) => (
