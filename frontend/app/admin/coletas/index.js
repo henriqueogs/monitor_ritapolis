@@ -4,6 +4,33 @@ import StatusBadge from '../../components/StatusBadge';
 import { fetchColetaAtualizacaoStatus, fetchColetas, fetchSchedulerStatus } from '../../lib/api';
 import { formatDate, labelFonte } from '../../lib/format';
 
+function ColetaDetalhe({ coleta }) {
+  const detalhes = coleta.detalhes;
+
+  // Coleta cujo processo foi reiniciado no meio (marcada pelo próximo start).
+  if (detalhes && !Array.isArray(detalhes) && detalhes.motivo === 'execucao_interrompida') {
+    return (
+      <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--warning)' }}>
+        Interrompida pelo servidor (reinício durante a execução, não foi um erro da fonte). Rode novamente.
+      </p>
+    );
+  }
+
+  const erros = Array.isArray(detalhes) ? detalhes.filter((item) => item && item.erro) : [];
+  if (!erros.length) return null;
+
+  return (
+    <ul style={{ margin: '6px 0 0', paddingLeft: 16, fontSize: 12, color: 'var(--danger, var(--warning))' }}>
+      {erros.slice(0, 5).map((item, i) => (
+        <li key={i}>
+          <strong>{item.etapa || item.modulo || item.tipo || 'erro'}:</strong> {item.erro}
+        </li>
+      ))}
+      {erros.length > 5 ? <li>+{erros.length - 5} outros erros</li> : null}
+    </ul>
+  );
+}
+
 function SchedulerRow({ label, status }) {
   if (!status) return null;
   return (
@@ -82,8 +109,9 @@ export default async function AdminColetasPage() {
               <div key={coleta.id} className="table-row table-row-stacked">
                 <div>
                   <strong>{coleta.fonte_nome || labelFonte(coleta.fonte)}</strong>
-                  <p>Inicio {formatDate(coleta.inicio)} — fim {formatDate(coleta.fim)}</p>
+                  <p>Inicio {formatDate(coleta.inicio)} — fim {coleta.fim ? formatDate(coleta.fim) : 'em andamento'}</p>
                   <p>Novos {coleta.itens_novos} · atualizados {coleta.itens_atualizados} · erros {coleta.itens_com_erro}</p>
+                  <ColetaDetalhe coleta={coleta} />
                 </div>
                 <StatusBadge value={coleta.status} />
               </div>

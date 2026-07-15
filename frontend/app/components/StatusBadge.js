@@ -9,7 +9,7 @@ export default function StatusBadge({ value }) {
       ? 'is-good'
       : value === 'erro_pdf' || value === 'erro_total'
         ? 'is-bad'
-        : value === 'aberta' || value === 'em_andamento'
+        : value === 'aberta' || value === 'em_andamento' || value === 'erro_parcial' || value === 'processando'
           ? 'is-warn'
           : '';
 

@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { apiUrl } from '../lib/api';
+import { labelFonte } from '../lib/format';
 
 function statusLabel(status) {
   if (status === 'processando') return 'Atualizando';
@@ -11,10 +13,27 @@ function statusLabel(status) {
   return 'Nenhuma atualizacao em andamento';
 }
 
+function primeiroErro(resultado) {
+  const detalhes = Array.isArray(resultado?.detalhes) ? resultado.detalhes : [];
+  const comErro = detalhes.find((item) => item && item.erro);
+  return comErro?.erro || null;
+}
+
+function fontesComErro(resultados) {
+  if (!Array.isArray(resultados)) return [];
+  return resultados
+    .filter((item) => item?.status && item.status !== 'ok')
+    .map((item) => ({ fonte: item.fonte, status: item.status, erro: primeiroErro(item) }));
+}
+
 export default function CollectionUpdateAction({ initialStatus }) {
+  // Dispara coleta manual, acompanha o status ao vivo e recarrega o histórico ao fim.
+  const router = useRouter();
   const [fonte, setFonte] = useState('todas');
   const [status, setStatus] = useState(initialStatus || { status: 'idle', running: false });
   const [error, setError] = useState('');
+  const running = Boolean(status?.running);
+  const rodouRef = useRef(running);
 
   async function loadStatus() {
     try {
@@ -27,10 +46,19 @@ export default function CollectionUpdateAction({ initialStatus }) {
   }
 
   useEffect(() => {
-    if (!status?.running) return undefined;
+    if (!running) return undefined;
     const interval = setInterval(loadStatus, 3000);
     return () => clearInterval(interval);
-  }, [status?.running]);
+  }, [running]);
+
+  // Ao concluir uma coleta (running true -> false), recarrega o server component
+  // para o "Historico recente" refletir a execucao que acabou.
+  useEffect(() => {
+    if (rodouRef.current && !running) {
+      router.refresh();
+    }
+    rodouRef.current = running;
+  }, [running, router]);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -59,7 +87,7 @@ export default function CollectionUpdateAction({ initialStatus }) {
     setStatus(payload);
   }
 
-  const running = Boolean(status?.running);
+  const erros = fontesComErro(status?.resultados);
 
   return (
     <form className="collection-update" onSubmit={handleSubmit}>
@@ -84,7 +112,13 @@ export default function CollectionUpdateAction({ initialStatus }) {
         <strong>{statusLabel(status?.status)}</strong>
         {status?.started_at ? <span>Inicio: {new Date(status.started_at).toLocaleString('pt-BR')}</span> : null}
         {status?.finished_at ? <span>Fim: {new Date(status.finished_at).toLocaleString('pt-BR')}</span> : null}
-        {status?.erro ? <span>{status.erro}</span> : null}
+        {status?.erro ? <span>Erro: {status.erro}</span> : null}
+        {erros.map((item) => (
+          <span key={item.fonte}>
+            {labelFonte(item.fonte)}: {item.status === 'erro_total' ? 'falhou' : 'concluída com avisos'}
+            {item.erro ? ` — ${item.erro}` : ''}
+          </span>
+        ))}
         {error ? <span>{error}</span> : null}
       </div>
     </form>
