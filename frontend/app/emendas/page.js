@@ -144,28 +144,40 @@ function EmendaCard({ emenda }) {
 function FiltrosForm({ esferaAtual, anoAtual, parlamentarAtual }) {
   return (
     <form method="GET" className={styles.filtrosForm}>
-      <select name="esfera" defaultValue={esferaAtual || ''} className={styles.filtroSelect}>
-        <option value="">Todas as esferas</option>
-        <option value="estadual">Estadual</option>
-        <option value="federal">Federal</option>
-      </select>
-      <input
-        type="number"
-        name="ano"
-        defaultValue={anoAtual || ''}
-        placeholder="Ano"
-        min="2020"
-        max="2030"
-        className={styles.filtroInput}
-      />
-      <input
-        type="text"
-        name="parlamentar"
-        defaultValue={parlamentarAtual || ''}
-        placeholder="Nome do parlamentar"
-        className={styles.filtroInput}
-      />
-      <button type="submit" className={styles.filtroBtn}>Filtrar</button>
+      <label className={styles.filtroField}>
+        <span>Esfera</span>
+        <select name="esfera" defaultValue={esferaAtual || ''} className={styles.filtroSelect}>
+          <option value="">Todas as esferas</option>
+          <option value="estadual">Estadual</option>
+          <option value="federal">Federal</option>
+        </select>
+      </label>
+      <label className={styles.filtroField}>
+        <span>Ano</span>
+        <input
+          type="number"
+          name="ano"
+          defaultValue={anoAtual || ''}
+          placeholder="Ex.: 2026"
+          min="2020"
+          max="2030"
+          className={styles.filtroInput}
+        />
+      </label>
+      <label className={styles.filtroField}>
+        <span>Parlamentar</span>
+        <input
+          type="text"
+          name="parlamentar"
+          defaultValue={parlamentarAtual || ''}
+          placeholder="Nome do parlamentar"
+          className={styles.filtroInput}
+        />
+      </label>
+      <div className={styles.filtroActions}>
+        <button type="submit" className={styles.filtroBtn}>Filtrar</button>
+        <Link href="/emendas" className={styles.filtroClear}>Limpar</Link>
+      </div>
     </form>
   );
 }
@@ -193,7 +205,13 @@ export default async function EmendasPage({ searchParams }) {
 
       <TotaisCards totais={totais} />
 
-      <section className={styles.filtrosSection}>
+      <section className={styles.filtrosSection} aria-labelledby="emendas-filtros-title">
+        <div className={styles.filtrosHeader}>
+          <div>
+            <h2 id="emendas-filtros-title" className={styles.filtrosTitle}>Filtrar emendas</h2>
+            <p className={styles.filtrosSubtitle}>Refine por esfera, ano ou parlamentar.</p>
+          </div>
+        </div>
         <FiltrosForm esferaAtual={esfera} anoAtual={ano} parlamentarAtual={parlamentar} />
         {total > 0 && (
           <p className={styles.resultadoCount}>
