@@ -17,11 +17,16 @@ const config = require('../config');
 const { db } = require('../db');
 const { consolidarFornecedores } = require('../db');
 const { backfillClassificacoesDespesas } = require('../db/transparencia-repo');
+const { enriquecerCredores } = require('../integracoes/enriquecer-credores');
 
 // Máximo de empenhos reclassificados por tick quando a versão da classificação
 // de finalidade muda. Empenhos novos já são classificados no insert; isto só
 // dilui o reprocessamento do acervo antigo em lotes, evitando um passe pesado.
 const LIMITE_RECLASSIFICACAO_TICK = 2000;
+
+// Máximo de CNPJs enriquecidos por tick. Bounded para não sobrecarregar a
+// BrasilAPI; quando o cache está fresco, a seleção volta vazia e sai barato.
+const LIMITE_ENRIQUECIMENTO_TICK = 50;
 
 // ── Controle de estado ────────────────────────────────────────────────────────
 
@@ -173,11 +178,29 @@ function reprocessarFinalidades() {
   }
 }
 
+// ── Enriquecimento cadastral de credores ──────────────────────────────────────
+
+/**
+ * Enriquece em lote os CNPJs de credores sem cadastro fresco (fonte Receita).
+ * Bounded por tick; quando nada está defasado, não consulta nada.
+ */
+async function enriquecerCredoresTick() {
+  try {
+    const r = await enriquecerCredores({ limite: LIMITE_ENRIQUECIMENTO_TICK });
+    if (r.enriquecidos > 0 || r.erros > 0) {
+      logger.info('daily-scheduler: credores enriquecidos', r);
+    }
+  } catch (err) {
+    logger.warn('daily-scheduler: erro ao enriquecer credores', { erro: err.message });
+  }
+}
+
 // ── Tick ─────────────────────────────────────────────────────────────────────
 
 async function tick() {
   await coletarTransparencia();
   reprocessarFinalidades();
+  await enriquecerCredoresTick();
   await sincronizarPncp();
 }
 
