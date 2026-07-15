@@ -4,7 +4,6 @@ import AiSummarySection from './components/AiSummarySection';
 import AttachmentsSection from './components/AttachmentsSection';
 import DocumentHeader from './components/DocumentHeader';
 import EmpenhoSection from './components/EmpenhoSection';
-import ExtractedTextSections from './components/ExtractedTextSections';
 import IdentityAndLimits from './components/IdentityAndLimits';
 import IntegratedReadingSection from './components/IntegratedReadingSection';
 import LicitationProducts from './components/LicitationProducts';
@@ -74,7 +73,6 @@ export default async function DocumentoPage({ params }) {
         <LicitationRelatedSources fontes={documento.licitacao_fontes_relacionadas} />
       ) : null}
       {documento.tipo !== 'edital' ? <RelatedSources documento={documento} /> : null}
-      <ExtractedTextSections documento={documento} />
     </main>
   );
 }
