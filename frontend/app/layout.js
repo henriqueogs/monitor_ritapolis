@@ -1,6 +1,7 @@
 import './globals.css';
 import Link from 'next/link';
 import TopNav from './components/TopNav';
+import RequestToaster from './components/RequestToaster';
 import { DISCLAIMER_RODAPE } from './lib/disclaimer';
 import { BRAND, BRAND_TAGLINE, SITE_URL } from './lib/brand';
 
@@ -49,6 +50,7 @@ export default function RootLayout({ children }) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdWebSite) }}
         />
         <TopNav />
+        <RequestToaster />
         <div className="app-shell">
           {children}
           <footer className="site-footer">
