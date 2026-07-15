@@ -390,10 +390,39 @@ function getCredorProfile(identificador) {
   };
 }
 
+/**
+ * CNPJs de credores que precisam de enriquecimento cadastral (fonte
+ * receita_cnpj): nunca consultados, com falha anterior, ou defasados além de
+ * maxIdadeDias. Ordena pelos mais ativos (mais empenhos) para priorizar ROI.
+ */
+function listCnpjsParaEnriquecer({ limite = 100, maxIdadeDias = 90, force = false } = {}) {
+  return db.prepare(`
+    SELECT td.credor_cnpj AS cnpj,
+           td.credor_cnpj AS chave,
+           MAX(td.credor_nome) AS nome,
+           COUNT(*) AS n
+    FROM transparencia_despesas td
+    LEFT JOIN credores_enriquecimentos ce
+      ON ce.credor_chave = td.credor_cnpj AND ce.fonte = 'receita_cnpj'
+    WHERE td.credor_cnpj IS NOT NULL
+      AND LENGTH(td.credor_cnpj) = 14
+      AND (
+        ? = 1
+        OR ce.id IS NULL
+        OR ce.status != 'ok'
+        OR julianday('now') - julianday(ce.consultado_em) > ?
+      )
+    GROUP BY td.credor_cnpj
+    ORDER BY n DESC
+    LIMIT ?
+  `).all(force ? 1 : 0, Number(maxIdadeDias), Number(limite));
+}
+
 module.exports = {
   listCredores,
   getCredorProfile,
   upsertCredorEnriquecimento,
   listCredorEnriquecimentos,
+  listCnpjsParaEnriquecer,
   FONTES_EXTERNAS_CREDORES,
 };

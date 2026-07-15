@@ -34,6 +34,8 @@
     "transparencia:validar-links": "node scripts/validar-links-portal.js",
     "transparencia:classificar-empenhos": "node scripts/classificar-empenhos.js --apply",
     "transparencia:classificar-empenhos:dry": "node scripts/classificar-empenhos.js",
+    "credores:enriquecer": "node scripts/enriquecer-credores.js --apply",
+    "credores:enriquecer:dry": "node scripts/enriquecer-credores.js",
     "licitacoes:agrupar-produtos": "node scripts/agrupar-produtos-embeddings.js",
     "cobertura:relatorio": "node scripts/relatorio-cobertura.js",
     "licitacoes:validar-produtos-ia": "node scripts/validar-produtos-ia.js",
