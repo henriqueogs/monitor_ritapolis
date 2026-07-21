@@ -10,16 +10,16 @@ const DiscoveryInvestigationContract = z.object({
   // pergunta_cidada vira o título; resposta_direta, a frase de abertura;
   // por_que_olhar, o motivo em uma linha. Opcionais para não invalidar
   // investigações geradas antes destes campos existirem.
-  pergunta_cidada: z.string().trim().min(1).max(160).optional(),
-  resposta_direta: textoPublico.optional(),
-  por_que_olhar: textoPublico.optional(),
+  pergunta_cidada: z.string().trim().min(1).max(160),
+  resposta_direta: textoPublico,
+  por_que_olhar: textoPublico,
   // Narrativa consolidada (opcional): parágrafo único que já incorpora os
   // fatos relevantes e a lacuna relevante em prosa corrida — a leitura
   // principal do público quando presente. `o_que_os_dados_mostram`/
   // `lacunas_encontradas` continuam existindo como evidência de apoio
   // (auditável), não como o texto em destaque. Opcional para não quebrar a
   // leitura de investigações já geradas antes deste campo existir.
-  narrativa_consolidada: textoPublico.optional(),
+  narrativa_consolidada: textoPublico,
   o_que_os_dados_mostram: z.array(textoPublico).min(1).max(8),
   lacunas_encontradas: z.array(textoPublico).default([]),
   perguntas_abertas: z.array(textoPublico).default([]),

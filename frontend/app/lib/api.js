@@ -6,7 +6,7 @@ export const apiUrl = typeof window === 'undefined' ? backendApiUrl : adminProxy
 // Rotas que precisam sempre do dado mais recente (admin, jobs, status ao vivo).
 // As demais (dados públicos do acervo/transparência) são cacheadas com ISR para
 // que a navegação seja instantânea e não re-bata na API a cada clique.
-const PREFIXOS_SEM_CACHE = ['/admin', '/coletas', '/ia/resumos', '/scheduler'];
+const PREFIXOS_SEM_CACHE = ['/admin', '/alertas', '/coletas', '/ia/resumos', '/scheduler'];
 const PREFIXOS_PROTEGIDOS = [
   '/admin',
   '/coletas',
@@ -547,12 +547,24 @@ export function fetchAlertasStats() {
   return fetchJson('/alertas/stats');
 }
 
+export function fetchAlertasAdminStats() {
+  return fetchJson('/admin/alertas/stats', { revalidate: 0 });
+}
+
 export function fetchAlertasConfig() {
   return fetchJson('/alertas/config');
 }
 
 export async function updateAlertaStatus(id, status) {
   return patchJson(`/alertas/${id}`, { status });
+}
+
+export async function updateAlertaEditorial(id, estado, motivos = []) {
+  return patchJson(`/admin/alertas/${id}/editorial`, { estado, motivos });
+}
+
+export async function reprocessarAlerta(id, { dryRun = false } = {}) {
+  return postJson(`/admin/alertas/${id}/reprocessar`, { dryRun });
 }
 
 export async function updateAlertaConfig(chave, valor, descricao = null) {

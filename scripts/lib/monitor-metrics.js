@@ -249,7 +249,7 @@ function collectMetrics() {
   const alertas = getAll('SELECT status, COUNT(*) n FROM alertas GROUP BY status ORDER BY n DESC');
   const descobertasInvestigacao = {
     por_status: getAll(`
-      SELECT COALESCE(json_extract(metadados_json, '$.discovery_v2.status'), 'sem_ia') status,
+      SELECT COALESCE(estado_editorial, 'sem_estado') status,
              COUNT(*) n
         FROM alertas
        WHERE status='ativo'
@@ -262,10 +262,14 @@ function collectMetrics() {
         FROM alertas
        WHERE status='ativo'
          AND json_extract(metadados_json, '$.discovery_kind')='investigacao_factual'
-         AND (
-           json_extract(metadados_json, '$.discovery_v2.status') IS NULL
-           OR json_extract(metadados_json, '$.discovery_v2.status') IN ('fallback','limite_ciclo','revisao_admin','desativado')
-         )
+         AND estado_editorial IN ('candidato','evidencias_prontas','analisado')
+    `).n,
+    publicadas: getOne(`
+      SELECT COUNT(*) n
+        FROM alertas
+       WHERE status='ativo'
+         AND estado_editorial='publicado'
+         AND json_extract(metadados_json, '$.discovery_kind')='investigacao_factual'
     `).n,
     ultimo_ciclo: (getOne("SELECT ultimo_processado_em FROM alertas_watermark WHERE chave='descobertas:investigacao_ultimo_ciclo'") || {}).ultimo_processado_em || null,
   };

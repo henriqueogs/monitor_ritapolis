@@ -74,6 +74,45 @@ describe('alertas-repo', () => {
       repo.upsertAlerta({ ...base, titulo: 'regenerado', status: 'ativo' }, []);
       expect(repo.getAlerta(id).status).toBe('arquivado');
     });
+
+    it('preserva publicacao no rebuild quando as evidencias nao mudaram', () => {
+      seedDocumento(1, '2026-03-01');
+      seedDocumento(2, '2026-03-02');
+      const evidencia = [{ documento_id: 1, papel: 'evidencia', trecho_fonte: '60 arvores' }];
+      const base = {
+        tipo: 'tematico',
+        titulo: 'Titulo publicado',
+        narrativa: 'Narrativa publicada.',
+        chave_unica: 'factual-estavel',
+        severidade: 'info',
+        estado_editorial: 'publicado',
+        metadados: { discovery_kind: 'investigacao_factual', discovery_v3: { qualidade: { factual_status: 'aprovado' } } },
+      };
+      const { id } = repo.upsertAlerta(base, [{ documento_id: 1 }], evidencia);
+
+      repo.upsertAlerta({
+        ...base,
+        titulo: 'Titulo bruto do detector',
+        narrativa: 'Narrativa bruta.',
+        estado_editorial: 'candidato',
+        estado_editorial_origem: 'gerador_factual',
+        metadados: { discovery_kind: 'investigacao_factual' },
+      }, [{ documento_id: 1 }], evidencia);
+
+      const preservado = repo.getAlerta(id);
+      expect(preservado.estado_editorial).toBe('publicado');
+      expect(preservado.titulo).toBe('Titulo publicado');
+      expect(preservado.metadados.discovery_v3.qualidade.factual_status).toBe('aprovado');
+
+      repo.upsertAlerta({
+        ...base,
+        titulo: 'Nova evidencia',
+        estado_editorial: 'candidato',
+        estado_editorial_origem: 'gerador_factual',
+        metadados: { discovery_kind: 'investigacao_factual' },
+      }, [{ documento_id: 2 }], [{ documento_id: 2, papel: 'evidencia', trecho_fonte: 'nova fonte' }]);
+      expect(repo.getAlerta(id).estado_editorial).toBe('candidato');
+    });
   });
 
   describe('removerAtivosNaoListados', () => {
@@ -90,7 +129,8 @@ describe('alertas-repo', () => {
       // arquivado pelo humano não é tocado, mesmo fora da lista
       expect(repo.getAlerta(arq.id).status).toBe('arquivado');
       const ativos = repo.listarAlertas({ status: 'ativo' });
-      expect(ativos.dados.map((a) => a.chave_unica).sort()).toEqual(['keep']);
+      expect(ativos.dados.map((a) => a.chave_unica).sort()).toEqual(['drop', 'keep']);
+      expect(ativos.dados.find((a) => a.chave_unica === 'drop').estado_editorial).toBe('rejeitado');
     });
 
     it('sem chaves não remove nada (proteção contra zerar o feed)', () => {
@@ -112,7 +152,7 @@ describe('alertas-repo', () => {
       const vinculos = mockConn
         .prepare('SELECT COUNT(*) AS n FROM alertas_documentos WHERE alerta_id = ?')
         .get(drop.id).n;
-      expect(vinculos).toBe(0);
+      expect(vinculos).toBe(1);
     });
   });
 
@@ -154,19 +194,24 @@ describe('alertas-repo', () => {
           metadados: {
             unidade: 'R$',
             segredo: 'interno',
-            discovery_v2: {
+            discovery_v3: {
               tipo_investigacao: 'meio_ambiente.supressao_arvores',
+              subject_key: 'supressao-arvores|2026',
+              pergunta_cidada: 'O que os documentos mostram?',
+              resposta_direta: 'Os documentos registram duas ocorrencias.',
+              por_que_olhar: 'Vale conferir o laudo tecnico.',
               narrativa_consolidada: 'Narrativa publica.',
               lacunas_encontradas: ['Laudo nao apareceu.'],
               metricas: { total: 2 },
+              qualidade: { factual_status: 'aprovado', editorial_status: 'aprovado' },
               analise_admin: 'Texto interno incisivo.',
-              status: 'fallback',
               provider: 'nvidia',
               modelo: 'modelo-interno',
               erro: 'timeout',
               payload_json: { raw: true },
             },
           },
+          estado_editorial: 'publicado',
           documentos_ids: [1],
           chave_unica: 'tematico|meio-ambiente|2026',
         },
@@ -188,12 +233,13 @@ describe('alertas-repo', () => {
       expect(publico.chave_unica).toBeUndefined();
       expect(publico.metadados_json).toBeUndefined();
       expect(publico.metadados.segredo).toBeUndefined();
-      expect(publico.metadados.discovery_v2.narrativa_consolidada).toBe('Narrativa publica.');
-      expect(publico.metadados.discovery_v2.analise_admin).toBeUndefined();
-      expect(publico.metadados.discovery_v2.status).toBeUndefined();
-      expect(publico.metadados.discovery_v2.provider).toBeUndefined();
-      expect(publico.metadados.discovery_v2.modelo).toBeUndefined();
-      expect(publico.metadados.discovery_v2.erro).toBeUndefined();
+      expect(publico.metadados.discovery_v3.narrativa_consolidada).toBe('Narrativa publica.');
+      expect(publico.metadados.discovery_v3.pergunta_cidada).toBe('O que os documentos mostram?');
+      expect(publico.metadados.discovery_v3.analise_admin).toBeUndefined();
+      expect(publico.metadados.discovery_v3.qualidade).toBeUndefined();
+      expect(publico.metadados.discovery_v3.provider).toBeUndefined();
+      expect(publico.metadados.discovery_v3.modelo).toBeUndefined();
+      expect(publico.metadados.discovery_v3.erro).toBeUndefined();
       expect(publico.documentos[0].trecho_fonte).toBeUndefined();
       expect(publico.evidencias[0].metadados).toEqual({
         valor: 100,
@@ -207,6 +253,18 @@ describe('alertas-repo', () => {
 
       expect(repo.getAlertaPublico(id)).toBeNull();
       expect(repo.listarAlertasPublicos({ status: 'arquivado' }).total).toBe(0);
+    });
+
+    it('nao expoe candidatos ainda nao publicados', () => {
+      const { id } = repo.upsertAlerta({
+        tipo: 'tematico',
+        titulo: 'Candidato',
+        chave_unica: 'pub-candidato',
+        severidade: 'info',
+        estado_editorial: 'candidato',
+      }, []);
+      expect(repo.getAlertaPublico(id)).toBeNull();
+      expect(repo.listarAlertasPublicos().total).toBe(0);
     });
   });
 

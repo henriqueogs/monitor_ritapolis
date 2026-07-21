@@ -112,8 +112,9 @@ describe('generateAlerts', () => {
     const result = await generateAlerts({});
     expect(result.total).toBe(2);
     expect(result.gerados).toBeGreaterThanOrEqual(1);
-    expect(gerarNarrativaAlerta).toHaveBeenCalled();
+    expect(gerarNarrativaAlerta).not.toHaveBeenCalled();
     expect(repo.upsertAlerta).toHaveBeenCalled();
+    expect(repo.upsertAlerta.mock.calls[0][0].estado_editorial).toBe('revisao');
     expect(repo.setWatermark).toHaveBeenCalled();
   });
 
@@ -153,6 +154,7 @@ describe('generateAlerts', () => {
     const alerta = repo.upsertAlerta.mock.calls[0][0];
     expect(alerta.narrativa).toBeTruthy();
     expect(alerta.narrativa).not.toBe('Texto gerado');
+    expect(gerarNarrativaAlerta).not.toHaveBeenCalled();
   });
 
   it('ignora documentos sem resumo IA', async () => {

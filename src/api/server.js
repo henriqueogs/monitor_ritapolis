@@ -117,6 +117,7 @@ const { checkPrefeituraSyncOnPortalOpen } = require('../coletas/prefeitura-sync'
 const collectionScheduler = require('../coletas/collection-scheduler');
 const aiScheduler = require('../ai/ai-daily-scheduler');
 const descobertasScheduler = require('../inteligencia/descobertas-scheduler');
+const { reprocessarInvestigacoesPendentes } = require('../inteligencia/discovery-investigation-runner');
 const {
   compararCoberturaPrefeitura,
   getCoberturaPrefeituraSourceLinks,
@@ -765,7 +766,7 @@ function createServer() {
 
   // GET /api/alertas/stats — contagem por severidade
   app.get('/api/alertas/stats', (req, res) => {
-    return res.json(alertasRepo.contarPorSeveridade('ativo'));
+    return res.json(alertasRepo.contarPorSeveridade('ativo', 'publicado'));
   });
 
   // GET /api/alertas/config — ler configurações
@@ -810,17 +811,25 @@ function createServer() {
 
   // GET /api/alertas/:id — detalhe com documentos vinculados
   app.get('/api/admin/alertas', (req, res) => {
-    const { tipo, categoria, severidade, status, periodoInicio, periodoFim, pagina, limite } = req.query;
+    const { tipo, categoria, severidade, status, estadoEditorial, periodoInicio, periodoFim, pagina, limite } = req.query;
     return res.json(alertasRepo.listarAlertas({
       tipo: tipo || undefined,
       categoria: categoria || undefined,
       severidade: severidade || undefined,
       status: status || undefined,
+      estadoEditorial: estadoEditorial || undefined,
       periodoInicio: periodoInicio || undefined,
       periodoFim: periodoFim || undefined,
       pagina: pagina ? Number(pagina) : 1,
       limite: limite ? Number(limite) : 20,
     }));
+  });
+
+  app.get('/api/admin/alertas/stats', (_req, res) => {
+    return res.json({
+      severidade: alertasRepo.contarPorSeveridade('ativo'),
+      editorial: alertasRepo.contarPorEstadoEditorial('ativo'),
+    });
   });
 
   app.get('/api/admin/alertas/:id', (req, res) => {
@@ -832,7 +841,51 @@ function createServer() {
     if (!alerta) {
       return res.status(404).json({ error: 'Alerta nao encontrado' });
     }
-    return res.json(alerta);
+    return res.json({
+      ...alerta,
+      historico_editorial: alertasRepo.listarHistoricoEditorial(id),
+    });
+  });
+
+  app.patch('/api/admin/alertas/:id/editorial', (req, res) => {
+    const id = Number(req.params.id);
+    const { estado, motivos } = req.body || {};
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'id invalido' });
+    }
+    try {
+      const ok = alertasRepo.setEstadoEditorial(id, estado, {
+        origem: 'admin',
+        motivos: Array.isArray(motivos) ? motivos : [],
+      });
+      if (!ok) {
+        return res.status(404).json({ error: 'Alerta nao encontrado' });
+      }
+      return res.json({ ok: true, id, estado });
+    } catch (err) {
+      return res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/admin/alertas/:id/reprocessar', async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'id invalido' });
+    }
+    try {
+      const resultado = await reprocessarInvestigacoesPendentes({
+        id,
+        force: true,
+        delayMs: 0,
+        dryRun: Boolean(req.body?.dryRun),
+      });
+      if (resultado.total_selecionados === 0) {
+        return res.status(404).json({ error: 'Descoberta investigativa nao encontrada' });
+      }
+      return res.json(resultado);
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
   });
 
   app.get('/api/alertas/:id', (req, res) => {

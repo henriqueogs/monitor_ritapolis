@@ -111,6 +111,12 @@
   color: #64748b;
 }
 
+.alertaMotivos {
+  margin-top: 0.2rem;
+  color: #92400e;
+  font-size: 0.72rem;
+}
+
 .alertaAcoes {
   display: flex;
   gap: 0.4rem;

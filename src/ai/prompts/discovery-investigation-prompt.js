@@ -82,8 +82,8 @@ function buildDiscoveryInvestigationPrompt({ alerta, lacunasDeterministicas = []
       documentos: alerta.documentos_ids?.length || 0,
     },
     janelas: alerta.metadados?.janelas || [],
-    metricas: alerta.metadados?.metricas || {},
-    comparativos: alerta.metadados?.comparativos || {},
+    metricas: alerta.metadados?.metricas_deterministicas || alerta.metadados?.metricas || {},
+    comparativos: alerta.metadados?.comparativos_deterministicos || alerta.metadados?.comparativos || {},
     documentos_relacionados: (alerta.documentos || []).slice(0, 16),
     lacunas_deterministicas: lacunasDeterministicas,
     campos_a_verificar: checklist,
@@ -112,8 +112,10 @@ Regras obrigatorias:
 - Toda evidencia_usada deve se referir a documento_id/anexo_id existente no JSON de entrada.
 - nivel_confianca deve ser numero entre 0 e 1.
 - Inclua em limites_publicacao qualquer cuidado que impeça leitura exagerada do caso.
-- pergunta_cidada: uma PERGUNTA curta e concreta que um morador faria sobre este gasto/tema
-  (ex.: "Quanto a prefeitura gastou com eventos em 2025?"). Sem jargao, sem acusacao. Vira o titulo.
+- pergunta_cidada: uma PERGUNTA curta e concreta que um morador faria e que seja respondida
+  exatamente pela metrica_principal. So pergunte "quanto gastou" quando a unidade principal for R$.
+  Para quantidades, pergunte "quantos/quantas"; para processos, identifique o evento, fornecedor,
+  produto ou objeto fixo. Sem jargao, sem acusacao. Vira o titulo.
 - resposta_direta: UMA frase que responde a pergunta com o fato principal (numero + periodo quando houver),
   sem preambulo tipo "os dados mostram". Ex.: "Foram R$ X em N contratos de eventos em 2025."
 - por_que_olhar: UMA frase dizendo por que vale um segundo olhar, em linguagem simples e sem alarmismo
@@ -121,10 +123,9 @@ Regras obrigatorias:
 ${narrativaConsolidadaAtiva ? `- narrativa_consolidada: paragrafo UNICO (2-4 frases) que e a leitura principal do publico.
   Some/consolide os fatos relevantes (o_que_os_dados_mostram) e a lacuna mais relevante
   (lacunas_encontradas) na MESMA prosa, em vez de listar fatos soltos. Cite os documentos
-  entre colchetes quando fizer sentido (ex.: "[607]"). SO calcule razao/proporcao
-  (ex.: R$ por unidade) quando os dados numericos permitirem e isso for informativo para
-  o tema — NUNCA force esse calculo em temas qualitativos (ex.: saude, recorrencia de
-  fornecedor) onde nao faz sentido. o_que_os_dados_mostram e lacunas_encontradas continuam
+  entre colchetes quando fizer sentido (ex.: "[607]"). NAO calcule media, razao, proporcao
+  ou qualquer numero derivado que nao esteja explicitamente em metricas ou comparativos.
+  Nao force calculos em temas qualitativos. o_que_os_dados_mostram e lacunas_encontradas continuam
   obrigatorios (evidencia auditavel), mas narrativa_consolidada e o texto que o publico le.` : ''}
 
 Formato:

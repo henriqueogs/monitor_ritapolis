@@ -70,6 +70,10 @@ describe('discovery-investigation', () => {
   it('contrato rejeita linguagem acusatoria no publico', () => {
     expect(() => validateDiscoveryInvestigation({
       hipotese_publica: 'Ha suspeita de irregularidade nos documentos.',
+      pergunta_cidada: 'O que os documentos mostram?',
+      resposta_direta: 'Os documentos registram 70 arvores.',
+      por_que_olhar: 'Vale conferir o laudo tecnico.',
+      narrativa_consolidada: 'Os documentos registram 70 arvores. Vale conferir o laudo tecnico publicado.',
       o_que_os_dados_mostram: ['70 arvores'],
       lacunas_encontradas: [],
       perguntas_abertas: [],
@@ -82,6 +86,9 @@ describe('discovery-investigation', () => {
   it('contrato rejeita linguagem acusatoria dentro de narrativa_consolidada', () => {
     expect(() => validateDiscoveryInvestigation({
       hipotese_publica: 'Vale conferir os documentos.',
+      pergunta_cidada: 'O que os documentos mostram?',
+      resposta_direta: 'Os documentos registram 70 arvores.',
+      por_que_olhar: 'Vale conferir o laudo tecnico.',
       narrativa_consolidada: 'Ha indicio de fraude nos documentos analisados.',
       o_que_os_dados_mostram: ['70 arvores'],
       lacunas_encontradas: [],
@@ -95,6 +102,9 @@ describe('discovery-investigation', () => {
   it('contrato aceita narrativa_consolidada valida', () => {
     const validado = validateDiscoveryInvestigation({
       hipotese_publica: 'Vale conferir os documentos.',
+      pergunta_cidada: 'O que os documentos mostram?',
+      resposta_direta: 'Os documentos registram 70 arvores.',
+      por_que_olhar: 'Vale conferir o laudo tecnico.',
       narrativa_consolidada: 'A prefeitura contratou a supressao de 70 arvores em 2026, sem registro de laudo tecnico nos documentos analisados.',
       o_que_os_dados_mostram: ['70 arvores'],
       lacunas_encontradas: [],
@@ -122,6 +132,9 @@ describe('discovery-investigation', () => {
       model: 'mock-model',
       generateJson: jest.fn().mockResolvedValue(JSON.stringify({
         hipotese_publica: 'A supressao de arvores em 2026 merece leitura dos documentos tecnicos publicados.',
+        pergunta_cidada: 'O que os documentos mostram sobre 70 arvores em 2026?',
+        resposta_direta: 'Os documentos 607 e 12 registram a supressao de 70 arvores em 2026.',
+        por_que_olhar: 'Os trechos analisados nao registram laudo tecnico ou compensacao ambiental.',
         narrativa_consolidada: 'A prefeitura contratou a supressao de 70 arvores em 2026 (documentos 607 e 12), sem registro de laudo tecnico nos documentos analisados.',
         o_que_os_dados_mostram: ['A contagem informada soma 70 arvores.'],
         lacunas_encontradas: ['Nao encontrado nos documentos analisados: compensacao ou replantio.'],
@@ -140,7 +153,7 @@ describe('discovery-investigation', () => {
     expect(result.narrativa).toBe(result.metadados.discovery_v2.narrativa_consolidada);
   });
 
-  it('usa hipotese_publica como narrativa quando nao ha narrativa_consolidada (registro antigo/toggle desligado)', async () => {
+  it('usa fallback quando a resposta do provider nao cumpre o contrato v3', async () => {
     const provider = {
       provider: 'mock',
       model: 'mock-model',
@@ -155,6 +168,7 @@ describe('discovery-investigation', () => {
       })),
     };
     const result = await investigarDescoberta(alertaBase(), { provider });
-    expect(result.narrativa).toBe('A supressao de arvores em 2026 merece leitura dos documentos tecnicos publicados.');
+    expect(result.metadados.discovery_v2.status).toBe('fallback');
+    expect(result.narrativa).toContain('70 arvores');
   });
 });

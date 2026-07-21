@@ -8,6 +8,14 @@ const crypto = require('crypto');
 const { db } = require('./connection');
 
 const STATUS_VALIDOS = new Set(['ativo', 'arquivado', 'suprimido']);
+const ESTADOS_EDITORIAIS = new Set([
+  'candidato',
+  'evidencias_prontas',
+  'analisado',
+  'revisao',
+  'publicado',
+  'rejeitado',
+]);
 const ORDEM_SEVERIDADE = { critico: 0, atencao: 1, info: 2 };
 
 function nowIso() {
@@ -42,6 +50,7 @@ function mapAlerta(row) {
     metadados: fromJson(row.metadados_json, {}),
     documentos_ids: fromJson(row.documentos_ids_json, []),
     questionamentos: fromJson(row.questionamentos_json, []),
+    qualidade_motivos: fromJson(row.qualidade_motivos_json, []),
   };
 }
 
@@ -61,7 +70,11 @@ function discoveryPublico(discovery) {
   }
   return pickDefined(discovery, [
     'tipo_investigacao',
+    'subject_key',
     'hipotese_publica',
+    'pergunta_cidada',
+    'resposta_direta',
+    'por_que_olhar',
     'narrativa_consolidada',
     'o_que_os_dados_mostram',
     'lacunas_encontradas',
@@ -76,9 +89,9 @@ function metadadosPublicos(metadados) {
     return {};
   }
   const out = pickDefined(metadados, ['unidade', 'ano', 'investigacao_tipo']);
-  const discovery = discoveryPublico(metadados.discovery_v2);
+  const discovery = discoveryPublico(metadados.discovery_v3);
   if (discovery && Object.keys(discovery).length) {
-    out.discovery_v2 = discovery;
+    out.discovery_v3 = discovery;
   }
   return out;
 }
@@ -118,7 +131,7 @@ function evidenciaPublica(evidencia) {
 }
 
 function alertaPublico(alerta) {
-  if (!alerta || alerta.status !== 'ativo') {
+  if (!alerta || alerta.status !== 'ativo' || alerta.estado_editorial !== 'publicado') {
     return null;
   }
   const documentos = Array.isArray(alerta.documentos)
@@ -144,6 +157,7 @@ function alertaPublico(alerta) {
     documentos_ids: alerta.documentos_ids,
     questionamentos: alerta.questionamentos,
     ultima_publicacao_documento: alerta.ultima_publicacao_documento,
+    publicado_em: alerta.publicado_em,
     ...(documentos ? { documentos } : {}),
     ...(evidencias ? { evidencias } : {}),
   };
@@ -166,9 +180,36 @@ function camposDe(alerta) {
     questionamentos_json: toJson(alerta.questionamentos ?? null),
     confianca: alerta.confianca ?? null,
     status: alerta.status || 'ativo',
+    estado_editorial: alerta.estado_editorial || 'candidato',
+    evidencias_hash: alerta.evidencias_hash ?? null,
+    qualidade_motivos_json: toJson(alerta.qualidade_motivos || []),
+    qualidade_versao: alerta.qualidade_versao ?? null,
+    publicado_em: alerta.publicado_em ?? null,
     chave_unica: alerta.chave_unica,
     ultima_publicacao_documento: alerta.ultima_publicacao_documento ?? null,
   };
+}
+
+function buildEvidenciasHash(evidencias = []) {
+  const normalizadas = evidencias
+    .map((e) => ({
+      documento_id: Number(e.documento_id) || null,
+      anexo_id: Number(e.anexo_id) || null,
+      fato_id: Number(e.fato_id) || null,
+      papel: e.papel || 'evidencia',
+      trecho_fonte: e.trecho_fonte || null,
+      metadados: e.metadados || null,
+    }))
+    .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+  return normalizadas.length ? buildHash(normalizadas) : null;
+}
+
+function registrarHistorico({ alertaId, anterior = null, novo, origem = 'sistema', motivos = [], evidenciasHash = null }) {
+  db.prepare(
+    `INSERT INTO alertas_editorial_historico (
+       alerta_id, estado_anterior, estado_novo, origem, motivos_json, evidencias_hash, criado_em
+     ) VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).run(alertaId, anterior, novo, origem, toJson(motivos || []), evidenciasHash, nowIso());
 }
 
 // Upsert idempotente por chave_unica. Preserva decisão humana: se o alerta já foi
@@ -176,12 +217,36 @@ function camposDe(alerta) {
 // documentos pelo conjunto fornecido.
 function upsertAlerta(alerta, documentos = [], evidencias = []) {
   const agora = nowIso();
-  const campos = camposDe(alerta);
-  const existing = db.prepare('SELECT id, status FROM alertas WHERE chave_unica = ?').get(campos.chave_unica);
+  const estadoInformado = Object.prototype.hasOwnProperty.call(alerta, 'estado_editorial');
+  const evidenciasHash = alerta.evidencias_hash || buildEvidenciasHash(evidencias);
+  const campos = camposDe({ ...alerta, evidencias_hash: evidenciasHash });
+  const existing = db
+    .prepare(
+      `SELECT id, status, estado_editorial, evidencias_hash, metadados_json,
+              titulo, narrativa, qualidade_motivos_json, qualidade_versao, publicado_em
+         FROM alertas WHERE chave_unica = ?`
+    )
+    .get(campos.chave_unica);
 
   let id;
   if (existing) {
     const status = existing.status === 'ativo' ? campos.status : existing.status;
+    const mesmoHash = Boolean(evidenciasHash && existing.evidencias_hash === evidenciasHash);
+    const origemGerador = ['gerador_factual', 'migracao_legado'].includes(alerta.estado_editorial_origem);
+    const estadoTerminal = ['publicado', 'revisao', 'rejeitado'].includes(existing.estado_editorial);
+    const preservarEstadoTerminal = mesmoHash && origemGerador && estadoTerminal;
+    const estadoEditorial = preservarEstadoTerminal
+      ? existing.estado_editorial
+      : estadoInformado
+      ? campos.estado_editorial
+      : mesmoHash
+        ? existing.estado_editorial
+        : 'candidato';
+    const publicadoEm = estadoEditorial === 'publicado'
+      ? campos.publicado_em || existing.publicado_em || agora
+      : null;
+    const preservarConteudoPublicado = mesmoHash && existing.estado_editorial === 'publicado'
+      && (!estadoInformado || preservarEstadoTerminal);
     // chave_unica não muda no UPDATE; node:sqlite rejeita parâmetros não usados.
     const { chave_unica: _chave, ...semChave } = campos;
     db.prepare(
@@ -191,27 +256,66 @@ function upsertAlerta(alerta, documentos = [], evidencias = []) {
          periodo_inicio=@periodo_inicio, periodo_fim=@periodo_fim, valor_total=@valor_total,
          valor_periodo_label=@valor_periodo_label, documentos_ids_json=@documentos_ids_json,
          questionamentos_json=@questionamentos_json, confianca=@confianca, status=@status,
+         estado_editorial=@estado_editorial, evidencias_hash=@evidencias_hash,
+         qualidade_motivos_json=@qualidade_motivos_json, qualidade_versao=@qualidade_versao,
+         publicado_em=@publicado_em,
          ultima_publicacao_documento=@ultima_publicacao_documento, atualizado_em=@agora
        WHERE id=@id`
-    ).run({ ...semChave, status, agora, id: existing.id });
+    ).run({
+      ...semChave,
+      status,
+      estado_editorial: estadoEditorial,
+      titulo: preservarConteudoPublicado ? existing.titulo : semChave.titulo,
+      narrativa: preservarConteudoPublicado ? existing.narrativa : semChave.narrativa,
+      metadados_json: preservarConteudoPublicado ? existing.metadados_json : semChave.metadados_json,
+      qualidade_motivos_json: preservarConteudoPublicado
+        ? existing.qualidade_motivos_json
+        : semChave.qualidade_motivos_json,
+      qualidade_versao: preservarConteudoPublicado ? existing.qualidade_versao : semChave.qualidade_versao,
+      publicado_em: publicadoEm,
+      agora,
+      id: existing.id,
+    });
     id = existing.id;
+    if (existing.estado_editorial !== estadoEditorial) {
+      registrarHistorico({
+        alertaId: id,
+        anterior: existing.estado_editorial,
+        novo: estadoEditorial,
+        origem: alerta.estado_editorial_origem || 'upsert',
+        motivos: alerta.qualidade_motivos || [],
+        evidenciasHash,
+      });
+    }
   } else {
+    const publicadoEm = campos.estado_editorial === 'publicado' ? campos.publicado_em || agora : null;
     const r = db
       .prepare(
         `INSERT INTO alertas (
            tipo, categoria, subcategoria, severidade, titulo, narrativa, metadados_json,
            periodo_inicio, periodo_fim, valor_total, valor_periodo_label, documentos_ids_json,
-           questionamentos_json, confianca, status, chave_unica, ultima_publicacao_documento,
+           questionamentos_json, confianca, status, estado_editorial, evidencias_hash,
+           qualidade_motivos_json, qualidade_versao, publicado_em,
+           chave_unica, ultima_publicacao_documento,
            criado_em, atualizado_em
          ) VALUES (
            @tipo, @categoria, @subcategoria, @severidade, @titulo, @narrativa, @metadados_json,
            @periodo_inicio, @periodo_fim, @valor_total, @valor_periodo_label, @documentos_ids_json,
-           @questionamentos_json, @confianca, @status, @chave_unica, @ultima_publicacao_documento,
+           @questionamentos_json, @confianca, @status, @estado_editorial, @evidencias_hash,
+           @qualidade_motivos_json, @qualidade_versao, @publicado_em,
+           @chave_unica, @ultima_publicacao_documento,
            @agora, @agora
          )`
       )
-      .run({ ...campos, agora });
+      .run({ ...campos, publicado_em: publicadoEm, agora });
     id = r.lastInsertRowid;
+    registrarHistorico({
+      alertaId: id,
+      novo: campos.estado_editorial,
+      origem: alerta.estado_editorial_origem || 'insert',
+      motivos: alerta.qualidade_motivos || [],
+      evidenciasHash,
+    });
   }
 
   db.prepare('DELETE FROM alertas_documentos WHERE alerta_id = ?').run(id);
@@ -250,10 +354,8 @@ function upsertAlerta(alerta, documentos = [], evidencias = []) {
   return { id, action: existing ? 'updated' : 'inserted' };
 }
 
-// Reconciliação de rebuild completo: remove descobertas ATIVAS cuja chave não
-// está mais entre as geradas (caíram abaixo do threshold ajustado). Preserva
-// decisões humanas — só toca status='ativo' (arquivado/suprimido ficam). Sem
-// chaves, não remove nada (evita zerar o feed por engano).
+// Reconciliação de rebuild completo: retira da publicação, sem apagar dados,
+// descobertas ATIVAS cuja chave não está mais entre as geradas.
 function removerAtivosNaoListados(chaves = []) {
   if (!chaves.length) {
     return 0;
@@ -265,12 +367,29 @@ function removerAtivosNaoListados(chaves = []) {
   if (!alvos.length) {
     return 0;
   }
-  const ids = alvos.map((a) => a.id);
-  const idPlaceholders = ids.map(() => '?').join(',');
-  db.prepare(`DELETE FROM alertas_evidencias WHERE alerta_id IN (${idPlaceholders})`).run(...ids);
-  db.prepare(`DELETE FROM alertas_documentos WHERE alerta_id IN (${idPlaceholders})`).run(...ids);
-  db.prepare(`DELETE FROM alertas WHERE id IN (${idPlaceholders})`).run(...ids);
-  return ids.length;
+  const agora = nowIso();
+  const update = db.prepare(
+    `UPDATE alertas
+        SET estado_editorial = 'rejeitado',
+            qualidade_motivos_json = @motivos,
+            qualidade_versao = 'discovery-quality-v3',
+            publicado_em = NULL,
+            atualizado_em = @agora
+      WHERE id = @id`
+  );
+  for (const alvo of alvos) {
+    const anterior = db.prepare('SELECT estado_editorial, evidencias_hash FROM alertas WHERE id = ?').get(alvo.id);
+    update.run({ id: alvo.id, motivos: toJson(['SUPERSEDED_BY_REBUILD']), agora });
+    registrarHistorico({
+      alertaId: alvo.id,
+      anterior: anterior?.estado_editorial || null,
+      novo: 'rejeitado',
+      origem: 'rebuild',
+      motivos: ['SUPERSEDED_BY_REBUILD'],
+      evidenciasHash: anterior?.evidencias_hash || null,
+    });
+  }
+  return alvos.length;
 }
 
 function listarAlertas({
@@ -278,6 +397,7 @@ function listarAlertas({
   categoria,
   severidade,
   status = 'ativo',
+  estadoEditorial,
   periodoInicio,
   periodoFim,
   pagina = 1,
@@ -286,6 +406,7 @@ function listarAlertas({
   const filtros = [];
   const params = {};
   if (status) { filtros.push('status = @status'); params.status = status; }
+  if (estadoEditorial) { filtros.push('estado_editorial = @estadoEditorial'); params.estadoEditorial = estadoEditorial; }
   if (tipo) { filtros.push('tipo = @tipo'); params.tipo = tipo; }
   if (categoria) { filtros.push('categoria = @categoria'); params.categoria = categoria; }
   if (severidade) { filtros.push('severidade = @severidade'); params.severidade = severidade; }
@@ -307,7 +428,7 @@ function listarAlertas({
 
 // Destaques para a home: ativos, mais severos e mais recentes (por publicação).
 function listarAlertasPublicos(params = {}) {
-  const resultado = listarAlertas({ ...params, status: 'ativo' });
+  const resultado = listarAlertas({ ...params, status: 'ativo', estadoEditorial: 'publicado' });
   return {
     ...resultado,
     dados: resultado.dados.map(alertaPublico).filter(Boolean),
@@ -327,7 +448,18 @@ function listarDestaques(limite = 5) {
 }
 
 function listarDestaquesPublicos(limite = 5) {
-  return listarDestaques(limite).map(alertaPublico).filter(Boolean);
+  const rows = db
+    .prepare(
+      `SELECT * FROM alertas
+        WHERE status = 'ativo' AND estado_editorial = 'publicado'
+        ORDER BY CASE severidade WHEN 'critico' THEN 0 WHEN 'atencao' THEN 1 ELSE 2 END,
+                 COALESCE(ultima_publicacao_documento, '') DESC,
+                 COALESCE(publicado_em, '') DESC,
+                 id DESC
+        LIMIT ?`
+    )
+    .all(limite);
+  return rows.map(mapAlerta).map(alertaPublico).filter(Boolean);
 }
 
 function getAlerta(id) {
@@ -374,17 +506,14 @@ function getAlertaPublico(id) {
   return alertaPublico(getAlerta(id));
 }
 
-function listarInvestigacoesPendentes({ limite = 5 } = {}) {
+function listarInvestigacoesPendentes({ limite = 5, incluirRevisao = false } = {}) {
   const rows = db
     .prepare(
       `SELECT id
          FROM alertas
         WHERE status = 'ativo'
           AND json_extract(metadados_json, '$.discovery_kind') = 'investigacao_factual'
-          AND (
-            json_extract(metadados_json, '$.discovery_v2.status') IS NULL
-            OR json_extract(metadados_json, '$.discovery_v2.status') IN ('fallback', 'limite_ciclo', 'revisao_admin', 'desativado')
-          )
+          AND estado_editorial IN ('candidato', 'evidencias_prontas', 'analisado'${incluirRevisao ? ", 'revisao'" : ''})
         ORDER BY
           CAST(COALESCE(json_extract(metadados_json, '$.ano'), 0) AS INTEGER) DESC,
           CAST(COALESCE(json_extract(metadados_json, '$.prioridade'), 0) AS INTEGER) DESC,
@@ -395,6 +524,80 @@ function listarInvestigacoesPendentes({ limite = 5 } = {}) {
   return rows.map((row) => getAlerta(row.id)).filter(Boolean);
 }
 
+function setEstadoEditorial(id, estado, { origem = 'admin', motivos = [], exigirGateFactual = true } = {}) {
+  if (!ESTADOS_EDITORIAIS.has(estado)) {
+    throw new Error(`estado editorial inválido: ${estado}`);
+  }
+  const atual = getAlerta(id);
+  if (!atual) {
+    return false;
+  }
+  const factualAprovado = atual.metadados?.discovery_v3?.qualidade?.factual_status === 'aprovado';
+  if (estado === 'publicado' && exigirGateFactual && !factualAprovado) {
+    throw new Error('publicação bloqueada: gate factual não aprovado');
+  }
+  const publicadoEm = estado === 'publicado' ? atual.publicado_em || nowIso() : null;
+  db.prepare(
+    `UPDATE alertas
+        SET estado_editorial = ?, qualidade_motivos_json = ?, publicado_em = ?, atualizado_em = ?
+      WHERE id = ?`
+  ).run(estado, toJson(motivos || []), publicadoEm, nowIso(), Number(id));
+  if (atual.estado_editorial !== estado) {
+    registrarHistorico({
+      alertaId: Number(id),
+      anterior: atual.estado_editorial,
+      novo: estado,
+      origem,
+      motivos,
+      evidenciasHash: atual.evidencias_hash || null,
+    });
+  }
+  return true;
+}
+
+function listarHistoricoEditorial(alertaId) {
+  return db
+    .prepare(
+      `SELECT * FROM alertas_editorial_historico
+        WHERE alerta_id = ? ORDER BY datetime(criado_em) DESC, id DESC`
+    )
+    .all(Number(alertaId))
+    .map((row) => ({ ...row, motivos: fromJson(row.motivos_json, []) }));
+}
+
+function garantirHistoricoEditorialInicial(alertaId, {
+  estado,
+  origem = 'migracao',
+  motivos = [],
+  evidenciasHash = null,
+} = {}) {
+  const existe = db
+    .prepare('SELECT 1 FROM alertas_editorial_historico WHERE alerta_id = ? LIMIT 1')
+    .get(Number(alertaId));
+  if (existe) {return false;}
+  registrarHistorico({
+    alertaId: Number(alertaId),
+    anterior: null,
+    novo: estado,
+    origem,
+    motivos,
+    evidenciasHash,
+  });
+  return true;
+}
+
+function contarPorEstadoEditorial(status = 'ativo') {
+  const rows = db
+    .prepare('SELECT estado_editorial, COUNT(*) AS n FROM alertas WHERE status = ? GROUP BY estado_editorial')
+    .all(status);
+  const out = { total: 0 };
+  for (const row of rows) {
+    out[row.estado_editorial || 'sem_estado'] = row.n;
+    out.total += row.n;
+  }
+  return out;
+}
+
 function setAlertaStatus(id, status) {
   if (!STATUS_VALIDOS.has(status)) {
     throw new Error(`status inválido: ${status}`);
@@ -403,10 +606,16 @@ function setAlertaStatus(id, status) {
   return r.changes > 0;
 }
 
-function contarPorSeveridade(status = 'ativo') {
-  const rows = db
-    .prepare('SELECT severidade, COUNT(*) AS n FROM alertas WHERE status = ? GROUP BY severidade')
-    .all(status);
+function contarPorSeveridade(status = 'ativo', estadoEditorial = null) {
+  const rows = estadoEditorial
+    ? db
+      .prepare(
+        'SELECT severidade, COUNT(*) AS n FROM alertas WHERE status = ? AND estado_editorial = ? GROUP BY severidade'
+      )
+      .all(status, estadoEditorial)
+    : db
+      .prepare('SELECT severidade, COUNT(*) AS n FROM alertas WHERE status = ? GROUP BY severidade')
+      .all(status);
   const out = { critico: 0, atencao: 0, info: 0, total: 0 };
   for (const r of rows) {
     out[r.severidade] = r.n;
@@ -462,6 +671,8 @@ function setConfig(chave, valor, descricao = null) {
 
 module.exports = {
   ORDEM_SEVERIDADE,
+  ESTADOS_EDITORIAIS,
+  buildEvidenciasHash,
   upsertAlerta,
   removerAtivosNaoListados,
   alertaPublico,
@@ -473,7 +684,11 @@ module.exports = {
   getAlertaPublico,
   listarInvestigacoesPendentes,
   setAlertaStatus,
+  setEstadoEditorial,
+  listarHistoricoEditorial,
+  garantirHistoricoEditorialInicial,
   contarPorSeveridade,
+  contarPorEstadoEditorial,
   getWatermark,
   setWatermark,
   getConfig,
