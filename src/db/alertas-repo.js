@@ -190,15 +190,19 @@ function camposDe(alerta) {
   };
 }
 
+// Hash de identidade das evidências — decide quando um alerta reabre (reprocessa).
+// Usa só a identidade ESTÁVEL e independente do caminho (documento/anexo/fato):
+// `fato_id` vem de upsert idempotente por origem_hash, então muda apenas quando o
+// fato muda de conteúdo. Incluir `trecho_fonte`/`metadados` reabria itens a cada
+// re-extração porque esses campos divergem entre o candidato (gerador) e a
+// evidência já persistida (investigada) para o MESMO fato — churn que
+// des-publicava descobertas boas todo ciclo.
 function buildEvidenciasHash(evidencias = []) {
   const normalizadas = evidencias
     .map((e) => ({
       documento_id: Number(e.documento_id) || null,
       anexo_id: Number(e.anexo_id) || null,
       fato_id: Number(e.fato_id) || null,
-      papel: e.papel || 'evidencia',
-      trecho_fonte: e.trecho_fonte || null,
-      metadados: e.metadados || null,
     }))
     .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
   return normalizadas.length ? buildHash(normalizadas) : null;

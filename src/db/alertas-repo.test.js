@@ -29,6 +29,26 @@ describe('alertas-repo', () => {
     mockConn.exec('DELETE FROM alertas_evidencias; DELETE FROM alertas_documentos; DELETE FROM alertas; DELETE FROM alertas_watermark; DELETE FROM alertas_config; DELETE FROM inteligencia_fatos; DELETE FROM documentos_anexos; DELETE FROM documentos;');
   });
 
+  describe('buildEvidenciasHash', () => {
+    it('é estável quando muda só trecho/metadados (mesmo fato) — evita reabertura espúria', () => {
+      const gerador = [{ documento_id: 1, anexo_id: null, fato_id: 10, papel: 'fato', trecho_fonte: 'candidato', metadados: { quantidade: 60 } }];
+      const investigado = [{ documento_id: 1, anexo_id: null, fato_id: 10, papel: 'evidencia', trecho_fonte: 'reescrito pela IA', metadados: { quantidade: 60, extra: 'x' } }];
+      expect(repo.buildEvidenciasHash(gerador)).toBe(repo.buildEvidenciasHash(investigado));
+    });
+
+    it('muda quando o fato muda de identidade (conteúdo)', () => {
+      const a = [{ documento_id: 1, fato_id: 10 }];
+      const b = [{ documento_id: 1, fato_id: 11 }];
+      expect(repo.buildEvidenciasHash(a)).not.toBe(repo.buildEvidenciasHash(b));
+    });
+
+    it('independe da ordem das evidências', () => {
+      const a = [{ documento_id: 1, fato_id: 10 }, { documento_id: 2, fato_id: 20 }];
+      const b = [{ documento_id: 2, fato_id: 20 }, { documento_id: 1, fato_id: 10 }];
+      expect(repo.buildEvidenciasHash(a)).toBe(repo.buildEvidenciasHash(b));
+    });
+  });
+
   describe('upsertAlerta', () => {
     it('insere e relê com JSON parseado', () => {
       seedDocumento(1, '2026-03-01');
