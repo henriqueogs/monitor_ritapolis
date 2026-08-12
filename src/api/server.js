@@ -352,6 +352,10 @@ function createServer() {
     }
 
     if (!upstream || !upstream.ok || !upstream.body) {
+      if (upstream) {
+        res.setHeader('X-Preview-Upstream-Status', String(upstream.status));
+        res.setHeader('X-Preview-Upstream-Type', upstream.headers.get('content-type') || 'none');
+      }
       return res.status(502).send('A fonte oficial está indisponível no momento.');
     }
 
