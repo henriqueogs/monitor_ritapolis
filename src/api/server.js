@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const crypto = require('crypto');
+const { Readable } = require('stream');
 const config = require('../config');
 const logger = require('../logger');
 const security = require('./security');
@@ -123,6 +124,46 @@ const {
   getCoberturaPrefeituraSourceLinks,
   getPrefeituraAreas
 } = require('../cobertura/prefeitura');
+
+const SOURCE_PREVIEW_HOSTS = new Set(['ritapolis.mg.gov.br', 'www.ritapolis.mg.gov.br']);
+const SOURCE_PREVIEW_REDIRECTS = new Set([301, 302, 303, 307, 308]);
+const SOURCE_PREVIEW_MAX_REDIRECTS = 3;
+
+function parseSourcePreviewUrl(value) {
+  if (!value) return null;
+
+  try {
+    const url = new URL(value);
+    const path = url.pathname.toLowerCase();
+    const allowedPath = path === '/obter_arquivo_cadastro_generico.php' || path.endsWith('.pdf');
+    if (url.protocol !== 'https:' || !SOURCE_PREVIEW_HOSTS.has(url.hostname) || !allowedPath) {
+      return null;
+    }
+    return url;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchSourcePreview(url) {
+  let currentUrl = url;
+  for (let attempt = 0; attempt <= SOURCE_PREVIEW_MAX_REDIRECTS; attempt += 1) {
+    const response = await fetch(currentUrl, {
+      headers: {
+        Accept: 'application/pdf',
+        'User-Agent': 'Ritapolis-com/1.0 (+https://ritapolis.com)',
+      },
+      redirect: 'manual',
+    });
+    if (!SOURCE_PREVIEW_REDIRECTS.has(response.status)) return response;
+
+    const location = response.headers.get('location');
+    const nextUrl = parseSourcePreviewUrl(location ? new URL(location, currentUrl).toString() : null);
+    if (!nextUrl) return null;
+    currentUrl = nextUrl;
+  }
+  return null;
+}
 
 function buildAiOperationPlan(documento) {
   return getAiOperationPlan({
@@ -269,6 +310,48 @@ function createServer() {
   } catch (err) {
     logger.warn('FTS5: falha ao inicializar índice', { erro: err.message });
   }
+
+  // Proxy público restrito aos PDFs do portal oficial. O portal bloqueia
+  // incorporação cross-site em navegadores móveis e também rejeita alguns
+  // IPs de infraestrutura do Vercel; a API Render faz a busca server-side.
+  app.get('/api/source-preview', async (req, res) => {
+    const targetUrl = parseSourcePreviewUrl(req.query?.url);
+    if (!targetUrl) {
+      return res.status(400).send('Fonte oficial inválida.');
+    }
+
+    let upstream;
+    try {
+      upstream = await fetchSourcePreview(targetUrl);
+    } catch (err) {
+      logger.warn('Preview da fonte oficial indisponível', { erro: err.message });
+      return res.status(502).send('Não foi possível carregar a fonte oficial.');
+    }
+
+    if (!upstream || !upstream.ok || !upstream.body) {
+      return res.status(502).send('A fonte oficial está indisponível no momento.');
+    }
+
+    const contentType = upstream.headers.get('content-type') || 'application/pdf';
+    if (!/^application\/(pdf|octet-stream)(?:\s*;|$)/i.test(contentType)) {
+      return res.status(502).send('A fonte oficial não retornou um arquivo PDF.');
+    }
+
+    // Esse endpoint é usado exclusivamente como iframe do site público.
+    // Sobrescrevemos os defaults globais (DENY/same-site) apenas aqui.
+    res.removeHeader('X-Frame-Options');
+    res.setHeader('Content-Security-Policy', 'frame-ancestors https://ritapolis.com https://www.ritapolis.com');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=86400, stale-while-revalidate=3600');
+    res.setHeader('Content-Disposition', 'inline; filename="fonte-oficial.pdf"');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Robots-Tag', 'noindex');
+
+    const contentLength = upstream.headers.get('content-length');
+    if (contentLength) res.setHeader('Content-Length', contentLength);
+    return Readable.fromWeb(upstream.body).pipe(res);
+  });
 
   app.get('/api/health', (_req, res) => {
     res.json({ ok: true });

@@ -11,6 +11,7 @@ const SESSION_COOKIE =
 const OFFICIAL_SOURCE_FRAME_ORIGINS = [
   'https://ritapolis.mg.gov.br',
   'https://www.ritapolis.mg.gov.br',
+  'https://monitor-ritapolis-api.onrender.com',
 ];
 
 export function proxy(request) {

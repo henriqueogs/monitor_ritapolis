@@ -5,6 +5,7 @@ import {
   getSpecificSourcePageUrl,
   getOrigemGenericaUrl,
 } from '../lib/source-links';
+import { apiUrl } from '../lib/api';
 
 export default function DocumentPreviewPane({ documento }) {
   const officialFileUrl = getOfficialFileUrl(documento);
@@ -13,6 +14,12 @@ export default function DocumentPreviewPane({ documento }) {
   // Somente arquivos que aceitam iframe devem virar preview. Páginas como o
   // PNCP recusam incorporação e precisam ser abertas diretamente.
   const previewUrl = getEmbeddableOfficialFileUrl(documento);
+  // O portal oficial não permite incorporação em alguns navegadores móveis.
+  // Fazemos o preview pela API pública do projeto, mantendo o link direto
+  // para a fonte oficial como referência primária.
+  const previewSrc = previewUrl
+    ? `${apiUrl}/source-preview?url=${encodeURIComponent(previewUrl)}`
+    : null;
   // Origem de último recurso (listagem) — não embutimos em iframe, mas sempre
   // oferecemos o link: todo documento tem de onde veio.
   const origemUrl =
@@ -23,9 +30,9 @@ export default function DocumentPreviewPane({ documento }) {
     <section className="document-preview-pane">
       <div className="document-preview-head">
         <div>
-          <h2>{previewUrl ? 'Preview da fonte oficial' : 'Fonte oficial'}</h2>
+          <h2>{previewSrc ? 'Preview da fonte oficial' : 'Fonte oficial'}</h2>
           <p>
-            {previewUrl
+            {previewSrc
               ? 'Use como conferência visual. A leitura completa continua no arquivo original.'
               : 'Consulte a publicação diretamente no portal responsável.'}
           </p>
@@ -36,8 +43,8 @@ export default function DocumentPreviewPane({ documento }) {
           </a>
         ) : null}
       </div>
-      {previewUrl ? (
-        <iframe src={previewUrl} title={`Preview de ${documento.titulo}`} />
+      {previewSrc ? (
+        <iframe src={previewSrc} title={`Preview de ${documento.titulo}`} />
       ) : (
         <div className="document-preview-empty">
           <strong>
