@@ -9,6 +9,7 @@ const { DatabaseSync } = require('node:sqlite');
 const { GetObjectCommand, PutObjectCommand, S3Client } = require('@aws-sdk/client-s3');
 const config = require('../config');
 const logger = require('../logger');
+const { enforceR2UsageGuard } = require('./r2-usage-monitor');
 
 const DATABASE_KEY = 'backups/latest/ritapolis.db.gz';
 const MANIFEST_KEY = 'backups/latest/manifest.json';
@@ -88,6 +89,11 @@ async function backupDatabaseToR2({ env = process.env, dbPath = config.dbPath } 
       fs.promises.stat(temporary.gzip),
       sha256File(temporary.gzip),
     ]);
+    const maxBackupBytes = Math.max(Number(env.R2_MAX_BACKUP_BYTES) || 1_000_000_000, 1);
+    if (gzipBytes > maxBackupBytes) {
+      throw new Error(`Backup R2 excede o limite preventivo de ${maxBackupBytes} bytes`);
+    }
+    await enforceR2UsageGuard({ env });
     const manifest = {
       version: 1,
       createdAt: new Date().toISOString(),

@@ -1,0 +1,33 @@
+name: R2 usage guard
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r2-usage-guard
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Verificar franquia do R2
+        run: node scripts/check-r2-usage.js
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_ANALYTICS_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          R2_BUCKET: ${{ vars.R2_BUCKET }}
+          R2_BILLING_CYCLE_DAY: ${{ vars.R2_BILLING_CYCLE_DAY }}
+          R2_MAX_STORAGE_BYTES: '8000000000'
+          R2_MAX_CLASS_A_OPS: '800000'
+          R2_MAX_CLASS_B_OPS: '8000000'
