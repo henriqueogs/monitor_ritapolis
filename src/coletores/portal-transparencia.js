@@ -52,17 +52,21 @@ class ColetorPortalTransparencia extends ColetorBase {
     });
 
     const text = typeof response.data === 'string' ? response.data : String(response.data || '');
-    if (!text) {return null;}
+    if (!text) {
+      return null;
+    }
 
     try {
       const parsed = JSON.parse(text);
       if (parsed.erros && parsed.erros.length > 0) {
-        const msg = parsed.erros.map((e) => e.titulo).join('; ');
+        const msg = parsed.erros.map(e => e.titulo).join('; ');
         throw new Error(`API error: ${msg}`);
       }
       return parsed.resultado || null;
     } catch (err) {
-      if (err.message.startsWith('API error:')) {throw err;}
+      if (err.message.startsWith('API error:')) {
+        throw err;
+      }
       throw new Error(`JSON inválido: ${err.message}`);
     }
   }
@@ -82,7 +86,9 @@ class ColetorPortalTransparencia extends ColetorBase {
       const ini = cursor.toISOString().slice(0, 10);
       const fimSemana = new Date(cursor);
       fimSemana.setDate(fimSemana.getDate() + 6);
-      if (fimSemana > fim) {fimSemana.setTime(fim.getTime());}
+      if (fimSemana > fim) {
+        fimSemana.setTime(fim.getTime());
+      }
       janelas.push({ ini, fim: fimSemana.toISOString().slice(0, 10) });
       cursor.setDate(cursor.getDate() + 7);
     }
@@ -101,7 +107,9 @@ class ColetorPortalTransparencia extends ColetorBase {
       data_do_empenho_final: dataFinal,
     });
 
-    if (!resultado) {return { novos: 0, atualizados: 0, registros: 0 };}
+    if (!resultado) {
+      return { novos: 0, atualizados: 0, registros: 0 };
+    }
 
     const despesas = resultado.despesas || [];
     let novos = 0;
@@ -109,14 +117,21 @@ class ColetorPortalTransparencia extends ColetorBase {
 
     for (const item of despesas) {
       const dados = item.dadosPrincipais;
-      if (!dados) {continue;}
+      if (!dados) {
+        continue;
+      }
       try {
         const action = upsertDespesa(dados);
-        if (action === 'inserted') {novos++;}
-        else if (action === 'updated') {atualizados++;}
+        if (action === 'inserted') {
+          novos++;
+        } else if (action === 'updated') {
+          atualizados++;
+        }
       } catch (err) {
         logger.warn('portal-transparencia: erro ao salvar despesa', {
-          exercicio, dataInicial, dataFinal,
+          exercicio,
+          dataInicial,
+          dataFinal,
           empenho: dados?.empenho,
           erro: err.message,
         });
@@ -136,7 +151,9 @@ class ColetorPortalTransparencia extends ColetorBase {
       exercicio,
     });
 
-    if (!resultado) {return { novos: 0, atualizados: 0, registros: 0 };}
+    if (!resultado) {
+      return { novos: 0, atualizados: 0, registros: 0 };
+    }
 
     const itens = resultado.orcamentoAnualDeReceita || [];
     let novos = 0;
@@ -145,8 +162,11 @@ class ColetorPortalTransparencia extends ColetorBase {
     for (const item of itens) {
       try {
         const action = upsertReceita(exercicio, item);
-        if (action === 'inserted') {novos++;}
-        else if (action === 'updated') {atualizados++;}
+        if (action === 'inserted') {
+          novos++;
+        } else if (action === 'updated') {
+          atualizados++;
+        }
       } catch (err) {
         logger.warn('portal-transparencia: erro ao salvar receita', {
           exercicio,
@@ -177,9 +197,7 @@ class ColetorPortalTransparencia extends ColetorBase {
       }
 
       const dataInicio = `${ano}-01-01`;
-      const dataFim = ano === anoAtual
-        ? hoje.toISOString().slice(0, 10)
-        : `${ano}-12-31`;
+      const dataFim = ano === anoAtual ? hoje.toISOString().slice(0, 10) : `${ano}-12-31`;
 
       const janelas = this.gerarJanelas(dataInicio, dataFim);
       let anoNovos = 0;
@@ -195,9 +213,16 @@ class ColetorPortalTransparencia extends ColetorBase {
           anoAtualizados += stats.atualizados;
           anoRegistros += stats.registros;
         } catch (err) {
+          if ([401, 403].includes(Number(err?.response?.status))) {
+            throw new Error(
+              `Portal da Transparencia bloqueou a coleta: HTTP ${err.response.status}`
+            );
+          }
           anoErros++;
           logger.warn('portal-transparencia: erro na janela', {
-            ano, janela, erro: err.message,
+            ano,
+            janela,
+            erro: err.message,
           });
           this.registrarErroItem(resultado, { tipo: 'despesas', ano, ...janela }, err);
         }
@@ -245,15 +270,25 @@ class ColetorPortalTransparencia extends ColetorBase {
           status: 'ok',
           erro: null,
         });
-        resultado.detalhes.push({ tipo: 'receitas', ano, registros: stats.registros, novos: stats.novos });
+        resultado.detalhes.push({
+          tipo: 'receitas',
+          ano,
+          registros: stats.registros,
+          novos: stats.novos,
+        });
         resultado.itens_novos += stats.novos;
         resultado.itens_atualizados += stats.atualizados;
       } catch (err) {
         logger.warn('portal-transparencia: erro ao coletar receitas', { ano, erro: err.message });
         upsertColetaLog({
-          tipo: 'receitas', exercicio: ano, mes: null,
-          registros: 0, novos: 0, atualizados: 0,
-          status: 'erro', erro: err.message,
+          tipo: 'receitas',
+          exercicio: ano,
+          mes: null,
+          registros: 0,
+          novos: 0,
+          atualizados: 0,
+          status: 'erro',
+          erro: err.message,
         });
       }
     }
