@@ -220,7 +220,7 @@ h1, h2, h3, h4, p {
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  flex: 0 0 auto;
   color: var(--text);
   transition: opacity var(--motion-fast) var(--ease-out);
 }
@@ -230,45 +230,18 @@ h1, h2, h3, h4, p {
   opacity: 0.88;
 }
 
-.brand-icon {
-  display: flex;
-  width: 34px;
-  height: 34px;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-md);
-  background: var(--gradient-brand);
-  color: white;
-  font-size: 14px;
-  font-weight: 700;
-  box-shadow: 0 2px 8px rgba(19, 81, 180, 0.32), 0 1px 2px rgba(19, 81, 180, 0.16);
-  transition: box-shadow var(--motion-base) var(--ease-out),
-    transform var(--motion-base) var(--ease-spring);
+.brand-logo-frame {
+  position: relative;
+  display: block;
+  width: 190px;
+  height: 54px;
+  overflow: hidden;
 }
 
-.brand:hover .brand-icon {
-  box-shadow: 0 4px 14px rgba(19, 81, 180, 0.38), 0 1px 3px rgba(19, 81, 180, 0.18);
-  transform: translateY(-1px);
-}
-
-.brand-text {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.brand strong {
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  line-height: 1.2;
-}
-
-.brand span {
-  color: var(--text-muted);
-  font-size: 0.76rem;
-  font-weight: 400;
-  letter-spacing: 0.01em;
+.brand-logo {
+  object-fit: cover;
+  object-position: center;
+  mix-blend-mode: multiply;
 }
 
 .topnav {
@@ -2298,6 +2271,11 @@ a.origin-badge {
 
   .prompt-chips {
     justify-content: flex-start;
+  }
+
+  .brand-logo-frame {
+    width: 148px;
+    height: 44px;
   }
 
   .topnav {
