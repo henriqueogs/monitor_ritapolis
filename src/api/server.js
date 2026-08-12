@@ -148,6 +148,23 @@ function parseSourcePreviewUrl(value) {
 }
 
 async function fetchSourcePreview(url) {
+  const proxyUrl = String(process.env.COLLECTOR_PROXY_URL || '').trim();
+  const proxyToken = String(process.env.COLLECTOR_PROXY_TOKEN || '').trim();
+
+  // O Worker já é autorizado pelo portal e evita bloqueios de IP do Render.
+  // O destino continua validado por parseSourcePreviewUrl antes desta função.
+  if (proxyUrl && proxyToken) {
+    return fetch(proxyUrl, {
+      headers: {
+        Accept: 'application/pdf',
+        Authorization: `Bearer ${proxyToken}`,
+        'User-Agent': 'Ritapolis-com/1.0 (+https://ritapolis.com)',
+        'X-Target-Url': url.toString(),
+      },
+      redirect: 'manual',
+    });
+  }
+
   let currentUrl = url;
   for (let attempt = 0; attempt <= SOURCE_PREVIEW_MAX_REDIRECTS; attempt += 1) {
     const response = await fetch(currentUrl, {
