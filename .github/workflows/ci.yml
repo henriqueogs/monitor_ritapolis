@@ -24,6 +24,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm audit --omit=dev
+      - run: npm run setup-db
       - run: npm test -- --runInBand
       - run: npm run lint -- --max-warnings=3
 
