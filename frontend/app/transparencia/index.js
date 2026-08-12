@@ -49,7 +49,8 @@ function montarPeriodoLabel(modo, periodo, porMandato) {
   return min && max ? (min === max ? String(min) : `${min}–${max}`) : 'período coletado';
 }
 
-export default async function TransparenciaPage({ searchParams }) {
+export default async function TransparenciaPage({ searchParams: searchParamsPromise }) {
+  const searchParams = await searchParamsPromise;
   const { modo, fetchParams } = resolverFiltro(searchParams);
   const [dados, gastos, fila] = await Promise.all([
     fetchTransparenciaResumo(fetchParams),

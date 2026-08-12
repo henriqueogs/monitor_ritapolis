@@ -13,7 +13,8 @@ export const metadata = {
 
 const FINALIDADES = FINALIDADE_OPCOES;
 
-export default async function CredoresPage({ searchParams }) {
+export default async function CredoresPage({ searchParams: searchParamsPromise }) {
+  const searchParams = await searchParamsPromise;
   const busca = searchParams?.busca || '';
   const exercicio = searchParams?.exercicio ? Number(searchParams.exercicio) : undefined;
   const mandato = !exercicio && searchParams?.mandato ? Number(searchParams.mandato) : undefined;

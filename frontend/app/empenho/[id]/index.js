@@ -7,7 +7,8 @@ import TransparenciaSubnav from '../../components/TransparenciaSubnav';
 import LinhaDoTempoPagamento from './components/LinhaDoTempoPagamento';
 import EmpenhosRelacionados from './components/EmpenhosRelacionados';
 
-export async function generateMetadata({ params }) {
+export async function generateMetadata({ params: paramsPromise }) {
+  const params = await paramsPromise;
   const dossie = await fetchEmpenho(params.id);
   return {
     title: dossie
@@ -36,7 +37,8 @@ function CampoOrcamentario({ rotulo, valor }) {
   );
 }
 
-export default async function EmpenhoPage({ params }) {
+export default async function EmpenhoPage({ params: paramsPromise }) {
+  const params = await paramsPromise;
   const dossie = await fetchEmpenho(params.id);
 
   if (!dossie) {

@@ -38,7 +38,8 @@ function queryPeriodo(modo, fetchParams) {
   ).toString();
 }
 
-export default async function FinalidadesPage({ searchParams }) {
+export default async function FinalidadesPage({ searchParams: searchParamsPromise }) {
+  const searchParams = await searchParamsPromise;
   const { modo, fetchParams } = resolverFiltro(searchParams);
   const dados = await fetchTransparenciaFinalidades(fetchParams);
   const finalidades = dados?.finalidades || [];

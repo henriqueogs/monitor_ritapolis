@@ -5,7 +5,8 @@ import SectionBlock from '../../../components/SectionBlock';
 import PeriodoSelector from '../../../components/PeriodoSelector';
 import TransparenciaSubnav from '../../../components/TransparenciaSubnav';
 
-export async function generateMetadata({ params }) {
+export async function generateMetadata({ params: paramsPromise }) {
+  const params = await paramsPromise;
   const dossie = await fetchTransparenciaCategoria(params.slug);
   return {
     title: dossie
@@ -58,7 +59,11 @@ function TabelaAgregado({ titulo, rows, chaveNome, periodoLabel, limparPrefixo =
   );
 }
 
-export default async function CategoriaPage({ params, searchParams }) {
+export default async function CategoriaPage({
+  params: paramsPromise,
+  searchParams: searchParamsPromise
+}) {
+  const [params, searchParams] = await Promise.all([paramsPromise, searchParamsPromise]);
   const { modo, fetchParams } = resolverFiltro(searchParams);
   const dossie = await fetchTransparenciaCategoria(params.slug, fetchParams);
 

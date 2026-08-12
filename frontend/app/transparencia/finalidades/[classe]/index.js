@@ -7,7 +7,8 @@ import TransparenciaSubnav from '../../../components/TransparenciaSubnav';
 import FinalidadeBadge from '../../../components/FinalidadeBadge';
 import TabelaEmpenhos from '../../../components/TabelaEmpenhos';
 
-export async function generateMetadata({ params }) {
+export async function generateMetadata({ params: paramsPromise }) {
+  const params = await paramsPromise;
   const dossie = await fetchTransparenciaFinalidade(params.classe);
   return {
     title: dossie
@@ -90,7 +91,11 @@ function SeriePorAno({ porAno, periodo }) {
   );
 }
 
-export default async function FinalidadeDossiePage({ params, searchParams }) {
+export default async function FinalidadeDossiePage({
+  params: paramsPromise,
+  searchParams: searchParamsPromise
+}) {
+  const [params, searchParams] = await Promise.all([paramsPromise, searchParamsPromise]);
   const { modo, fetchParams } = resolverFiltro(searchParams);
   const dossie = await fetchTransparenciaFinalidade(params.classe, fetchParams);
 

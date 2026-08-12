@@ -21,7 +21,8 @@ function buildResumoAi(documento) {
   };
 }
 
-export default async function DocumentoPage({ params }) {
+export default async function DocumentoPage({ params: paramsPromise }) {
+  const params = await paramsPromise;
   const [documento, produtos] = await Promise.all([
     fetchDocumento(params.id),
     fetchDocumentoProdutos(params.id)
