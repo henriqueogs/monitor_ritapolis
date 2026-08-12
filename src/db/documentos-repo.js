@@ -372,6 +372,24 @@ function listDocumentos({ fonte, tipo, ano, status, termo, qualidade, pagina = 1
   return { total, pagina, limite, dados: rows.map(normalizeDocumento) };
 }
 
+function listPublicacoesRecentes({ limite = 8 } = {}) {
+  const rows = db
+    .prepare(
+      `SELECT d.id, d.fonte, d.tipo, d.numero, d.ano, d.titulo, d.resumo,
+              d.data_publicacao, d.data_abertura, d.valor_estimado,
+              d.url_origem, d.url_pdf, d.hash_conteudo, d.status_coleta,
+              d.dados_extras, d.coletado_em, d.atualizado_em,
+              LENGTH(IFNULL(d.texto_completo, '')) AS texto_completo_chars
+         FROM documentos d
+        WHERE date(d.data_publicacao) IS NOT NULL
+          AND date(d.data_publicacao) <= date('now', 'localtime')
+        ORDER BY date(d.data_publicacao) DESC, d.id DESC
+        LIMIT @limite`
+    )
+    .all({ limite: Math.min(Math.max(Number(limite) || 8, 1), 100) });
+  return rows.map(normalizeDocumento);
+}
+
 function listAnosDocumentos({ fonte, tipo } = {}) {
   const filters = ['ano IS NOT NULL'];
   const params = {};
@@ -433,6 +451,7 @@ module.exports = {
   // Queries
   buildDocumentoWhere,
   listDocumentos,
+  listPublicacoesRecentes,
   listAnosDocumentos,
   getDocumentoByUrlPdf,
   getDocumentoByUrlPdfRaw,

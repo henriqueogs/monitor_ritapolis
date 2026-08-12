@@ -18,7 +18,7 @@ jest.mock('./connection', () => ({
   db: mockConn,
 }));
 
-const { listDocumentos } = require('./documentos-repo');
+const { listDocumentos, listPublicacoesRecentes } = require('./documentos-repo');
 
 describe('listDocumentos', () => {
   beforeEach(() => {
@@ -185,5 +185,30 @@ describe('listDocumentos', () => {
     expect(resultado.dados[0].data_publicacao).toBe('2026-03-10');
     expect(resultado.dados[1].data_publicacao).toBe('2026-02-20');
     expect(resultado.dados[2].data_publicacao).toBe('2026-01-15');
+  });
+
+  it('home usa data de publicacao estrita, mais recente primeiro, e exclui sem data', () => {
+    inserirDocumento({
+      ano: 2030,
+      titulo: 'Ano cadastral maior, publicacao antiga',
+      data_publicacao: '2025-12-30',
+    });
+    inserirDocumento({
+      ano: 2026,
+      titulo: 'Publicacao mais recente',
+      data_publicacao: '2026-06-30',
+    });
+    inserirDocumento({
+      ano: 2026,
+      titulo: 'Sem data de publicacao',
+      data_publicacao: null,
+      data_abertura: '2026-07-01',
+    });
+
+    const recentes = listPublicacoesRecentes({ limite: 8 });
+    expect(recentes.map((doc) => doc.titulo)).toEqual([
+      'Publicacao mais recente',
+      'Ano cadastral maior, publicacao antiga',
+    ]);
   });
 });

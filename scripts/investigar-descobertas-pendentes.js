@@ -12,6 +12,10 @@ function parseArgs(argv) {
       out.delayMs = Number(arg.slice('--delay-ms='.length));
     } else if (arg === '--force') {
       out.force = true;
+    } else if (arg === '--dry-run') {
+      out.dryRun = true;
+    } else if (arg.startsWith('--id=')) {
+      out.id = Number(arg.slice('--id='.length));
     }
   }
   return out;
@@ -19,7 +23,7 @@ function parseArgs(argv) {
 
 async function main() {
   const args = parseArgs(process.argv);
-  console.log('Descobertas IA — reprocessando pendentes', args);
+  console.log('Descobertas — processando gate factual, narrativa e publicação', args);
   const result = await reprocessarInvestigacoesPendentes(args);
   console.log(JSON.stringify(result, null, 2));
 }

@@ -3,16 +3,16 @@
 import { useCallback, useState } from 'react';
 import {
   fetchAlertasAdmin,
-  fetchAlertasStats,
-  fetchAlertasConfig,
+  fetchAlertasAdminStats,
   updateAlertaStatus,
+  updateAlertaEditorial,
+  reprocessarAlerta,
   updateAlertaConfig,
   gerarAlertasManual,
 } from '../../lib/api';
 import { nivelLabel } from '../../lib/descobertas';
 import styles from './styles.module.css';
 
-// Paleta calma (sem vermelho de pânico) — coerente com o tom de "descobertas".
 const SEV_COR = { critico: '#d97706', atencao: '#2563eb', info: '#64748b' };
 
 function valorParaInput(valor) {
@@ -22,13 +22,13 @@ function valorParaInput(valor) {
 }
 
 export default function AdminAlertasPanel({ initialStats, initialConfig, initialAlertas }) {
-  const [stats, setStats] = useState(initialStats || { total: 0 });
+  const [stats, setStats] = useState(initialStats || { severidade: { total: 0 }, editorial: { total: 0 } });
   const [config, setConfig] = useState(initialConfig || []);
   const [alertas, setAlertas] = useState(initialAlertas?.dados || []);
   const [loading, setLoading] = useState(null);
   const [log, setLog] = useState([]);
   const [filtroTema, setFiltroTema] = useState('todos');
-  const [filtroIa, setFiltroIa] = useState('todos');
+  const [filtroEditorial, setFiltroEditorial] = useState('todos');
 
   const registrar = useCallback((msg, erro = false) => {
     setLog((prev) => [{ msg, erro, ts: new Date() }, ...prev.slice(0, 5)]);
@@ -36,8 +36,8 @@ export default function AdminAlertasPanel({ initialStats, initialConfig, initial
 
   const recarregar = useCallback(async () => {
     const [s, a] = await Promise.all([
-      fetchAlertasStats().catch(() => null),
-      fetchAlertasAdmin({ status: 'ativo', limite: 50 }).catch(() => null),
+      fetchAlertasAdminStats().catch(() => null),
+      fetchAlertasAdmin({ status: 'ativo', limite: 100 }).catch(() => null),
     ]);
     if (s) setStats(s);
     if (a) setAlertas(a.dados || []);
@@ -46,11 +46,9 @@ export default function AdminAlertasPanel({ initialStats, initialConfig, initial
   const handleGerar = useCallback(async () => {
     setLoading('gerar');
     try {
-      // Rebuild completo: reflete os thresholds atuais e reconcilia o feed
-      // (remove descobertas que caíram abaixo do limite ajustado).
       const r = await gerarAlertasManual({ full: true });
       registrar(
-        `Geração: ${r.gerados ?? 0} novas, ${r.atualizados ?? 0} atualizadas, ${r.removidos ?? 0} removidas, ${r.erros ?? 0} erros`
+        `Geração factual: ${r.gerados ?? 0} novas, ${r.atualizados ?? 0} atualizadas, ${r.removidos ?? 0} rejeitadas, ${r.erros ?? 0} erros`
       );
       await recarregar();
     } catch (e) {
@@ -60,50 +58,75 @@ export default function AdminAlertasPanel({ initialStats, initialConfig, initial
     }
   }, [recarregar, registrar]);
 
-  const handleStatus = useCallback(
-    async (id, status) => {
-      setLoading(`alerta-${id}`);
-      try {
-        await updateAlertaStatus(id, status);
-        setAlertas((prev) => prev.filter((a) => a.id !== id));
-        registrar(`Alerta #${id} → ${status}`);
-        setStats((prev) => ({ ...prev, total: Math.max(0, (prev.total || 1) - 1) }));
-      } catch (e) {
-        registrar(`Erro no alerta #${id}: ${e.message}`, true);
-      } finally {
-        setLoading(null);
-      }
-    },
-    [registrar]
-  );
+  const handleStatus = useCallback(async (id, status) => {
+    setLoading(`alerta-${id}`);
+    try {
+      await updateAlertaStatus(id, status);
+      registrar(`Alerta #${id} → ${status}`);
+      await recarregar();
+    } catch (e) {
+      registrar(`Erro no alerta #${id}: ${e.message}`, true);
+    } finally {
+      setLoading(null);
+    }
+  }, [recarregar, registrar]);
 
-  const handleConfig = useCallback(
-    async (chave, valorBruto, tipoOriginal) => {
-      setLoading(`config-${chave}`);
-      try {
-        let valor = valorBruto;
-        if (typeof tipoOriginal === 'number') valor = Number(valorBruto);
-        else if (typeof tipoOriginal === 'boolean') valor = Boolean(valorBruto);
-        else if (tipoOriginal && typeof tipoOriginal === 'object') valor = JSON.parse(valorBruto);
-        await updateAlertaConfig(chave, valor);
-        registrar(`Config ${chave} salva`);
-      } catch (e) {
-        registrar(`Erro na config ${chave}: ${e.message}`, true);
-      } finally {
-        setLoading(null);
-      }
-    },
-    [registrar]
-  );
+  const handleEditorial = useCallback(async (id, estado) => {
+    setLoading(`editorial-${id}`);
+    try {
+      await updateAlertaEditorial(id, estado);
+      registrar(`Descoberta #${id} → ${estado}`);
+      await recarregar();
+    } catch (e) {
+      registrar(`Erro editorial #${id}: ${e.message}`, true);
+    } finally {
+      setLoading(null);
+    }
+  }, [recarregar, registrar]);
+
+  const handleReprocessar = useCallback(async (id) => {
+    setLoading(`reprocessar-${id}`);
+    try {
+      const r = await reprocessarAlerta(id);
+      const item = r.itens?.[0];
+      registrar(`Descoberta #${id} reprocessada → ${item?.status || 'concluída'}`);
+      await recarregar();
+    } catch (e) {
+      registrar(`Erro ao reprocessar #${id}: ${e.message}`, true);
+    } finally {
+      setLoading(null);
+    }
+  }, [recarregar, registrar]);
+
+  const handleConfig = useCallback(async (chave, valorBruto, tipoOriginal) => {
+    setLoading(`config-${chave}`);
+    try {
+      let valor = valorBruto;
+      if (typeof tipoOriginal === 'number') valor = Number(valorBruto);
+      else if (typeof tipoOriginal === 'boolean') valor = Boolean(valorBruto);
+      else if (tipoOriginal && typeof tipoOriginal === 'object') valor = JSON.parse(valorBruto);
+      await updateAlertaConfig(chave, valor);
+      setConfig((prev) => prev.map((c) => (c.chave === chave ? { ...c, valor } : c)));
+      registrar(`Config ${chave} salva`);
+    } catch (e) {
+      registrar(`Erro na config ${chave}: ${e.message}`, true);
+    } finally {
+      setLoading(null);
+    }
+  }, [registrar]);
 
   const alertasFiltrados = alertas.filter((a) => {
-    const discovery = a.metadados?.discovery_v2;
+    const discovery = a.metadados?.discovery_v3 || a.metadados?.discovery_v2;
     const tema = discovery?.tipo_investigacao || a.metadados?.investigacao_tipo || 'sem_ia';
-    const statusIa = discovery?.status || 'sem_ia';
-    return (filtroTema === 'todos' || tema === filtroTema) && (filtroIa === 'todos' || statusIa === filtroIa);
+    return (filtroTema === 'todos' || tema === filtroTema)
+      && (filtroEditorial === 'todos' || a.estado_editorial === filtroEditorial);
   });
-  const temas = [...new Set(alertas.map((a) => a.metadados?.discovery_v2?.tipo_investigacao || a.metadados?.investigacao_tipo).filter(Boolean))];
-  const statusIa = [...new Set(alertas.map((a) => a.metadados?.discovery_v2?.status || 'sem_ia'))];
+  const temas = [...new Set(alertas
+    .map((a) => (a.metadados?.discovery_v3 || a.metadados?.discovery_v2)?.tipo_investigacao || a.metadados?.investigacao_tipo)
+    .filter(Boolean))];
+  const estadosEditoriais = [...new Set(alertas.map((a) => a.estado_editorial || 'sem_estado'))];
+  const severidade = stats.severidade || { total: 0 };
+  const editorial = stats.editorial || { total: 0 };
 
   return (
     <div className={styles.panel}>
@@ -111,12 +134,12 @@ export default function AdminAlertasPanel({ initialStats, initialConfig, initial
         <div>
           <h1>Descobertas</h1>
           <p>
-            {stats.total} ativas · {stats.critico || 0} merecem atenção · {stats.atencao || 0} valem conferir ·{' '}
-            {stats.info || 0} curiosidades
+            {severidade.total} ativas · {editorial.publicado || 0} publicadas · {editorial.revisao || 0} em revisão ·{' '}
+            {editorial.candidato || 0} candidatas
           </p>
         </div>
         <button className="button" onClick={handleGerar} disabled={loading === 'gerar'}>
-          {loading === 'gerar' ? '⟳ Gerando...' : '▶ Gerar descobertas agora'}
+          {loading === 'gerar' ? 'Gerando…' : 'Gerar candidatos factuais'}
         </button>
       </div>
 
@@ -141,7 +164,7 @@ export default function AdminAlertasPanel({ initialStats, initialConfig, initial
       </section>
 
       <section className={styles.section}>
-        <h2>Alertas ativos ({alertasFiltrados.length}/{alertas.length})</h2>
+        <h2>Fila editorial ({alertasFiltrados.length}/{alertas.length})</h2>
         <div className={styles.configGrid}>
           <label className={styles.configRow}>
             <span className={styles.configChave}>Tema investigativo</span>
@@ -151,33 +174,47 @@ export default function AdminAlertasPanel({ initialStats, initialConfig, initial
             </select>
           </label>
           <label className={styles.configRow}>
-            <span className={styles.configChave}>Status IA</span>
-            <select value={filtroIa} onChange={(e) => setFiltroIa(e.target.value)}>
+            <span className={styles.configChave}>Estado editorial</span>
+            <select value={filtroEditorial} onChange={(e) => setFiltroEditorial(e.target.value)}>
               <option value="todos">todos</option>
-              {statusIa.map((status) => <option key={status} value={status}>{status}</option>)}
+              {estadosEditoriais.map((estado) => <option key={estado} value={estado}>{estado}</option>)}
             </select>
           </label>
         </div>
-        {alertas.length === 0 && <p className="empty-state">Nenhum alerta ativo.</p>}
+        {alertas.length === 0 && <p className="empty-state">Nenhuma descoberta ativa.</p>}
         <div className={styles.lista}>
           {alertasFiltrados.map((a) => (
             <div key={a.id} className={styles.alertaRow} style={{ borderLeftColor: SEV_COR[a.severidade] }}>
               <div className={styles.alertaInfo}>
                 <strong>{a.titulo}</strong>
                 <span className={styles.alertaMeta}>
-                  {nivelLabel(a.severidade)} · {a.categoria || '—'} · {a.ultima_publicacao_documento || 's/ data'}
-                  {a.valor_total ? ` · ${a.valor_periodo_label || ''}` : ''}
+                  #{a.id} · {a.estado_editorial || 'sem estado'} · {nivelLabel(a.severidade)} · {a.categoria || '—'} · {a.ultima_publicacao_documento || 's/ data'}
                 </span>
+                {a.qualidade_motivos?.length ? (
+                  <span className={styles.alertaMotivos}>{a.qualidade_motivos.join(' · ')}</span>
+                ) : null}
               </div>
               <div className={styles.alertaAcoes}>
-                <a className="button button-secondary" href={`/na-lupa/${a.id}`} target="_blank" rel="noreferrer">
-                  ver
-                </a>
+                {a.estado_editorial === 'publicado' ? (
+                  <a className="button button-secondary" href={`/na-lupa/${a.id}`} target="_blank" rel="noreferrer">ver</a>
+                ) : null}
+                <button className="button button-secondary" disabled={loading === `reprocessar-${a.id}`} onClick={() => handleReprocessar(a.id)}>
+                  reprocessar
+                </button>
+                {a.estado_editorial !== 'publicado' ? (
+                  <button className="button button-secondary" disabled={loading === `editorial-${a.id}`} onClick={() => handleEditorial(a.id, 'publicado')}>
+                    publicar
+                  </button>
+                ) : (
+                  <button className="button button-secondary" disabled={loading === `editorial-${a.id}`} onClick={() => handleEditorial(a.id, 'revisao')}>
+                    revisar
+                  </button>
+                )}
+                <button className="button button-secondary" disabled={loading === `editorial-${a.id}`} onClick={() => handleEditorial(a.id, 'rejeitado')}>
+                  rejeitar
+                </button>
                 <button className="button button-secondary" disabled={loading === `alerta-${a.id}`} onClick={() => handleStatus(a.id, 'arquivado')}>
                   arquivar
-                </button>
-                <button className="button button-secondary" disabled={loading === `alerta-${a.id}`} onClick={() => handleStatus(a.id, 'suprimido')}>
-                  suprimir
                 </button>
               </div>
             </div>
@@ -202,7 +239,7 @@ function ConfigRow({ c, loading, onSalvar }) {
         )}
       </label>
       <button className="button button-secondary" disabled={loading} onClick={() => onSalvar(c.chave, valor, c.valor)}>
-        {loading ? '...' : 'salvar'}
+        {loading ? '…' : 'salvar'}
       </button>
     </div>
   );

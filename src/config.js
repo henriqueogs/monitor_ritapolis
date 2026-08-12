@@ -19,6 +19,8 @@ module.exports = {
   collectorDelayMs: Number(process.env.COLETOR_DELAY_MS || 1000),
   collectorTimeoutMs: Number(process.env.COLETOR_TIMEOUT_MS || 15000),
   collectorRetryMax: Number(process.env.COLETOR_RETRY_MAX || 3),
+  collectorMaxResponseBytes: Number(process.env.COLETOR_MAX_RESPONSE_BYTES || 50 * 1024 * 1024),
+  collectorMaxRedirects: Number(process.env.COLETOR_MAX_REDIRECTS || 5),
   prefeituraSyncCheckIntervalMs: Number(process.env.PREFEITURA_SYNC_CHECK_INTERVAL_MS || 10 * 60 * 1000),
   collectorUserAgent:
     process.env.COLETOR_USER_AGENT ||

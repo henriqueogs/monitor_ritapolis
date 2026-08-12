@@ -30,20 +30,21 @@ function tituloCidadao(alerta, discovery) {
 
 function respostaCidada(alerta, discovery) {
   return (
-    discovery?.resposta_direta ||
     discovery?.narrativa_consolidada ||
+    discovery?.resposta_direta ||
     discovery?.hipotese_publica ||
     alerta.narrativa ||
     null
   );
 }
 
-export async function generateMetadata({ params }) {
+export async function generateMetadata(props) {
+  const params = await props.params;
   const alerta = await fetchAlerta(params.id).catch(() => null);
   if (!alerta?.titulo) {
     return { title: 'Item em análise nos dados públicos de Ritápolis' };
   }
-  const discovery = alerta.metadados?.discovery_v2 || null;
+  const discovery = alerta.metadados?.discovery_v3 || alerta.metadados?.discovery_v2 || null;
   return {
     title: tituloCidadao(alerta, discovery),
     description: `${String(respostaCidada(alerta, discovery) || alerta.objeto || alerta.titulo).slice(0, 155)} — dado público de Ritápolis/MG, com fonte oficial.`,
@@ -82,7 +83,8 @@ function MetricasGenericas({ titulo, dados }) {
   );
 }
 
-export default async function NaLupaDetalhePage({ params }) {
+export default async function NaLupaDetalhePage(props) {
+  const params = await props.params;
   const id = Number(params.id);
   let alerta = null;
   let erro = null;
@@ -107,7 +109,7 @@ export default async function NaLupaDetalhePage({ params }) {
 
   const documentos = alerta.documentos || [];
   const evidencias = alerta.evidencias || [];
-  const discovery = alerta.metadados?.discovery_v2 || null;
+  const discovery = alerta.metadados?.discovery_v3 || alerta.metadados?.discovery_v2 || null;
   const metric = metricLabel(alerta);
   const resposta = respostaCidada(alerta, discovery);
   const temPeriodo = alerta.periodo_inicio || alerta.periodo_fim;

@@ -85,6 +85,15 @@ function requireAdmin(req, res, next) {
     return next();
   }
 
+  if (process.env.NODE_ENV === 'production') {
+    logger.warn('Seguranca: acesso admin sem sessao valida', {
+      path: req.path,
+      method: req.method,
+      ip: req.ip,
+    });
+    return res.status(401).json({ error: 'Sessao administrativa obrigatoria' });
+  }
+
   const state = auth.getAdminAuthState(process.env);
   if (!state.configured) {
     logger.warn('Seguranca: acesso admin sem sessao valida', {

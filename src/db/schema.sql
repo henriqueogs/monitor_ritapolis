@@ -622,14 +622,33 @@ CREATE TABLE IF NOT EXISTS alertas (
   questionamentos_json TEXT,
   confianca REAL,
   status TEXT NOT NULL DEFAULT 'ativo',         -- 'ativo' | 'arquivado' | 'suprimido'
+  estado_editorial TEXT NOT NULL DEFAULT 'candidato', -- candidato | evidencias_prontas | analisado | revisao | publicado | rejeitado
+  evidencias_hash TEXT,
+  qualidade_motivos_json TEXT NOT NULL DEFAULT '[]',
+  qualidade_versao TEXT,
+  publicado_em TEXT,
   chave_unica TEXT NOT NULL UNIQUE,
   ultima_publicacao_documento TEXT,
   criado_em TEXT DEFAULT CURRENT_TIMESTAMP,
   atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_alertas_status_pub ON alertas(status, ultima_publicacao_documento DESC);
+CREATE INDEX IF NOT EXISTS idx_alertas_status_pub ON alertas(status, estado_editorial, ultima_publicacao_documento DESC);
 CREATE INDEX IF NOT EXISTS idx_alertas_categoria ON alertas(categoria, severidade);
+
+CREATE TABLE IF NOT EXISTS alertas_editorial_historico (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  alerta_id INTEGER NOT NULL REFERENCES alertas(id) ON DELETE CASCADE,
+  estado_anterior TEXT,
+  estado_novo TEXT NOT NULL,
+  origem TEXT NOT NULL,
+  motivos_json TEXT NOT NULL DEFAULT '[]',
+  evidencias_hash TEXT,
+  criado_em TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_alertas_editorial_historico_alerta
+  ON alertas_editorial_historico(alerta_id, criado_em DESC);
 
 CREATE TABLE IF NOT EXISTS alertas_documentos (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

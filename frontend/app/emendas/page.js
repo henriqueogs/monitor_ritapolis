@@ -182,7 +182,8 @@ function FiltrosForm({ esferaAtual, anoAtual, parlamentarAtual }) {
   );
 }
 
-export default async function EmendasPage({ searchParams }) {
+export default async function EmendasPage(props) {
+  const searchParams = await props.searchParams;
   const esfera = searchParams?.esfera || undefined;
   const ano = searchParams?.ano || undefined;
   const parlamentar = searchParams?.parlamentar || undefined;

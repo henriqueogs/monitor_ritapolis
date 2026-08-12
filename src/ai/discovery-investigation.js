@@ -5,6 +5,12 @@ const logger = require('../logger');
 const { createAiProvider } = require('./providers');
 const { buildDiscoveryInvestigationPrompt, CHECKLISTS } = require('./prompts/discovery-investigation-prompt');
 const { validateDiscoveryInvestigation } = require('./contracts/discovery-investigation-contract');
+const {
+  validarFactual,
+  validarEditorial,
+  montarDiscoveryV3,
+  normalizarInvestigacaoEditorial,
+} = require('../alertas/discovery-quality');
 
 const CONTRACT_VERSION = 'discovery-investigation-v2';
 
@@ -111,6 +117,9 @@ function fallbackInvestigation(alerta, motivo = null, { narrativaConsolidadaAtiv
     tipo_investigacao: tipo,
     hipotese_publica:
       `Os documentos indicam ${total} ${unidade} em ${alerta.categoria || 'um tema publico'} no ${ano}; vale conferir as informacoes e lacunas associadas.`,
+    pergunta_cidada: `${alerta.titulo || alerta.categoria || 'O que os documentos mostram'}?`,
+    resposta_direta: `Os documentos analisados registram ${total} ${unidade} no ${ano}.`,
+    por_que_olhar: ausentes[0] || 'O caso reúne dados de documentos oficiais que merecem leitura conjunta.',
     ...(narrativaConsolidadaAtiva
       ? { narrativa_consolidada: narrativaConsolidadaFallback(alerta, { total, unidade, ano, ausentes, documentosIds }) }
       : {}),
@@ -144,6 +153,194 @@ function fallbackInvestigation(alerta, motivo = null, { narrativaConsolidadaAtiv
       'Analise gerada por fallback deterministico; revisar antes de destacar externamente.',
     ],
   };
+}
+
+function discoveryV3Reprovado(alerta, gateFactual, motivosAdicionais = []) {
+  const motivos = [...new Set([...gateFactual.motivos, ...motivosAdicionais])];
+  return {
+    contrato_versao: 'discovery-v3',
+    tipo_investigacao: gateFactual.pacote.tipo_investigacao,
+    subject_key: gateFactual.pacote.subject_key,
+    evidencias_hash: alerta.evidencias_hash || null,
+    fato: {
+      metrica_principal: gateFactual.pacote.metrica_principal,
+      metricas: gateFactual.pacote.metricas,
+      comparativos: gateFactual.pacote.comparativos,
+      periodo: gateFactual.pacote.periodo,
+      documentos_ids: gateFactual.pacote.documentos_ids,
+      evidencias: gateFactual.pacote.evidencias,
+    },
+    qualidade: {
+      factual_status: gateFactual.status,
+      editorial_status: 'nao_executado',
+      status: 'reprovado',
+      motivos,
+      versao: gateFactual.versao,
+      verificado_em: new Date().toISOString(),
+    },
+  };
+}
+
+function montarResultadoEditorial(alerta, investigation, gateFactual, gateEditorial, {
+  provider = null,
+  model = null,
+} = {}) {
+  const discoveryV3 = montarDiscoveryV3({
+    alerta,
+    investigation,
+    gateFactual,
+    gateEditorial,
+    provider,
+    model,
+  });
+  const aprovado = gateFactual.aprovado && gateEditorial.aprovado;
+  return {
+    ...alerta,
+    titulo: investigation.pergunta_cidada,
+    narrativa: investigation.narrativa_consolidada,
+    questionamentos: [...new Set([
+      ...(alerta.questionamentos || []),
+      ...(investigation.perguntas_abertas || []),
+    ])].slice(0, 10),
+    estado_editorial: aprovado ? 'publicado' : 'revisao',
+    estado_editorial_origem: aprovado ? 'publicacao_automatica' : 'gate_editorial',
+    qualidade_versao: gateFactual.versao,
+    qualidade_motivos: discoveryV3.qualidade.motivos,
+    publicado_em: aprovado ? new Date().toISOString() : null,
+    metadados: { ...(alerta.metadados || {}), discovery_v3: discoveryV3 },
+  };
+}
+
+function aplicarRegrasPublicacao(investigation, gateEditorial, cfg = {}) {
+  const confiancaMinima = Number(cfg.confiancaMinPublica ?? 0.55);
+  if (Number(investigation.nivel_confianca || 0) < confiancaMinima) {
+    gateEditorial.aprovado = false;
+    gateEditorial.status = 'reprovado';
+    gateEditorial.motivos = [...new Set([...gateEditorial.motivos, 'CONFIDENCE_BELOW_MIN'])];
+  }
+  if (cfg.publicacaoAutomatica === false) {
+    gateEditorial.aprovado = false;
+    gateEditorial.status = 'revisao';
+    gateEditorial.motivos = [...new Set([...gateEditorial.motivos, 'AUTOMATIC_PUBLICATION_DISABLED'])];
+  }
+  return gateEditorial;
+}
+
+async function processarDescobertaParaPublicacao(alerta, { provider, cfg = {}, force = false } = {}) {
+  const gateFactual = validarFactual(alerta);
+  if (!gateFactual.aprovado) {
+    const discoveryV3 = discoveryV3Reprovado(alerta, gateFactual);
+    return {
+      ...alerta,
+      estado_editorial: 'revisao',
+      estado_editorial_origem: 'gate_factual',
+      qualidade_versao: gateFactual.versao,
+      qualidade_motivos: gateFactual.motivos,
+      publicado_em: null,
+      metadados: { ...(alerta.metadados || {}), discovery_v3: discoveryV3 },
+    };
+  }
+
+  const discoveryV3Existente = alerta.metadados?.discovery_v3;
+  if (!force && discoveryV3Existente?.pergunta_cidada && discoveryV3Existente?.narrativa_consolidada) {
+    const investigation = normalizarInvestigacaoEditorial({
+      ...discoveryV3Existente,
+      nivel_confianca: discoveryV3Existente.nivel_confianca ?? alerta.confianca ?? 0,
+    });
+    const gateEditorial = aplicarRegrasPublicacao(
+      investigation,
+      validarEditorial(alerta, investigation, gateFactual),
+      cfg
+    );
+    if (gateEditorial.aprovado) {
+      return montarResultadoEditorial(alerta, investigation, gateFactual, gateEditorial, {
+        provider: discoveryV3Existente.geracao?.provider || 'reuse-v3',
+        model: discoveryV3Existente.geracao?.modelo || null,
+      });
+    }
+  }
+
+  const discoveryV2 = alerta.metadados?.discovery_v2;
+  const statusV2Aproveitavel = ['ok', 'publicado', 'publicado_automaticamente'].includes(discoveryV2?.status);
+  if (!force && statusV2Aproveitavel) {
+    try {
+      const investigation = validateDiscoveryInvestigation(discoveryV2);
+      const gateEditorial = aplicarRegrasPublicacao(
+        investigation,
+        validarEditorial(alerta, investigation, gateFactual),
+        cfg
+      );
+      return montarResultadoEditorial(alerta, investigation, gateFactual, gateEditorial, {
+        provider: 'migration-v2',
+        model: discoveryV2.modelo || null,
+      });
+    } catch (err) {
+      logger.info('Investigacao v3: registro v2 nao reutilizado', {
+        chave: alerta.chave_unica,
+        erro: err.message,
+      });
+    }
+  }
+
+  if (!config.aiSummaryEnabled) {
+    const motivos = ['AI_SUMMARY_DISABLED'];
+    return {
+      ...alerta,
+      estado_editorial: 'candidato',
+      estado_editorial_origem: 'worker_ia',
+      qualidade_versao: gateFactual.versao,
+      qualidade_motivos: motivos,
+      publicado_em: null,
+      metadados: {
+        ...(alerta.metadados || {}),
+        discovery_v3: discoveryV3Reprovado(alerta, gateFactual, motivos),
+      },
+    };
+  }
+
+  try {
+    const aiProvider = provider || createAiProvider(process.env, { model: config.nvidiaModelInvestigacao });
+    const lacunas = lacunasDeterministicas(alerta);
+    const prompt = buildDiscoveryInvestigationPrompt({
+      alerta,
+      lacunasDeterministicas: lacunas,
+      narrativaConsolidadaAtiva: true,
+    });
+    const raw = await aiProvider.generateJson({ prompt, temperature: 0.15 });
+    const investigation = normalizarInvestigacaoEditorial(
+      validateDiscoveryInvestigation(extractJsonObject(raw))
+    );
+    const gateEditorial = aplicarRegrasPublicacao(
+      investigation,
+      validarEditorial(alerta, investigation, gateFactual),
+      cfg
+    );
+    return montarResultadoEditorial(alerta, investigation, gateFactual, gateEditorial, {
+      provider: aiProvider.provider,
+      model: aiProvider.model,
+    });
+  } catch (err) {
+    logger.warn('Investigacao v3: falha de IA; candidato mantido para retentativa', {
+      chave: alerta.chave_unica,
+      erro: err.message,
+    });
+    const motivos = ['AI_PROVIDER_ERROR'];
+    return {
+      ...alerta,
+      estado_editorial: 'candidato',
+      estado_editorial_origem: 'worker_ia',
+      qualidade_versao: gateFactual.versao,
+      qualidade_motivos: motivos,
+      publicado_em: null,
+      metadados: {
+        ...(alerta.metadados || {}),
+        discovery_v3: {
+          ...discoveryV3Reprovado(alerta, gateFactual, motivos),
+          geracao: { erro: err.message, gerado_em: new Date().toISOString() },
+        },
+      },
+    };
+  }
 }
 
 function statusPublicacao(alerta, investigation, status, cfg = {}) {
@@ -249,5 +446,6 @@ module.exports = {
   fallbackInvestigation,
   evidenciasFortes,
   investigarDescoberta,
+  processarDescobertaParaPublicacao,
   deveInvestigarDescoberta,
 };

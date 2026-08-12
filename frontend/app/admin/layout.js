@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import LogoutButton from './LogoutButton';
 
+export const dynamic = 'force-dynamic';
+
 const adminLinks = [
   { href: '/admin', label: 'Visao geral' },
   { href: '/admin/jobs', label: 'Jobs & Schedulers' },

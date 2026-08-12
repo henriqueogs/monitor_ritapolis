@@ -18,7 +18,7 @@ const { getCategoriasDocumentoId } = require('../db');
 const { getLicitacaoGrupoByDocumentoId } = require('../db');
 const { classificarCategoria } = require('../licitacoes/categoria');
 const { gerarNarrativaAlerta } = require('../ai/alert-narrative');
-const { investigarDescoberta, deveInvestigarDescoberta } = require('../ai/discovery-investigation');
+const { deveInvestigarDescoberta } = require('../ai/discovery-investigation');
 const {
   detectarRepeticaoTematica,
 } = require('./detectores/repeticao-tematica');
@@ -190,43 +190,24 @@ function lerConfig() {
   };
 }
 
-async function aplicarInvestigacaoDescobertas(candidatos, cfg) {
-  const out = [];
-  let investigadas = 0;
-  const max = Math.max(Number(cfg.investigacaoMaxPorCiclo) || 0, 0);
-
-  for (const candidato of candidatos) {
-    if (!deveInvestigarDescoberta(candidato)) {
-      out.push(candidato);
-      continue;
-    }
-
-    if (investigadas >= max || cfg.investigacaoIaAtiva === false) {
-      out.push({
+function prepararEstadosEditoriais(candidatos) {
+  return candidatos.map((candidato) => {
+    if (deveInvestigarDescoberta(candidato)) {
+      return {
         ...candidato,
-        metadados: {
-          ...(candidato.metadados || {}),
-          discovery_v2: {
-            contrato_versao: 'discovery-investigation-v2',
-            status: cfg.investigacaoIaAtiva === false ? 'desativado' : 'limite_ciclo',
-            gerado_em: new Date().toISOString(),
-          },
-        },
-      });
-      continue;
+        estado_editorial: 'candidato',
+        estado_editorial_origem: 'gerador_factual',
+      };
     }
-
-    out.push(await investigarDescoberta(candidato, {
-      cfg: {
-        confiancaMinPublica: cfg.investigacaoConfiancaMinPublica,
-        publicacaoAutomatica: cfg.investigacaoPublicacaoAutomatica,
-        narrativaConsolidadaAtiva: cfg.narrativaConsolidadaAtiva,
-      },
-    }));
-    investigadas += 1;
-  }
-
-  return out;
+    return {
+      ...candidato,
+      estado_editorial: 'revisao',
+      estado_editorial_origem: 'migracao_legado',
+      qualidade_versao: 'discovery-quality-v3',
+      qualidade_motivos: ['LEGACY_NO_QUALITY_GATE'],
+      publicado_em: null,
+    };
+  });
 }
 
 // Gera alertas a partir dos resumos IA novos. Idempotente via watermark.
@@ -286,7 +267,7 @@ async function generateAlerts({ since, limite = 200, dryRun = false, full = fals
       temasAtivos: cfg.investigacaoTemasAtivos,
     }));
   }
-  const candidatosInvestigados = await aplicarInvestigacaoDescobertas(candidatos, cfg);
+  const candidatosInvestigados = prepararEstadosEditoriais(candidatos);
   logger.info('Gerador de alertas: candidatos consolidados', {
     documentos: docs.length,
     sinais: sinais.length,
@@ -312,7 +293,11 @@ async function generateAlerts({ since, limite = 200, dryRun = false, full = fals
   for (const candidato of candidatosInvestigados) {
     try {
       const alertaParaSalvar = { ...candidato };
-      if (candidato.tipo === 'tematico' && !candidato.metadados?.tipo_fato) {
+      if (
+        candidato.tipo === 'tematico' &&
+        !candidato.metadados?.tipo_fato &&
+        candidato.estado_editorial !== 'revisao'
+      ) {
         const docsParaNarrativa = candidato.documentos_ids
           .map((id) => docsById.get(id))
           .filter(Boolean)

@@ -1,4 +1,8 @@
 import './globals.css';
+
+// O conteúdo vem da API publicada separadamente. Evita que o build dependa de
+// uma API local e mantém o cache por fetch/revalidate definido em app/lib/api.
+export const dynamic = 'force-dynamic';
 import Link from 'next/link';
 import TopNav from './components/TopNav';
 import RequestToaster from './components/RequestToaster';

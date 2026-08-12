@@ -28,8 +28,16 @@ describe('gerarCandidatosInvestigativos', () => {
       fato(1, 'meio_ambiente', 'supressao_arvores', 10, 2026, { quantidade: 60, unidade: 'arvores' }),
       fato(2, 'meio_ambiente', 'supressao_arvores', 11, 2026, { quantidade: 10, unidade: 'arvores' }),
       ...Array.from({ length: 8 }, (_, i) => fato(10 + i, 'compras', 'preco_item', 20 + i, 2026, { valor: i < 5 ? 20 : 5000 + i, unidade: i % 2 ? null : 'un' })),
-      ...Array.from({ length: 10 }, (_, i) => fato(30 + i, 'contratos', 'servico_recorrente', 40 + i, 2026)),
-      ...Array.from({ length: 6 }, (_, i) => fato(60 + i, 'eventos', 'evento_publico', 70 + i, 2026)),
+      ...Array.from({ length: 3 }, (_, i) => fato(30 + i, 'contratos', 'servico_recorrente', 40 + i, 2026, {
+        titulo: `Contratacao de manutencao preventiva de veiculos da frota municipal lote ${i + 1}`,
+        vencedor_cnpj: '12.345.678/0001-90',
+        vencedor_nome: 'Oficina Exemplo Ltda',
+        documento_numero: `PRC-${i + 1}`,
+      })),
+      ...Array.from({ length: 3 }, (_, i) => fato(60 + i, 'eventos', 'evento_publico', 70 + i, 2026, {
+        titulo: `${42 + 0} Exposicao Agropecuaria - contratacao ${i + 1}`,
+        trecho_fonte: `Servico destinado a 42 Exposicao Agropecuaria de Ritapolis`,
+      })),
     ];
 
     const candidatos = gerarCandidatosInvestigativos(fatos, { thresholdArvores: 20 });
@@ -39,6 +47,20 @@ describe('gerarCandidatosInvestigativos', () => {
     expect(tipos).toContain('contratos.recorrencia_fornecedor_objeto');
     expect(tipos).toContain('eventos.gastos_eventos_publicos');
     expect(new Set(candidatos.map((c) => c.chave_unica)).size).toBe(candidatos.length);
+  });
+
+  it('nao cria recorrencia sem o mesmo CNPJ e objeto equivalente', () => {
+    const candidatos = gerarCandidatosInvestigativos([
+      fato(1, 'contratos', 'servico_recorrente', 10, 2026, {
+        titulo: 'Manutencao preventiva da frota municipal',
+        vencedor_cnpj: '11.111.111/0001-11',
+      }),
+      fato(2, 'contratos', 'servico_recorrente', 11, 2026, {
+        titulo: 'Show musical para festa municipal',
+        vencedor_cnpj: '22.222.222/0001-22',
+      }),
+    ]);
+    expect(candidatos.some((c) => c.metadados.investigacao_tipo === 'contratos.recorrencia_fornecedor_objeto')).toBe(false);
   });
 
   it('deduplica evidencias repetidas por documento/anexo nos candidatos anuais', () => {

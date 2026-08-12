@@ -3,7 +3,7 @@
 const config = require('../config');
 const logger = require('../logger');
 const repo = require('../db/alertas-repo');
-const { investigarDescoberta } = require('../ai/discovery-investigation');
+const { processarDescobertaParaPublicacao } = require('../ai/discovery-investigation');
 
 const WATERMARK_KEY = 'descobertas:investigacao_ultimo_ciclo';
 
@@ -15,57 +15,62 @@ async function reprocessarInvestigacoesPendentes({
   limite = repo.getConfig('descobertas:investigacao_por_ciclo', config.descobertasInvestigacaoPorCiclo),
   delayMs = repo.getConfig('descobertas:investigacao_delay_ms', config.descobertasInvestigacaoDelayMs),
   force = false,
+  id = null,
+  dryRun = false,
 } = {}) {
-  if (!force && !config.aiSummaryEnabled) {
-    return {
-      total_selecionados: 0,
-      total_ok: 0,
-      total_fallback: 0,
-      total_erro: 0,
-      skipped: true,
-      reason: 'AI_SUMMARY_ENABLED=false',
-    };
-  }
-
-  const pendentes = repo.listarInvestigacoesPendentes({ limite });
+  const selecionados = id
+    ? [repo.getAlerta(Number(id))].filter((alerta) =>
+      alerta?.metadados?.discovery_kind === 'investigacao_factual')
+    : repo.listarInvestigacoesPendentes({ limite, incluirRevisao: force });
   const resultado = {
-    total_selecionados: pendentes.length,
-    total_ok: 0,
-    total_fallback: 0,
+    total_selecionados: selecionados.length,
+    total_publicado: 0,
     total_revisao_admin: 0,
+    total_candidato: 0,
     total_erro: 0,
+    dry_run: Boolean(dryRun),
     itens: [],
   };
 
   logger.info('Descobertas IA: iniciando reprocessamento incremental', {
     limite,
-    selecionados: pendentes.length,
+    selecionados: selecionados.length,
     delay_ms: delayMs,
+    force,
+    dry_run: dryRun,
   });
 
-  for (const alerta of pendentes) {
+  for (const alerta of selecionados) {
     try {
-      const investigado = await investigarDescoberta(alerta, {
+      const investigado = await processarDescobertaParaPublicacao(alerta, {
+        force,
         cfg: {
           confiancaMinPublica: repo.getConfig('alertas:investigacao_confianca_min_publica', 0.55),
           publicacaoAutomatica: repo.getConfig('alertas:investigacao_publicacao_automatica', true),
         },
       });
-      repo.upsertAlerta(investigado, investigado.documentos || [], investigado.evidencias || []);
-      const status = investigado.metadados?.discovery_v2?.status || 'sem_status';
-      if (status === 'ok') {
-        resultado.total_ok += 1;
-      } else if (status === 'fallback') {
-        resultado.total_fallback += 1;
-      } else if (status === 'revisao_admin') {
+      if (!dryRun) {
+        repo.upsertAlerta(investigado, investigado.documentos || [], investigado.evidencias || []);
+      }
+      const status = investigado.estado_editorial || 'candidato';
+      if (status === 'publicado') {
+        resultado.total_publicado += 1;
+      } else if (status === 'revisao') {
         resultado.total_revisao_admin += 1;
+      } else {
+        resultado.total_candidato += 1;
       }
       resultado.itens.push({
         id: alerta.id,
         chave_unica: alerta.chave_unica,
         tipo: alerta.metadados?.investigacao_tipo || null,
         status,
-        provider: investigado.metadados?.discovery_v2?.provider || null,
+        motivos: investigado.qualidade_motivos || [],
+        provider: investigado.metadados?.discovery_v3?.geracao?.provider || null,
+        ...(dryRun ? {
+          diagnostico: investigado.metadados?.discovery_v3?.qualidade?.diagnostico_editorial || null,
+          editorial_preview: investigado.metadados?.discovery_v3?.editorial || null,
+        } : {}),
       });
     } catch (err) {
       resultado.total_erro += 1;
@@ -86,16 +91,18 @@ async function reprocessarInvestigacoesPendentes({
     }
   }
 
-  repo.setWatermark(WATERMARK_KEY, {
-    ultimoProcessadoEm: new Date().toISOString(),
-    totalGerados: resultado.total_ok,
-  });
+  if (!dryRun) {
+    repo.setWatermark(WATERMARK_KEY, {
+      ultimoProcessadoEm: new Date().toISOString(),
+      totalGerados: resultado.total_publicado,
+    });
+  }
 
   logger.info('Descobertas IA: reprocessamento concluido', {
     selecionados: resultado.total_selecionados,
-    ok: resultado.total_ok,
-    fallback: resultado.total_fallback,
+    publicados: resultado.total_publicado,
     revisao_admin: resultado.total_revisao_admin,
+    candidatos: resultado.total_candidato,
     erros: resultado.total_erro,
   });
 

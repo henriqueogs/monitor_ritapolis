@@ -3,7 +3,7 @@ import { BRAND, BRAND_TAGLINE } from './lib/brand';
 
 // Cartão social 1200x630 gerado no build (sem dependência externa nem PNG solto).
 // Mesmo glifo do favicon/navbar sobre o azul da marca.
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 export const alt = `${BRAND} — ${BRAND_TAGLINE}`;
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';

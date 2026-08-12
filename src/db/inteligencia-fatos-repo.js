@@ -314,10 +314,13 @@ function listarFatosParaAlertas({ tipo, subtipo, ano, limite = 5000 } = {}) {
   const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
   return db
     .prepare(
-      `SELECT f.*, d.titulo, d.ano, d.data_publicacao, d.url_origem,
+      `SELECT f.*, d.titulo, d.numero AS documento_numero, d.ano, d.data_publicacao,
+              d.url_origem, d.valor_estimado AS documento_valor_estimado,
+              ld.vencedor_nome, ld.vencedor_cnpj, ld.valor_final AS documento_valor_final,
               a.nome AS anexo_nome, a.url AS anexo_url
          FROM inteligencia_fatos f
          JOIN documentos d ON d.id = f.documento_id
+         LEFT JOIN licitacoes_detalhes ld ON ld.documento_id = d.id
          LEFT JOIN documentos_anexos a ON a.id = f.anexo_id
         ${where}
         ORDER BY COALESCE(f.periodo_inicio, f.data_evento, d.data_publicacao, '') DESC, f.id DESC

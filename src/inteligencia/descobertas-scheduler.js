@@ -19,6 +19,7 @@ let lastRunDay = null;
 let lastRunStats = null;
 let lastInvestigationRunAt = null;
 let lastInvestigationStats = null;
+const FACTUAL_WATERMARK_KEY = 'descobertas:rotina_factual_ultimo_ciclo';
 
 function localDayHour(now = new Date()) {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -65,7 +66,12 @@ async function runCycle({ force = false } = {}) {
       full: true,
       limite: Math.max(config.alertasLimitePorCiclo, config.descobertasFatosLimitePorCiclo),
     });
+    const publicacao = await reprocessarInvestigacoesPendentes();
     lastRunDay = atual.day;
+    repo.setWatermark(FACTUAL_WATERMARK_KEY, {
+      ultimoProcessadoEm: new Date().toISOString(),
+      totalGerados: publicacao.total_publicado,
+    });
     lastRunStats = {
       fatos: {
         documentos: fatos.documentos,
@@ -79,6 +85,13 @@ async function runCycle({ force = false } = {}) {
         atualizados: alertas.atualizados,
         removidos: alertas.removidos || 0,
         erros: alertas.erros,
+      },
+      publicacao: {
+        selecionados: publicacao.total_selecionados,
+        publicados: publicacao.total_publicado,
+        revisao: publicacao.total_revisao_admin,
+        candidatos: publicacao.total_candidato,
+        erros: publicacao.total_erro,
       },
     };
     logger.info('Descobertas scheduler: ciclo concluído', lastRunStats);
@@ -123,6 +136,13 @@ function start() {
   }
   if (timer) {
     return;
+  }
+  const watermark = repo.getWatermark(FACTUAL_WATERMARK_KEY) || repo.getWatermark('alertas:ultimo_ciclo');
+  if (watermark?.ultimo_processado_em) {
+    const diaPersistido = localDayHour(new Date(watermark.ultimo_processado_em)).day;
+    if (diaPersistido === localDayHour().day) {
+      lastRunDay = diaPersistido;
+    }
   }
   logger.info('Descobertas scheduler: iniciado', {
     hora_local: config.descobertasSchedulerHour,
@@ -180,4 +200,5 @@ module.exports = {
   runInvestigationCycle,
   getStatus,
   localDayHour,
+  FACTUAL_WATERMARK_KEY,
 };

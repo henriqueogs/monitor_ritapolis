@@ -32,19 +32,19 @@ function IconCalendar() {
   );
 }
 
-function discoveryV2(alerta) {
-  return alerta?.metadados?.discovery_v2 || null;
+function discoveryPublica(alerta) {
+  return alerta?.metadados?.discovery_v3 || alerta?.metadados?.discovery_v2 || null;
 }
 
 // Título que o cidadão lê: a pergunta gerada pela IA quando existe; senão o
 // título factual. Não forçamos "?" em títulos antigos — seria falso.
 function tituloCidadao(alerta) {
-  return discoveryV2(alerta)?.pergunta_cidada || alerta.titulo;
+  return discoveryPublica(alerta)?.pergunta_cidada || alerta.titulo;
 }
 
 // Resposta curta: a frase direta da IA quando existe; senão a narrativa consolidada.
 function respostaCurta(alerta) {
-  const d = discoveryV2(alerta);
+  const d = discoveryPublica(alerta);
   return d?.resposta_direta || d?.narrativa_consolidada || d?.hipotese_publica || alerta.narrativa || null;
 }
 
@@ -146,7 +146,8 @@ function NaLupaCard({ alerta }) {
   );
 }
 
-export default async function NaLupaPage({ searchParams }) {
+export default async function NaLupaPage(props) {
+  const searchParams = await props.searchParams;
   const params = searchParams || {};
   const resultado = await fetchAlertas({
     status: 'ativo',

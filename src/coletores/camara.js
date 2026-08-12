@@ -1,5 +1,4 @@
 const ColetorBase = require('./base');
-const https = require('https');
 const cheerio = require('cheerio');
 const { detectPayload, findModuleLinks, parseHtmlTable, resolveSh3Href } = require('./sh3');
 const { extractPdfText } = require('../parsers/pdf');
@@ -81,12 +80,7 @@ function isDocumentoValido(titulo, numero, dataPublicacao) {
 
 class ColetorCamara extends ColetorBase {
   constructor() {
-    super({
-      fonte: 'camara',
-      httpOptions: {
-        httpsAgent: new https.Agent({ rejectUnauthorized: false })
-      }
-    });
+    super({ fonte: 'camara' });
   }
 
   async discoverModules() {

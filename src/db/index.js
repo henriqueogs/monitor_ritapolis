@@ -59,7 +59,7 @@ const {
   isUsableUrl,
   classifyAnexo,
   normalizeModalidadeLicitacao,
-  listDocumentos,
+  listPublicacoesRecentes,
   listAnosDocumentos,
 } = documentosRepo;
 
@@ -110,6 +110,25 @@ function ensureRuntimeSchema() {
   ensureColumn('fornecedores_perfil', 'total_valor_pago', 'REAL NOT NULL DEFAULT 0');
   ensureColumn('fornecedores_perfil', 'n_empenhos', 'INTEGER NOT NULL DEFAULT 0');
   ensureColumn('fornecedores_perfil', 'n_anos_pago', 'INTEGER NOT NULL DEFAULT 0');
+  ensureColumn('alertas', 'estado_editorial', "TEXT NOT NULL DEFAULT 'revisao'");
+  ensureColumn('alertas', 'evidencias_hash', 'TEXT');
+  ensureColumn('alertas', 'qualidade_motivos_json', "TEXT NOT NULL DEFAULT '[]'");
+  ensureColumn('alertas', 'qualidade_versao', 'TEXT');
+  ensureColumn('alertas', 'publicado_em', 'TEXT');
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS alertas_editorial_historico (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      alerta_id INTEGER NOT NULL REFERENCES alertas(id) ON DELETE CASCADE,
+      estado_anterior TEXT,
+      estado_novo TEXT NOT NULL,
+      origem TEXT NOT NULL,
+      motivos_json TEXT NOT NULL DEFAULT '[]',
+      evidencias_hash TEXT,
+      criado_em TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+  db.exec('CREATE INDEX IF NOT EXISTS idx_alertas_editorial_historico_alerta ON alertas_editorial_historico(alerta_id, criado_em DESC);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_alertas_estado_editorial ON alertas(status, estado_editorial, ultima_publicacao_documento DESC);');
   db.exec(`
     CREATE TABLE IF NOT EXISTS produtos_grupos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -3273,7 +3292,7 @@ function getPainelCidadao() {
   const currentYear = new Date().getFullYear();
   const hasCurrentYear = estatisticas.por_ano.some((item) => Number(item.ano) === currentYear);
   const anoPadrao = hasCurrentYear ? currentYear : estatisticas.por_ano[0]?.ano;
-  const recentes = listDocumentos({ pagina: 1, limite: 8 });
+  const recentes = { dados: listPublicacoesRecentes({ limite: 8 }) };
   const licitacoes = listLicitacoes({ ano: anoPadrao, pagina: 1, limite: 5 });
   // Valor SEMPRE escopado por ano — nunca soma de todos os exercícios sem intervalo
   const valorEstimadoAno = anoPadrao

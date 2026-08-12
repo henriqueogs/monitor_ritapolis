@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og';
 
 // apple-touch-icon (iOS não aceita SVG). Mesmo glifo do icon.svg em 180x180.
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 export const size = { width: 180, height: 180 };
 export const contentType = 'image/png';
 
