@@ -5,6 +5,8 @@ const SESSION_COOKIE =
     ? '__Host-monitor_admin_session'
     : 'monitor_admin_session';
 
+const OFFICIAL_SOURCE_FRAME_ORIGINS = ['https://ritapolis.mg.gov.br'];
+
 export function proxy(request) {
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
   const isDev = process.env.NODE_ENV === 'development';
@@ -23,6 +25,7 @@ export function proxy(request) {
     "img-src 'self' blob: data:",
     "font-src 'self'",
     `connect-src 'self'${apiOrigin ? ` ${apiOrigin}` : ''}`,
+    `frame-src 'self' ${OFFICIAL_SOURCE_FRAME_ORIGINS.join(' ')}`,
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

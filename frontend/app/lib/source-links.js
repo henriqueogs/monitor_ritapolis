@@ -70,6 +70,22 @@ export function getOfficialFileUrl(documento) {
   return url;
 }
 
+export function getEmbeddableOfficialFileUrl(documento) {
+  const url = getOfficialFileUrl(documento);
+  if (!url) return null;
+
+  try {
+    const parsed = new URL(url);
+    const path = parsed.pathname.toLowerCase();
+    const isPrefeituraFile =
+      parsed.hostname === 'ritapolis.mg.gov.br' &&
+      (path === '/obter_arquivo_cadastro_generico.php' || path.endsWith('.pdf'));
+    return isPrefeituraFile ? url : null;
+  } catch {
+    return null;
+  }
+}
+
 function isCamaraModuleIndexUrl(url) {
   try {
     const parsed = new URL(url);
