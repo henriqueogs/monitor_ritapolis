@@ -3,6 +3,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { DatabaseSync } = require('node:sqlite');
 const {
   backupDatabaseToR2,
   isConfigured,
@@ -50,6 +51,25 @@ describe('R2 database backup policy', () => {
         env: { R2_RESTORE_REQUIRED: 'true' },
         dbPath: path.join(directory, 'ritapolis.db'),
       })).rejects.toThrow(/obrigatoria/);
+    } finally {
+      fs.rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  test('blocks an oversized compressed backup before uploading it', async () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'ritapolis-r2-test-'));
+    const dbPath = path.join(directory, 'ritapolis.db');
+    const sqlite = new DatabaseSync(dbPath);
+    try {
+      sqlite.exec('CREATE TABLE dados (valor TEXT); INSERT INTO dados VALUES (randomblob(4096));');
+    } finally {
+      sqlite.close();
+    }
+    try {
+      await expect(backupDatabaseToR2({
+        env: { ...configured, R2_MAX_BACKUP_BYTES: '1' },
+        dbPath,
+      })).rejects.toThrow(/limite preventivo/);
     } finally {
       fs.rmSync(directory, { recursive: true, force: true });
     }
