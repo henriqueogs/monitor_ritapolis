@@ -37,7 +37,7 @@ export default function DocumentPreviewPane({ documento }) {
         ) : null}
       </div>
       {previewUrl ? (
-        <iframe src={previewUrl} title={`Preview de ${documento.titulo}`} loading="lazy" />
+        <iframe src={previewUrl} title={`Preview de ${documento.titulo}`} />
       ) : (
         <div className="document-preview-empty">
           <strong>

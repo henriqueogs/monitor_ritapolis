@@ -5,7 +5,13 @@ const SESSION_COOKIE =
     ? '__Host-monitor_admin_session'
     : 'monitor_admin_session';
 
-const OFFICIAL_SOURCE_FRAME_ORIGINS = ['https://ritapolis.mg.gov.br'];
+// O portal oficial pode responder pelo domínio canônico ou pelo alias www.
+// Mantemos a lista explícita para que a política de frames não vire um proxy
+// aberto para origens arbitrárias.
+const OFFICIAL_SOURCE_FRAME_ORIGINS = [
+  'https://ritapolis.mg.gov.br',
+  'https://www.ritapolis.mg.gov.br',
+];
 
 export function proxy(request) {
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
@@ -26,6 +32,9 @@ export function proxy(request) {
     "font-src 'self'",
     `connect-src 'self'${apiOrigin ? ` ${apiOrigin}` : ''}`,
     `frame-src 'self' ${OFFICIAL_SOURCE_FRAME_ORIGINS.join(' ')}`,
+    // Compatibilidade com navegadores que ainda consultam child-src para
+    // navegações incorporadas, sem ampliar a lista de origens permitidas.
+    `child-src 'self' ${OFFICIAL_SOURCE_FRAME_ORIGINS.join(' ')}`,
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
