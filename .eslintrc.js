@@ -20,6 +20,11 @@ module.exports = {
   },
   overrides: [
     {
+      files: ['infrastructure/**/*.js'],
+      env: { browser: true, es2022: true, serviceworker: true },
+      parserOptions: { sourceType: 'module' },
+    },
+    {
       // Scripts operacionais podem usar console
       files: ['scripts/**/*.js'],
       rules: { 'no-console': 'off' },
