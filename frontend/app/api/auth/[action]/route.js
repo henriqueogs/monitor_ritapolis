@@ -9,7 +9,7 @@ function targetUrl(request, action) {
 }
 
 async function proxyAuth(request, { params }) {
-  const action = params.action;
+  const { action } = await params;
   if (!ALLOWED_ACTIONS.has(action)) {
     return NextResponse.json({ error: 'Rota de autenticacao invalida' }, { status: 404 });
   }

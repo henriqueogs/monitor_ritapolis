@@ -4,7 +4,8 @@ import { formatDate } from '../../lib/format';
 import AnexoResumoAction from '../../components/AnexoResumoAction';
 import styles from '../../documento/[id]/styles.module.css';
 
-export async function generateMetadata({ params }) {
+export async function generateMetadata(props) {
+  const params = await props.params;
   const anexo = await fetchAnexo(params.id).catch(() => null);
   if (!anexo?.nome) {
     return { title: 'Anexo de documento oficial de Ritápolis' };
@@ -28,7 +29,8 @@ function statusLabel(status) {
   return labels[status] || status || 'sem status';
 }
 
-export default async function AnexoPage({ params }) {
+export default async function AnexoPage(props) {
+  const params = await props.params;
   const anexo = await fetchAnexo(params.id);
   const pai = anexo.documento_pai;
   const resumo = anexo.resumo_ai?.dados || null;

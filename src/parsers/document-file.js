@@ -1,6 +1,6 @@
 const mammoth = require('mammoth');
 const WordExtractor = require('word-extractor');
-const XLSX = require('xlsx');
+const readExcelFile = require('read-excel-file/node');
 const { extractPdfText } = require('./pdf');
 const { normalizeText } = require('../utils/text');
 
@@ -99,30 +99,27 @@ function pushSpreadsheetLine(lines, line, state) {
   return true;
 }
 
-function extractSpreadsheetText(buffer, extension) {
+async function extractSpreadsheetText(buffer, extension) {
+  if (extension !== 'xlsx') {
+    return unsupportedFile(
+      extension,
+      'quarentena_formato_legado',
+      `arquivo ${extension} exige conversao segura para xlsx antes da extracao`
+    );
+  }
+
   try {
-    const workbook = XLSX.read(buffer, {
-      type: 'buffer',
-      cellDates: true,
-      dense: false
-    });
+    const workbook = await readExcelFile(buffer);
     const lines = [
       `[PLANILHA ${extension}]`,
       'Formato: cada linha abaixo preserva as celulas como valores separados por | para extracao automatica.'
     ];
     const state = { chars: lines.join('\n').length, truncated: false };
-    const sheetNames = workbook.SheetNames.slice(0, SPREADSHEET_MAX_SHEETS);
+    const sheets = workbook.slice(0, SPREADSHEET_MAX_SHEETS);
 
-    for (const sheetName of sheetNames) {
-      const sheet = workbook.Sheets[sheetName];
-      if (!sheet) {continue;}
-
-      const rows = XLSX.utils.sheet_to_json(sheet, {
-        header: 1,
-        raw: false,
-        defval: '',
-        blankrows: false
-      });
+    for (const sheet of sheets) {
+      const sheetName = sheet.sheet;
+      const rows = sheet.data || [];
       const nonEmptyRows = rows
         .map((row) => row.slice(0, SPREADSHEET_MAX_COLS).map(normalizeCellValue))
         .filter((row) => !isEmptySpreadsheetRow(row));
@@ -144,8 +141,8 @@ function extractSpreadsheetText(buffer, extension) {
       if (state.truncated) {break;}
     }
 
-    if (workbook.SheetNames.length > sheetNames.length) {
-      pushSpreadsheetLine(lines, `[PLANILHA TRUNCADA] ${workbook.SheetNames.length - sheetNames.length} abas omitidas`, state);
+    if (workbook.length > sheets.length) {
+      pushSpreadsheetLine(lines, `[PLANILHA TRUNCADA] ${workbook.length - sheets.length} abas omitidas`, state);
     }
 
     if (state.truncated) {
@@ -154,11 +151,11 @@ function extractSpreadsheetText(buffer, extension) {
 
     return {
       text: normalizeWhitespace(lines.join('\n')),
-      pages: sheetNames.length,
+      pages: sheets.length,
       info: {
         parser: 'xlsx',
         tipo_arquivo: extension,
-        sheets: workbook.SheetNames.length,
+        sheets: workbook.length,
         truncated: state.truncated
       },
       error: null

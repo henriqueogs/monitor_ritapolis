@@ -4,9 +4,11 @@ services:
     runtime: node
     plan: starter
     region: oregon
+    autoDeployTrigger: checksPass
     buildCommand: npm ci
     startCommand: npm run api
     healthCheckPath: /api/health
+    maxShutdownDelaySeconds: 120
     disk:
       name: monitor-ritapolis-data
       mountPath: /var/data
@@ -22,9 +24,11 @@ services:
         value: /var/data/logs
       - key: NEXT_PUBLIC_API_URL
         sync: false
-      - key: ADMIN_AUTH_USER
+      - key: FRONTEND_URL
         sync: false
-      - key: ADMIN_AUTH_PASSWORD
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: ADMIN_BOOTSTRAP_TOKEN
         sync: false
       - key: NVIDIA_API_KEY
         sync: false

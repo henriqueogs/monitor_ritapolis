@@ -38,7 +38,8 @@ function respostaCidada(alerta, discovery) {
   );
 }
 
-export async function generateMetadata({ params }) {
+export async function generateMetadata(props) {
+  const params = await props.params;
   const alerta = await fetchAlerta(params.id).catch(() => null);
   if (!alerta?.titulo) {
     return { title: 'Item em análise nos dados públicos de Ritápolis' };
@@ -82,7 +83,8 @@ function MetricasGenericas({ titulo, dados }) {
   );
 }
 
-export default async function NaLupaDetalhePage({ params }) {
+export default async function NaLupaDetalhePage(props) {
+  const params = await props.params;
   const id = Number(params.id);
   let alerta = null;
   let erro = null;

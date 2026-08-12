@@ -4,6 +4,7 @@ const { createServer } = require('./server');
 const security = require('./security');
 const adminAuthRepo = require('../db/admin-auth-repo');
 const { db } = require('../db/connection');
+const adminSession = require('../auth/admin-session');
 
 function listen(app) {
   return new Promise((resolve, reject) => {
@@ -27,6 +28,15 @@ function cleanup(username) {
 }
 
 describe('admin session auth', () => {
+  test('uses a __Host cookie with strict same-site policy in production', () => {
+    const cookie = adminSession.buildSessionCookie('token', { NODE_ENV: 'production' });
+    expect(cookie).toContain('__Host-monitor_admin_session=');
+    expect(cookie).toContain('Secure');
+    expect(cookie).toContain('HttpOnly');
+    expect(cookie).toContain('SameSite=Strict');
+    expect(cookie).toContain('Path=/');
+  });
+
   test('logs in and authorizes protected API routes with an HttpOnly session cookie', async () => {
     security.resetRateLimitForTests();
     const username = `__test_admin_${Date.now()}`;

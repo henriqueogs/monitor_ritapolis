@@ -24,19 +24,6 @@ function isProtectedApiPath(path) {
   return PREFIXOS_PROTEGIDOS.some((prefixo) => path.startsWith(prefixo));
 }
 
-function buildAdminBasicAuthHeader() {
-  const user = process.env.ADMIN_AUTH_USER;
-  const password = process.env.ADMIN_AUTH_PASSWORD;
-  if (!user || !password) {
-    return null;
-  }
-  const encoded =
-    typeof btoa === 'function'
-      ? btoa(`${user}:${password}`)
-      : Buffer.from(`${user}:${password}`, 'utf8').toString('base64');
-  return `Basic ${encoded}`;
-}
-
 function buildRequestUrl(path, { forceProxy = false } = {}) {
   if (typeof window !== 'undefined' && (forceProxy || isProtectedApiPath(path))) {
     return `${adminProxyUrl}${path}`;
@@ -47,11 +34,11 @@ function buildRequestUrl(path, { forceProxy = false } = {}) {
 // No servidor (server components), o fetch nao herda os cookies da requisicao.
 // Encaminha a sessao admin do usuario logado para que os reads protegidos
 // (ex: historico de coletas) autentiquem pela sessao — sem exigir Basic auth.
-function getServerCookieHeader() {
+async function getServerCookieHeader() {
   try {
-    // require dinamico: next/headers e server-only e so e alcancado no servidor.
-    const { cookies } = require('next/headers');
-    const todos = cookies().getAll();
+    // Import dinâmico: next/headers é server-only e só é alcançado no servidor.
+    const { cookies } = await import('next/headers');
+    const todos = (await cookies()).getAll();
     if (!todos.length) return null;
     return todos.map((c) => `${c.name}=${c.value}`).join('; ');
   } catch {
@@ -59,16 +46,12 @@ function getServerCookieHeader() {
   }
 }
 
-function buildRequestHeaders(path, headers = {}) {
+async function buildRequestHeaders(path, headers = {}) {
   const finalHeaders = { ...headers };
   if (typeof window === 'undefined' && isProtectedApiPath(path) && !finalHeaders.Authorization) {
-    const cookie = getServerCookieHeader();
+    const cookie = await getServerCookieHeader();
     if (cookie) {
       finalHeaders.Cookie = cookie;
-    }
-    const auth = buildAdminBasicAuthHeader();
-    if (auth && !finalHeaders.Cookie) {
-      finalHeaders.Authorization = auth;
     }
   }
   return finalHeaders;
@@ -83,7 +66,7 @@ async function fetchJson(path, { revalidate = REVALIDATE_PADRAO_S } = {}) {
   try {
     response = await fetch(url, {
       ...cacheOpts,
-      headers: buildRequestHeaders(path)
+      headers: await buildRequestHeaders(path)
     });
   } catch (error) {
     throw new Error(`Falha ao conectar na API ${url}: ${error.message}`);
@@ -112,7 +95,7 @@ async function postJson(path, body = {}) {
   try {
     response = await fetch(url, {
       method: 'POST',
-      headers: buildRequestHeaders(path, {
+      headers: await buildRequestHeaders(path, {
         'Content-Type': 'application/json'
       }),
       body: JSON.stringify(body),
@@ -141,7 +124,7 @@ async function postJson(path, body = {}) {
 async function patchJson(path, body = {}) {
   const response = await fetch(buildRequestUrl(path, { forceProxy: true }), {
     method: 'PATCH',
-    headers: buildRequestHeaders(path, { 'Content-Type': 'application/json' }),
+    headers: await buildRequestHeaders(path, { 'Content-Type': 'application/json' }),
     body: JSON.stringify(body),
     cache: 'no-store',
   });
@@ -695,7 +678,6 @@ export function fetchEmenda(id) {
 }
 
 export const __apiSecurityInternals = {
-  buildAdminBasicAuthHeader,
   buildRequestUrl,
   isProtectedApiPath
 };

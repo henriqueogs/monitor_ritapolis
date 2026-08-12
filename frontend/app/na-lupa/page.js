@@ -146,7 +146,8 @@ function NaLupaCard({ alerta }) {
   );
 }
 
-export default async function NaLupaPage({ searchParams }) {
+export default async function NaLupaPage(props) {
+  const searchParams = await props.searchParams;
   const params = searchParams || {};
   const resultado = await fetchAlertas({
     status: 'ativo',

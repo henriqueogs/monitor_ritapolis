@@ -1,6 +1,7 @@
 'use strict';
 
 const COOKIE_NAME = 'monitor_admin_session';
+const PRODUCTION_COOKIE_NAME = '__Host-monitor_admin_session';
 const DEFAULT_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 
 function getSessionTtlMs(env = process.env) {
@@ -26,22 +27,28 @@ function parseCookieHeader(header) {
 }
 
 function getSessionTokenFromRequest(req) {
-  return parseCookieHeader(req.get?.('cookie') || req.headers?.cookie)[COOKIE_NAME] || null;
+  const cookies = parseCookieHeader(req.get?.('cookie') || req.headers?.cookie);
+  return cookies[PRODUCTION_COOKIE_NAME] || cookies[COOKIE_NAME] || null;
+}
+
+function getCookieName(env = process.env) {
+  return env.NODE_ENV === 'production' ? PRODUCTION_COOKIE_NAME : COOKIE_NAME;
 }
 
 function buildSessionCookie(token, env = process.env) {
   const maxAge = Math.floor(getSessionTtlMs(env) / 1000);
   const secure = env.NODE_ENV === 'production' ? '; Secure' : '';
-  return `${COOKIE_NAME}=${encodeURIComponent(token)}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${maxAge}${secure}`;
+  return `${getCookieName(env)}=${encodeURIComponent(token)}; HttpOnly; Path=/; SameSite=Strict; Max-Age=${maxAge}${secure}`;
 }
 
 function buildExpiredSessionCookie(env = process.env) {
   const secure = env.NODE_ENV === 'production' ? '; Secure' : '';
-  return `${COOKIE_NAME}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0${secure}`;
+  return `${getCookieName(env)}=; HttpOnly; Path=/; SameSite=Strict; Max-Age=0${secure}`;
 }
 
 module.exports = {
   COOKIE_NAME,
+  PRODUCTION_COOKIE_NAME,
   buildExpiredSessionCookie,
   buildSessionCookie,
   getSessionTtlMs,

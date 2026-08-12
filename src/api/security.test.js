@@ -98,6 +98,16 @@ describe('api security middleware', () => {
     });
   });
 
+  test('rejects Basic credentials in production', async () => {
+    await withServer({ ADMIN_AUTH_USER: 'admin', ADMIN_AUTH_PASSWORD: 'secret', NODE_ENV: 'production' }, async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/api/admin/status`, {
+        headers: { authorization: basic('admin', 'secret') },
+      });
+      expect(response.status).toBe(401);
+      expect(response.headers.get('www-authenticate')).toBeNull();
+    });
+  });
+
   test('rejects mutating requests from non-allowlisted browser origins', async () => {
     await withServer(
       {

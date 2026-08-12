@@ -21,19 +21,6 @@ function isProtectedPath(path, method) {
   return PREFIXOS_PROTEGIDOS.some((prefixo) => path.startsWith(prefixo));
 }
 
-function adminAuthHeader() {
-  const user = process.env.ADMIN_AUTH_USER;
-  const password = process.env.ADMIN_AUTH_PASSWORD;
-  if (!user || !password) {
-    return null;
-  }
-  const encoded =
-    typeof btoa === 'function'
-      ? btoa(`${user}:${password}`)
-      : Buffer.from(`${user}:${password}`, 'utf8').toString('base64');
-  return `Basic ${encoded}`;
-}
-
 function proxyUrl(request, params) {
   const path = `/${(params.path || []).join('/')}`;
   const url = new URL(request.url);
@@ -44,23 +31,20 @@ function proxyUrl(request, params) {
 }
 
 async function proxy(request, { params }) {
-  const { path, target } = proxyUrl(request, params);
+  const resolvedParams = await params;
+  const { path, target } = proxyUrl(request, resolvedParams);
   if (!isProtectedPath(path, request.method)) {
     return NextResponse.json({ error: 'Rota nao permitida pelo proxy admin' }, { status: 404 });
   }
 
-  const authorization = adminAuthHeader();
   const cookie = request.headers.get('cookie');
-  if (!authorization && !cookie) {
+  if (!cookie) {
     return NextResponse.json({ error: 'Sessao administrativa obrigatoria' }, { status: 401 });
   }
 
   const headers = {
     Accept: request.headers.get('accept') || 'application/json',
   };
-  if (authorization) {
-    headers.Authorization = authorization;
-  }
   if (cookie) {
     headers.Cookie = cookie;
   }

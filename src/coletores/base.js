@@ -3,6 +3,7 @@ const { URL } = require('url');
 const axios = require('axios');
 const config = require('../config');
 const logger = require('../logger');
+const { assertSafeUrl, createSafeHttpsAgent } = require('../http/safe-network');
 const { createColetaLog, finishColetaLog, saveDocumento, createResumoAiJob } = require('../db');
 const { extrairAno } = require('../utils/datas');
 
@@ -19,6 +20,13 @@ class ColetorBase {
         Accept: '*/*'
       },
       responseType: 'text',
+      httpsAgent: createSafeHttpsAgent(),
+      maxContentLength: config.collectorMaxResponseBytes,
+      maxBodyLength: config.collectorMaxResponseBytes,
+      maxRedirects: config.collectorMaxRedirects,
+      beforeRedirect: (redirectOptions) => {
+        assertSafeUrl(`${redirectOptions.protocol}//${redirectOptions.hostname}${redirectOptions.path || '/'}`);
+      },
       validateStatus: (status) => status >= 200 && status < 400,
       ...httpOptions
     });
@@ -45,6 +53,7 @@ class ColetorBase {
   }
 
   async requisitarComRetry(method, url, data, options = {}) {
+    assertSafeUrl(url);
     let lastError;
 
     for (let tentativa = 1; tentativa <= this.retryMax; tentativa += 1) {
@@ -56,6 +65,10 @@ class ColetorBase {
           data,
           ...options
         });
+        const contentLength = Number(response.headers?.['content-length'] || 0);
+        if (contentLength > config.collectorMaxResponseBytes) {
+          throw new Error(`Resposta excede o limite de ${config.collectorMaxResponseBytes} bytes`);
+        }
         return response;
       } catch (error) {
         lastError = error;
