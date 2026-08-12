@@ -2,7 +2,7 @@ name: R2 usage guard
 
 on:
   schedule:
-    - cron: '17 */6 * * *'
+    - cron: '17 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -22,6 +22,8 @@ jobs:
         with:
           node-version: 24
       - name: Verificar franquia do R2
+        id: guard
+        continue-on-error: true
         run: node scripts/check-r2-usage.js
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_ANALYTICS_TOKEN }}
@@ -31,3 +33,12 @@ jobs:
           R2_MAX_STORAGE_BYTES: '8000000000'
           R2_MAX_CLASS_A_OPS: '800000'
           R2_MAX_CLASS_B_OPS: '8000000'
+      - name: Suspender API preventivamente
+        if: steps.guard.outcome == 'failure'
+        run: node scripts/suspend-render-service.js
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ vars.RENDER_SERVICE_ID }}
+      - name: Falhar verificacao apos acionar o disjuntor
+        if: steps.guard.outcome == 'failure'
+        run: exit 1

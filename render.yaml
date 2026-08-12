@@ -20,7 +20,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: NODE_VERSION
-        value: "24"
+        value: '24'
       - key: API_HOST
         value: 0.0.0.0
       - key: DB_PATH
@@ -28,9 +28,9 @@ services:
       - key: LOG_DIR
         value: /tmp/monitor-ritapolis/logs
       - key: RENDER_HANDOFF_DELAY_MS
-        value: "105000"
+        value: '105000'
       - key: R2_RESTORE_REQUIRED
-        value: "true"
+        value: 'true'
       - key: R2_ENDPOINT
         value: https://82e6e66e2415b802e2825c4729911a68.r2.cloudflarestorage.com
       - key: R2_BUCKET
@@ -40,23 +40,27 @@ services:
       - key: R2_SECRET_ACCESS_KEY
         sync: false
       - key: R2_BACKUP_INTERVAL_HOURS
-        value: "24"
+        value: '24'
       - key: R2_FULL_BACKUP_ENABLED
-        value: "false"
+        value: 'false'
       - key: R2_MAX_BACKUP_BYTES
-        value: "1000000000"
+        value: '1000000000'
       - key: R2_USAGE_GUARD_REQUIRED
-        value: "true"
+        value: 'true'
       - key: R2_MAX_STORAGE_BYTES
-        value: "8000000000"
+        value: '8000000000'
       - key: R2_MAX_CLASS_A_OPS
-        value: "800000"
+        value: '800000'
       - key: R2_MAX_CLASS_B_OPS
-        value: "8000000"
+        value: '8000000'
       - key: R2_BILLING_CYCLE_DAY
-        value: "12"
+        value: '12'
       - key: CLOUDFLARE_ACCOUNT_ID
         value: 82e6e66e2415b802e2825c4729911a68
+      - key: COLLECTOR_PROXY_URL
+        value: https://monitor-ritapolis-heartbeat.henriqueguimaraes.workers.dev/proxy
+      - key: COLLECTOR_PROXY_TOKEN
+        sync: false
       - key: FRONTEND_URL
         value: https://ritapolis.com
       - key: PUBLIC_SITE_URL

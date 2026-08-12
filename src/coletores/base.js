@@ -4,6 +4,7 @@ const axios = require('axios');
 const config = require('../config');
 const logger = require('../logger');
 const { assertSafeUrl, createSafeHttpsAgent } = require('../http/safe-network');
+const { isRetryableCollectorError, proxyCollectorRequest } = require('../http/collector-proxy');
 const { createColetaLog, finishColetaLog, saveDocumento, createResumoAiJob } = require('../db');
 const { extrairAno } = require('../utils/datas');
 
@@ -17,23 +18,25 @@ class ColetorBase {
       timeout: config.collectorTimeoutMs,
       headers: {
         'User-Agent': config.collectorUserAgent,
-        Accept: '*/*'
+        Accept: '*/*',
       },
       responseType: 'text',
       httpsAgent: createSafeHttpsAgent(),
       maxContentLength: config.collectorMaxResponseBytes,
       maxBodyLength: config.collectorMaxResponseBytes,
       maxRedirects: config.collectorMaxRedirects,
-      beforeRedirect: (redirectOptions) => {
-        assertSafeUrl(`${redirectOptions.protocol}//${redirectOptions.hostname}${redirectOptions.path || '/'}`);
+      beforeRedirect: redirectOptions => {
+        assertSafeUrl(
+          `${redirectOptions.protocol}//${redirectOptions.hostname}${redirectOptions.path || '/'}`
+        );
       },
-      validateStatus: (status) => status >= 200 && status < 400,
-      ...httpOptions
+      validateStatus: status => status >= 200 && status < 400,
+      ...httpOptions,
     });
   }
 
   sleep(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   async respeitarDelay(url) {
@@ -54,16 +57,17 @@ class ColetorBase {
 
   async requisitarComRetry(method, url, data, options = {}) {
     assertSafeUrl(url);
+    const routed = proxyCollectorRequest({ method, url, data, options });
     let lastError;
 
     for (let tentativa = 1; tentativa <= this.retryMax; tentativa += 1) {
       try {
         await this.respeitarDelay(url);
         const response = await this.http.request({
-          method,
-          url,
-          data,
-          ...options
+          method: routed.method,
+          url: routed.url,
+          data: routed.data,
+          ...routed.options,
         });
         const contentLength = Number(response.headers?.['content-length'] || 0);
         if (contentLength > config.collectorMaxResponseBytes) {
@@ -76,8 +80,11 @@ class ColetorBase {
           fonte: this.fonte,
           url,
           tentativa,
-          erro: error.message
+          erro: error.message,
         });
+        if (!isRetryableCollectorError(error)) {
+          throw error;
+        }
         if (tentativa < this.retryMax) {
           await this.sleep(1000 * 2 ** (tentativa - 1));
         }
@@ -101,7 +108,9 @@ class ColetorBase {
   }
 
   resumirTexto(text) {
-    if (!text) {return null;}
+    if (!text) {
+      return null;
+    }
     return text.replace(/\s+/g, ' ').trim().slice(0, 280) || null;
   }
 
@@ -118,7 +127,7 @@ class ColetorBase {
       itens_novos: 0,
       itens_atualizados: 0,
       itens_com_erro: 0,
-      detalhes: []
+      detalhes: [],
     };
 
     try {
@@ -130,7 +139,7 @@ class ColetorBase {
       logger.error('Coleta falhou', {
         fonte: this.fonte,
         erro: error.message,
-        stack: error.stack
+        stack: error.stack,
       });
     } finally {
       resultado.fim = new Date().toISOString();
@@ -144,12 +153,12 @@ class ColetorBase {
     resultado.itens_com_erro += 1;
     resultado.detalhes.push({
       ...contexto,
-      erro: error.message
+      erro: error.message,
     });
     logger.warn('Erro em item de coleta', {
       fonte: this.fonte,
       ...contexto,
-      erro: error.message
+      erro: error.message,
     });
   }
 
@@ -157,13 +166,23 @@ class ColetorBase {
     const saved = saveDocumento(documento);
     if (saved.action === 'inserted') {
       resultado.itens_novos += 1;
-      if (documento.texto_completo && documento.texto_completo.length > 500 && config.aiSchedulerEnabled) {
+      if (
+        documento.texto_completo &&
+        documento.texto_completo.length > 500 &&
+        config.aiSchedulerEnabled
+      ) {
         try {
-          createResumoAiJob({ documento_id: saved.id, contrato_versao: config.aiContractVersion, force: false });
+          createResumoAiJob({
+            documento_id: saved.id,
+            contrato_versao: config.aiContractVersion,
+            force: false,
+          });
           const { scheduleResumoAiJobWorker } = require('../ai/summary-job-worker');
           scheduleResumoAiJobWorker();
         } catch (err) {
-          logger.debug('Nao foi possivel criar job de resumo IA para doc novo', { erro: err.message });
+          logger.debug('Nao foi possivel criar job de resumo IA para doc novo', {
+            erro: err.message,
+          });
         }
       }
     } else {
