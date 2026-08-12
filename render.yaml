@@ -61,6 +61,10 @@ services:
         value: https://monitor-ritapolis-heartbeat.henriqueguimaraes.workers.dev/proxy
       - key: COLLECTOR_PROXY_TOKEN
         sync: false
+      - key: DESCOBERTAS_SCHEDULER_ENABLED
+        value: 'false'
+      - key: DESCOBERTAS_INVESTIGACAO_SCHEDULER_ENABLED
+        value: 'false'
       - key: FRONTEND_URL
         value: https://ritapolis.com
       - key: PUBLIC_SITE_URL
