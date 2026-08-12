@@ -16,7 +16,6 @@ services:
       mkdir -p /tmp/monitor-ritapolis/logs &&
       exec .render/bin/litestream replicate -config litestream.yml -restore-if-db-not-exists
     healthCheckPath: /api/health
-    maxShutdownDelaySeconds: 120
     envVars:
       - key: NODE_ENV
         value: production
