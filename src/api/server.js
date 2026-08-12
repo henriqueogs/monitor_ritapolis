@@ -130,7 +130,9 @@ const SOURCE_PREVIEW_REDIRECTS = new Set([301, 302, 303, 307, 308]);
 const SOURCE_PREVIEW_MAX_REDIRECTS = 3;
 
 function parseSourcePreviewUrl(value) {
-  if (!value) return null;
+  if (!value) {
+    return null;
+  }
 
   try {
     const url = new URL(value);
@@ -155,11 +157,15 @@ async function fetchSourcePreview(url) {
       },
       redirect: 'manual',
     });
-    if (!SOURCE_PREVIEW_REDIRECTS.has(response.status)) return response;
+    if (!SOURCE_PREVIEW_REDIRECTS.has(response.status)) {
+      return response;
+    }
 
     const location = response.headers.get('location');
     const nextUrl = parseSourcePreviewUrl(location ? new URL(location, currentUrl).toString() : null);
-    if (!nextUrl) return null;
+    if (!nextUrl) {
+      return null;
+    }
     currentUrl = nextUrl;
   }
   return null;
@@ -349,7 +355,9 @@ function createServer() {
     res.setHeader('X-Robots-Tag', 'noindex');
 
     const contentLength = upstream.headers.get('content-length');
-    if (contentLength) res.setHeader('Content-Length', contentLength);
+    if (contentLength) {
+      res.setHeader('Content-Length', contentLength);
+    }
     return Readable.fromWeb(upstream.body).pipe(res);
   });
 
