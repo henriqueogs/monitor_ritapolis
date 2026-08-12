@@ -24,7 +24,7 @@ dbs:
     replica:
       type: s3
       bucket: ${R2_BUCKET}
-      path: replicas/ritapolis
+      path: replicas/ritapolis-v2
       endpoint: ${R2_ENDPOINT}
       region: auto
       access-key-id: ${R2_ACCESS_KEY_ID}
