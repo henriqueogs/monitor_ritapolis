@@ -11,15 +11,40 @@ async function main() {
   const descobertasScheduler = require('../src/inteligencia/descobertas-scheduler');
 
   setupDatabase();
-  await startServer();
-    collectionScheduler.start();
-    aiScheduler.start();
-    dailyScheduler.start();
-    descobertasScheduler.start();
-    startBackupScheduler();
+  const server = await startServer();
+  collectionScheduler.start();
+  aiScheduler.start();
+  dailyScheduler.start();
+  descobertasScheduler.start();
+  startBackupScheduler();
+
+  let shuttingDown = false;
+  const shutdown = (signal) => {
+    if (shuttingDown) { return; }
+    shuttingDown = true;
+    console.info(`Encerramento gracioso iniciado (${signal})`);
+
+    const forceExit = setTimeout(() => {
+      console.error('Encerramento gracioso excedeu o limite');
+      process.exit(1);
+    }, 110_000);
+    forceExit.unref?.();
+
+    server.close((error) => {
+      clearTimeout(forceExit);
+      if (error) {
+        console.error('Falha ao encerrar servidor:', error.message);
+        process.exit(1);
+      }
+      process.exit(0);
+    });
+  };
+
+  process.once('SIGTERM', () => shutdown('SIGTERM'));
+  process.once('SIGINT', () => shutdown('SIGINT'));
 }
 
 main().catch((error) => {
-    console.error('Falha ao iniciar API:', error.message);
-    process.exit(1);
+  console.error('Falha ao iniciar API:', error.message);
+  process.exit(1);
 });

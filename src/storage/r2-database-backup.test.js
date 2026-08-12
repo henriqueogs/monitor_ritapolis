@@ -8,6 +8,7 @@ const {
   backupDatabaseToR2,
   isConfigured,
   restoreDatabaseFromR2IfMissing,
+  startBackupScheduler,
 } = require('./r2-database-backup');
 
 const configured = {
@@ -28,6 +29,12 @@ describe('R2 database backup policy', () => {
       skipped: true,
       reason: 'r2_not_configured',
     });
+  });
+
+  test('disables full snapshots when incremental replication is enabled', () => {
+    expect(startBackupScheduler({
+      env: { ...configured, R2_FULL_BACKUP_ENABLED: 'false' },
+    })).toBeNull();
   });
 
   test('does not overwrite an existing database', async () => {

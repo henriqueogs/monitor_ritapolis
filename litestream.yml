@@ -1,0 +1,32 @@
+exec: node scripts/api.js
+
+logging:
+  level: info
+  type: text
+  stderr: false
+
+# Uma fotografia completa por dia, mantendo tres dias. Entre fotografias,
+# somente paginas alteradas do SQLite sao enviadas ao R2.
+snapshot:
+  interval: 24h
+  retention: 72h
+
+validation:
+  interval: 6h
+
+verify-compaction: true
+
+dbs:
+  - path: ${DB_PATH}
+    monitor-interval: 1s
+    checkpoint-interval: 1m
+    busy-timeout: 15s
+    replica:
+      type: s3
+      bucket: ${R2_BUCKET}
+      path: replicas/ritapolis
+      endpoint: ${R2_ENDPOINT}
+      region: auto
+      access-key-id: ${R2_ACCESS_KEY_ID}
+      secret-access-key: ${R2_SECRET_ACCESS_KEY}
+      sync-interval: 30s

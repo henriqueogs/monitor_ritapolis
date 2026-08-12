@@ -2,16 +2,21 @@ services:
   - type: web
     name: monitor-ritapolis-api
     runtime: node
-    plan: starter
+    plan: free
     region: oregon
     autoDeployTrigger: checksPass
-    buildCommand: npm ci
-    startCommand: npm run api
+    buildCommand: >-
+      npm ci &&
+      mkdir -p .render/bin /tmp/litestream-install &&
+      curl -fsSL https://github.com/benbjohnson/litestream/releases/download/v0.5.14/litestream-0.5.14-linux-x86_64.tar.gz -o /tmp/litestream-install/litestream.tar.gz &&
+      echo "32083dd2af13840b273c538360b828368d7b82bbaa2c641106052dc7814ed956  /tmp/litestream-install/litestream.tar.gz" | sha256sum -c - &&
+      tar -xzf /tmp/litestream-install/litestream.tar.gz -C .render/bin &&
+      chmod +x .render/bin/litestream
+    startCommand: >-
+      mkdir -p /tmp/monitor-ritapolis/logs &&
+      exec .render/bin/litestream replicate -config litestream.yml -restore-if-db-not-exists
     healthCheckPath: /api/health
-    disk:
-      name: monitor-ritapolis-data
-      mountPath: /var/data
-      sizeGB: 1
+    maxShutdownDelaySeconds: 120
     envVars:
       - key: NODE_ENV
         value: production
@@ -20,9 +25,9 @@ services:
       - key: API_HOST
         value: 0.0.0.0
       - key: DB_PATH
-        value: /var/data/ritapolis.db
+        value: /tmp/monitor-ritapolis/ritapolis.db
       - key: LOG_DIR
-        value: /var/data/logs
+        value: /tmp/monitor-ritapolis/logs
       - key: R2_RESTORE_REQUIRED
         value: "true"
       - key: R2_ENDPOINT
@@ -35,6 +40,8 @@ services:
         sync: false
       - key: R2_BACKUP_INTERVAL_HOURS
         value: "24"
+      - key: R2_FULL_BACKUP_ENABLED
+        value: "false"
       - key: R2_MAX_BACKUP_BYTES
         value: "1000000000"
       - key: R2_USAGE_GUARD_REQUIRED
@@ -49,8 +56,6 @@ services:
         value: "12"
       - key: CLOUDFLARE_ACCOUNT_ID
         value: 82e6e66e2415b802e2825c4729911a68
-      - key: CLOUDFLARE_API_TOKEN
-        sync: false
       - key: FRONTEND_URL
         value: https://ritapolis.com
       - key: PUBLIC_SITE_URL

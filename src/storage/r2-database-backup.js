@@ -174,6 +174,10 @@ async function restoreDatabaseFromR2IfMissing({ env = process.env, dbPath = conf
 }
 
 function startBackupScheduler({ env = process.env } = {}) {
+  if (String(env.R2_FULL_BACKUP_ENABLED || 'true').toLowerCase() === 'false') {
+    logger.info('Backup completo R2 desativado: replicacao incremental habilitada');
+    return null;
+  }
   if (!isConfigured(env)) {
     logger.info('Backup R2 desativado: credenciais nao configuradas');
     return null;
