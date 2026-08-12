@@ -47,10 +47,19 @@ function assertSafeUrl(value, { allowedHosts = null } = {}) {
 function safeLookup(hostname, options, callback) {
   dns.lookup(hostname, { ...options, all: true }, (error, addresses) => {
     if (error) { return callback(error); }
-    const safe = addresses.find((entry) => !isPrivateIp(entry.address));
-    if (!safe) {
+    const safeAddresses = addresses.filter((entry) => !isPrivateIp(entry.address));
+    if (!safeAddresses.length) {
       return callback(new Error(`DNS resolveu apenas enderecos privados ou reservados: ${hostname}`));
     }
+
+    // Node 20+ pode solicitar todos os enderecos para o autoSelectFamily.
+    // Nesse caso o contrato do lookup exige um array; retornar a assinatura
+    // address/family faz o Agent tentar usar `undefined` como endereco IP.
+    if (options?.all) {
+      return callback(null, safeAddresses);
+    }
+
+    const [safe] = safeAddresses;
     return callback(null, safe.address, safe.family);
   });
 }
