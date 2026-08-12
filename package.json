@@ -98,6 +98,7 @@
     "db-stats": "node scripts/db-stats.js",
     "db:migrate:neon": "node scripts/migrate-sqlite-to-postgres.js",
     "db:verify:r2-export": "node scripts/verify-r2-export.js",
+    "db:backup:r2": "node scripts/backup-database-r2.js",
     "dev": "concurrently \"npm run api\" \"npm run dev --prefix frontend\"",
     "dev:frontend": "npm run dev --prefix frontend",
     "start": "concurrently \"npm run api\" \"npm run dev --prefix frontend\""

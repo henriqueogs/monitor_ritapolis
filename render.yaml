@@ -22,6 +22,16 @@ services:
         value: /var/data/ritapolis.db
       - key: LOG_DIR
         value: /var/data/logs
+      - key: R2_RESTORE_REQUIRED
+        value: "true"
+      - key: R2_ENDPOINT
+        sync: false
+      - key: R2_BUCKET
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
       - key: NEXT_PUBLIC_API_URL
         sync: false
       - key: FRONTEND_URL
