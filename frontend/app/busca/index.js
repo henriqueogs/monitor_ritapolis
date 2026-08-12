@@ -17,7 +17,8 @@ function LinhaVazia({ texto }) {
   return <p className="empty-state">{texto}</p>;
 }
 
-export default async function BuscaPage({ searchParams }) {
+export default async function BuscaPage({ searchParams: searchParamsPromise }) {
+  const searchParams = await searchParamsPromise;
   const q = String(searchParams?.q || '').trim();
 
   if (q.length < MIN_CHARS_BUSCA) {

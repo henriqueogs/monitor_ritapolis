@@ -15,7 +15,8 @@ const LIMITE = 25;
 const ANO_MIN = 2022;
 const FINALIDADES = FINALIDADE_OPCOES;
 
-export default async function EmpenhosPage({ searchParams }) {
+export default async function EmpenhosPage({ searchParams: searchParamsPromise }) {
+  const searchParams = await searchParamsPromise;
   const q = searchParams?.q || '';
   const categoria = searchParams?.categoria || '';
   const finalidade = searchParams?.finalidade || '';

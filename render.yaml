@@ -5,6 +5,9 @@ services:
     plan: free
     region: oregon
     autoDeployTrigger: checksPass
+    buildFilter:
+      ignoredPaths:
+        - frontend/**
     buildCommand: >-
       npm ci &&
       mkdir -p .render/bin /tmp/litestream-install &&

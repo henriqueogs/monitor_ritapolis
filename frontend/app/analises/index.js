@@ -11,7 +11,8 @@ function currentValue(searchParams, key) {
   return typeof searchParams?.[key] === 'string' ? searchParams[key] : '';
 }
 
-export default async function AnalisesPage({ searchParams }) {
+export default async function AnalisesPage({ searchParams: searchParamsPromise }) {
+  const searchParams = await searchParamsPromise;
   const filters = {
     tipo: currentValue(searchParams, 'tipo'),
     limite: currentValue(searchParams, 'limite') || '50'

@@ -42,7 +42,8 @@ function preservedFilters(filters) {
   };
 }
 
-export default async function LicitacoesPage({ searchParams }) {
+export default async function LicitacoesPage({ searchParams: searchParamsPromise }) {
+  const searchParams = await searchParamsPromise;
   const currentYear = new Date().getFullYear();
   const estatisticas = await fetchEstatisticas();
   const anos = estatisticas.licitacoes_por_ano || [];

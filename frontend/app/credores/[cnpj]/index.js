@@ -7,7 +7,8 @@ import TransparenciaSubnav from '../../components/TransparenciaSubnav';
 import EmpenhosCredor from './components/EmpenhosCredor';
 import HistoricoPorMandato from './components/HistoricoPorMandato';
 
-export async function generateMetadata({ params }) {
+export async function generateMetadata({ params: paramsPromise }) {
+  const params = await paramsPromise;
   const perfil = await fetchCredorProfile(params.cnpj).catch(() => null);
   return {
     title: perfil ? `${perfil.nome} — Fornecedor` : 'Fornecedor',
@@ -128,7 +129,11 @@ function FinalidadesCredor({ finalidades, chave, valorTotal, periodoQuery = '' }
   );
 }
 
-export default async function CredorProfilePage({ params, searchParams }) {
+export default async function CredorProfilePage({
+  params: paramsPromise,
+  searchParams: searchParamsPromise
+}) {
+  const [params, searchParams] = await Promise.all([paramsPromise, searchParamsPromise]);
   const perfil = await fetchCredorProfile(params.cnpj).catch(() => null);
   const empPagina = searchParams?.pagina ? Number(searchParams.pagina) : 1;
   const empExercicio = searchParams?.exercicio ? Number(searchParams.exercicio) : undefined;

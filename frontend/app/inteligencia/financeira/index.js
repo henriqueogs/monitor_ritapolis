@@ -10,7 +10,8 @@ export const metadata = {
   description: 'Concentração de fornecedores, empenhos atípicos, evolução de gastos e ranking por área de governo de Ritápolis/MG.',
 };
 
-export default async function AnaliseFinanceiraPage({ searchParams }) {
+export default async function AnaliseFinanceiraPage({ searchParams: searchParamsPromise }) {
+  const searchParams = await searchParamsPromise;
   const exercicio = searchParams?.exercicio ? Number(searchParams.exercicio) : undefined;
   const dados = await fetchInteligenciaFinanceira(exercicio).catch(() => null);
 
