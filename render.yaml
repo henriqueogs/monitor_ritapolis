@@ -8,7 +8,6 @@ services:
     buildCommand: npm ci
     startCommand: npm run api
     healthCheckPath: /api/health
-    maxShutdownDelaySeconds: 120
     disk:
       name: monitor-ritapolis-data
       mountPath: /var/data
@@ -16,6 +15,8 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: "24"
       - key: API_HOST
         value: 0.0.0.0
       - key: DB_PATH
@@ -25,19 +26,37 @@ services:
       - key: R2_RESTORE_REQUIRED
         value: "true"
       - key: R2_ENDPOINT
-        sync: false
+        value: https://82e6e66e2415b802e2825c4729911a68.r2.cloudflarestorage.com
       - key: R2_BUCKET
-        sync: false
+        value: monitor-ritapolis-private
       - key: R2_ACCESS_KEY_ID
         sync: false
       - key: R2_SECRET_ACCESS_KEY
         sync: false
-      - key: NEXT_PUBLIC_API_URL
+      - key: R2_BACKUP_INTERVAL_HOURS
+        value: "24"
+      - key: R2_MAX_BACKUP_BYTES
+        value: "1000000000"
+      - key: R2_USAGE_GUARD_REQUIRED
+        value: "true"
+      - key: R2_MAX_STORAGE_BYTES
+        value: "8000000000"
+      - key: R2_MAX_CLASS_A_OPS
+        value: "800000"
+      - key: R2_MAX_CLASS_B_OPS
+        value: "8000000"
+      - key: R2_BILLING_CYCLE_DAY
+        value: "12"
+      - key: CLOUDFLARE_ACCOUNT_ID
+        value: 82e6e66e2415b802e2825c4729911a68
+      - key: CLOUDFLARE_API_TOKEN
         sync: false
       - key: FRONTEND_URL
-        sync: false
+        value: https://ritapolis.com
+      - key: PUBLIC_SITE_URL
+        value: https://ritapolis.com
       - key: ALLOWED_ORIGINS
-        sync: false
+        value: https://ritapolis.com,https://www.ritapolis.com,https://monitor-ritapolis.vercel.app
       - key: ADMIN_BOOTSTRAP_TOKEN
         sync: false
       - key: NVIDIA_API_KEY
