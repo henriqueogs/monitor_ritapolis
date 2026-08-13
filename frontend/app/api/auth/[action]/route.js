@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 const backendApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-const ALLOWED_ACTIONS = new Set(['session', 'login', 'logout', 'bootstrap']);
+const ALLOWED_ACTIONS = new Set(['session', 'login', 'logout', 'bootstrap', 'reset']);
 
 function targetUrl(request, action) {
   const url = new URL(request.url);

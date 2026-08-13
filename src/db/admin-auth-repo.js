@@ -101,6 +101,40 @@ function createAdminUser({ username, password, status = 'ativo' }) {
   return getAdminUserById(Number(info.lastInsertRowid));
 }
 
+function resetAdminPassword({ username, password }) {
+  const usernameValidation = validateUsername(username);
+  if (!usernameValidation.ok) {
+    const error = new Error(usernameValidation.error);
+    error.code = 'INVALID_USERNAME';
+    throw error;
+  }
+
+  const passwordValidation = validatePasswordStrength(password);
+  if (!passwordValidation.ok) {
+    const error = new Error(passwordValidation.error);
+    error.code = 'INVALID_PASSWORD';
+    throw error;
+  }
+
+  const user = db.prepare('SELECT id FROM admin_users WHERE username = ?').get(usernameValidation.value);
+  if (!user) {
+    const error = new Error('Usuario administrador nao encontrado');
+    error.code = 'USER_NOT_FOUND';
+    throw error;
+  }
+
+  const now = nowIso();
+  db.prepare(`
+    UPDATE admin_users
+       SET password_hash = ?, failed_attempts = 0, locked_until = NULL, updated_at = ?
+     WHERE id = ?
+  `).run(hashPassword(password), now, user.id);
+  db.prepare('UPDATE admin_sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL')
+    .run(now, user.id);
+
+  return getAdminUserById(user.id);
+}
+
 function getAdminUserById(id) {
   return db.prepare(`
     SELECT id, username, status, created_at, updated_at, last_login_at
@@ -209,6 +243,7 @@ module.exports = {
   countAdminUsers,
   createAdminSession,
   createAdminUser,
+  resetAdminPassword,
   ensureAdminAuthSchema,
   getAdminSession,
   getAdminUserById,

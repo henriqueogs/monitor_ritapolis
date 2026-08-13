@@ -429,6 +429,28 @@ function createServer() {
     }
   });
 
+  app.post('/api/auth/reset', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const bootstrapToken = validateBootstrapToken(req.body?.bootstrapToken, process.env);
+    if (!bootstrapToken.ok) {
+      return res.status(bootstrapToken.status).json({ error: bootstrapToken.error });
+    }
+
+    try {
+      const user = adminAuthRepo.resetAdminPassword({
+        username: req.body?.username,
+        password: req.body?.password,
+      });
+      logger.info('Senha administrativa redefinida via fluxo de recuperacao', {
+        username: user.username,
+        ip: req.ip,
+      });
+      return res.json({ reset: true, user });
+    } catch (err) {
+      return res.status(400).json({ error: err.message || 'Falha ao redefinir senha' });
+    }
+  });
+
   app.post('/api/auth/login', (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     const resultado = adminAuthRepo.verifyAdminLogin({
