@@ -9,8 +9,25 @@ async function main() {
   const aiScheduler = require('../src/ai/ai-daily-scheduler');
   const dailyScheduler = require('../src/coletas/daily-scheduler');
   const descobertasScheduler = require('../src/inteligencia/descobertas-scheduler');
+  const logger = require('../src/logger');
+  const {
+    crosswalkDespesasDocumentos,
+    enriquecerDetalhesComEmpenhos,
+  } = require('../src/db/transparencia-repo');
 
   setupDatabase();
+  try {
+    const vinculados = crosswalkDespesasDocumentos();
+    const enriquecidos = vinculados > 0 ? enriquecerDetalhesComEmpenhos() : 0;
+    if (vinculados > 0) {
+      logger.info('reconciliacao de vinculos despesas-documentos concluida', {
+        vinculados,
+        enriquecidos,
+      });
+    }
+  } catch (error) {
+    logger.error('falha na reconciliacao de vinculos despesas-documentos', { erro: error.message });
+  }
   const server = await startServer();
   collectionScheduler.start();
   aiScheduler.start();

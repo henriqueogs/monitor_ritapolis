@@ -100,6 +100,14 @@ describe('licitacoes/modalidade · parseModalidadeEdital', () => {
     });
   });
 
+  it('aceita a grafia oficial "Inexibilidade"', () => {
+    expect(parseModalidadeEdital('Processo 0041/2026 - Inexibilidade n° 007/2026 - Passagens')).toEqual({
+      tipo: 'inexigibilidade',
+      numero: 7,
+      ano: 2026,
+    });
+  });
+
   it('retorna null quando não há modalidade reconhecível', () => {
     expect(parseModalidadeEdital('Documento avulso sem modalidade')).toBeNull();
     expect(parseModalidadeEdital('')).toBeNull();

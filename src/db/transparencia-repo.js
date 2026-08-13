@@ -284,7 +284,7 @@ function construirIndiceEditaisPorModalidade() {
  *
  * @param {{ relink?: boolean }} [opcoes] relink=true reavalia TODAS as despesas
  *   (limpa documento_id derivado e reconstrói) — usado para corrigir links antigos.
- * @returns {number} quantidade de vínculos criados
+ * @returns {number} quantidade de vínculos criados ou corrigidos
  */
 function crosswalkDespesasDocumentos({ relink = false } = {}) {
   if (relink) {
@@ -293,8 +293,8 @@ function crosswalkDespesasDocumentos({ relink = false } = {}) {
 
   const pendentes = db
     .prepare(
-      `SELECT id, modalidade FROM transparencia_despesas
-        WHERE documento_id IS NULL AND modalidade IS NOT NULL AND modalidade != ''`
+      `SELECT id, documento_id, modalidade FROM transparencia_despesas
+        WHERE modalidade IS NOT NULL AND modalidade != ''`
     )
     .all();
 
@@ -311,7 +311,9 @@ function crosswalkDespesasDocumentos({ relink = false } = {}) {
       continue;
     }
     const documentoId = indice.get(`${mod.tipo}|${mod.numero}|${mod.ano}`);
-    if (documentoId) {
+    // No modo normal, corrige também vínculos legados que apontam para outro
+    // processo. No modo relink, ausência de correspondência permanece nula.
+    if (documentoId && desp.documento_id !== documentoId) {
       update.run(documentoId, desp.id);
       vinculados += 1;
       idsVinculados.push(desp.id);

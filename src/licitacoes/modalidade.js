@@ -12,7 +12,10 @@ const { normalizeText } = require('../utils/text');
 const TIPOS = [
   ['pregao', /preg[aã]o/],
   ['adesao', /ades[aã]o/],
-  ['inexigibilidade', /inexig/],
+  // O portal oficial publica com frequência a grafia abreviada/errada
+  // "inexibilidade". Ela deve continuar sendo tratada como inexigibilidade
+  // para que o vínculo entre empenho e processo não seja perdido.
+  ['inexigibilidade', /inexig|inexibil/],
   ['dispensa', /dispensa/],
   ['tomada', /tomada\s+de\s+pre/],
   ['concorrencia', /concorr[eê]ncia/],

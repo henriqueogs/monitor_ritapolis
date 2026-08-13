@@ -242,6 +242,29 @@ describe('transparencia-repo', () => {
     });
   });
 
+  describe('crosswalkDespesasDocumentos', () => {
+    it('corrige vínculo legado quando o processo correto usa a grafia oficial Inexibilidade', () => {
+      mockConn.prepare(`
+        INSERT INTO documentos (id, fonte, tipo, numero, ano, titulo, url_origem)
+        VALUES (?, 'site_prefeitura', 'edital', ?, ?, ?, 'https://example.invalid')
+      `).run(7, '0027/2026', 2026, 'Processo 0027/2026 - Adesão nº 007/2026 - Rede elétrica');
+      mockConn.prepare(`
+        INSERT INTO documentos (id, fonte, tipo, numero, ano, titulo, url_origem)
+        VALUES (?, 'site_prefeitura', 'edital', ?, ?, ?, 'https://example.invalid')
+      `).run(674, '0041/2026', 2026, 'Processo 0041/2026 - Inexibilidade n° 007/2026 - Passagens');
+      seedDespesa({
+        exercicio: 2026,
+        modalidade: 'Inexigibilidade - 00072026',
+        documentoId: 7,
+        credorNome: 'VIAÇÃO SÃO VICENTE LTDA',
+        credorCnpj: '24009094000128',
+      });
+
+      expect(repo.crosswalkDespesasDocumentos()).toBe(1);
+      expect(mockConn.prepare('SELECT documento_id FROM transparencia_despesas').get().documento_id).toBe(674);
+    });
+  });
+
   describe('upsertDespesa — colunas derivadas', () => {
     it('grava credor_cargo, co_tce e credor_chave (PF sem CNPJ)', () => {
       repo.upsertDespesa({
