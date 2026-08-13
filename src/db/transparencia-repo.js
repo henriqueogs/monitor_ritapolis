@@ -18,7 +18,11 @@ const {
   backfillClassificacoesDespesas,
 } = require('./transparencia-classificacao-repo');
 const { buildCredorChave } = require('../transparencia/credor-chave');
-const { parseModalidadeDespesa, parseModalidadeEdital } = require('../licitacoes/modalidade');
+const {
+  parseModalidadeDespesa,
+  parseModalidadeEdital,
+  vinculoDocumentoExato,
+} = require('../licitacoes/modalidade');
 const { sanitizeFtsQuery } = require('./fts-repo');
 
 // ---------------------------------------------------------------------------
@@ -142,6 +146,26 @@ function extractCnpj(credorStr) {
 function extractCredorNome(credorStr) {
   const m = String(credorStr || '').match(/^(.+?)\s*[-–]\s*CPF\/CNPJ:/i);
   return m ? m[1].trim() : (credorStr || null);
+}
+
+/**
+ * Nunca expõe como origem um documento legado cuja modalidade não coincide
+ * exatamente com a modalidade declarada no empenho. O vínculo bruto fica no
+ * banco para auditoria/reconciliação, mas não atravessa a API pública.
+ */
+function ocultarVinculoDocumentoInexato(despesa) {
+  if (!despesa?.documento_id) {
+    return despesa;
+  }
+  if (vinculoDocumentoExato(despesa.modalidade, despesa.documento_titulo)) {
+    return despesa;
+  }
+  return {
+    ...despesa,
+    documento_id: null,
+    documento_titulo: null,
+    documento_numero: null,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -502,25 +526,27 @@ function getDespesasPorDocumento(documentoId) {
            td.data_empenho, td.data_liquidacao, td.data_pagamento,
            td.credor_nome, td.credor_cnpj, td.valor,
            td.historico, td.licitacao_ref, td.modalidade,
+           d.titulo AS documento_titulo, d.numero AS documento_numero,
            ${CLASSIFICACAO_SELECT}
     FROM transparencia_despesas td
     ${CLASSIFICACAO_JOIN}
+    JOIN documentos d ON d.id = td.documento_id
     WHERE td.documento_id = ?
     ORDER BY td.data_empenho ASC
-  `).all(documentoId).map(decorarDespesaComFinalidade);
+  `).all(documentoId)
+    .filter((despesa) => vinculoDocumentoExato(despesa.modalidade, despesa.documento_titulo))
+    .map(decorarDespesaComFinalidade);
 }
 
 function getResumoFinanceiroPorDocumento(documentoId) {
-  return db.prepare(`
-    SELECT
-      COUNT(*) as n_empenhos,
-      SUM(valor) as valor_empenhado,
-      MIN(data_empenho) as primeiro_empenho,
-      MAX(data_pagamento) as ultimo_pagamento,
-      GROUP_CONCAT(DISTINCT credor_cnpj) as credores_cnpj
-    FROM transparencia_despesas
-    WHERE documento_id = ?
-  `).get(documentoId);
+  const empenhos = getDespesasPorDocumento(documentoId);
+  return {
+    n_empenhos: empenhos.length,
+    valor_empenhado: empenhos.reduce((total, empenho) => total + (Number(empenho.valor) || 0), 0),
+    primeiro_empenho: empenhos.map((e) => e.data_empenho).filter(Boolean).sort()[0] || null,
+    ultimo_pagamento: empenhos.map((e) => e.data_pagamento).filter(Boolean).sort().slice(-1)[0] || null,
+    credores_cnpj: [...new Set(empenhos.map((e) => e.credor_cnpj).filter(Boolean))].join(',') || null,
+  };
 }
 
 function getResumoAnual(exercicio) {
@@ -611,7 +637,9 @@ function getPainelResumo({ exercicio, exercicios } = {}) {
       ${temFiltro ? `AND td.exercicio_orcamento IN (${placeholders})` : ''}
     ORDER BY td.data_empenho DESC, td.id DESC
     LIMIT 20
-  `).all(...paramsExercicio).map(decorarDespesaComFinalidade);
+    `).all(...paramsExercicio)
+      .map(ocultarVinculoDocumentoInexato)
+      .map(decorarDespesaComFinalidade);
 
   const logs = db.prepare(`
     SELECT exercicio, registros, novos, atualizados, status, erro, coletado_em
@@ -754,7 +782,9 @@ function getDespesas({
       ${where}
       ORDER BY td.data_empenho DESC, td.id DESC
       LIMIT ? OFFSET ?
-    `).all(...paramsFinais, limite, offset).map(decorarDespesaComFinalidade);
+    `).all(...paramsFinais, limite, offset)
+      .map(ocultarVinculoDocumentoInexato)
+      .map(decorarDespesaComFinalidade);
     return { total, pagina: Number(pagina), limite, dados };
   };
 

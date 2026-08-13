@@ -118,9 +118,23 @@ function modalidadesCorrespondem(a, b) {
   return a.tipo === b.tipo && a.numero === b.numero && a.ano === b.ano;
 }
 
+/**
+ * Retorna true somente quando a modalidade da despesa e a modalidade do
+ * documento podem ser identificadas e coincidem em tipo, número e ano.
+ * Sem os dois parses não há evidência suficiente para exibir o documento
+ * como "licitação de origem".
+ */
+function vinculoDocumentoExato(modalidadeDespesa, tituloDocumento) {
+  return modalidadesCorrespondem(
+    parseModalidadeDespesa(modalidadeDespesa),
+    parseModalidadeEdital(tituloDocumento)
+  );
+}
+
 module.exports = {
   normalizarTipoModalidade,
   parseModalidadeDespesa,
   parseModalidadeEdital,
   modalidadesCorrespondem,
+  vinculoDocumentoExato,
 };

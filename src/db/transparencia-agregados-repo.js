@@ -13,6 +13,7 @@ const {
   CLASSIFICACAO_JOIN,
   decorarDespesaComFinalidade,
 } = require('./transparencia-classificacao-repo');
+const { vinculoDocumentoExato } = require('../licitacoes/modalidade');
 
 const LIMITE_EXEMPLOS = 5;
 
@@ -33,7 +34,13 @@ function getDespesaById(id) {
        WHERE td.id = ?`
     )
     .get(Number(id));
-  return row ? decorarDespesaComFinalidade(row) : null;
+  if (!row) {return null;}
+  if (row.documento_id && !vinculoDocumentoExato(row.modalidade, row.documento_titulo)) {
+    row.documento_id = null;
+    row.documento_titulo = null;
+    row.documento_numero = null;
+  }
+  return decorarDespesaComFinalidade(row);
 }
 
 /**

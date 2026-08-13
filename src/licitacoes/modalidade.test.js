@@ -5,6 +5,7 @@ const {
   parseModalidadeDespesa,
   parseModalidadeEdital,
   modalidadesCorrespondem,
+  vinculoDocumentoExato,
 } = require('./modalidade');
 
 describe('licitacoes/modalidade · normalizarTipoModalidade', () => {
@@ -37,6 +38,23 @@ describe('licitacoes/modalidade · normalizarTipoModalidade', () => {
   it('retorna null para desconhecido/vazio', () => {
     expect(normalizarTipoModalidade('')).toBeNull();
     expect(normalizarTipoModalidade('Qualquer Coisa')).toBeNull();
+  });
+});
+
+describe('vinculoDocumentoExato', () => {
+  it('aceita somente tipo, numero e ano identicos', () => {
+    expect(vinculoDocumentoExato(
+      'Adesao a Registro de Precos - 00022022',
+      'Processo 0025/2022 - Adesao n 002/2022 - Ata'
+    )).toBe(true);
+    expect(vinculoDocumentoExato(
+      'Adesao a Registro de Precos - 00022022',
+      'Processo 0025/2022 - Pregao n 025/2022 - Ata'
+    )).toBe(false);
+  });
+
+  it('recusa quando um dos lados nao tem modalidade parseavel', () => {
+    expect(vinculoDocumentoExato('Pregao', 'Pregao 1/2026')).toBe(false);
   });
 });
 
