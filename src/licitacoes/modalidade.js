@@ -34,15 +34,16 @@ const REFERENCIA_LEGAL =
   /\b(?:lei|leis|lc|decreto|decretos|medida\s+provis[oó]ria|mp|portaria|instru[cç][aã]o\s+normativa)\s*(?:complementar\s*)?(?:federal\s*|estadual\s*|municipal\s*)?n?[ºo°.]*\s*[\d.]+\s*\/\s*\d{2,4}/gi;
 const NUMERO_COM_MILHAR = /\b\d{1,3}\.\d{3}\s*\/\s*\d{2,4}/g;
 
-// Quantas palavras podem preceder a palavra da modalidade no segmento. O título
-// vem de "Processo NNNN/AAAA - <Modalidade> - <objeto>": no segmento da
-// modalidade a palavra está no início. Mais que isso é menção no meio do objeto
-// ("contratação de empresa para leilão de bens"), que não identifica licitação.
+// Quantas palavras podem preceder a palavra da modalidade para que o número do
+// segmento SEGUINTE seja adotado. O título vem de "Processo NNNN/AAAA -
+// <Modalidade> - <objeto>": no segmento da modalidade a palavra está no início.
+// Menção tardia ("contratação de empresa para leilão de bens" seguida de
+// "003/2022") é objeto, não identificação da licitação.
 const MAX_PALAVRAS_ANTES_DO_TIPO = 3;
 // Só caracteres não numéricos podem separar a modalidade do seu número
-// ("Presencial RP nº 048/2023"). Uma janela curta evita capturar o número de
-// outra coisa citada adiante.
-const JANELA_NUMERO_APOS_TIPO = 24;
+// ("Adesão Ata Registro de Preço nº 003/2025"). Uma janela curta evita capturar
+// o número de outra coisa citada adiante.
+const JANELA_NUMERO_APOS_TIPO = 32;
 const ANO_CURTO_LIMITE = 100;
 const SECULO = 2000;
 
@@ -90,19 +91,23 @@ function removerReferenciasLegais(texto) {
 }
 
 // Localiza a palavra da modalidade no segmento e devolve onde ela começa/termina.
+// Vence a que aparece primeiro no texto (empate: ordem de especificidade de
+// TIPOS) — em títulos longos a primeira menção é a que identifica o processo.
 function localizarTipoNoSegmento(segmento) {
   const alvo = String(segmento).toLowerCase();
+  let melhor = null;
   for (const [canonico, regex] of TIPOS_POSICIONAIS) {
     const encontrado = regex.exec(alvo);
-    if (encontrado) {
-      return {
-        tipo: canonico,
-        inicio: encontrado.index,
-        fim: encontrado.index + encontrado[0].length,
-      };
+    if (!encontrado || (melhor && encontrado.index >= melhor.inicio)) {
+      continue;
     }
+    melhor = {
+      tipo: canonico,
+      inicio: encontrado.index,
+      fim: encontrado.index + encontrado[0].length,
+    };
   }
-  return null;
+  return melhor;
 }
 
 function palavrasAntesDe(segmento, indice) {
@@ -153,14 +158,19 @@ function parseModalidadeEdital(titulo) {
       continue;
     }
     const encontrado = localizarTipoNoSegmento(seg);
-    // Modalidade citada no meio do objeto não identifica a licitação.
-    if (!encontrado || palavrasAntesDe(seg, encontrado.inicio) > MAX_PALAVRAS_ANTES_DO_TIPO) {
+    if (!encontrado) {
       continue;
     }
-    // número no próprio segmento da modalidade...
+    const noInicio = palavrasAntesDe(seg, encontrado.inicio) <= MAX_PALAVRAS_ANTES_DO_TIPO;
+    // número colado na modalidade ("Tomada de Preços nº 02/2023")...
     // ...ou no segmento seguinte quando ele é só o número ("Pregão - 0048/2023")
     const num =
-      numeroAposTipo(seg, encontrado.fim) || numeroEmSegmentoProprio(segmentos[i + 1]);
+      numeroAposTipo(seg, encontrado.fim) ||
+      (noInicio ? numeroEmSegmentoProprio(segmentos[i + 1]) : null);
+    // Menção no meio do objeto sem número próprio não identifica a licitação.
+    if (!num && !noInicio) {
+      continue;
+    }
     return montarModalidade(encontrado.tipo, num);
   }
 

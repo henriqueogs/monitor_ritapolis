@@ -170,6 +170,24 @@ describe('licitacoes/modalidade · parseModalidadeEdital', () => {
     });
   });
 
+  // Títulos reais do acervo, extraídos do relatório de vínculos de 13/08/2026.
+  it('aceita rótulo longo entre a modalidade e o número (caso real, documento do CIS Piumhi)', () => {
+    expect(
+      parseModalidadeEdital(
+        'Processo 0011/2025 - Adesão Ata Registro de Preço nº 003/2025 - Adesão a Ata de Registro de Preço do Consorcio Público Intermunicipal de Saúde'
+      )
+    ).toEqual({ tipo: 'adesao', numero: 3, ano: 2025 });
+  });
+
+  it('em aviso longo, pega o número colado na modalidade e não o do contrato (caso real)', () => {
+    // O parser antigo lia "Contrato nº 0127/2023" e produzia Tomada 127/2023.
+    expect(
+      parseModalidadeEdital(
+        'Aditamento ao Contrato nº 0127/2023 - Celebração do 1º Termo aditivo ao Contrato nº 127/2023 (serv. pavim. asfáltica), originado do Processo de Licitação nº 57/2023, Tomada de Preços nº 02/2023 objetivando prorrogação. Fund. Legal: Lei Federal nº 8.666/93.'
+      )
+    ).toEqual({ tipo: 'tomada', numero: 2, ano: 2023 });
+  });
+
   it('não adota número que aparece antes da palavra da modalidade', () => {
     expect(parseModalidadeEdital('Processo 0107/2023 - Ata 015/2023 do Pregão - Registro')).toEqual({
       tipo: 'pregao',
