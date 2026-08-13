@@ -275,6 +275,21 @@ describe('transparencia-repo', () => {
       expect(repo.crosswalkDespesasDocumentos()).toBe(1);
       expect(mockConn.prepare('SELECT documento_id FROM transparencia_despesas').get().documento_id).toBe(674);
     });
+
+    it('remove vínculo legado quando nenhum documento tem a modalidade exata do empenho', () => {
+      mockConn.prepare(`
+        INSERT INTO documentos (id, fonte, tipo, numero, ano, titulo, url_origem)
+        VALUES (?, 'site_prefeitura', 'edital', ?, ?, ?, 'https://example.invalid')
+      `).run(25, '0099/2022', 2022, 'Processo 0099/2022 - Pregão 025/2022 - Combustível');
+      seedDespesa({
+        exercicio: 2022,
+        modalidade: 'Adesão - 00022022',
+        documentoId: 25,
+      });
+
+      expect(repo.crosswalkDespesasDocumentos()).toBe(1);
+      expect(mockConn.prepare('SELECT documento_id FROM transparencia_despesas').get().documento_id).toBeNull();
+    });
   });
 
   describe('upsertDespesa — colunas derivadas', () => {

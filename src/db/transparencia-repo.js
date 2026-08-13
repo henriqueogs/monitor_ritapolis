@@ -306,9 +306,13 @@ function construirIndiceEditaisPorModalidade() {
  * modalidade (tipo + número + ano). Substitui o match por LIKE de número solto,
  * que casava o número da modalidade com o número do processo e ignorava o tipo.
  *
+ * Também remove vínculos legados sem candidato exato: se nenhum documento no
+ * sistema tem a modalidade declarada, um documento_id preexistente não pode
+ * ser exato e é limpo (NULL) em vez de ficar apontando para outro processo.
+ *
  * @param {{ relink?: boolean }} [opcoes] relink=true reavalia TODAS as despesas
  *   (limpa documento_id derivado e reconstrói) — usado para corrigir links antigos.
- * @returns {number} quantidade de vínculos criados ou corrigidos
+ * @returns {number} quantidade de vínculos criados, corrigidos ou removidos
  */
 function crosswalkDespesasDocumentos({ relink = false } = {}) {
   if (relink) {
@@ -326,6 +330,9 @@ function crosswalkDespesasDocumentos({ relink = false } = {}) {
   const update = db.prepare(
     'UPDATE transparencia_despesas SET documento_id = ?, atualizado_em = CURRENT_TIMESTAMP WHERE id = ?'
   );
+  const limpar = db.prepare(
+    'UPDATE transparencia_despesas SET documento_id = NULL, atualizado_em = CURRENT_TIMESTAMP WHERE id = ?'
+  );
 
   let vinculados = 0;
   const idsVinculados = [];
@@ -337,8 +344,16 @@ function crosswalkDespesasDocumentos({ relink = false } = {}) {
     const documentoId = indice.get(`${mod.tipo}|${mod.numero}|${mod.ano}`);
     // No modo normal, corrige também vínculos legados que apontam para outro
     // processo. No modo relink, ausência de correspondência permanece nula.
-    if (documentoId && desp.documento_id !== documentoId) {
-      update.run(documentoId, desp.id);
+    if (documentoId) {
+      if (desp.documento_id !== documentoId) {
+        update.run(documentoId, desp.id);
+        vinculados += 1;
+        idsVinculados.push(desp.id);
+      }
+    } else if (desp.documento_id !== null) {
+      // Nenhum documento no sistema tem essa modalidade exata: o vínculo
+      // existente não pode ser exato e é lixo legado do crosswalk por LIKE.
+      limpar.run(desp.id);
       vinculados += 1;
       idsVinculados.push(desp.id);
     }
