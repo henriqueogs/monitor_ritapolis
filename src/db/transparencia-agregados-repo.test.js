@@ -78,6 +78,7 @@ describe('transparencia-agregados-repo', () => {
     it('retorna todas as colunas + documento vinculado', () => {
       seedDocumento(7);
       const id = seedDespesa({ documentoId: 7, valor: 500 });
+      mockConn.prepare('UPDATE transparencia_despesas SET modalidade = ? WHERE id = ?').run('Pregao - 00012026', id);
       const d = repo.getDespesaById(id);
 
       expect(d.valor).toBe(500);
@@ -86,6 +87,19 @@ describe('transparencia-agregados-repo', () => {
       expect(d.fonte_recurso).toContain('PRÓPRIOS');
       expect(d.documento_titulo).toBe('Pregão 1/2026');
       expect(d.documento_numero).toBe('1/2026');
+    });
+
+    it('remove vinculo incompatÃ­vel do dossiÃª pÃºblico', () => {
+      mockConn.prepare(
+        `INSERT INTO documentos (id, fonte, tipo, titulo, numero, url_origem)
+         VALUES (?, 'site_prefeitura', 'edital', 'PregÃ£o 1/2026', '1/2026', 'https://x/y')`
+      ).run(8);
+      const id = seedDespesa({ documentoId: 8 });
+      mockConn.prepare('UPDATE transparencia_despesas SET modalidade = ? WHERE id = ?').run('Dispensa - 00012026', id);
+      const d = repo.getDespesaById(id);
+
+      expect(d.documento_id).toBeNull();
+      expect(d.documento_titulo).toBeNull();
     });
 
     it('retorna null quando não existe', () => {

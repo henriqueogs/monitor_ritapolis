@@ -14,6 +14,7 @@ const {
 const { FINALIDADES, getFinalidadeMeta } = require('./finalidade');
 const { comLinkPortal } = require('./portal-links');
 const { agruparPorMandato, mandatoInicio, mandatoLabel } = require('../utils/mandato');
+const { vinculoDocumentoExato } = require('../licitacoes/modalidade');
 
 const MANDATO_ANOS = 4;
 const LIMITE_CREDORES = 15;
@@ -243,7 +244,14 @@ function getEmpenhosRecentesClasse(classe, exercicios, limite = LIMITE_EMPENHOS_
     WHERE tdc.classe_principal = ? AND ${ex.sql}
     ORDER BY td.data_empenho DESC, td.id DESC
     LIMIT ?
-  `).all(classe, ...ex.params, Number(limite)).map(decorarDespesaComFinalidade);
+  `).all(classe, ...ex.params, Number(limite))
+    .map((despesa) => {
+      if (despesa.documento_id && !vinculoDocumentoExato(despesa.modalidade, despesa.documento_titulo)) {
+        return { ...despesa, documento_id: null, documento_titulo: null, documento_numero: null };
+      }
+      return despesa;
+    })
+    .map(decorarDespesaComFinalidade);
 
   return comLinkPortal(rows);
 }

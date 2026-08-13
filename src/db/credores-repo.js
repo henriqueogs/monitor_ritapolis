@@ -8,6 +8,7 @@
  */
 
 const { db } = require('./index');
+const { vinculoDocumentoExato } = require('../licitacoes/modalidade');
 const { parseCredorChave } = require('../transparencia/credor-chave');
 const { getFinalidadeMeta } = require('../transparencia/finalidade');
 
@@ -316,6 +317,7 @@ function getCredorProfile(identificador) {
     SELECT
       td.empenho, td.data_empenho, td.valor, td.funcao, td.historico, td.tipo,
       td.exercicio_orcamento AS ano,
+      td.modalidade,
       d.titulo               AS documento_titulo,
       d.id                   AS documento_id
     FROM transparencia_despesas td
@@ -323,7 +325,12 @@ function getCredorProfile(identificador) {
     WHERE td.credor_chave = ?
     ORDER BY td.data_empenho DESC, td.valor DESC
     LIMIT 20
-  `).all(chave);
+  `).all(chave).map((empenho) => {
+    if (empenho.documento_id && !vinculoDocumentoExato(empenho.modalidade, empenho.documento_titulo)) {
+      return { ...empenho, documento_id: null, documento_titulo: null };
+    }
+    return empenho;
+  });
 
   // Normalização de CNPJ em SQL — as colunas guardam formatos mistos
   const cnpjNorm = (col) => `REPLACE(REPLACE(REPLACE(REPLACE(${col}, '.', ''), '/', ''), '-', ''), ' ', '')`;

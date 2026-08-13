@@ -92,6 +92,18 @@ describe('transparencia-repo', () => {
       expect(d.data_pagamento).toBeDefined();
     });
 
+    it('oculta vinculo legado quando o documento nao corresponde a modalidade', () => {
+      mockConn.prepare(`
+        INSERT INTO documentos (id, fonte, tipo, numero, ano, titulo, url_origem)
+        VALUES (77, 'site_prefeitura', 'edital', '1/2026', 2026, 'Processo 0099/2026 - Pregao 099/2026', 'https://example.invalid')
+      `).run();
+      seedDespesa({ modalidade: 'Dispensa - 00012026', documentoId: 77 });
+
+      const { dados } = repo.getDespesas({});
+      expect(dados[0].documento_id).toBeNull();
+      expect(dados[0].documento_titulo).toBeNull();
+    });
+
     it('filtra por prefixos de categoria econômica', () => {
       seedDespesa({ categoriaEconomica: '3.3.90.14.00 - DIÁRIAS' });
       seedDespesa({ categoriaEconomica: '4.4.90.51.00 - OBRAS' });
