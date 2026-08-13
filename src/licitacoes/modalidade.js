@@ -24,6 +24,28 @@ const TIPOS = [
   ['concurso', /concurso/],
 ];
 
+// Regexes de tipo com flag `i` — usadas para localizar a POSIÇÃO da palavra da
+// modalidade dentro do segmento (as classes [aã] já cobrem acentuação).
+const TIPOS_POSICIONAIS = TIPOS.map(([canonico, regex]) => [canonico, new RegExp(regex.source, 'i')]);
+
+// "Lei 14.133/2021", "Decreto nº 10.024/2019", "8.666/93" — números de norma
+// citados no título não são o número da modalidade.
+const REFERENCIA_LEGAL =
+  /\b(?:lei|leis|lc|decreto|decretos|medida\s+provis[oó]ria|mp|portaria|instru[cç][aã]o\s+normativa)\s*(?:complementar\s*)?(?:federal\s*|estadual\s*|municipal\s*)?n?[ºo°.]*\s*[\d.]+\s*\/\s*\d{2,4}/gi;
+const NUMERO_COM_MILHAR = /\b\d{1,3}\.\d{3}\s*\/\s*\d{2,4}/g;
+
+// Quantas palavras podem preceder a palavra da modalidade no segmento. O título
+// vem de "Processo NNNN/AAAA - <Modalidade> - <objeto>": no segmento da
+// modalidade a palavra está no início. Mais que isso é menção no meio do objeto
+// ("contratação de empresa para leilão de bens"), que não identifica licitação.
+const MAX_PALAVRAS_ANTES_DO_TIPO = 3;
+// Só caracteres não numéricos podem separar a modalidade do seu número
+// ("Presencial RP nº 048/2023"). Uma janela curta evita capturar o número de
+// outra coisa citada adiante.
+const JANELA_NUMERO_APOS_TIPO = 24;
+const ANO_CURTO_LIMITE = 100;
+const SECULO = 2000;
+
 function normalizarTexto(value) {
   return normalizeText(String(value || ''))
     .normalize('NFD')
@@ -63,6 +85,55 @@ function parseModalidadeDespesa(modalidade) {
   return { tipo, numero: Number(codigo.slice(0, -4)), ano };
 }
 
+function removerReferenciasLegais(texto) {
+  return String(texto).replace(REFERENCIA_LEGAL, ' ').replace(NUMERO_COM_MILHAR, ' ');
+}
+
+// Localiza a palavra da modalidade no segmento e devolve onde ela começa/termina.
+function localizarTipoNoSegmento(segmento) {
+  const alvo = String(segmento).toLowerCase();
+  for (const [canonico, regex] of TIPOS_POSICIONAIS) {
+    const encontrado = regex.exec(alvo);
+    if (encontrado) {
+      return {
+        tipo: canonico,
+        inicio: encontrado.index,
+        fim: encontrado.index + encontrado[0].length,
+      };
+    }
+  }
+  return null;
+}
+
+function palavrasAntesDe(segmento, indice) {
+  return String(segmento)
+    .slice(0, indice)
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean).length;
+}
+
+// Só aceita o número quando ele vem DEPOIS da modalidade, separado apenas por
+// texto sem dígitos ("Presencial RP nº 048/2023") e sem referência legal.
+function numeroAposTipo(segmento, fim) {
+  const trecho = removerReferenciasLegais(String(segmento).slice(fim));
+  const padrao = new RegExp(`^[^\\d]{0,${JANELA_NUMERO_APOS_TIPO}}(\\d{1,4})\\s*/\\s*(\\d{2,4})`);
+  return trecho.match(padrao);
+}
+
+function numeroEmSegmentoProprio(segmento) {
+  return String(segmento || '').match(/^(?:n[ºo°]\s*)?(\d{1,4})\s*\/\s*(\d{2,4})$/i);
+}
+
+function montarModalidade(tipo, num) {
+  if (!num) {
+    return { tipo, numero: null, ano: null };
+  }
+  const anoBruto = Number(num[2]);
+  const ano = anoBruto < ANO_CURTO_LIMITE ? anoBruto + SECULO : anoBruto;
+  return { tipo, numero: Number(num[1]), ano };
+}
+
 // Edital: "Processo 0107/2023 - Pregão - 0048/2023 - ..." → modalidade após o
 // processo. Pega o segmento de modalidade (ignora o "Processo NNNN/AAAA") e o
 // primeiro NNN/AAAA que aparece DEPOIS do tipo (ignora "RP" e "nº").
@@ -71,7 +142,7 @@ function parseModalidadeEdital(titulo) {
     return null;
   }
 
-  const segmentos = String(titulo)
+  const segmentos = normalizeText(String(titulo))
     .split(/\s+[-–]\s+/)
     .map((s) => s.trim())
     .filter(Boolean);
@@ -81,28 +152,16 @@ function parseModalidadeEdital(titulo) {
     if (/^processo/i.test(seg)) {
       continue;
     }
-    const tipo = normalizarTipoModalidade(seg);
-    if (!tipo) {
+    const encontrado = localizarTipoNoSegmento(seg);
+    // Modalidade citada no meio do objeto não identifica a licitação.
+    if (!encontrado || palavrasAntesDe(seg, encontrado.inicio) > MAX_PALAVRAS_ANTES_DO_TIPO) {
       continue;
     }
     // número no próprio segmento da modalidade...
-    let num = seg.match(/(\d{1,4})\s*\/\s*(\d{2,4})/);
     // ...ou no segmento seguinte quando ele é só o número ("Pregão - 0048/2023")
-    if (!num) {
-      const proximo = segmentos[i + 1] || '';
-      const soNumero = proximo.match(/^(?:n[ºo°]\s*)?(\d{1,4})\s*\/\s*(\d{2,4})$/i);
-      if (soNumero) {
-        num = soNumero;
-      }
-    }
-    if (!num) {
-      return { tipo, numero: null, ano: null };
-    }
-    let ano = Number(num[2]);
-    if (ano < 100) {
-      ano += 2000;
-    }
-    return { tipo, numero: Number(num[1]), ano };
+    const num =
+      numeroAposTipo(seg, encontrado.fim) || numeroEmSegmentoProprio(segmentos[i + 1]);
+    return montarModalidade(encontrado.tipo, num);
   }
 
   return null;

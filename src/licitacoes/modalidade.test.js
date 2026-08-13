@@ -130,6 +130,53 @@ describe('licitacoes/modalidade · parseModalidadeEdital', () => {
     expect(parseModalidadeEdital('Documento avulso sem modalidade')).toBeNull();
     expect(parseModalidadeEdital('')).toBeNull();
   });
+
+  it('ignora número de lei/decreto citado no segmento da modalidade', () => {
+    // "Decreto 10.024/2019" virava Pregão 24/2019 e capturava todo empenho
+    // "Pregão - 00242019" para o documento errado.
+    expect(
+      parseModalidadeEdital('Processo 0107/2023 - Pregão Eletrônico nos termos do Decreto 10.024/2019 - Aquisição')
+    ).toEqual({ tipo: 'pregao', numero: null, ano: null });
+
+    expect(
+      parseModalidadeEdital('Processo 0055/2024 - Dispensa Eletrônica - Lei 14.133/2021 - Aquisição de peças')
+    ).toEqual({ tipo: 'dispensa', numero: null, ano: null });
+
+    expect(parseModalidadeEdital('Aviso - Pregão Presencial - Lei 8.666/93 - Contratação')).toEqual({
+      tipo: 'pregao',
+      numero: null,
+      ano: null,
+    });
+  });
+
+  it('ignora modalidade citada no meio do objeto (título sem campo Modalidade)', () => {
+    // Sem o campo "Modalidade nº", o título é "Processo NNNN/AAAA - objeto";
+    // a palavra da modalidade no meio do objeto não identifica a licitação.
+    expect(
+      parseModalidadeEdital('Processo 0031/2022 - Contratação de empresa para leilão de bens - 003/2022')
+    ).toBeNull();
+  });
+
+  it('aceita a modalidade quando a palavra está no início do segmento', () => {
+    expect(parseModalidadeEdital('Aviso de Licitação - Pregão Presencial 048/2023 - Aquisição')).toEqual({
+      tipo: 'pregao',
+      numero: 48,
+      ano: 2023,
+    });
+    expect(parseModalidadeEdital('Republicação do Pregão Presencial nº 010/2024 - Serviços')).toEqual({
+      tipo: 'pregao',
+      numero: 10,
+      ano: 2024,
+    });
+  });
+
+  it('não adota número que aparece antes da palavra da modalidade', () => {
+    expect(parseModalidadeEdital('Processo 0107/2023 - Ata 015/2023 do Pregão - Registro')).toEqual({
+      tipo: 'pregao',
+      numero: null,
+      ano: null,
+    });
+  });
 });
 
 describe('licitacoes/modalidade · modalidadesCorrespondem', () => {
