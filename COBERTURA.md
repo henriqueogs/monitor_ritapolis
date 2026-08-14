@@ -2,35 +2,35 @@
 
 Relatório gerado automaticamente a partir de `data/ritapolis.db`.
 
-Atualizado em: 2026-06-26. Gere novamente com `npm run docs:dados`.
+Atualizado em: 2026-08-14. Gere novamente com `npm run docs:dados`.
 
 ## Visão Geral
 
-- Documentos: **553**
-- Editais: **519**
-- Texto extraído: **550/553 (99%)**
-- Vencedor identificado: **465/519 (90%)**
-- Valor final identificado: **251/519 (48%)**
-- Produtos estruturados: **4656** em **377** documento(s)
-- Lacunas classificadas de preço por item no mandato atual: **13**
+- Documentos: **578**
+- Editais: **544**
+- Texto extraído: **548/578 (95%)**
+- Vencedor identificado: **495/544 (91%)**
+- Valor final identificado: **291/544 (53%)**
+- Produtos estruturados: **12999** em **419** documento(s)
+- Lacunas classificadas de preço por item no mandato atual: **14**
 - Fornecedores consolidados: **494**
-- Descobertas/alertas: **ativo: 49**
-- Automação de descobertas: **ligada**; último ciclo: **2026-06-26T12:16:56.557Z**; pendente: **não**
+- Descobertas/alertas: **ativo: 88**
+- Automação de descobertas: **ligada**; último ciclo: **2026-07-22T22:56:54.763Z**; pendente: **não**
 
 ## Cobertura Por Ano (Editais)
 
 | Ano | Editais | Vencedor | Valor | Resumo | Análise |
 | --- | --- | --- | --- | --- | --- |
-| 2026 | 40 | 93% | 85% | 100% | 100% |
-| 2025 | 68 | 91% | 74% | 100% | 100% |
+| 2026 | 64 | 80% | 70% | 70% | 63% |
+| 2025 | 69 | 90% | 72% | 100% | 100% |
 | 2024 | 49 | 96% | 82% | 100% | 76% |
 | 2023 | 60 | 97% | 65% | 100% | 98% |
-| 2022 | 51 | 100% | 55% | 100% | 98% |
-| 2021 | 50 | 96% | 22% | 100% | 100% |
-| 2020 | 65 | 77% | 25% | 100% | 80% |
-| 2019 | 56 | 79% | 27% | 100% | 89% |
-| 2018 | 41 | 80% | 22% | 100% | 98% |
-| 2017 | 36 | 69% | 17% | 94% | 94% |
+| 2022 | 51 | 100% | 59% | 100% | 98% |
+| 2021 | 50 | 98% | 34% | 100% | 100% |
+| 2020 | 65 | 80% | 29% | 100% | 80% |
+| 2019 | 56 | 91% | 46% | 100% | 89% |
+| 2018 | 41 | 88% | 37% | 100% | 98% |
+| 2017 | 36 | 78% | 19% | 100% | 94% |
 | 2016 | 2 | 100% | 0% | 100% | 100% |
 | 2013 | 1 | 100% | 0% | 100% | 0% |
 
@@ -38,9 +38,9 @@ Atualizado em: 2026-06-26. Gere novamente com `npm run docs:dados`.
 
 | Mandato | Anos no banco | Editais | Vencedor | Valor | Resumo | Análise |
 | --- | --- | --- | --- | --- | --- | --- |
-| 2025-2028 | 2026, 2025 | 108 | 92% | 78% | 100% | 100% |
-| 2021-2024 | 2024, 2023, 2022, 2021 | 210 | 97% | 56% | 100% | 93% |
-| 2017-2020 | 2020, 2019, 2018, 2017 | 198 | 77% | 23% | 99% | 89% |
+| 2025-2028 | 2026, 2025 | 133 | 85% | 71% | 86% | 82% |
+| 2021-2024 | 2024, 2023, 2022, 2021 | 210 | 98% | 60% | 100% | 93% |
+| 2017-2020 | 2020, 2019, 2018, 2017 | 198 | 84% | 34% | 100% | 89% |
 | 2013-2016 | 2016, 2013 | 3 | 100% | 0% | 100% | 67% |
 
 ## Cobertura IA: Resumo vs Análise Integrada
@@ -50,9 +50,9 @@ Análise integrada deve agregar valor diferente: cruza fontes estruturadas, prod
 
 | Mandato | Editais | Resumo | Análise | Ambos | Só resumo | Sem IA |
 | --- | --- | --- | --- | --- | --- | --- |
-| 2025-2028 | 108 | 108 (100%) | 108 (100%) | 108 (100%) | 0 (0%) | 0 |
+| 2025-2028 | 133 | 114 (86%) | 109 (82%) | 109 (82%) | 5 (4%) | 19 |
 | 2021-2024 | 210 | 210 (100%) | 196 (93%) | 196 (93%) | 14 (7%) | 0 |
-| 2017-2020 | 198 | 196 (99%) | 176 (89%) | 176 (89%) | 20 (10%) | 2 |
+| 2017-2020 | 198 | 198 (100%) | 176 (89%) | 176 (89%) | 22 (11%) | 0 |
 | 2013-2016 | 3 | 3 (100%) | 2 (67%) | 2 (67%) | 1 (33%) | 0 |
 
 ## Qualidade da Análise Integrada
@@ -61,7 +61,7 @@ Classificação por confiança da última análise integrada: alta ≥ 0,70; mé
 
 | Mandato | Análises | Alta | Média | Baixa | Confiança média |
 | --- | --- | --- | --- | --- | --- |
-| 2025-2028 | 108 | 86 (80%) | 8 (7%) | 14 (13%) | 0.691 |
+| 2025-2028 | 109 | 86 (79%) | 8 (7%) | 15 (14%) | 0.687 |
 | 2021-2024 | 196 | 133 (68%) | 27 (14%) | 36 (18%) | 0.648 |
 | 2017-2020 | 176 | 69 (39%) | 32 (18%) | 75 (43%) | 0.535 |
 | 2013-2016 | 2 | 1 (50%) | 0 (0%) | 1 (50%) | 0.525 |
@@ -73,13 +73,14 @@ Esta seção separa falta de dado acionável de casos em que preço por item nã
 | Classificação | Total |
 | --- | --- |
 | resultado_final_nao_publicado:ha_orcamento_ou_edital_mas_nao_ata_resultado | 4 |
+| fonte_sem_detalhamento_por_item:sem_anexo_resultado_e_sem_preco_por_item | 3 |
 | preco_item_nao_aplicavel:leilao_bens_inserviveis | 3 |
 | preco_item_nao_aplicavel:concessao_ou_autorizacao_uso | 2 |
 | valor_global_sem_rateio:valor_final_do_processo_nao_deve_ser_rateado | 2 |
-| fonte_sem_detalhamento_por_item:sem_anexo_resultado_e_sem_preco_por_item | 2 |
 
 | Doc | Ano | Produtos | Valor global | Lacuna | Ação |
 | --- | --- | --- | --- | --- | --- |
+| #687 | 2026 | 4 | n/a | fonte_sem_detalhamento_por_item:sem_anexo_resultado_e_sem_preco_por_item | Confirmar se a fonte publica detalhamento por item |
 | #662 | 2026 | 1 | n/a | resultado_final_nao_publicado:ha_orcamento_ou_edital_mas_nao_ata_resultado | Aguardar/publicar resultado final; manter orçamento como estimado |
 | #660 | 2026 | 9 | R$ 51.100,00 | preco_item_nao_aplicavel:concessao_ou_autorizacao_uso | Tratar como concessão/autorização de uso, não preço unitário comum |
 | #612 | 2026 | 2 | R$ 15.740,71 | valor_global_sem_rateio:valor_final_do_processo_nao_deve_ser_rateado | Não ratear; buscar documento com subtotal por item/lote |
@@ -98,31 +99,36 @@ Esta seção separa falta de dado acionável de casos em que preço por item nã
 
 | Gap | Total | Ação |
 | --- | --- | --- |
-| Editais sem PDF e sem texto | 0 | Recoleta dirigida ou marcar lacuna irrecuperável da fonte |
-| Editais sem PDF, com texto da página | 37 | Manter como lacuna explícita de arquivo, com texto oficial preservado |
-| Resumos IA sem texto-fonte atual | 0 | Revalidar rastreabilidade antes de exibir como verificável |
-| Editais sem produtos estruturados | 149 | Rodar estruturação/enriquecimento em lotes por ano |
-| Produtos sem preço final por item no mandato atual | 13 | Priorizar resultado_final_nao_publicado, anexos pendentes e parser_pendente; não ratear valor global sem base |
+| Editais sem PDF e sem texto | 9 | Recoleta dirigida ou marcar lacuna irrecuperável da fonte |
+| Editais sem PDF, com texto da página | 28 | Manter como lacuna explícita de arquivo, com texto oficial preservado |
+| Resumos IA sem texto-fonte atual | 9 | Revalidar rastreabilidade antes de exibir como verificável |
+| Editais sem produtos estruturados | 132 | Rodar estruturação/enriquecimento em lotes por ano |
+| Produtos sem preço final por item no mandato atual | 14 | Priorizar resultado_final_nao_publicado, anexos pendentes e parser_pendente; não ratear valor global sem base |
 | Anexos aguardando OCR | 0 | Rodar OCR local ou fornecedor visão |
 | Documentos sem data_publicacao | 19 | Backfill por título/fonte quando confiável |
-| Análises integradas média/baixa no mandato atual | 22 | Rodar dados:analises-fracas e atacar causas: produtos, valores, PNCP, grupo ou PDF |
+| Análises integradas média/baixa no mandato atual | 23 | Rodar dados:analises-fracas e atacar causas: produtos, valores, PNCP, grupo ou PDF |
 
 ## Transparência
 
 | Ano | Empenhos | Total | Credores | Vinculadas |
 | --- | --- | --- | --- | --- |
-| 2026 | 1949 | R$ 19.110.944,50 | 168 | 346 (18%) |
+| 2026 | 2540 | R$ 24.986.286,95 | 188 | 415 (16%) |
 | 2025 | 4550 | R$ 28.330.599,56 | 166 | 602 (13%) |
-| 2024 | 5232 | R$ 29.642.751,51 | 180 | 720 (14%) |
-| 2023 | 4790 | R$ 20.451.608,91 | 196 | 958 (20%) |
-| 2022 | 282 | R$ 833.765,31 | 45 | 66 (23%) |
+| 2024 | 5232 | R$ 36.575.461,71 | 228 | 720 (14%) |
+| 2023 | 4790 | R$ 20.409.280,00 | 196 | 995 (21%) |
+| 2022 | 3971 | R$ 15.390.958,63 | 175 | 563 (14%) |
+| 2021 | 3064 | R$ 10.035.464,95 | 146 | 342 (11%) |
+| 2020 | 2913 | R$ 9.545.986,63 | 143 | 324 (11%) |
+| 2019 | 2956 | R$ 8.344.739,96 | 146 | 339 (11%) |
+| 2018 | 108 | R$ 197.565,47 | 35 | 36 (33%) |
+| 2017 | 2 | R$ 14.597,96 | 1 | 0 (0%) |
 
 ## Integridade
 
 - Registros órfãos: anexos=0, resumos=0, produtos=0
 - PDFs duplicados: 0
 - Hashes de conteúdo duplicados: 0
-- Tamanho de `data/`: 2.0 GB; backups SQLite: 15 (1.8 GB)
+- Tamanho de `data/`: 3.2 GB; backups SQLite: 15 (1.8 GB)
 
 ## Comandos
 

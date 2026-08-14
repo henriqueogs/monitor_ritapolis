@@ -32,6 +32,7 @@
     "licitacoes:extrair-anexos-sem-texto": "node scripts/extrair-anexos-edital-sem-texto.js",
     "transparencia:revincular": "node scripts/revincular-despesas.js",
     "transparencia:validar-links": "node scripts/validar-links-portal.js",
+    "transparencia:auditar-vinculos": "node scripts/relatorio-limpeza-vinculos.js",
     "transparencia:classificar-empenhos": "node scripts/classificar-empenhos.js --apply",
     "transparencia:classificar-empenhos:dry": "node scripts/classificar-empenhos.js",
     "credores:enriquecer": "node scripts/enriquecer-credores.js --apply",

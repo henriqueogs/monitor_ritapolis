@@ -120,13 +120,21 @@ npm run alertas:gerar:dry                 # prévia sem gravar
 npm run build --prefix frontend
 ```
 
-## Estado atual da base
+## Estado atual (gerado automaticamente)
 
-Números ao vivo (documentos, cobertura de IA, produtos, fornecedores,
-descobertas) ficam só em **[`COBERTURA.md`](COBERTURA.md)** — auto-gerado
-via `npm run docs:dados`, nunca editado à mão. Contexto de produto e
-histórico de versões: **[`DEVELOPMENT_PLAN.md`](DEVELOPMENT_PLAN.md)**.
-Pendências ativas: **[`CURRENT_WORK.md`](CURRENT_WORK.md)**.
+Atualizado em: 2026-08-14. Gere novamente com `npm run docs:dados`.
+
+- 578 documentos: 574 de site_prefeitura, 3 de camara, 1 de pncp
+- 544 editais; 548/578 documentos com texto extraido (95%)
+- 1493 resumos IA ok; 9 resumo(s) exigem revalidacao por falta de texto-fonte atual
+- 495/544 editais com vencedor (91%)
+- 291/544 editais com valor final (53%)
+- 12999 produtos estruturados em 419 documento(s); 132 editais ainda sem produtos
+- 14 edital(is) do mandato atual com produtos sem preço final por item: preco_item_nao_aplicavel=5, resultado_final_nao_publicado=4, fonte_sem_detalhamento_por_item=3, valor_global_sem_rateio=2
+- 494 fornecedores consolidados; 7 categorias ativas
+- 88 descobertas/alertas ativos; automação ligada; pendente=não
+- 0 anexo(s) aguardando OCR; 37 edital(is) sem PDF (9 sem texto, 28 com texto oficial da pagina)
+- Diretório `data/`: 3.2 GB, incluindo 15 backup(s) SQLite (1.8 GB)
 
 ## Limitações conhecidas
 
