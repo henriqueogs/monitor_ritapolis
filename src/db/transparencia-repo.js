@@ -7,6 +7,7 @@
  */
 
 const crypto = require('crypto');
+const logger = require('../logger');
 const { db } = require('./index');
 const { ensureDespesasMigracoes } = require('./transparencia-migracoes');
 const {
@@ -296,6 +297,12 @@ function construirIndiceEditaisPorModalidade() {
     const chave = `${mod.tipo}|${mod.numero}|${mod.ano}`;
     if (!indice.has(chave)) {
       indice.set(chave, edital.id);
+    } else {
+      logger.warn('crosswalk: colisao de modalidade entre documentos', {
+        chave,
+        documento_mantido: indice.get(chave),
+        documento_ignorado: edital.id,
+      });
     }
   }
   return indice;

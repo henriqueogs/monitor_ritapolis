@@ -290,6 +290,31 @@ describe('transparencia-repo', () => {
       expect(repo.crosswalkDespesasDocumentos()).toBe(1);
       expect(mockConn.prepare('SELECT documento_id FROM transparencia_despesas').get().documento_id).toBeNull();
     });
+
+    it('loga colisão e mantém o documento de menor id quando dois documentos têm a mesma modalidade', () => {
+      const logger = require('../logger');
+      const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+
+      mockConn.prepare(`
+        INSERT INTO documentos (id, fonte, tipo, numero, ano, titulo, url_origem)
+        VALUES (?, 'site_prefeitura', 'edital', ?, ?, ?, 'https://example.invalid')
+      `).run(173, '0083/2023', 2023, 'Processo 0083/2023 - Pregão 032/2023 - Material médico-hospitalar');
+      mockConn.prepare(`
+        INSERT INTO documentos (id, fonte, tipo, numero, ano, titulo, url_origem)
+        VALUES (?, 'site_prefeitura', 'edital', ?, ?, ?, 'https://example.invalid')
+      `).run(176, '0069/2023', 2023, 'Processo 0069/2023 - Pregão 032/2023 - Concessão de uso');
+      seedDespesa({ exercicio: 2023, modalidade: 'Pregão - 00322023' });
+
+      repo.crosswalkDespesasDocumentos();
+
+      expect(mockConn.prepare('SELECT documento_id FROM transparencia_despesas').get().documento_id).toBe(173);
+      expect(warnSpy).toHaveBeenCalledWith(
+        'crosswalk: colisao de modalidade entre documentos',
+        expect.objectContaining({ chave: 'pregao|32|2023', documento_mantido: 173, documento_ignorado: 176 })
+      );
+
+      warnSpy.mockRestore();
+    });
   });
 
   describe('upsertDespesa — colunas derivadas', () => {
