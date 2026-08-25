@@ -5,7 +5,9 @@ import {
   getSpecificSourcePageUrl,
   getOrigemGenericaUrl,
 } from '../lib/source-links';
-import { apiUrl } from '../lib/api';
+const sourcePreviewProxyUrl =
+  process.env.NEXT_PUBLIC_SOURCE_PREVIEW_URL ||
+  'https://monitor-ritapolis-heartbeat.henriqueguimaraes.workers.dev/preview';
 
 export default function DocumentPreviewPane({ documento }) {
   const officialFileUrl = getOfficialFileUrl(documento);
@@ -15,10 +17,11 @@ export default function DocumentPreviewPane({ documento }) {
   // PNCP recusam incorporação e precisam ser abertas diretamente.
   const previewUrl = getEmbeddableOfficialFileUrl(documento);
   // O portal oficial não permite incorporação em alguns navegadores móveis.
-  // Fazemos o preview pela API pública do projeto, mantendo o link direto
+  // Servimos o preview via Worker Cloudflare (não pelo Render — o byte do PDF
+  // nunca deve passar pela banda gratuita da API), mantendo o link direto
   // para a fonte oficial como referência primária.
   const previewSrc = previewUrl
-    ? `${apiUrl}/source-preview?url=${encodeURIComponent(previewUrl)}`
+    ? `${sourcePreviewProxyUrl}?url=${encodeURIComponent(previewUrl)}`
     : null;
   // Origem de último recurso (listagem) — não embutimos em iframe, mas sempre
   // oferecemos o link: todo documento tem de onde veio.

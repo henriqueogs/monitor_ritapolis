@@ -30,6 +30,103 @@ const ALLOWED_PROXY_HOSTS = new Set([
 ]);
 const MAX_REDIRECTS = 5;
 
+// Mesmo allowlist do endpoint /api/source-preview do Render (src/api/server.js):
+// só arquivos oficiais da prefeitura, servidos direto do Worker pro navegador
+// do cidadao. Antes o Render reencaminhava esses PDFs, consumindo a banda
+// gratuita do plano; aqui o byte nunca passa pelo Render.
+const ALLOWED_PREVIEW_HOSTS = new Set(['ritapolis.mg.gov.br', 'www.ritapolis.mg.gov.br']);
+const PREVIEW_REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+
+function parsePreviewTarget(rawTarget) {
+  let target;
+  try {
+    target = new URL(rawTarget);
+  } catch {
+    return null;
+  }
+  const path = target.pathname.toLowerCase();
+  const allowedPath = path === '/obter_arquivo_cadastro_generico.php' || path.endsWith('.pdf');
+  if (target.protocol !== 'https:' || !ALLOWED_PREVIEW_HOSTS.has(target.hostname) || !allowedPath) {
+    return null;
+  }
+  return target;
+}
+
+function previewHeaders(upstream) {
+  const headers = new Headers({
+    'cache-control': 'public, max-age=300, s-maxage=86400, stale-while-revalidate=3600',
+    'content-disposition': 'inline; filename="fonte-oficial.pdf"',
+    'content-type': 'application/pdf',
+    'x-content-type-options': 'nosniff',
+    'x-robots-tag': 'noindex',
+    'content-security-policy': "frame-ancestors https://ritapolis.com https://www.ritapolis.com",
+    'cross-origin-resource-policy': 'cross-origin',
+  });
+  const contentLength = upstream.headers.get('content-length');
+  if (contentLength) {
+    headers.set('content-length', contentLength);
+  }
+  return headers;
+}
+
+async function fetchPreviewUpstream(startUrl) {
+  let current = startUrl;
+  for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects += 1) {
+    const response = await fetch(current, {
+      headers: {
+        accept: 'application/pdf',
+        'user-agent': 'Ritapolis-com/1.0 (+https://ritapolis.com)',
+      },
+      redirect: 'manual',
+    });
+    if (!PREVIEW_REDIRECT_STATUSES.has(response.status)) {
+      return response;
+    }
+    const location = response.headers.get('location');
+    const nextUrl = location ? parsePreviewTarget(new URL(location, current).toString()) : null;
+    if (!nextUrl) {
+      return null;
+    }
+    current = nextUrl;
+  }
+  return null;
+}
+
+async function servePreview(request, ctx) {
+  const requestUrl = new URL(request.url);
+  const target = parsePreviewTarget(requestUrl.searchParams.get('url'));
+  if (!target) {
+    return new Response('Fonte oficial invalida.', { status: 400 });
+  }
+  if (request.method !== 'GET') {
+    return new Response('Method not allowed', { status: 405, headers: { allow: 'GET' } });
+  }
+
+  const cache = caches.default;
+  const cached = await cache.match(request);
+  if (cached) {
+    return cached;
+  }
+
+  let upstream;
+  try {
+    upstream = await fetchPreviewUpstream(target);
+  } catch {
+    upstream = null;
+  }
+  if (!upstream || !upstream.ok || !upstream.body) {
+    return new Response('Nao foi possivel carregar a fonte oficial.', { status: 502 });
+  }
+  const contentType = upstream.headers.get('content-type') || 'application/pdf';
+  if (!/^application\/(pdf|octet-stream)(?:\s*;|$)/i.test(contentType)) {
+    return new Response('A fonte oficial nao retornou um arquivo PDF.', { status: 502 });
+  }
+
+  const response = new Response(upstream.body, { status: 200, headers: previewHeaders(upstream) });
+  ctx.waitUntil(cache.put(request, response.clone()));
+  return response;
+}
+
 function isAuthorized(request, env) {
   const expected = String(env.COLLECTOR_PROXY_TOKEN || '');
   const provided = request.headers.get('authorization') || '';
@@ -123,10 +220,13 @@ export default {
     ctx.waitUntil(wakeApi(env));
   },
 
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.pathname === '/proxy') {
       return proxyCollectorRequest(request, env);
+    }
+    if (url.pathname === '/preview') {
+      return servePreview(request, ctx);
     }
     if (request.method !== 'GET' || url.pathname !== '/health') {
       return new Response('Not found', { status: 404 });

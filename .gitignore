@@ -29,6 +29,7 @@ Thumbs.db
 .idea/
 
 # Local tooling (não publicar)
+.wrangler/
 .claude/
 .agents/
 .gemini/
