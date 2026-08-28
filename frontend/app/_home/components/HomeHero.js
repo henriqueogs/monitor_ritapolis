@@ -15,6 +15,9 @@ export default function HomeHero({ resumo, licitacoesAno }) {
           <span className={styles.heroBadgeDot} />
           Transparência Municipal com IA Verificável
         </div>
+        <div className={styles.constructionBadge} title="O site ainda está em desenvolvimento ativo — dados, telas e cobertura mudam com frequência.">
+          🚧 Em construção
+        </div>
 
         <h1>Entenda o que acontece<br />em Ritápolis</h1>
 

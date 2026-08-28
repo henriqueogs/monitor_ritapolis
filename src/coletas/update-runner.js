@@ -33,7 +33,10 @@ function buildCollectors(fonte) {
   if (fonte === 'portal_transparencia') {return [new ColetorPortalTransparencia()];}
   if (!fonte || fonte === 'todas') {return [
     new ColetorSitePrefeitura(),
-    new ColetorCamara(),
+    // Camara fora do ciclo automatico: site nao esta publicando nada novo
+    // (ultimo documento coletado 13/05/2026, 3 registros no total, todos
+    // sem PDF). Continua disponivel via fonte='camara' pra retomar manual
+    // quando o site voltar a funcionar.
     new ColetorPncp(),
     new ColetorPortalTransparencia(),
   ];}
