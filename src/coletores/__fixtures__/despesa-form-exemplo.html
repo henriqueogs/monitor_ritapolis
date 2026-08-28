@@ -1,0 +1,1237 @@
+<!--
+	Portal da Transparência, Contas Públicas e Tempo Real
+	(c) 2013-2016 - SH3 Informática LTDA	
+	(32) 3379-3100
+-->
+	
+<!DOCTYPE HTML>
+
+<HTML lang="pt">
+	<HEAD>
+		<TITLE>Portal da Transparência :: Saiba como seu dinheiro está sendo utilizado</TITLE>
+		<script type="text/javascript" src="/fsmenu/fsmenu.js" ></script>	
+		<link rel="stylesheet" type="text/css" id="listmenu-o" href="/fsmenu/listmenu_o.css">
+		<link rel="stylesheet" type="text/css" id="fsmenu-fallback" href="/fsmenu/listmenu_fallback.css" >			
+		
+		<meta name='CNPJ_PREF' content='18557553000105'>
+		<LINK REL="STYLESHEET" HREF="/css/Padrao.css?CSS=2026082816">	
+		<LINK REL="STYLESHEET" HREF="/css/Diaria.css?CSS=2026082816">	
+		<LINK REL="STYLESHEET" HREF="/css/Cores.css.php?CSS=20260828">	
+		<LINK REL="STYLESHEET" HREF="/css/Aguarde.css?CSS=20260828">	
+		<LINK REL="STYLESHEET" HREF="/css/Graficos.css?CSS=20260828">
+		<LINK REL="STYLESHEET" HREF="/css/Badges.css?CSS=20260828">
+		<LINK rel="STYLESHEET" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+		<script src="/js/Funcoes.js?20260828"></script>
+		<script src="/js/Funcoes.js.php?20260828"></script>
+		<script src="/js/Mascara.js"></script>				
+		<script src="/js/Aguarde.js"></script>				
+		<script src="/js/jquery1.8.2.js"></script>			
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<meta name="description" content="Portal da Transparência">
+		<meta name="keywords" content="Portal da Transparência, Contas Públicas e Tempo Real">
+		<meta name="author" content="SH3 Informática LTDA: Sistemas Para Gestão Pública">
+		<LINK rel="shortcut icon"  type="image/x-icon" href="/favicon.ico">
+		<script src="/js/chart_js/chartjs.4.2.1.min.js"></script>
+		<script src="/js/chart_js/chartjs.plugin.datalabels.2.2.0.js"></script>
+
+				<meta property="og:url" content="http://pt.ritapolis.mg.gov.br">
+		<meta property="og:description" content="Despesas, Receitas, Licitações, Folha Salarial, Contratos e Aditivos...">
+		<meta property="og:title" content="Portal da Transparência: Saiba como seu dinheiro está sendo utilizado!">
+		<meta name="Description" CONTENT="Despesas, Receitas, Licitações, Folha Salarial, Contratos e Aditivos...">	
+	
+	</HEAD>	
+
+
+
+<BODY class='body_principal'>
+	<H1 style='width:0px; height:0px; padding:0px; margin:0px;font-size:0%'>Portal da Transparência</H1>
+
+
+	<div id="barra">
+	
+		<nav>
+			<ul class="list">
+					<li><a href="#contenedorBusca"></a></li>
+					<li class="list-item first"><a href='https://www.gov.br/governodigital/pt-br/acessibilidade-digital' target='_blank' class="link-barra" alt="Acessibilidade" title="Acessibilidade"><img class='list-img' src="/Imagens/acessibilidade.png" width="20px"><span id="texto-item">Acessibilidade</span></a></li>
+					<li class="list-item"><a href="javascript:contraste();" class="link-barra"><img class='list-img' src="/Imagens/contraste.png" width="20px" alt="Contraste" title="Contraste"><span id="texto-item">Alto Contraste</span></a></li>
+					<li class="list-item"><a href="javascript:alterarFonte(1);" class="link-barra"><img class='list-img' src="/Imagens/zoomin.png" width="20px" alt="Zoom" title="Mais Zoom"><span id="texto-item">Mais Zoom</span></a></li>
+					<li class="list-item"><a href="javascript:alterarFonte(-1);" class="link-barra"><img class='list-img' src="/Imagens/zoomout.png" width="20px" alt="Zoom" title="Menos Zoom"><span id="texto-item">Menos Zoom</span></a></li>
+					<li class="list-item"><a href="javascript:restaurarFonte();" class="link-barra"><img class='list-img' src="/Imagens/reset.png" width="20px" alt='Zoom Padrão' title='Zoom Padrão'><span id="texto-item">Zoom Padrão</span></a></li>
+					<li class="list-item"><a href='https://www.gov.br/governodigital/pt-br/vlibras/' target='_blank' class="link-barra"><img class='list-img' src="/Imagens/Libras.png" width="25px" alt='VLibras' title='VLibras'><span id="texto-item">Acessível em Libras</span></a></li>
+					<li class="list-item"><a href='https://radardatransparencia.atricon.org.br/' target='_blank' class="link-barra"><img class='list-img' src="/Imagens/Radar-da-Transparencia-Publica.png" width="25px" alt='Radar da transparência pública' title='Radar da transparência pública'><span id="texto-item">Radar da transparência pública</span></a></li>
+			</ul>
+		</nav>
+	
+	</div>
+
+
+
+<SCRIPT>
+
+	function ObterContenedor(URL){
+		if(URL != ""){
+			document.location = "/" + URL;
+		}
+	}
+
+</SCRIPT>
+
+<!-- <DIV> -->
+
+<!-- Requere consorcio mas nao eh consorcio --><!-- Requere consorcio mas nao eh consorcio --><!-- Requere consorcio mas nao eh consorcio --><!-- Requere consorcio mas nao eh consorcio -->	
+	<DIV id="contenedor_aguarde">
+		<DIV id="interior_aguarde">Aguarde...</DIV>
+	</DIV>
+
+<DIV id='cabecalho'>
+    <DIV id='titulo-cabecalho'>
+        <DIV class='diagonal'>
+            <DIV class='linha_corte'><div class='texto'>SAIBA COMO SEU DINHEIRO ESTÁ SENDO UTILIZADO!</div></DIV>
+            <DIV id='titulo_conteudo'>
+			<a href="/" class="link-home" alt="Página Inicial" title="Página Inicial">
+				<DIV class="logo">
+						<img alt='Brasão' src='/Especifico_Cliente/18557553000105/Brasao/brasao.png'>				</DIV>
+				<DIV class='titulo'>
+					PORTAL DA TRANSPARÊNCIA <br>
+					Prefeitura Municipal de Ritápolis				</DIV>
+			</a>
+		</DIV>
+        </DIV>
+    </DIV>
+
+    <DIV id="icones">
+    <div class="topMenu"><div class="itemTopMenu fundo_item sombra">
+	  	 					<a href='javascript:ObterContenedor("Principal")'  onclick='registraClique("Principal");' title=''> 
+	  	 					<div class="icone_itemTopMenu"><img src="/Imagens/home.png" alt="Clique!"></div>
+  	 						<div class="titulo_itemTopMenu"><strong>Início</strong></div>
+  	 					</a>
+	  	 			  </div><div class="itemTopMenu fundo_item sombra">
+	  	 					<a href='javascript:ObterContenedor("Mapa")' onclick='registraClique("Mapa");' title=''> 
+	  	 					<div class="icone_itemTopMenu"><img src="/Imagens/Mapa.png" alt="Clique!"></div>
+  	 						<div class="titulo_itemTopMenu"><strong>Mapa do Site</strong></div>
+  	 					</a>
+	  	 			  </div><div class="itemTopMenu fundo_item sombra">
+	  	 					<a href='javascript:ObterContenedor("Legislacao")' onclick='registraClique("Legislacao");' title=''> 
+	  	 					<div class="icone_itemTopMenu"><img src="/Imagens/legislacao.png" alt="Clique!"></div>
+  	 						<div class="titulo_itemTopMenu"><strong>Legislação</strong></div>
+  	 					</a>
+	  	 			  </div><div class="itemTopMenu fundo_item sombra">
+	  	 					<a href='javascript:ObterContenedor("Links_Uteis")' onclick='registraClique("Links_Uteis");' title='Links úteis'> 
+	  	 					<div class="icone_itemTopMenu"><img src="/Imagens/linkutil.png" alt="Clique!"></div>
+  	 						<div class="titulo_itemTopMenu"><strong>Links Úteis</strong></div>
+  	 					</a>
+	  	 			  </div><div class="itemTopMenu fundo_item sombra">
+	  	 					<a href='javascript:ObterContenedor("Glossario")' onclick='registraClique("Glossario");' title='Dicionário de palavras'> 
+	  	 					<div class="icone_itemTopMenu"><img src="/Imagens/glossario.png" alt="Clique!"></div>
+  	 						<div class="titulo_itemTopMenu"><strong>Glossário</strong></div>
+  	 					</a>
+	  	 			  </div><div class="itemTopMenu fundo_item sombra">
+	  	 					<a href='javascript:ObterContenedor("Fale_Conosco")' onclick='registraClique("Fale_Conosco");' title='Mande sua mensagem'> 
+	  	 					<div class="icone_itemTopMenu"><img src="/Imagens/faleconosco.png" alt="Clique!"></div>
+  	 						<div class="titulo_itemTopMenu"><strong>Fale Conosco</strong></div>
+  	 					</a>
+	  	 			  </div></div>    </DIV>
+</DIV> 
+
+
+<DIV class='linha_corte'></DIV>
+
+<!-- Acessibilidade 
+<DIV id='contenedorAcessibilidade'></DIV>
+<SCRIPT>
+	$("#contenedorAcessibilidade").load("/Acessibilidade.php");
+</SCRIPT>
+-->
+
+
+<div id='area-banner-top'>
+	</div>
+
+
+	
+	
+	<script src="https://vlibras.gov.br/app/vlibras-plugin.js"></script>
+
+	<!-- VLibras -->
+	<div vw class="enabled">
+	    <div vw-access-button class="active"></div>
+	    <div vw-plugin-wrapper>
+	      <div class="vw-plugin-top-wrapper"></div>
+	    </div>
+	</div>
+
+	<script>
+	  new window.VLibras.Widget('https://vlibras.gov.br/app');
+	</script>	
+<DIV class='branco'>
+<DIV class='titulo_pagina'><a href='/'>Página inicial </a> :: Tempo Real :: Despesa</DIV><p class='Lei'>Fundamentação legal: Lei Complementar n.º 101  Art. 48-A, inciso I
+</p><p class='Lei'>Prazo: Um dia útil </p>
+		<CENTER><P class='quadroInfo' id='quadroInfo2' style='display:none'></P></CENTER>
+
+		<SCRIPT>
+
+			function ajudaCampo(INT_GLOSS){
+				$("#contenedorAjudaCampo").load("/ws_consulta/ajudaCampo.php?INT_GLOSS=" + INT_GLOSS);
+				$("#tbl_contenedorAjudaCampo").css("display", "table");				
+				document.location = "#tbl_contenedorAjudaCampo";								
+			}
+			
+			function fecharAjudaCampo(){
+				$("#tbl_contenedorAjudaCampo").css("display", "none");
+			}
+			
+			function converterPara(NM_ARQ, FMT){
+
+				$('#area_botoes_nova').append('<div id="aguarde" align="center">\
+												<div style="background:#eee">\
+												  <br>\
+												  <img width="150px" height="50px" src="/Imagens/carregando2.gif" />\
+												  <h4>Por favor, aguarde enquanto o portal gera este relatório no formato ' + FMT + '.</h4>\
+												  <br>\
+												</div>\
+											   </div>');
+
+				$('.grupo_botoes_relatorio').hide();
+				
+				$.getJSON("/converterPara.php?NM_ARQ=" + NM_ARQ + "&FMT=" + FMT,function(json){						
+					if(json.FALHA !== ''){
+						alert('Uma Falha ocorreu durante a geração do arquivo - ' + json.FALHA +' não localizado.');
+						return;
+					}
+					
+					document.location = json.NM_ARQ_FIM;
+					
+					//document.location = "/abrirArquivo.php?NM_ARQ=" +json.NM_ARQ+"&FMT="+json.FMT+"&NM_ARQ_FIM="+json.NM_ARQ_FIM+"";
+					
+					
+					
+
+					$('.grupo_botoes_relatorio').show();
+					$('#aguarde').remove();
+
+				});				
+
+			}
+			
+
+			function destacarRelatorio(){
+				var TOPO = "<LINK REL='STYLESHEET' HREF='/css/Padrao.css' alt='ContasPublicas'/>";
+
+				var width = 900;
+				var height = 400;
+				var left = parseInt((screen.availWidth/2) - (width/2));
+				var top = parseInt((screen.availHeight/2) - (height/2));			
+				
+				var windowFeatures = "width=" + width + ",height=" + height + ",status,resizable,left=" + left + ",top=" + top +  "screenX=" + left + ",screenY=" + top + ",scrollbars=yes";
+				
+				janelinha_destacada = window.open("", "janelinha_destacada_6a91df56a24e9", windowFeatures);
+				janelinha_destacada.document.write(TOPO + document.getElementById("resultadoContasPublicas").innerHTML);			
+				janelinha_destacada.focus();
+				
+			}
+
+
+			function paginar(){
+
+				objeto("area_botoes_nova").style.display = "none";
+				objeto("Paginador").style.display = "none";
+				
+				objeto('resultadoContasPublicas').innerHTML = "<Center><BR><BR><span class='carregando_relatorio'>Por favor, aguarde enquanto o relatório é gerado...</span><BR><img src='/Imagens/Barra_Progresso_Infinita.gif'></Center>";
+				busca(false);
+				
+			}
+
+
+
+
+			function serializar(form){
+								
+				var S = "";
+							
+				for(i = form.elements.length-1;i>=0;i=i-1){
+					
+					if($("#" + form.elements[i].id).attr("LG_OBG") == "S"){
+						if(valor(form.elements[i].id) == ""){
+							
+							if($("#" + form.elements[i].id).attr("VR_NORM") != ""){
+								SetaValor(form.elements[i].id, $("#" + form.elements[i].id).attr("VR_NORM"));
+							}else{							
+								foco(form.elements[i].id);
+								return "";	
+							}
+						}
+					}
+										
+					if(form.elements[i].name == ""){
+						continue
+					}
+					
+					S += form.elements[i].name + "=" + escape(valor(form.elements[i].id)) + "&";
+					
+				}	
+				return S;
+			}
+			
+
+			/*
+				Clicou na busca
+			*/
+			function busca2(LG_ALT_PAG){
+				
+				var S = serializar(objeto('cns'));
+				if(S == ""){
+					return;
+				}
+				
+				var meio = "Tempo_Real_Despesa";
+				if(meio == "Contrato_e_Aditivos"){
+					if(valor("INT_EXR") == ""){  
+						if(valor("Nome") == "" && valor("CPFCNPJ") == ""){
+							alert("Para filtrar por contratos de todos os exercícios é necessário adicionar o nome ou CPF/CNPJ do credor a busca.");
+							return;
+						}
+					}
+				}
+				objeto('resultadoContasPublicas').innerHTML = "<Center><BR><BR><span class='carregando_relatorio'>Por favor, aguarde enquanto o relatório é gerado...</span><BR><img src='/Imagens/Barra_Progresso_Infinita.gif'></Center>";			
+
+				var vPOST;
+
+				/*	
+					Monta a busca
+				*/	
+
+				if(valor("paginador") != false){       
+					vPOST = "INT_PAG=" + valor("paginador");
+				}else{	
+					vPOST = "INT_PAG=1";					
+				}
+				
+				var S = serializar(objeto('cns'));
+				if(S == false){
+					return;
+				}
+
+				vPOST += "&" + S;
+
+
+				if(LG_ALT_PAG){
+					vPOST += "&LG_ALT_PAG=S";				
+				}else{
+					vPOST += "&LG_ALT_PAG=N";
+				}
+
+				/*
+					Preenche o div por ajax
+				*/
+				var httpRequest = Cria_Request();
+
+				var URL = "/Relatorios/Tempo_Real_Despesa.php?DataHora=" + new Date().getTime();
+
+				
+				httpRequest.onreadystatechange = function(){
+
+					if (httpRequest.readyState == 4 && httpRequest.status == 404){
+						$("#resultadoContasPublicas").html(httpRequest.responseText);
+					}
+
+					if (httpRequest.readyState == 4 && httpRequest.status == 200){
+
+						$(httpRequest).ready(function(){
+							$("#resultadoContasPublicas").html("<DIV class='barra_tarefas'></DIV>" + httpRequest.responseText);
+							
+							//if(httpRequest.responseText.indexOf(".alerta") > -1)	
+
+							if( $('.alerta').is(':visible')){
+
+								$("#resultadoContasPublicas").html("<DIV class='barra_tarefas'></DIV>");
+
+								$('#msg-resultado').text('Nenhum resultado foi encontrado para a busca solicitada.');
+								
+								objeto("btn_imprimir").style.display = "none";
+								objeto("btn_destacar").style.display = "none";
+								objeto("btn_csv").style.display = "none";
+								objeto("btn_xls").style.display = "none";
+								objeto("btn_pdf").style.display = "none";
+								
+								objeto("btn_nova_busca").style.display = "inline-block";
+								objeto("area_botoes_nova").style.display = "block";
+								objeto("Formulario").style.display = "none";
+							}else{
+
+								$("#resultadoContasPublicas").html("<DIV class='barra_tarefas'></DIV>" + httpRequest.responseText);
+							
+								$('#msg-resultado').text('Agora que seu relatório ficou pronto, o que deseja fazer?');
+								
+								objeto("btn_imprimir").style.display = "inline-block";
+								objeto("btn_destacar").style.display = "inline-block";
+								objeto("btn_nova_busca").style.display = "inline-block";
+
+								objeto("area_botoes_nova").style.display = "block";
+								objeto("Paginador").style.display = "block";
+								objeto("Formulario").style.display = "none";
+							}
+						});
+
+					}
+					
+					if (httpRequest.readyState == 4 && httpRequest.status != 200 && httpRequest.status != 404){
+
+						$("#resultadoContasPublicas").html("<DIV class='barra_tarefas'></DIV>");
+
+						$('#msg-resultado').text('Esta consulta demorou mais que o esperado, tente realizar a busca novamente.');
+						
+						objeto("btn_imprimir").style.display = "none";
+						objeto("btn_destacar").style.display = "none";
+						objeto("btn_csv").style.display = "none";
+						objeto("btn_xls").style.display = "none";
+						objeto("btn_pdf").style.display = "none";
+						
+						objeto("btn_nova_busca").style.display = "inline-block";
+						objeto("area_botoes_nova").style.display = "block";
+						objeto("Formulario").style.display = "none";
+
+						console.log("Status: "+ httpRequest.status);	
+					}
+				}
+				
+								
+				httpRequest.open("POST", URL, true);
+				httpRequest.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+				
+				//alert(vPOST);
+				
+				httpRequest.send(vPOST);
+			}
+
+
+			// Busca feito pelo localizar
+			function busca(LG_ALT_PAG){
+				
+				var S = serializar(objeto('cns'));
+				if(S == ""){
+					return;
+				}
+				
+				var meio = "Tempo_Real_Despesa";
+				if(meio == "Contrato_e_Aditivos"){
+					if(valor("INT_EXR") == ""){  
+						if(valor("Nome") == "" && valor("CPFCNPJ") == ""){
+							alert("Para filtrar por contratos de todos os exercícios é necessário adicionar o nome ou CPF/CNPJ do credor a busca.");
+							return;
+						}
+					}
+				}
+				//objeto('resultadoContasPublicas').innerHTML = "<Center><BR><BR><span class='carregando_relatorio'>Por favor, aguarde enquanto o relatório é gerado...</span><BR><img src='/Imagens/Barra_Progresso_Infinita.gif'></Center>";			
+
+				var vPOST;
+
+				/*	
+					Monta a busca
+				*/	
+
+				if(valor("paginador") != false){       
+					vPOST = "INT_PAG=" + valor("paginador");
+				}else{	
+					vPOST = "INT_PAG=1";					
+				}
+				
+				var S = serializar(objeto('cns'));
+				if(S == false){
+					return;
+				}
+				//var res = S.replace(/=/g, ":");
+				vPOST += "&" + S;
+
+				if(LG_ALT_PAG){
+					vPOST += "&LG_ALT_PAG=S";				
+				}else{
+					vPOST += "&LG_ALT_PAG=N";
+				}
+
+				vPOST += "&URL=Tempo_Real_Despesa";
+
+				iniciarThread(vPOST);
+			}
+
+			function iniciarThread(vPOST){
+
+				httpRequest = Cria_Request();
+
+				httpRequest.onreadystatechange = function(){
+
+					if (httpRequest.readyState == 4 && httpRequest.status == 404){
+						$("#resultadoContasPublicas").html(httpRequest.responseText);
+					}
+
+					if (httpRequest.readyState == 4 && httpRequest.status == 200){
+
+
+						if(httpRequest.responseText.substr(0, 6) == "001 - "){
+							aguarde('Por favor, aguarde enquanto o relatório está sendo gerado...');
+							// código da thread
+							var INT_THREAD = httpRequest.responseText.substr(6, 6666666);
+							
+							Carrega_Aguarda_Resultado(INT_THREAD);
+							
+						}else if(httpRequest.responseText.substr(0, 6) == "000 - "){
+							console.log(httpRequest.responseText);
+							$("#resultadoContasPublicas").html("<DIV class='barra_tarefas'></DIV>");
+
+
+							$('#msg-resultado').text('Processo cancelado ou finalizado com erros.');
+							
+							objeto('btn_imprimir').style.display = 'none';
+							objeto('btn_destacar').style.display = 'none';
+							objeto('btn_csv').style.display = 'none';
+							objeto('btn_xls').style.display = 'none';
+							objeto('btn_pdf').style.display = 'none';
+							
+							objeto('btn_nova_busca').style.display = 'inline-block';
+							objeto('area_botoes_nova').style.display = 'block';
+							objeto('Formulario').style.display = 'none';
+						}else{
+							console.log(httpRequest.responseText);
+						}
+						
+					}	
+				};
+
+				httpRequest.open("POST", "/gerar_relatorio.php?Data=" + new Date().getTime() + "&SHA1_TOKEN=c2f03e54e949054c2046e8487bdaa2e36894a0a5&INT_TOKEN=5247314" , true);
+				httpRequest.setRequestHeader("Content-type", "application/x-www-form-urlencoded");			
+				httpRequest.send(vPOST);
+			}
+
+			// Renderiza a parte que aguarda o resultado.		
+			function Carrega_Aguarda_Resultado(INT_THREAD){
+				$("#resultadoContasPublicas").load("/gerar_relatorio.php?INT_THREAD=" + INT_THREAD + "&SHA1_TOKEN=c2f03e54e949054c2046e8487bdaa2e36894a0a5&INT_TOKEN=5247314");			
+			}
+
+			function resultadoContasPublicas(Resultado, INT_THREAD = null){
+				$('#resultadoContasPublicas').load(Resultado);
+				fecharAguarde();
+				limparThread(INT_THREAD);
+			}
+			
+			function limparThread(INT_THREAD){
+				httpRequest = Cria_Request();
+
+				httpRequest.onreadystatechange = function(){
+					
+					if (httpRequest.readyState == 4 && httpRequest.status == 200){
+
+						if(httpRequest.responseText.substr(0, 6) == "001 - "){
+							// Faz nada							
+						}else if(httpRequest.responseText.substr(0, 6) == "000 - "){
+							console.log(httpRequest.responseText);
+						}else{
+							console.log(httpRequest.responseText);
+						}
+						
+					}	
+				};
+
+				httpRequest.open("POST", "Limpar_Thread.php?Data="+ new Date().getTime(), true);
+				httpRequest.setRequestHeader("Content-type", "application/x-www-form-urlencoded");			
+				httpRequest.send("INT_THREAD=" + INT_THREAD);
+			}
+			
+			function preencherTotalRegistros(INT_TOT_REG){
+				if(document.getElementById("INT_TT_REG")){
+					objeto("INT_TT_REG").innerHTML = INT_TOT_REG + " resultado(s)";
+				}
+			}
+
+			function preencherPaginador(INT_QTDE){
+				$("#paginador").find('option').remove().end();
+				$('#totalPaginas').html(INT_QTDE);
+				for(var i = 1; i <= INT_QTDE; i++)
+					$("#paginador").append("<option value="+i+">"+i+"</option>");
+			}
+
+			function novaBusca(){ 
+				objeto("Paginador").style.display = "none";
+				objeto("resultadoContasPublicas").innerHTML = "";
+				objeto("area_botoes_nova").style.display = "none";
+				objeto("Formulario").style.display = "block";
+			}
+
+		</SCRIPT>
+
+
+		<CENTER>
+		<DIV id='Formulario' class='notprint'>
+			
+			<TABLE id='tbl_contenedorAjudaCampo'>
+					<TR>
+						<TD style='width:1px' rowspan='2'><img src='/Imagens/Ajuda_Campo_Grande.png' style='height: 64px'></TD>
+						<TD id='contenedorAjudaCampo'></TD>
+					</TR>
+					<TR>
+						<TD colspan='2' style='text-align: right'><a href='javascript:fecharAjudaCampo()' id='contenedorAjudaCampo_fecharajuda'>Clique para fechar</a></TD>
+					</TR>
+			</TABLE>
+
+
+			<TABLE class='Busca'>
+			<FORM METHOD='POST' ACTION='#' name='cns' id='cns'>
+				<TR>
+					<TH colspan='2'>Busca</TH>
+				</TR>				
+				
+<SCRIPT>
+
+
+	function alterarMenuDespesaConformeExercicio(){	
+
+		var httpRequest = Cria_Request();
+
+		var INT_EXR = $("#INT_EXR").val();
+		var FONTE_RECURSO_NOVA = $("#fonte_nova").val();
+
+		httpRequest.onreadystatechange = function(){
+			if (httpRequest.readyState == 4 && httpRequest.status == 200){
+								
+				if(httpRequest.responseText.substr(0, 6) == "001 - "){
+					var Resposta = JSON.parse(httpRequest.responseText.substr(6, 999999));
+					
+					if(INT_EXR >= "2023"){
+						$("#fonte").css("display", "none");
+            			$("#fonte_nova").css("display", "");
+						$("#tce").css("display", "");
+						$("#aux").css("display", "");
+						if(FONTE_RECURSO_NOVA == ""){
+							$("#STR_ID_CO_TCE").css("width", 190);
+							$("#STR_ID_CO_AUX").css("width", 190);
+							$("#STR_ID_CO_TCE").prop("disabled", true);
+							$("#STR_ID_CO_AUX").prop("disabled", true);
+						}else{
+							$("#STR_ID_CO_TCE").prop("disabled", false);
+							$("#STR_ID_CO_AUX").prop("disabled", false);
+						}
+					}else{
+						$("#fonte").css("display", "");
+            			$("#fonte_nova").css("display", "none");
+						$("#tce").css("display", "none");
+						$("#aux").css("display", "none");
+					}
+					
+				}else{
+					alert(httpRequest.responseText);
+				}	
+			}
+		}	
+		
+		httpRequest.open("POST", "/Webservices/atualizarFonteRecurso.php?INT_EXR=" + valor("INT_EXR"), true);
+		httpRequest.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+		httpRequest.send();	
+			
+	}		
+
+	function atualizaMes() {
+		
+		//Faz um ajax, passando o relatorio(EXR)
+		var httpRequest = Cria_Request(); 
+
+			var INT_MENU = 25;
+			var INT_EXR = $("#INT_EXR").val();
+			
+			var EXR_INI = 2013;
+			var EXR_FIM = 2026;
+			var LG_USAR_COMP_ATUAL = 'S';
+			
+			httpRequest.onreadystatechange = function() { 
+				
+				if (httpRequest.readyState == 4)
+					if (httpRequest.status == 200){
+					
+						Codigo = httpRequest.responseText.substr(0, 6);
+						Codigo = Codigo.replace(/\n/, "");
+
+						if(Codigo != "001 - "){
+							alert("Erro ao preencher o filtro. Por favor, confira os dados e tente novamente." + httpRequest.responseText);
+						} else {
+							
+							$("#INT_MES").html("");
+							
+							var MES_INI = httpRequest.responseText.substr(6, 2);
+							var MES_FIM = httpRequest.responseText.substr(9, 2);
+							
+							if(INT_EXR != EXR_INI && INT_EXR != EXR_FIM)
+								$("#INT_MES").append("<option value='%' selected>  </option>");
+							else {
+								if(INT_EXR == EXR_INI && MES_INI == "01") {
+									$("#INT_MES").append("<option value='%' selected>  </option>");
+								}
+								
+								if(INT_EXR == EXR_FIM && (LG_USAR_COMP_ATUAL == "S" || MES_FIM == "12")) {
+									$("#INT_MES").append("<option value='%' selected>  </option>");
+								}
+							}
+							
+							var meses = ["", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", 
+										 "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro", "13º"];
+							
+							MES_INI = parseInt(MES_INI);
+							for(i = MES_INI; i <= MES_FIM; i++) {
+								$("#INT_MES").append("<option value='" + i + "'>" + meses[i] + "</option>");
+							}
+							
+						}
+					}
+			}
+			
+			httpRequest.open("POST", "/Webservices/cria_selecao_relatorios.php?Data="+ new Date().getTime(), true);
+			httpRequest.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+			httpRequest.send("INT_MENU=" + INT_MENU + "&INT_EXR=" + INT_EXR);
+		
+	}
+	
+	
+	var _fw_ultimoDatalist = Array();
+	
+	var _fw_buscando_datalist = false;
+	function atualizarDatalist(NM_CMP){
+			
+			//if(_fw_buscando_datalist)
+				//return;
+		
+			_fw_buscando_datalist = true;
+
+			var httpRequest = Cria_Request();
+			
+			httpRequest.onreadystatechange = function(){
+				
+				if (httpRequest.readyState == 4 && httpRequest.status == 404){
+					_fw_buscando_datalist = false;					
+				}
+				
+				if (httpRequest.readyState == 4 && httpRequest.status == 200){
+					var v = httpRequest.responseText.split("|");					
+					var TXT = "";
+					for(i in v){
+						TXT += "<option value='" + v[i] + "'>";
+					}					
+					
+					if(TXT != _fw_ultimoDatalist[NM_CMP]){					
+						$("#LST_" + NM_CMP).html(TXT);
+						_fw_ultimoDatalist[NM_CMP] = TXT;
+					}	
+					
+					
+					
+					_fw_buscando_datalist = false;
+					
+				}
+								
+			}
+									
+			httpRequest.open("POST", "/Webservices/datalistFolha.php?DataHora=" + new Date().getTime(), true);
+			httpRequest.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+			httpRequest.send("STR_BSC=" + escape(valor(NM_CMP)) + "&NM_CMP=" + NM_CMP);
+	}
+	
+	
+	
+</SCRIPT>
+
+	<TR class='buscaTr'>
+		<TD class='buscaTdTitulo'>
+			Unidade Gestora:
+		</TD>
+		<TD class='buscaTdConteudo'>
+			<DIV class='buscaCampoMaisDeUmPorLinha'>
+				<SELECT name='CHAR_ID_EMP' id='CHAR_ID_EMP' onChange="javascript:atualizarBuscas()">
+					<option value='1'>Prefeitura Municipal de Ritápolis</option>				</SELECT> 
+				<a title='Clique para acessar o significado deste campo' href='javascript:ajudaCampo(260)'><img style='' src='/Imagens/Ajuda_Campo.png'></a>			</DIV>
+		</TD>
+	</TR>
+	
+	
+	<TR class='buscaTr'>		
+		<TD class='buscaTdTitulo'>
+			<span>Exercício:</span>
+		</TD>		
+		<TD class='buscaTdConteudo'>
+			<SELECT name="INT_EXR" id="INT_EXR" onChange="javascript:atualizarBuscas(); atualizaMes(); alterarMenuDespesaConformeExercicio();" class='buscaCampo'>
+				<OPTION value='2026'>2026</OPTION><OPTION value='2025'>2025</OPTION><OPTION value='2024'>2024</OPTION><OPTION value='2023'>2023</OPTION><OPTION value='2022'>2022</OPTION><OPTION value='2021'>2021</OPTION><OPTION value='2020'>2020</OPTION><OPTION value='2019'>2019</OPTION><OPTION value='2018'>2018</OPTION><OPTION value='2017'>2017</OPTION><OPTION value='2016'>2016</OPTION><OPTION value='2015'>2015</OPTION><OPTION value='2014'>2014</OPTION><OPTION value='2013'>2013</OPTION>			</SELECT> 
+		</TD>
+	</TR>
+
+	<TR class='buscaTr'>
+		<TD class='buscaTdTitulo'>
+			<span>Empenho:</span>
+		</TD>
+		<TD class='buscaTdConteudo'>
+			<DIV class='buscaCampoMaisDeUmPorLinha'>
+				<input type='text' id='ID8_DESP' name='ID8_DESP' onKeyPress='javascript:mascara(this, mascara_sonumero)'>  
+				<a title='Clique para acessar o significado deste campo' href='javascript:ajudaCampo(93)'><img style='' src='/Imagens/Ajuda_Campo.png'></a>			</DIV>
+		</TD>
+	</TR>
+
+	
+	<TR class='buscaTr'>
+		<TD class='buscaTdTitulo'>
+			<span>Data do Empenho:</span>
+		</TD>
+		<TD class='buscaTdConteudo'>
+			<DIV class='buscaCampoMaisDeUmPorLinha'>
+				<input type='text' name='D_DESP_DE' id='D_DESP_DE' onKeyPress='javascript:mascara(this, mascara_data)' style='width:80px'>
+				<span>até</span>
+				<input type='text' name='D_DESP_ATE' id='D_DESP_ATE' onKeyPress='javascript:mascara(this, mascara_data)' style='width:80px'><!--&nbsp; &nbsp; &nbsp; Data de Liquidação: <input type='text' name='D_LQDC_DESP' onKeyPress='javascript:mascara(this, mascara_data)' style='width:80px'>&nbsp; &nbsp; &nbsp; Data do Pagamento: <input type='text' name='D_PGT_DESP' onKeyPress='javascript:mascara(this, mascara_data)' style='width:80px'> -->
+				<a title='Clique para acessar o significado deste campo' href='javascript:ajudaCampo(280)'><img style='' src='/Imagens/Ajuda_Campo.png'></a>			</DIV>
+		</TD>
+	</TR>
+	
+	<TR class='buscaTr'>
+		<TD class='buscaTdTitulo'>
+			<span>Data de Liquidação:</span> 
+		</TD>
+		<TD class='buscaTdConteudo'>
+			<DIV class='buscaCampoMaisDeUmPorLinha'>
+				<input type='text' name='D_LQDC_DE' id='D_LQDC_DE' onKeyPress='javascript:mascara(this, mascara_data)' style='width:80px'>
+				<span>até</span>
+				<input type='text' name='D_LQDC_ATE' id='D_LQDC_ATE' onKeyPress='javascript:mascara(this, mascara_data)' style='width:80px'>
+				<a title='Clique para acessar o significado deste campo' href='javascript:ajudaCampo(281)'><img style='' src='/Imagens/Ajuda_Campo.png'></a>			</DIV>
+		</TD>
+	</TR>
+	
+	<TR class='buscaTr'>
+		<TD class='buscaTdTitulo'>
+			<span>Data de Pagamento:</span>
+		</TD>
+		<TD class='buscaTdConteudo'>
+			<DIV class='buscaCampoMaisDeUmPorLinha'>
+				<input type='text' name='D_PGT_DE' id='D_PGT_DE' onKeyPress='javascript:mascara(this, mascara_data)' style='width:80px'>
+				<span>até</span>
+				<input type='text' name='D_PGT_ATE' id='D_PGT_ATE' onKeyPress='javascript:mascara(this, mascara_data)' style='width:80px'>
+				<a title='Clique para acessar o significado deste campo' href='javascript:ajudaCampo(282)'><img style='' src='/Imagens/Ajuda_Campo.png'></a>			</DIV>
+		</TD>
+	</TR>
+
+
+
+	<TR class='buscaTr'>
+		<TD class='buscaTdTitulo'>
+			<span>Unidade Orçamentária:</span>
+		</TD>
+		<TD class='buscaTdConteudo'>
+			<DIV class='buscaCampoMaisDeUmPorLinha'>
+				<SELECT NAME='ID8_UND_OCT' ID='ID8_UND_OCT' NM_CMP_DL='NM_SUND' NM_TBL='SUBUNIDADE' class='buscaCampo'></SELECT>				<a title='Clique para acessar o significado deste campo' href='javascript:ajudaCampo(259)'><img style='' src='/Imagens/Ajuda_Campo.png'></a>			</DIV>
+		</TD>
+	</TR>
+
+	<TR class='buscaTr'>	
+		<TD class='buscaTdTitulo'>
+			<span>Função:</span>
+		</TD>
+		<TD class='buscaTdConteudo'>
+			<DIV class='buscaCampoMaisDeUmPorLinha'>
+				<SELECT NAME='ID2_FCAO' ID='ID2_FCAO' NM_CMP_DL='NM_FCAO' NM_TBL='FUNCAO' class='buscaCampo'></SELECT>				<a title='Clique para acessar o significado deste campo' href='javascript:ajudaCampo(113)'><img style='' src='/Imagens/Ajuda_Campo.png'></a>			</DIV>
+		</TD>	
+	</TR>
+
+	<TR class='buscaTr'>	
+		<TD class='buscaTdTitulo'>
+			<span>Subfunção:</span>
+		</TD>
+		<TD class='buscaTdConteudo'>
+			<DIV class='buscaCampoMaisDeUmPorLinha'>
+				<SELECT NAME='ID3_SFAO' ID='ID3_SFAO' NM_CMP_DL='NM_SFAO' NM_TBL='SUBFUNCAO' class='buscaCampo'></SELECT>				<a title='Clique para acessar o significado deste campo' href='javascript:ajudaCampo(261)'><img style='' src='/Imagens/Ajuda_Campo.png'></a>			</DIV>
+		</TD>	
+	</TR>
+	
+	<TR class='buscaTr'>	
+		<TD class='buscaTdTitulo'>
+			<span>Programa:</span>
+		</TD>
+		<TD class='buscaTdConteudo'>
+			<DIV class='buscaCampoMaisDeUmPorLinha'>
+				<SELECT NAME='ID4_PGM' ID='ID4_PGM' NM_CMP_DL='NM_PGM' NM_TBL='PROGRAMA' class='buscaCampo'></SELECT>				<a title='Clique para acessar o significado deste campo' href='javascript:ajudaCampo(196)'><img style='' src='/Imagens/Ajuda_Campo.png'></a>			</DIV>
+		</TD>
+	</TR>
+
+	<TR class='buscaTr'>
+		<TD class='buscaTdTitulo'>
+			<span>Projeto:</span>
+		</TD>
+		<TD class='buscaTdConteudo'>
+			<DIV class='buscaCampoMaisDeUmPorLinha'>
+				<SELECT NAME='ID4_PRAT' ID='ID4_PRAT' NM_CMP_DL='NM_PRAT' NM_TBL='PROJETOATIVIDADE' class='buscaCampo'></SELECT>				<a title='Clique para acessar o significado deste campo' href='javascript:ajudaCampo(199)'><img style='' src='/Imagens/Ajuda_Campo.png'></a>			</DIV>
+		</TD>
+	</TR>
+
+	<TR class='buscaTr'>	
+		<TD class='buscaTdTitulo'>
+			<span>Categoria Econômica:</span>
+		</TD>
+		<TD class='buscaTdConteudo'>
+			<DIV class='buscaCampoMaisDeUmPorLinha'>
+				<SELECT NAME='ID8_CT_DESP' ID='ID8_CT_DESP' NM_CMP_DL='NM_CT_DESP' NM_TBL='CATEGORIA_ECONOMICA' class='buscaCampo'></SELECT>				<a title='Clique para acessar o significado deste campo' href='javascript:ajudaCampo(262)'><img style='' src='/Imagens/Ajuda_Campo.png'></a>			</DIV>
+		</TD>		
+	</TR>
+
+	<TR id="fonte" name="fonte" class='buscaTr'>	
+		<TD class='buscaTdTitulo'>
+			<span>Fonte de Recurso:</span>
+		</TD>
+		<TD class='buscaTdConteudo'>
+			<DIV class='buscaCampoMaisDeUmPorLinha'>
+				<SELECT NAME='ID3_FNTE' ID='ID3_FNTE' NM_CMP_DL='NM_FNTE' NM_TBL='FONTES_RECURSOS' class='buscaCampo'></SELECT>				<a title='Clique para acessar o significado deste campo' href='javascript:ajudaCampo(112)'><img style='' src='/Imagens/Ajuda_Campo.png'></a>			</DIV>
+		</TD>	
+	</TR>
+
+	<TR id="fonte_nova" name="fonte_nova" class='buscaTr'>	
+		<TD class='buscaTdTitulo'>
+			<span>Fonte de Recurso:</span>
+		</TD>
+		<TD class='buscaTdConteudo'>
+			<DIV class='buscaCampoMaisDeUmPorLinha'>
+				<SELECT NAME='STR_ID_FNTE' ID='STR_ID_FNTE' NM_CMP_DL='NM_FNTE' NM_TBL='FONTES_RECURSOS' class='buscaCampo'></SELECT>				<a title='Clique para acessar o significado deste campo' href='javascript:ajudaCampo(112)'><img style='' src='/Imagens/Ajuda_Campo.png'></a>			</DIV>
+		</TD>	
+	</TR>
+
+	<TR id="tce" name="tce" class='buscaTr'>	
+		<TD class='buscaTdTitulo'>
+			<span>CO TCE:</span>
+		</TD>
+		<TD class='buscaTdConteudo'>
+			<DIV class='buscaCampoMaisDeUmPorLinha'>
+				<SELECT NAME='STR_ID_CO_TCE' ID='STR_ID_CO_TCE' NM_CMP_DL='STR_TTLO' NM_TBL='CONTROLE_EXEC_ORC_TCE' class='buscaCampo'></SELECT>				<a title='Clique para acessar o significado deste campo' href='javascript:ajudaCampo(278)'><img style='' src='/Imagens/Ajuda_Campo.png'></a>			</DIV>
+		</TD>	
+	</TR>
+
+	<TR id="aux" name="aux" class='buscaTr'>	
+		<TD class='buscaTdTitulo'>
+			<span>CO AUX:</span>
+		</TD>
+		<TD class='buscaTdConteudo'>
+			<DIV class='buscaCampoMaisDeUmPorLinha'>
+				<SELECT NAME='STR_ID_CO_AUX' ID='STR_ID_CO_AUX' NM_CMP_DL='STR_TTLO' NM_TBL='CONTROLE_EXEC_ORC_AUX' class='buscaCampo'></SELECT>				<a title='Clique para acessar o significado deste campo' href='javascript:ajudaCampo(279)'><img style='' src='/Imagens/Ajuda_Campo.png'></a>			</DIV>
+		</TD>	
+	</TR>
+
+	<TR class='buscaTr'>	
+		<TD class='buscaTdTitulo'>
+			<span>Tipo de Despesa:</span>
+		</TD>
+		<TD class='buscaTdConteudo'>
+			<DIV class='buscaCampoMaisDeUmPorLinha'>
+				<SELECT NAME='ID2_T_DESP' ID='ID2_T_DESP' NM_CMP_DL='NM_T_DESP' NM_TBL='TIPO_DESPESA' class='buscaCampo'></SELECT>				<a title='Clique para acessar o significado deste campo' href='javascript:ajudaCampo(283)'><img style='' src='/Imagens/Ajuda_Campo.png'></a>			</DIV>
+		</TD>	
+	</TR>
+	
+
+	
+	<TR class='buscaTr'> 
+		<TD class='buscaTdTitulo'>
+			<span>Credor:</span>
+		</TD>
+		<TD class='buscaTdConteudo'>
+			<DIV class='buscaCampoMaisDeUmPorLinha'>
+				<input type='text' name='NM_CDR' id='NM_CDR' style='width:400px' list='LST_NM_CDR'>
+				<a title='Clique para acessar o significado deste campo' href='javascript:ajudaCampo(263)'><img style='' src='/Imagens/Ajuda_Campo.png'></a>	
+				<DATALIST id='LST_NM_CDR'><DATALIST>
+			</DIV>
+				  				  
+			<SCRIPT>	
+			$('#NM_CDR').keypress(function(event) {				   
+			
+				if(ehLetraOuNumero(event.which)){
+					atualizarDatalist('NM_CDR');
+				}
+			
+			});											
+			</SCRIPT>				  										
+		</TD>
+	</TR>
+
+	<TR class='buscaTr'>
+		<TD class='buscaTdTitulo'>
+			<span>CPF/CNPJ Credor:</span>
+		</TD>
+		<TD class='buscaTdConteudo'>
+			<DIV class='buscaCampoMaisDeUmPorLinha'>
+				<input type='text' name='CNPJ_CDR' id='CNPJ_CDR' style='width:400px'>
+			</DIV>
+		</TD>
+	</TR>
+
+	<TR class='buscaTr'>
+		<TD class='buscaTdTitulo'>
+			<span>Histórico:</span>
+		</TD>
+		<TD class='buscaTdConteudo'>
+			<DIV class='buscaCampoMaisDeUmPorLinha'>
+				<input type='text' name='DESC_OBJ' id='DESC_OBJ' style='width:400px'>
+				<a title='Clique para acessar o significado deste campo' href='javascript:ajudaCampo(264)'><img style='' src='/Imagens/Ajuda_Campo.png'></a>			</DIV>
+		</TD>
+	</TR>
+
+	<TR class='buscaTr'>
+		<TD class='buscaTdTitulo'>
+			<span>Tipo de Empenho:</span>
+		</TD>
+		<TD class='buscaTdConteudo'>
+			<DIV class='buscaCampoMaisDeUmPorLinha'>
+				<SELECT name="TD_DESP" id="TD_DESP">
+					<OPTION value=""></OPTION>
+					<OPTION value="EO">EO - Empenho Ordinário</OPTION>
+					<OPTION value="EG">EG - Empenho Global</OPTION>
+					<OPTION value="EE">EE - Empenho Estimativo</OPTION>
+					<OPTION value="SE">SE - Subempenho</OPTION>
+					<OPTION value="AN">AN - Empenho Anulação</OPTION>
+					<OPTION value="EC">EC - Empenho Complementar</OPTION>
+					<OPTION value="CP">CP - Cancelamento de restos a pagar</OPTION>
+					<OPTION value="OPP">OP - Ordem de Pagamento</OPTION>
+					<OPTION value="OPR">OP - Restos a pagar</OPTION>
+					<OPTION value="OPT">OP - Transferência Financeira</OPTION>
+					<OPTION value="OPD">OP - Devolução Transferência Financeira</OPTION>
+					<OPTION value="AS">AS - Anulação Estorno</OPTION>
+					<OPTION value="BL">BL - Bloqueio Orçamentário</OPTION>
+					<OPTION value="AB">AB - Anulação Bloqueio</OPTION>
+				</SELECT>
+				<a title='Clique para acessar o significado deste campo' href='javascript:ajudaCampo(93)'><img style='' src='/Imagens/Ajuda_Campo.png'></a>			</DIV>
+		</TD>
+	</TR>
+
+<SCRIPT>
+	alterarMenuDespesaConformeExercicio();
+
+	atualizaMes();
+	
+	var _fw_tot_atl = 0;
+	
+	function atualizarLB(NM_CMP_CHAVE){
+		
+		_fw_tot_atl++;
+				
+		aguarde("Ajustando o filtro de busca: Por favor, aguarde...");
+	
+		var httpRequest = Cria_Request();
+		httpRequest.onreadystatechange = function(){
+			if (httpRequest.readyState == 4 && httpRequest.status == 200){
+				$("#" + NM_CMP_CHAVE).html(httpRequest.responseText.substr(6, 9999999999999999));
+				_fw_tot_atl--;
+
+				if(_fw_tot_atl == 0){
+					fecharAguarde();
+				}
+
+			}
+
+		}	
+		
+		httpRequest.open("POST", "/atualizarLB.php?NM_TBL=" + objeto(NM_CMP_CHAVE).getAttribute("NM_TBL") + "&NM_CMP_CHAVE=" + NM_CMP_CHAVE + "&NM_CMP_DL=" +objeto(NM_CMP_CHAVE).getAttribute("NM_CMP_DL") + "&STR_EXR_EXR=" + valor("INT_EXR") + "&CHAR_ID_EMP="+valor("CHAR_ID_EMP") + "&ID8_UND_OCT=" + valor("ID8_UND_OCT") + "&ID8_CT_DESP=" + valor("ID8_CT_DESP") + "&STR_ID_FNTE=" + valor("STR_ID_FNTE"), true);
+						
+		httpRequest.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+		httpRequest.send();
+				
+	}
+	
+	function atualizarBuscas(){
+		atualizarLB("ID8_UND_OCT");
+		atualizarLB("ID2_FCAO");
+		atualizarLB("ID3_SFAO");
+		atualizarLB("ID4_PGM");
+		atualizarLB("ID4_PRAT");
+		atualizarLB("ID8_CT_DESP");
+		atualizarLB("ID3_FNTE");		
+		atualizarLB("ID2_T_DESP");	
+		atualizarLB("STR_ID_FNTE");		
+		atualizarLB("STR_ID_CO_TCE");
+		atualizarLB("STR_ID_CO_AUX");
+
+	} 
+	
+	atualizarBuscas();
+
+	$(document).ready(function(){
+		$("#ID8_UND_OCT").change(function(){
+			var v= $("#ID8_UND_OCT option:selected")[0].value;
+			if(v != ''){
+				atualizarBuscas();
+			} else{
+				atualizarBuscas();
+			}
+		}); 
+
+		$("#ID8_CT_DESP").change(function(){
+			var v= $("#ID8_CT_DESP option:selected")[0].value;
+			if(v != ''){
+				atualizarBuscas();
+			} else{
+				atualizarBuscas();
+			}
+		}); 
+
+		$("#STR_ID_FNTE").change(function(){
+			var FONTE_RECURSO_NOVA = $("#fonte_nova option:selected")[0].value;
+			if(FONTE_RECURSO_NOVA == ''){
+				$("#STR_ID_CO_TCE").css("width", 190);
+				$("#STR_ID_CO_AUX").css("width", 190);
+				$("#STR_ID_CO_TCE").prop("disabled", true);
+				$("#STR_ID_CO_AUX").prop("disabled", true);
+			}else{
+				$("#STR_ID_CO_TCE").css("width", 455);
+				$("#STR_ID_CO_AUX").css("width", 455);
+				$("#STR_ID_CO_TCE").prop("disabled", false);
+				$("#STR_ID_CO_AUX").prop("disabled", false);
+			}
+			
+		});
+	});
+
+</SCRIPT>				<TR>
+					<TD colspan='2' style='text-align:right' id='contenedor_botoes'>
+						<a href='javascript:busca(true)' id='btn_localizar'><img src='/Imagens/Localizar.gif' title='Clique para localizar'></a>						
+					</TD>
+				</TR>
+			</FORM>
+			</TABLE>
+			</DIV>
+			</CENTER>
+
+	<DIV id="area_botoes_nova" class='area_botoes_nova'>
+			
+			<div class="icone_relatorio">
+				<img src="/Imagens/despesa.png" >				
+			</div>
+
+			<div class="grupo_botoes_relatorio">
+				
+				<div id="msg-resultado">Agora que seu relatório ficou pronto, o que deseja fazer? </div><br><br>
+				
+				<a href="javascript:window.print();" style='display:none' id='btn_imprimir' class="btn"><img src='/Imagens/print.png' title='Clique para imprimir este relatório'> Imprimir</a>
+				<a href="javascript:destacarRelatorio();" id='btn_destacar' style='display:none' class="btn"><img src='/Imagens/novaaba.png' title='Clique para destacar este relatório'>Abrir em nova aba</a>
+				<a id='btn_csv' style='display:none' class="btn"><img src='/Imagens/csv.png' title='Clique para obter o relatório no formato CSV'>Baixar no formato CSV</a>
+				<a id='btn_xls' style='display:none' class="btn"><img src='/Imagens/excel.png' title='Clique para obter o relatório no formato XLS'>Baixar no formato XLS</a>
+				<a id='btn_pdf' style='display:none' class="btn"><img src='/Imagens/pdf.png' title='Clique para obter o relatório no formato PDF'>Baixar no formato PDF</a>
+
+				<a href="javascript:novaBusca();" id='btn_nova_busca' style='display:none' class="btn"><img src='/Imagens/novabusca.png' title='Realizar uma nova busca'>Realizar uma nova busca</a>
+				
+			</div>
+	</DIV>	
+	<br>	
+	<DIV id='resultadoContasPublicas'></DIV>
+	<div id='Paginador' class='paginador'>
+		
+								<div class='texto_paginador'>
+									<span>Página:</span>
+								</div>
+								<div class='pagina_atual'>
+									<SELECT id='paginador' onChange='javascript:paginar()'></SELECT> 
+								</div>
+								<div class='total_paginas'>
+									de <span id='totalPaginas'></span>
+								</div>
+								<div class='total_registros'>
+									<span id='INT_TT_REG'></span>
+								</div>
+								</div>
+
+<SCRIPT>
+	
+	window.setTimeout(function(){
+									$.post("/ws_consulta/computarCliqueBusca.php", {URL_MENU: "Tempo_Real_Despesa" });
+									
+								}, 5000);
+	
+</SCRIPT>	
+
+
+</DIV>
+	
+<div id='Rodape' style='width:100%'>
+		
+	
+	
+<div id='Rodape' style='width:100%'>
+	    <div class='rodape_container layout-linha'>
+                <div class='rodape_brasao'>
+            <img class='img-brasao-rodape' alt='Brasão do Município' src='/Especifico_Cliente/18557553000105/Brasao/brasao.png'>        </div>
+        
+		
+        <div class='rodape_blocos'>
+            <div class='td_tabela_rodape'><h4 class='rodape_titulo'>Prefeitura Municipal de Ritápolis</h4><div class='rodape_info'><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> <span>Praça Tiradentes, nº 340, Centro - Ritápolis/MG</span></div><div class='rodape_info'><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg> <span>(32) 3301-2637</span></div><div class='rodape_info'><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg> <span><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="f49395969d9a918091b4869d8095849b989d87da9993da939b82da9686">[email&#160;protected]</a></span></div><div class='rodape_info'><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> <span>07:30 às 16:00 hrs</span></div></div>        </div>
+    </div>
+
+    <div class='rodape_bottom'>
+        <div class="rodape_bottom_left"></div> 
+        
+        <div class="rodape_bottom_center">
+            Versão: 2026.06.10
+        </div>
+
+        <div class="rodape_bottom_right">
+                        <a href="/Estatisticas" title="Ver histórico de atualizações">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                Dados atualizados em: 28/08/2026 12:59:49            </a>
+                    </div>
+    </div>
+</div> 
+
+<div>
+    <button class="voltar-ao-topo" type="button" aria-label="Voltar ao topo">
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" fill="currentColor" class="bi bi-chevron-up" viewBox="0 0 16 15"><path fill-rule="evenodd" d="M7.646 4.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1-.708.708L8 5.707l-5.646 5.647a.5.5 0 0 1-.708-.708l6-6z"/></svg>
+    </button>
+</div>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+  $(document).ready(function(){
+      var a=200;
+      $(window).scroll(function(){
+          $(window).scrollTop()>a ? $("button.voltar-ao-topo").addClass("show") : $("button.voltar-ao-topo").removeClass("show");
+      });
+      $("button.voltar-ao-topo").click(function(){
+          return $("html, body").animate({scrollTop:0},800),!1;
+      });
+  });
+</script>
+
+<div class="cookie_container" id="cookie_container">
+	<div class="cookieConteudo">
+		<div class="cookieDesc">
+			<p>Este site utiliza cookies e outras tecnologias semelhantes de acordo com a nossa 
+				<a href="/LGPD">política de privacidade</a>. 
+				Ao continuar navegando neste site, você concorda com o uso destes recursos.
+			</p>
+		</div>
+		<div class="cookieButton">
+			<a href="javascript:fecharCookies()">PROSSEGUIR</a>
+		</div>
+	</div>
+</div>
+<SCRIPT>
+	/*
+		Zoom atual
+	*/
+	var FS = Number(getCookie("PT_FONTE"));
+	if(isNaN(FS))
+		FS = 0;
+		
+	alterarFontePara(FS);
+	
+	
+	var C = getCookie("PT_CONTRASTE");
+	if(C == "S")
+		contraste(false);
+
+	
+	
+
+	// Cookies
+
+	function fecharCookies(){
+		document.getElementById('cookie_container').style.display = "none";
+		setCookie("Cookie", "S");
+	}
+	
+	var Cookies = getCookie("Cookie");
+	if(Cookies == "S")
+		document.getElementById('cookie_container').style.display = "none";
+	
+	
+</SCRIPT>
+
+	</BODY>
+</HTML>
