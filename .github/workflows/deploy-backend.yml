@@ -1,0 +1,23 @@
+name: Deploy backend
+
+on:
+  push:
+    branches: [master]
+    paths-ignore:
+      - 'frontend/**'
+      - '**.md'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Deploy via SSH (chave restrita, so roda deploy.sh na VM)
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new "ubuntu@${SSH_HOST}"
+        env:
+          SSH_KEY: ${{ secrets.ORACLE_DEPLOY_SSH_KEY }}
+          SSH_HOST: ${{ secrets.ORACLE_DEPLOY_HOST }}
