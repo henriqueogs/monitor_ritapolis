@@ -1,0 +1,35 @@
+name: VM capacity check
+
+# So dispara alerta se a VM estiver de fato sob pressao (memoria/disco/swap).
+# Nao migra nada sozinho - so avisa quando vale a pena checar se ha
+# capacidade A1.Flex disponivel na Oracle antes de migrar (ver docs/DEPLOY.md).
+on:
+  schedule:
+    - cron: '43 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vm-capacity-check
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Verificar capacidade da VM
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/cap_key
+          chmod 600 ~/.ssh/cap_key
+          ssh -i ~/.ssh/cap_key -o StrictHostKeyChecking=accept-new "ubuntu@${SSH_HOST}" | node scripts/check-vm-capacity.js
+        env:
+          SSH_KEY: ${{ secrets.ORACLE_CAPACITY_SSH_KEY }}
+          SSH_HOST: ${{ secrets.ORACLE_DEPLOY_HOST }}
