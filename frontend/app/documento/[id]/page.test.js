@@ -4,9 +4,8 @@ export const documentoPageContract = {
   expectations: [
     'keeps page.js as a route bridge',
     'loads full document text only in the detail route',
-    'shows official source before IA interpretation',
-    'shows integrated licitation reading above the individual PDF summary when available',
-    'keeps IA summary validation visible',
+    'leads with the AI simple-reading summary (or the best available fallback) at the top of the page, synthesized with identification and licitation facts — never just the "open official file" button alone',
+    'keeps official source preview (embedded PDF) after the synthesized summary — it is for credibility/verification, not primary content',
     'shows structured licitation products separately from the AI summary',
     'keeps detail sections split into local route components'
   ],

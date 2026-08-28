@@ -4,8 +4,6 @@ import AiSummarySection from './components/AiSummarySection';
 import AttachmentsSection from './components/AttachmentsSection';
 import DocumentHeader from './components/DocumentHeader';
 import EmpenhoSection from './components/EmpenhoSection';
-import IdentityAndLimits from './components/IdentityAndLimits';
-import IntegratedReadingSection from './components/IntegratedReadingSection';
 import LicitationProducts from './components/LicitationProducts';
 import LicitationGroup from './components/LicitationGroup';
 import LicitationRelatedSources from './components/LicitationRelatedSources';
@@ -51,14 +49,10 @@ export default async function DocumentoPage({ params: paramsPromise }) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <DocumentHeader documento={documento} licitacao={licitacao} />
-      <SummaryAndSource documento={documento} />
-      <DocumentPreviewPane documento={documento} />
+      <SummaryAndSource documento={documento} licitacao={licitacao} />
       <AttachmentsSection documento={documento} />
-      <IdentityAndLimits documento={documento} licitacao={licitacao} />
       <AiSummarySection resumoAi={buildResumoAi(documento)} operacao={documento.resumo_ai_operacao} />
-      {documento.tipo === 'edital' ? (
-        <IntegratedReadingSection leitura={documento.leitura_integrada_ai} documentoId={documento.id} />
-      ) : null}
+      <DocumentPreviewPane documento={documento} />
       {documento.tipo === 'edital' && documento.licitacao_grupo ? (
         <LicitationGroup grupo={documento.licitacao_grupo} />
       ) : null}

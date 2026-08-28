@@ -143,6 +143,28 @@ export function cleanDocumentTitle(documento) {
   return cleanTitle;
 }
 
+// Só a página de detalhe tem espaço pra separar título e subtítulo — as
+// listas (cards, linhas) continuam usando cleanDocumentTitle, uma linha só.
+// Regra: o assunto de verdade (objeto) é sempre o ÚLTIMO segmento do título
+// ("Ratificação do Processo X – Adesão Y – Objeto..."); o resto é a
+// referência administrativa, que vira o subtítulo. O título curto de IA
+// nem sempre já vem limpo desse prefixo (a IA às vezes repete a mesma
+// estrutura do título bruto) — por isso aplica a mesma divisão nele
+// também, em vez de usá-lo direto.
+export function splitDocumentTitle(documento) {
+  if (!documento) return { titulo: '', subtitulo: null };
+
+  const fonte = (
+    documento.resumo_ai?.dados?.titulo_curto || documento.titulo_curto || documento.titulo || ''
+  ).trim();
+  const partes = fonte.split(/\s+[-–—]\s+/).map((p) => p.trim()).filter(Boolean);
+
+  if (partes.length > 1) {
+    return { titulo: partes[partes.length - 1], subtitulo: partes.slice(0, -1).join(' – ') };
+  }
+  return { titulo: fonte, subtitulo: null };
+}
+
 export function cleanDocumentSummary(documento, maxLength = 180) {
   let resumo = bestResumo(documento);
   
