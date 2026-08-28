@@ -11,7 +11,9 @@ const SESSION_COOKIE =
 const OFFICIAL_SOURCE_FRAME_ORIGINS = [
   'https://ritapolis.mg.gov.br',
   'https://www.ritapolis.mg.gov.br',
-  'https://monitor-ritapolis-api.onrender.com',
+  // Worker Cloudflare que serve o preview do PDF oficial (substitui o antigo
+  // /api/source-preview do Render, que consumia banda gratuita do plano).
+  'https://monitor-ritapolis-heartbeat.henriqueguimaraes.workers.dev',
 ];
 
 export function proxy(request) {
