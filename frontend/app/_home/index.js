@@ -1,7 +1,6 @@
 import IntelligenceBrief from '../components/IntelligenceBrief';
 import { fetchAlertasDestaques, fetchAnalisesResumos, fetchPainelCidadao } from '../lib/api';
 import AlertasDestaque from './components/AlertasDestaque';
-import HomeCharts from './components/HomeCharts';
 import HomeHero from './components/HomeHero';
 import LimitsAndSources from './components/LimitsAndSources';
 import PrefeituraAutoSync from './components/PrefeituraAutoSync';
@@ -46,7 +45,6 @@ export default async function HomePage() {
         licitacao={licitacaoDestaque}
       />
       <AlertasDestaque alertas={alertas} />
-      <HomeCharts analisesItens={analisesItens} />
       <UpdatesSection documentos={atualizacoesRecentes} anoPadrao={resumo.ano_padrao} />
       <LimitsAndSources fontes={painel.fontes || []} />
     </main>
