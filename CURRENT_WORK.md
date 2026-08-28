@@ -58,9 +58,13 @@ genérico e detector de gasto atípico nas Descobertas
   e a coleta histórica foi disparada. Atenção: a coleta diária agora percorre
   2019+ (o skip é por dia, anos fechados são re-coletados a cada ciclo — o
   custo subiu; otimizar o skip de anos fechados é follow-up se pesar).
-- [ ] **Vinculação empenho↔licitação (13–23%)** — matching secundário via
-  `licitacao_ref` + `vencedor_cnpj` = `credor_cnpj` em
-  `src/licitacoes/modalidade.js` / `scripts/revincular-despesas.js`. TDD.
+- [x] **Vinculação empenho↔licitação** (28/08) — número "13–23%" acima estava
+  desatualizado (pré-PR#16). Real hoje: 68,7% das despesas com modalidade
+  parseável têm documento (3.324/4.840). Dos 1.516 sem vínculo, investigados
+  a fundo: 1.004 "adesão" + 512 dispensa/inexigibilidade/pregão/tomada
+  (concentrados em 2022–2023) são gap real da fonte (confirmado ao vivo no
+  site — zero registros desses tipos nesses anos na listagem oficial), não
+  bug de linking. Não há mais matching a fazer sem inventar vínculo.
 - [ ] **Monitoração recorrente de deep-links** — integrar
   `npm run transparencia:validar-links` ao daily-scheduler (amostra ~5) com
   alerta em log se o portal mudar o contrato de URL. Rodar manual/mensal até lá.
