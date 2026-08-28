@@ -197,13 +197,26 @@ function camposDe(alerta) {
 // re-extração porque esses campos divergem entre o candidato (gerador) e a
 // evidência já persistida (investigada) para o MESMO fato — churn que
 // des-publicava descobertas boas todo ciclo.
+// Identidade de uma evidência pra fins de hash: quando o fato carrega
+// `origem_hash` (conteúdo determinístico, ver fatos-extractor.js), usa ele —
+// é estável entre reextrações. `fato_id` sozinho NÃO é estável: substituirFatosOrigem
+// (inteligencia-fatos-repo.js) apaga e reinsere as linhas a cada reprocessamento,
+// trocando o id auto-increment mesmo com o mesmo conteúdo — usá-lo como identidade
+// reabria toda descoberta publicada a cada ciclo de fatos (churn espúrio).
+function identidadeEvidencia(e) {
+  if (e.origem_hash) {
+    return { origem_hash: String(e.origem_hash) };
+  }
+  return {
+    documento_id: Number(e.documento_id) || null,
+    anexo_id: Number(e.anexo_id) || null,
+    fato_id: Number(e.fato_id) || null,
+  };
+}
+
 function buildEvidenciasHash(evidencias = []) {
   const normalizadas = evidencias
-    .map((e) => ({
-      documento_id: Number(e.documento_id) || null,
-      anexo_id: Number(e.anexo_id) || null,
-      fato_id: Number(e.fato_id) || null,
-    }))
+    .map(identidadeEvidencia)
     .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
   return normalizadas.length ? buildHash(normalizadas) : null;
 }

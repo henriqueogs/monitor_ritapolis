@@ -47,6 +47,21 @@ describe('alertas-repo', () => {
       const b = [{ documento_id: 2, fato_id: 20 }, { documento_id: 1, fato_id: 10 }];
       expect(repo.buildEvidenciasHash(a)).toBe(repo.buildEvidenciasHash(b));
     });
+
+    it('é estável quando o fato_id muda mas o origem_hash (conteúdo) é o mesmo — reextração não reabre publicado', () => {
+      // substituirFatosOrigem apaga e reinsere inteligencia_fatos a cada ciclo:
+      // mesmo fato real, novo id auto-increment. origem_hash é o conteúdo
+      // determinístico (documento+tipo+quantidade+trecho) e não muda.
+      const antes = [{ documento_id: 607, anexo_id: 1129, fato_id: 111, origem_hash: 'abc123' }];
+      const depois = [{ documento_id: 607, anexo_id: 1129, fato_id: 999, origem_hash: 'abc123' }];
+      expect(repo.buildEvidenciasHash(antes)).toBe(repo.buildEvidenciasHash(depois));
+    });
+
+    it('muda quando o origem_hash muda, mesmo com o mesmo fato_id', () => {
+      const a = [{ documento_id: 1, fato_id: 10, origem_hash: 'abc' }];
+      const b = [{ documento_id: 1, fato_id: 10, origem_hash: 'xyz' }];
+      expect(repo.buildEvidenciasHash(a)).not.toBe(repo.buildEvidenciasHash(b));
+    });
   });
 
   describe('upsertAlerta', () => {

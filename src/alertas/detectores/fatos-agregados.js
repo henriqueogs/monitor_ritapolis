@@ -68,6 +68,9 @@ function evidencias(fatos) {
     documento_id: fato.documento_id,
     anexo_id: fato.anexo_id || null,
     fato_id: fato.id,
+    // Identidade estável entre reextrações — ver buildEvidenciasHash em
+    // alertas-repo.js. fato.id sozinho reabre a descoberta a cada ciclo.
+    origem_hash: fato.origem_hash || null,
     papel: 'fato',
     trecho_fonte: fato.trecho_fonte || fato.descricao,
     metadados: {

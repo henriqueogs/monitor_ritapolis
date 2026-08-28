@@ -102,6 +102,10 @@ function evidencias(fatos) {
     documento_id: fato.documento_id || null,
     anexo_id: fato.anexo_id || null,
     fato_id: fato.id || null,
+    // Identidade estável do fato (sobrevive à reextração — ver
+    // buildEvidenciasHash em alertas-repo.js). fato.id é o PK auto-increment
+    // e NÃO é estável entre ciclos de extração.
+    origem_hash: fato.origem_hash || null,
     papel: 'fato',
     trecho_fonte: fato.trecho_fonte || fato.descricao || null,
     metadados: {
@@ -416,6 +420,9 @@ function candidatosArvores(fatos, thresholdArvores) {
           const fonte = fatosPorId.get(Number(evidencia.fato_id));
           return {
             ...evidencia,
+            // Identidade estável (ver comentário em evidencias() acima) —
+            // fatos-agregados.js monta evidencia direto, sem passar por evidencias().
+            origem_hash: evidencia.origem_hash || fonte?.origem_hash || null,
             metadados: {
               ...(evidencia.metadados || {}),
               descricao: fonte?.descricao || evidencia.trecho_fonte || null,

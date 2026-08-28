@@ -46,7 +46,8 @@ async function reprocessarInvestigacoesPendentes({
         force,
         cfg: {
           confiancaMinPublica: repo.getConfig('alertas:investigacao_confianca_min_publica', 0.55),
-          publicacaoAutomatica: repo.getConfig('alertas:investigacao_publicacao_automatica', true),
+          // Default false: exige aprovação humana antes de publicar (ver alert-generator.js).
+          publicacaoAutomatica: repo.getConfig('alertas:investigacao_publicacao_automatica', false),
         },
       });
       if (!dryRun) {
