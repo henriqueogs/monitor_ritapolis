@@ -143,8 +143,9 @@ export function cleanDocumentTitle(documento) {
   return cleanTitle;
 }
 
-// Só a página de detalhe tem espaço pra separar título e subtítulo — as
-// listas (cards, linhas) continuam usando cleanDocumentTitle, uma linha só.
+// Usado na página de detalhe e em listas com espaço pra duas linhas (ex.:
+// DocumentPreview na home). Cards mais compactos continuam com
+// cleanDocumentTitle, uma linha só.
 // Regra: o assunto de verdade (objeto) é sempre o ÚLTIMO segmento do título
 // ("Ratificação do Processo X – Adesão Y – Objeto..."); o resto é a
 // referência administrativa, que vira o subtítulo. O título curto de IA

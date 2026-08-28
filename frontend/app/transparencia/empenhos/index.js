@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { fetchTransparenciaDespesas } from '../../lib/api';
 import SectionBlock from '../../components/SectionBlock';
 import TabelaEmpenhos from '../../components/TabelaEmpenhos';
-import SearchInput from '../../components/SearchInput';
+import FilterBar from '../../components/FilterBar';
 import TransparenciaSubnav from '../../components/TransparenciaSubnav';
 import { FINALIDADE_OPCOES } from '../../lib/finalidades';
 
@@ -73,32 +73,31 @@ export default async function EmpenhosPage({ searchParams: searchParamsPromise }
       <TransparenciaSubnav />
 
       {/* Filtros */}
-      <form method="get" action="/transparencia/empenhos" style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-        <SearchInput name="q" defaultValue={q} placeholder="Buscar na descrição ou credor…" />
+      <FilterBar action="/transparencia/empenhos">
+        <input
+          type="search"
+          name="q"
+          defaultValue={q}
+          placeholder="Buscar na descrição ou credor…"
+          className="field-input"
+          style={{ flex: '1 1 240px', minWidth: 0 }}
+        />
         {categoria && <input type="hidden" name="categoria" value={categoria} />}
         {mandato && <input type="hidden" name="mandato" value={mandato} />}
         {periodoTodos && <input type="hidden" name="periodo" value="todos" />}
-        <select
-          name="finalidade"
-          defaultValue={finalidade}
-          style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 14, background: 'var(--surface)' }}
-        >
+        <select name="finalidade" defaultValue={finalidade} className="field-select" style={{ width: 'auto' }}>
           <option value="">Todas as finalidades</option>
           {FINALIDADES.map((item) => (
             <option key={item.value} value={item.value}>{item.label}</option>
           ))}
         </select>
-        <select
-          name="exercicio"
-          defaultValue={exercicio || ''}
-          style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 14, background: 'var(--surface)' }}
-        >
+        <select name="exercicio" defaultValue={exercicio || ''} className="field-select" style={{ width: 'auto' }}>
           <option value="">Todos os anos</option>
           {Array.from({ length: anoAtual - ANO_MIN + 1 }, (_, i) => anoAtual - i).map((a) => (
             <option key={a} value={a}>{a}</option>
           ))}
         </select>
-      </form>
+      </FilterBar>
 
       <SectionBlock
         title={`${total.toLocaleString('pt-BR')} empenho${total !== 1 ? 's' : ''} encontrado${total !== 1 ? 's' : ''} (${periodoTitulo})`}

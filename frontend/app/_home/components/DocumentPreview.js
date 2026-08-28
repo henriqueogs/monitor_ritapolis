@@ -1,7 +1,8 @@
 import Link from 'next/link';
-import { cleanDocumentTitle, cleanDocumentSummary, formatDate, labelFonte, labelTipo } from '../../lib/format';
+import { splitDocumentTitle, cleanDocumentSummary, formatDate, labelFonte, labelTipo } from '../../lib/format';
 
 export default function DocumentPreview({ documento }) {
+  const { titulo, subtitulo } = splitDocumentTitle(documento);
   return (
     <Link href={`/documento/${documento.id}`} className="citizen-row">
       <div className="citizen-row-main">
@@ -12,7 +13,8 @@ export default function DocumentPreview({ documento }) {
             <span>{formatDate(documento.data_publicacao, 'Sem data')}</span>
           ) : null}
         </div>
-        <strong>{cleanDocumentTitle(documento)}</strong>
+        {subtitulo ? <p className="page-title-subtitle">{subtitulo}</p> : null}
+        <strong>{titulo}</strong>
         <p>{cleanDocumentSummary(documento)}</p>
       </div>
       <div className="citizen-row-side">
