@@ -29,10 +29,10 @@ export function proxy(request) {
   const csp = [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ''}`,
-    `style-src 'self' 'nonce-${nonce}'`,
+    `style-src 'self' 'nonce-${nonce}' https://fonts.googleapis.com`,
     "style-src-attr 'unsafe-inline'",
     "img-src 'self' blob: data:",
-    "font-src 'self'",
+    "font-src 'self' https://fonts.gstatic.com",
     `connect-src 'self'${apiOrigin ? ` ${apiOrigin}` : ''}`,
     `frame-src 'self' ${OFFICIAL_SOURCE_FRAME_ORIGINS.join(' ')}`,
     // Compatibilidade com navegadores que ainda consultam child-src para
