@@ -13,18 +13,15 @@ const ColetorBase = require('./base');
 const logger = require('../logger');
 const config = require('../config');
 const {
-  upsertDespesa,
   upsertReceita,
   crosswalkDespesasDocumentos,
   enriquecerDetalhesComEmpenhos,
   upsertColetaLog,
   getColetaLog,
 } = require('../db/transparencia-repo');
+const { coletarDespesasJanelaViaThread } = require('./portal-transparencia-thread-http');
 
 const BASE_URL = 'https://pt.ritapolis.mg.gov.br';
-
-// Unidade gestora da Prefeitura (ID fixo no sistema SH3)
-const UNIDADE_GESTORA_PREFEITURA = 1;
 
 // Primeiro exercício coletado (inclusivo) — configurável via
 // TRANSPARENCIA_ANO_INICIO; API SH3 tem dados desde 2019.
@@ -97,48 +94,18 @@ class ColetorPortalTransparencia extends ColetorBase {
 
   /**
    * Coleta despesas de uma janela de datas.
+   *
+   * Usa o fluxo "thread" (sessão + geração assíncrona + CSV), não o
+   * endpoint JSON /api/relatorios/despesa — esse quebrou no lado do
+   * portal (SH3) em algo entre 30/07/2026 e 28/08/2026, devolve HTML pra
+   * qualquer requisição válida. Ver
+   * memory reference_portal_transparencia_fluxo_thread para o fluxo
+   * completo mapeado e validado com dado real.
+   *
    * @returns {{ novos, atualizados, registros }}
    */
   async coletarDespesasJanela(exercicio, dataInicial, dataFinal) {
-    const resultado = await this.fetchJson('/api/relatorios/despesa', {
-      exercicio,
-      unidade_gestora: UNIDADE_GESTORA_PREFEITURA,
-      data_do_empenho_inicial: dataInicial,
-      data_do_empenho_final: dataFinal,
-    });
-
-    if (!resultado) {
-      return { novos: 0, atualizados: 0, registros: 0 };
-    }
-
-    const despesas = resultado.despesas || [];
-    let novos = 0;
-    let atualizados = 0;
-
-    for (const item of despesas) {
-      const dados = item.dadosPrincipais;
-      if (!dados) {
-        continue;
-      }
-      try {
-        const action = upsertDespesa(dados);
-        if (action === 'inserted') {
-          novos++;
-        } else if (action === 'updated') {
-          atualizados++;
-        }
-      } catch (err) {
-        logger.warn('portal-transparencia: erro ao salvar despesa', {
-          exercicio,
-          dataInicial,
-          dataFinal,
-          empenho: dados?.empenho,
-          erro: err.message,
-        });
-      }
-    }
-
-    return { novos, atualizados, registros: despesas.length };
+    return coletarDespesasJanelaViaThread(exercicio, dataInicial, dataFinal);
   }
 
   /**
