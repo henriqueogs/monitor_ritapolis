@@ -25,6 +25,11 @@ const ORIGEM_CONFIG = {
     variant: 'parcial',
     url: null,
   },
+  resumo_ai: {
+    label: 'IA (leitura do documento)',
+    variant: 'parcial',
+    url: null,
+  },
   ata_resultado: {
     label: 'Ata de resultado',
     variant: 'real',

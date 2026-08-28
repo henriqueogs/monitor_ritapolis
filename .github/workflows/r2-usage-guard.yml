@@ -33,12 +33,16 @@ jobs:
           R2_MAX_STORAGE_BYTES: '8000000000'
           R2_MAX_CLASS_A_OPS: '800000'
           R2_MAX_CLASS_B_OPS: '8000000'
-      - name: Suspender API preventivamente
+      - name: Parar API preventivamente (disjuntor)
         if: steps.guard.outcome == 'failure'
-        run: node scripts/suspend-render-service.js
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/cb_key
+          chmod 600 ~/.ssh/cb_key
+          ssh -i ~/.ssh/cb_key -o StrictHostKeyChecking=accept-new "ubuntu@${SSH_HOST}"
         env:
-          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-          RENDER_SERVICE_ID: ${{ vars.RENDER_SERVICE_ID }}
+          SSH_KEY: ${{ secrets.ORACLE_CIRCUIT_BREAKER_SSH_KEY }}
+          SSH_HOST: ${{ secrets.ORACLE_DEPLOY_HOST }}
       - name: Falhar verificacao apos acionar o disjuntor
         if: steps.guard.outcome == 'failure'
         run: exit 1

@@ -16,22 +16,15 @@ Rascunho aguardando **sua confirmação** antes de avançar para Design/Tasks:
 
 - Spec: [`.specs/features/publicacao-mvp/spec.md`](.specs/features/publicacao-mvp/spec.md)
 - Estado: [`.specs/STATE.md`](.specs/STATE.md)
-- Decisão de deploy: Cloudflare na borda + frontend em Cloudflare
-  Pages/Workers + API Node no Render protegida por Cloudflare.
-- Ainda em aberto: frescor de dados esperado em produção e evolução da
-  autenticação admin além do Basic Auth.
+- Deploy concluído (28/08/2026, ver `docs/DEPLOY.md`): API em VM Oracle
+  Cloud Always Free + systemd + Caddy (TLS automático), frontend na Vercel,
+  deploy automático nos dois lados a cada merge em `master`. Migração saiu
+  do Render (estourou banda grátis) — Cloudflare Workers/OpenNext pro
+  frontend foi avaliado e descartado (Vercel resolveu sem upgrade de Next).
+- Ainda em aberto: evolução da autenticação admin além do Basic Auth.
 
 Já pronto, não bloqueia a decisão: Basic Auth em `/admin/*`
 (`src/auth/admin-basic-auth.js` + `frontend/middleware.js`).
-
-## ⏳ Pendente — Build de produção + deploy
-
-- [ ] Testar `next build && next start` em produção.
-- [x] Preparar blueprint inicial da API no Render (`render.yaml`).
-- [ ] Criar serviço Render com disco persistente em `/var/data`.
-- [ ] Configurar Cloudflare DNS/WAF/rate limits para o domínio da API.
-- [ ] Preparar frontend Cloudflare Workers/OpenNext; requer upgrade do Next
-  atual antes de instalar `@opennextjs/cloudflare`.
 
 ## ⏳ Pendente — Transparência: dados e vinculação (pós Empenhos v2, 02/07/2026)
 
