@@ -64,7 +64,7 @@ export default function RootLayout({ children }) {
                 <span>{BRAND_TAGLINE}</span>
               </div>
               <div className="footer-meta">
-                <span>Dados coletados das fontes oficiais da Prefeitura e da Câmara</span>
+                <span>Dados coletados da fonte oficial da Prefeitura</span>
                 <span className="footer-dot">·</span>
                 <Link href="/sobre">Sobre o projeto</Link>
               </div>

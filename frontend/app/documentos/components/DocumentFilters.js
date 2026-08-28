@@ -8,7 +8,6 @@ export default function DocumentFilters({ filters, action = '/acervo' }) {
       <select name="fonte" defaultValue={filters.fonte} className="field-select">
         <option value="">Todas as fontes</option>
         <option value="site_prefeitura">Prefeitura</option>
-        <option value="camara">Camara</option>
       </select>
       <select name="tipo" defaultValue={filters.tipo} className="field-select">
         <option value="">Todos os tipos</option>

@@ -100,9 +100,9 @@ export default function CollectionUpdateAction({ initialStatus }) {
           className="field-select"
           disabled={running}
         >
-          <option value="todas">Prefeitura e Camara</option>
+          <option value="todas">Todas as fontes ativas</option>
           <option value="site_prefeitura">Somente Prefeitura</option>
-          <option value="camara">Somente Camara</option>
+          <option value="camara">Somente Camara (pausada — manual)</option>
         </select>
       </div>
       <button type="submit" className="button button-primary" disabled={running}>
