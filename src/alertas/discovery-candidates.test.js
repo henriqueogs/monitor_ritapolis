@@ -73,4 +73,23 @@ describe('gerarCandidatosInvestigativos', () => {
     expect(arvores.valor_total).toBe(70);
     expect(arvores.evidencias).toHaveLength(2);
   });
+
+  it('propaga origem_hash do fato pra evidencia — identidade estável entre reextrações (evita reabertura espúria, ver alertas-repo.buildEvidenciasHash)', () => {
+    const candidatos = gerarCandidatosInvestigativos([
+      fato(1, 'meio_ambiente', 'supressao_arvores', 10, 2026, { quantidade: 60, unidade: 'arvores', origem_hash: 'hash-arvores-doc10' }),
+      fato(2, 'meio_ambiente', 'supressao_arvores', 11, 2026, { quantidade: 10, unidade: 'arvores', origem_hash: 'hash-arvores-doc11' }),
+      ...Array.from({ length: 3 }, (_, i) => fato(30 + i, 'contratos', 'servico_recorrente', 40 + i, 2026, {
+        titulo: `Contratacao de manutencao preventiva de veiculos da frota municipal lote ${i + 1}`,
+        vencedor_cnpj: '12.345.678/0001-90',
+        vencedor_nome: 'Oficina Exemplo Ltda',
+        origem_hash: `hash-contrato-${i}`,
+      })),
+    ], { thresholdArvores: 20 });
+
+    const arvores = candidatos.find((c) => c.metadados.investigacao_tipo === 'supressao_arvores');
+    expect(arvores.evidencias.map((e) => e.origem_hash).sort()).toEqual(['hash-arvores-doc10', 'hash-arvores-doc11']);
+
+    const contratos = candidatos.find((c) => c.metadados.investigacao_tipo === 'contratos.recorrencia_fornecedor_objeto');
+    expect(contratos.evidencias.every((e) => e.origem_hash)).toBe(true);
+  });
 });

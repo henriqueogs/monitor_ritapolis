@@ -98,8 +98,11 @@ const SEMENTES = [
   },
   {
     chave: 'alertas:investigacao_publicacao_automatica',
-    valor: true,
-    descricao: 'Publica automaticamente descobertas investigativas que passem contrato, evidencia e confianca.',
+    valor: false,
+    descricao:
+      'Publica automaticamente descobertas investigativas que passem contrato, evidencia e ' +
+      'confianca, sem revisao humana. Desligado por decisao de produto: toda descoberta exige ' +
+      'aprovacao do administrador em /admin/alertas antes de ficar publica.',
   },
   {
     chave: 'descobertas:investigacao_scheduler_ativo',

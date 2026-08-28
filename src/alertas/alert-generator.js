@@ -185,7 +185,9 @@ function lerConfig() {
     investigacaoMaxPorCiclo: repo.getConfig('alertas:investigacao_max_por_ciclo', 20),
     investigacaoTemasAtivos: repo.getConfig('alertas:investigacao_temas_ativos', DEFAULT_TEMAS),
     investigacaoConfiancaMinPublica: repo.getConfig('alertas:investigacao_confianca_min_publica', 0.55),
-    investigacaoPublicacaoAutomatica: repo.getConfig('alertas:investigacao_publicacao_automatica', true),
+    // Default false: descobertas investigativas exigem aprovação humana antes de
+    // publicar (decisão de produto — auto-publicação sem revisão foi desativada).
+    investigacaoPublicacaoAutomatica: repo.getConfig('alertas:investigacao_publicacao_automatica', false),
     narrativaConsolidadaAtiva: repo.getConfig('alertas:narrativa_consolidada_ativa', true),
   };
 }
