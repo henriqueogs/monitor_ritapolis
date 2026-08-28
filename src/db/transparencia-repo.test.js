@@ -315,6 +315,59 @@ describe('transparencia-repo', () => {
 
       warnSpy.mockRestore();
     });
+
+    it('desempata colisao pelo CNPJ do vencedor quando bate com o candidato de maior id', () => {
+      mockConn.prepare(`
+        INSERT INTO documentos (id, fonte, tipo, numero, ano, titulo, url_origem)
+        VALUES (?, 'site_prefeitura', 'edital', ?, ?, ?, 'https://example.invalid')
+      `).run(173, '0083/2023', 2023, 'Processo 0083/2023 - Pregão 032/2023 - Material médico-hospitalar');
+      mockConn.prepare(`
+        INSERT INTO documentos (id, fonte, tipo, numero, ano, titulo, url_origem)
+        VALUES (?, 'site_prefeitura', 'edital', ?, ?, ?, 'https://example.invalid')
+      `).run(176, '0069/2023', 2023, 'Processo 0069/2023 - Pregão 032/2023 - Concessão de uso');
+      // vencedor extraído do próprio documento (não circular) — 173 é de
+      // outra empresa, 176 é da mesma que aparece na despesa.
+      mockConn.prepare(
+        `INSERT INTO licitacoes_detalhes (documento_id, vencedor_cnpj, origem) VALUES (?, ?, ?)`
+      ).run(173, '11111111000191', 'texto_documento');
+      mockConn.prepare(
+        `INSERT INTO licitacoes_detalhes (documento_id, vencedor_cnpj, origem) VALUES (?, ?, ?)`
+      ).run(176, '24009094000128', 'texto_documento');
+      seedDespesa({
+        exercicio: 2023,
+        modalidade: 'Pregão - 00322023',
+        credorCnpj: '24009094000128',
+      });
+
+      repo.crosswalkDespesasDocumentos();
+
+      expect(mockConn.prepare('SELECT documento_id FROM transparencia_despesas').get().documento_id).toBe(176);
+    });
+
+    it('ignora vencedor_cnpj de origem portal_transparencia (evita desempate circular)', () => {
+      mockConn.prepare(`
+        INSERT INTO documentos (id, fonte, tipo, numero, ano, titulo, url_origem)
+        VALUES (?, 'site_prefeitura', 'edital', ?, ?, ?, 'https://example.invalid')
+      `).run(173, '0083/2023', 2023, 'Processo 0083/2023 - Pregão 032/2023 - Material médico-hospitalar');
+      mockConn.prepare(`
+        INSERT INTO documentos (id, fonte, tipo, numero, ano, titulo, url_origem)
+        VALUES (?, 'site_prefeitura', 'edital', ?, ?, ?, 'https://example.invalid')
+      `).run(176, '0069/2023', 2023, 'Processo 0069/2023 - Pregão 032/2023 - Concessão de uso');
+      // Só o candidato de maior id tem vencedor_cnpj, mas com origem
+      // 'portal_transparencia' (derivado do próprio crosswalk) — não conta.
+      mockConn.prepare(
+        `INSERT INTO licitacoes_detalhes (documento_id, vencedor_cnpj, origem) VALUES (?, ?, ?)`
+      ).run(176, '24009094000128', 'portal_transparencia');
+      seedDespesa({
+        exercicio: 2023,
+        modalidade: 'Pregão - 00322023',
+        credorCnpj: '24009094000128',
+      });
+
+      repo.crosswalkDespesasDocumentos();
+
+      expect(mockConn.prepare('SELECT documento_id FROM transparencia_despesas').get().documento_id).toBe(173);
+    });
   });
 
   describe('upsertDespesa — colunas derivadas', () => {
