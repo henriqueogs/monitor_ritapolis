@@ -280,6 +280,13 @@ function upsertDespesa(dadosPrincipais) {
  * Índice de editais por chave de modalidade "tipo|numero|ano" → documento_id.
  * A chave vem de parseModalidadeEdital sobre o título (a modalidade, não o
  * número do processo). Construído uma vez por execução do crosswalk.
+ *
+ * Quando duas ou mais licitações têm a mesma chave (mesmo tipo+número+ano —
+ * raro mas acontece, ex: Pregão 032/2023 usado por dois processos
+ * diferentes), `indice` guarda o de menor id (fallback histórico) e
+ * `colisoes` guarda TODOS os candidatos na ordem em que apareceram, pra
+ * quem for vincular uma despesa poder tentar desempatar por CNPJ do
+ * vencedor antes de cair no fallback.
  */
 function construirIndiceEditaisPorModalidade() {
   const editais = db
@@ -289,6 +296,7 @@ function construirIndiceEditaisPorModalidade() {
     .all();
 
   const indice = new Map();
+  const colisoes = new Map();
   for (const edital of editais) {
     const mod = parseModalidadeEdital(edital.titulo);
     if (!mod || mod.numero === null) {
@@ -297,7 +305,9 @@ function construirIndiceEditaisPorModalidade() {
     const chave = `${mod.tipo}|${mod.numero}|${mod.ano}`;
     if (!indice.has(chave)) {
       indice.set(chave, edital.id);
+      colisoes.set(chave, [edital.id]);
     } else {
+      colisoes.get(chave).push(edital.id);
       logger.warn('crosswalk: colisao de modalidade entre documentos', {
         chave,
         documento_mantido: indice.get(chave),
@@ -305,7 +315,35 @@ function construirIndiceEditaisPorModalidade() {
       });
     }
   }
-  return indice;
+  return { indice, colisoes };
+}
+
+function normalizarCnpj(valor) {
+  const digitos = String(valor || '').replace(/\D/g, '');
+  return digitos.length === 14 ? digitos : null;
+}
+
+/**
+ * Entre os candidatos de uma chave colidida, acha o único cujo CNPJ do
+ * vencedor (extraído do próprio documento, não derivado do crosswalk —
+ * por isso o filtro `origem != 'portal_transparencia'`, que seria
+ * circular) bate com o CNPJ do credor da despesa. Retorna null quando
+ * não há match seguro (nenhum ou mais de um candidato bate).
+ */
+function desempatarPorCnpjVencedor(candidatos, credorCnpj) {
+  const cnpjDespesa = normalizarCnpj(credorCnpj);
+  if (!cnpjDespesa || candidatos.length < 2) {
+    return null;
+  }
+
+  const placeholders = candidatos.map(() => '?').join(',');
+  const linhas = db.prepare(`
+    SELECT documento_id, vencedor_cnpj FROM licitacoes_detalhes
+    WHERE documento_id IN (${placeholders}) AND origem != 'portal_transparencia'
+  `).all(...candidatos);
+
+  const bateram = linhas.filter((l) => normalizarCnpj(l.vencedor_cnpj) === cnpjDespesa);
+  return bateram.length === 1 ? bateram[0].documento_id : null;
 }
 
 /**
@@ -328,12 +366,12 @@ function crosswalkDespesasDocumentos({ relink = false } = {}) {
 
   const pendentes = db
     .prepare(
-      `SELECT id, documento_id, modalidade FROM transparencia_despesas
+      `SELECT id, documento_id, modalidade, credor_cnpj FROM transparencia_despesas
         WHERE modalidade IS NOT NULL AND modalidade != ''`
     )
     .all();
 
-  const indice = construirIndiceEditaisPorModalidade();
+  const { indice, colisoes } = construirIndiceEditaisPorModalidade();
   const update = db.prepare(
     'UPDATE transparencia_despesas SET documento_id = ?, atualizado_em = CURRENT_TIMESTAMP WHERE id = ?'
   );
@@ -348,7 +386,11 @@ function crosswalkDespesasDocumentos({ relink = false } = {}) {
     if (!mod || mod.numero === null) {
       continue;
     }
-    const documentoId = indice.get(`${mod.tipo}|${mod.numero}|${mod.ano}`);
+    const chave = `${mod.tipo}|${mod.numero}|${mod.ano}`;
+    const candidatos = colisoes.get(chave);
+    const documentoId = (candidatos && candidatos.length > 1
+      ? desempatarPorCnpjVencedor(candidatos, desp.credor_cnpj)
+      : null) || indice.get(chave);
     // No modo normal, corrige também vínculos legados que apontam para outro
     // processo. No modo relink, ausência de correspondência permanece nula.
     if (documentoId) {
