@@ -28,6 +28,27 @@ Todo merge em `master` dispara os dois lados sozinho — ver `.github/workflows/
 
 Ignora mudanças só em `frontend/**` ou `*.md` (não redeploya o backend à toa).
 
+## Verificação de capacidade da VM
+
+A VM roda em `VM.Standard.E2.1.Micro` (1 OCPU/1GB) — o shape maior
+(`A1.Flex`, 2 OCPU/12GB) deu "Out of host capacity" na região quando
+tentamos a primeira vez (gargalo real do Always Free, não erro de
+config). Migrar de novo só vale a pena se a VM atual estiver realmente
+apertada.
+
+`.github/workflows/vm-capacity-check.yml` roda diariamente, lê memória/
+disco/swap/carga da VM via SSH restrita (só executa
+`/opt/monitor-ritapolis/report-capacity.sh`, leitura, nada muda) e falha
+alto quando memória ou disco passam de 85% ou o swap em uso passa de
+500MB (`src/storage/vm-capacity-monitor.js`).
+
+Se o alerta disparar: **primeiro** checar se a Oracle tem capacidade
+A1.Flex disponível agora (`oci compute instance launch --shape
+VM.Standard.A1.Flex ...` — se der "Out of host capacity", não tem, tenta
+de novo depois; capacidade flutua ao longo do dia). Só migrar de verdade
+se a VM atual estiver sob pressão **e** a capacidade existir — nunca migrar
+só porque "seria melhor", isso já causou um retrabalho na primeira tentativa.
+
 ## Disjuntor de uso do R2
 
 `.github/workflows/r2-usage-guard.yml` roda de hora em hora, verifica a
