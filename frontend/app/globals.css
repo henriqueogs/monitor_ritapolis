@@ -455,6 +455,15 @@ h1, h2, h3, h4, p {
   max-width: 900px;
 }
 
+/* Referência administrativa (processo/modalidade) acima do título — o
+   assunto de verdade (h1) é o que importa, isso é só contexto. */
+.page-title-subtitle {
+  margin: 4px 0 6px;
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  font-weight: 500;
+}
+
 /* ── Cards ─────────────────────────────────────────────────── */
 .card,
 .section-block,

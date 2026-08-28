@@ -2,7 +2,6 @@ import { Sparkles, Shield } from 'lucide-react';
 import AiSummaryAction from '../../../components/AiSummaryAction';
 import EvidenceDrawer from '../../../components/EvidenceDrawer';
 import KeyValueList from '../../../components/KeyValueList';
-import StatusBadge from '../../../components/StatusBadge';
 import { formatDate, formatMoney } from '../../../lib/format';
 import { DISCLAIMER_IA } from '../../../lib/disclaimer';
 import styles from '../styles.module.css';
@@ -36,6 +35,11 @@ function humanizarCampo(campo) {
   return String(campo).replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
 }
 
+// Complemento técnico da leitura por IA — o resumo em si (texto cidadão,
+// pontos principais, objeto, datas relevantes) já aparece no topo da página
+// em "Resumo do documento" (SummaryAndSource). Aqui fica só o que é
+// detalhe/administração: confiança, modelo, leitura técnica, evidências,
+// valores e partes envolvidas, e o controle de gerar/regerar.
 export default function AiSummarySection({ resumoAi, operacao }) {
   const dados = resumoAi?.dados;
   const job = resumoAi?.job;
@@ -44,31 +48,24 @@ export default function AiSummarySection({ resumoAi, operacao }) {
 
   if (!dados) {
     return (
-      <div className={styles.aiCard}>
+      <div className={`${styles.aiCard} admin-only`}>
         <div className={styles.aiHeader}>
           <Sparkles size={20} style={{ color: 'var(--ai-accent)' }} />
-          <h3 className={styles.aiTitle}>
-            Leitura simples
-          </h3>
+          <h3 className={styles.aiTitle}>Leitura por IA</h3>
         </div>
-        <p className="lead-text" style={{ marginBottom: '16px' }}>
-          Ainda nao ha leitura simples para este documento. O arquivo oficial segue disponivel para conferencia.
-        </p>
         {jobAtivo ? (
           <div className={styles.aiNotice}>
             Leitura {job.status === 'processando' ? 'em processamento' : 'na fila'}. Recarregue a pagina em alguns instantes para ver o resultado.
           </div>
         ) : null}
         {jobErro ? (
-          <div className={`${styles.aiNoticeError} admin-only`}>
+          <div className={styles.aiNoticeError}>
             A última tentativa de resumo falhou: {job.erro || 'erro não informado'}. Você pode tentar novamente.
           </div>
         ) : null}
-        <div className="admin-only">
-          <AiSummaryAction documentoId={resumoAi?.documento_id} disabled={jobAtivo} />
-        </div>
+        <AiSummaryAction documentoId={resumoAi?.documento_id} disabled={jobAtivo} />
         {operacao && !operacao.recomendado_frontend ? (
-          <div className={`${styles.aiLargeDoc} admin-only`}>
+          <div className={styles.aiLargeDoc}>
             <p>Este documento tem {operacao?.caracteres?.toLocaleString('pt-BR') || 'muitos'} caracteres e será processado em background.</p>
           </div>
         ) : null}
@@ -76,22 +73,20 @@ export default function AiSummarySection({ resumoAi, operacao }) {
     );
   }
 
-  const lowConfidence = Number(dados.confianca || 0) < 0.6;
   const staleSummary = resumoAi.corresponde_ao_texto_atual === false;
 
   return (
-    <div className={styles.aiCard}>
+    <div className={`${styles.aiCard} admin-only`}>
       <div className={styles.aiHeaderSpread}>
         <div className={styles.aiHeaderMain}>
           <Sparkles size={22} style={{ color: 'var(--ai-accent)' }} />
           <div>
-            <h3 className={styles.aiTitleLarge}>Leitura simples</h3>
-            <span className={`${styles.aiMeta} admin-only`}>
+            <h3 className={styles.aiTitleLarge}>Detalhes da leitura por IA</h3>
+            <span className={styles.aiMeta}>
               Gerado por {resumoAi.modelo || 'IA'} • {resumoAi.criado_em ? formatDate(resumoAi.criado_em) : ''}
             </span>
           </div>
         </div>
-        <StatusBadge value={lowConfidence || staleSummary ? 'revisar' : 'ok'} />
       </div>
 
       <div className={`${styles.aiNotice} ${styles.aiNoticeCompact}`}>
@@ -105,7 +100,7 @@ export default function AiSummarySection({ resumoAi, operacao }) {
         </div>
       ) : null}
 
-      <div style={{ marginBottom: '16px' }} className="admin-only">
+      <div style={{ marginBottom: '16px' }}>
         <AiSummaryAction
           documentoId={resumoAi.documento_id}
           label={staleSummary ? 'Gerar resumo atualizado' : 'Gerar novamente'}
@@ -116,69 +111,20 @@ export default function AiSummarySection({ resumoAi, operacao }) {
         />
       </div>
 
-      <div className={styles.aiSummaryLayout}>
-        <div className={styles.aiSummaryMain}>
-          <h3>{dados.titulo_curto || 'Resumo do documento'}</h3>
-          <p>{dados.resumo_cidadao}</p>
-          {dados.pontos_principais?.length ? (
-            <div className={styles.aiSummaryGroup}>
-              <h4>Pontos principais</h4>
-              <ul className="plain-list">
-                {dados.pontos_principais.map((item) => <li key={item}>{item}</li>)}
-              </ul>
-            </div>
-          ) : null}
-        </div>
-        <div className={styles.aiSummarySide}>
-          <KeyValueList items={[
-            { label: 'Atualizado em', value: formatDate(resumoAi.criado_em) }
-          ]} />
-          <div className="admin-only">
-            <KeyValueList items={[
-              { label: 'Confianca', value: formatConfidence(dados.confianca) },
-              { label: 'Compatibilidade', value: resumoAi.corresponde_ao_texto_atual ? 'Compatível' : 'Revisar' },
-              { label: 'Modelo', value: resumoAi.modelo }
-            ]} />
-          </div>
-        </div>
-      </div>
+      <KeyValueList items={[
+        { label: 'Confianca', value: formatConfidence(dados.confianca) },
+        { label: 'Compatibilidade', value: resumoAi.corresponde_ao_texto_atual ? 'Compatível' : 'Revisar' },
+        { label: 'Modelo', value: resumoAi.modelo }
+      ]} />
 
       {dados.resumo_tecnico ? (
-        <div className={`${styles.aiSummaryGroup} admin-only`}>
+        <div className={styles.aiSummaryGroup}>
           <h4>Leitura técnica</h4>
           <p className="lead-text">{dados.resumo_tecnico}</p>
         </div>
       ) : null}
 
-      <div className="admin-only">
-        <EvidenceDrawer dados={dados} />
-      </div>
-
-      {dados.objeto?.descricao ? (
-        <div className={styles.aiEvidenceRow}>
-          <strong>Objeto</strong>
-          <p>{dados.objeto.descricao}</p>
-          {dados.objeto.trecho_fonte ? <span className="admin-only">{dados.objeto.trecho_fonte}</span> : null}
-        </div>
-      ) : null}
-
-      {dados.datas_relevantes?.length ? (
-        <div className={styles.aiSummaryGroup}>
-          <h4>Datas relevantes</h4>
-          <div className="simple-table">
-            {dados.datas_relevantes.map((item) => (
-              <div key={`${item.tipo}-${item.data}-${item.descricao}`} className="table-row table-row-stacked">
-                <div>
-                  <strong>{item.data ? formatDate(item.data) : 'Data não identificada'}</strong>
-                  <p>{item.descricao}</p>
-                  <span className="admin-only">{item.trecho_fonte}</span>
-                </div>
-                <span>{item.tipo}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
+      <EvidenceDrawer dados={dados} />
 
       {dados.valores?.length ? (
         <div className={styles.aiSummaryGroup}>
@@ -189,7 +135,7 @@ export default function AiSummarySection({ resumoAi, operacao }) {
                 <div>
                   <strong>{formatMoney(item.valor)}</strong>
                   <p>{item.descricao}</p>
-                  <span className="admin-only">{item.trecho_fonte}</span>
+                  <span>{item.trecho_fonte}</span>
                 </div>
                 <span>{item.tipo}</span>
               </div>
@@ -198,7 +144,7 @@ export default function AiSummarySection({ resumoAi, operacao }) {
         </div>
       ) : null}
 
-{dados.partes_envolvidas?.length ? (
+      {dados.partes_envolvidas?.length ? (
         <div className={styles.aiSummaryGroup}>
           <h4>Partes envolvidas</h4>
           <div className="simple-table">
@@ -207,7 +153,7 @@ export default function AiSummarySection({ resumoAi, operacao }) {
                 <div>
                   <strong>{item.nome}</strong>
                   <p>{item.documento || 'Documento não informado'}</p>
-                  <span className="admin-only">{item.trecho_fonte}</span>
+                  <span>{item.trecho_fonte}</span>
                 </div>
                 <span>{item.papel}</span>
               </div>
@@ -223,7 +169,7 @@ export default function AiSummarySection({ resumoAi, operacao }) {
         </div>
       ) : null}
 
-      <details className={`details-block ${styles.aiSummaryGroup} admin-only`}>
+      <details className={`details-block ${styles.aiSummaryGroup}`}>
         <summary>Ver dados técnicos do resumo</summary>
         <KeyValueList items={[
           { label: 'Provider', value: resumoAi.provider },
