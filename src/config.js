@@ -46,7 +46,11 @@ module.exports = {
   aiSaveRawResponse: String(process.env.AI_SAVE_RAW_RESPONSE || 'false').toLowerCase() === 'true',
   nvidiaApiKey: process.env.NVIDIA_API_KEY || '',
   nvidiaBaseUrl: process.env.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1',
-  nvidiaModel: process.env.NVIDIA_MODEL || 'meta/llama-3.1-70b-instruct',
+  // meta/llama-3.1-70b-instruct atingiu fim de vida na NVIDIA em 26/08/2026
+  // (API passou a responder 410 Gone pra todo resumo) — substituido pelo
+  // maior modelo puramente instruct (nao "reasoning", que mistura raciocinio
+  // no content) disponivel nesta conta, testado e validado com JSON limpo.
+  nvidiaModel: process.env.NVIDIA_MODEL || 'meta/llama-3.2-90b-vision-instruct',
   // Override opcional: modelo mais forte só para a investigação de
   // descobertas (menor volume, mais exige julgamento) — sem mexer no modelo
   // padrão usado por resumo/leitura simples/anexo. Vazio = usa nvidiaModel.
