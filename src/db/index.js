@@ -3302,7 +3302,11 @@ function getPainelCidadao() {
         )
         .get({ ano: Number(anoPadrao) }).total
     : 0;
-  const coletas = coletasRepo.listColetasLog(5).map((item) => ({
+  // Painel do cidadão não usa o log detalhado por item (`detalhes`) — só o
+  // resumo. Esse campo pode chegar a dezenas de KB por linha (log completo da
+  // coleta), então descartar aqui evita inflar o payload público sem motivo
+  // (medido: ~130KB dos ~186KB do /api/painel-cidadao vinham só disso).
+  const coletas = coletasRepo.listColetasLog(5).map(({ detalhes: _detalhes, ...item }) => ({
     ...item,
     fonte_nome: labelFonte(item.fonte),
     status_nome: labelStatus(item.status)
