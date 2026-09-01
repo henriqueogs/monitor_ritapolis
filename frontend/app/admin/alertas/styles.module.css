@@ -56,6 +56,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 0.5rem;
   border: 1px solid #eef2f7;
   border-radius: 8px;
@@ -67,7 +68,11 @@
   align-items: center;
   gap: 0.5rem;
   flex: 1;
-  min-width: 0;
+  min-width: 160px;
+}
+
+.configRow select {
+  min-width: 140px;
 }
 
 .configChave {
@@ -93,6 +98,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 0.75rem;
   border: 1px solid #eef2f7;
   border-left: 4px solid #2563eb;
@@ -103,6 +109,7 @@
 .alertaInfo {
   display: flex;
   flex-direction: column;
+  flex: 1 1 260px;
   min-width: 0;
 }
 

@@ -75,6 +75,7 @@
     "descobertas:processar": "node scripts/investigar-descobertas-pendentes.js",
     "descobertas:migrar-v3": "node scripts/migrar-descobertas-editorial-v3.js",
     "descobertas:revalidar": "node scripts/revalidar-descobertas-publicadas.js",
+    "descobertas:rejeitar-legado": "node scripts/rejeitar-legado-sem-gate.js",
     "api": "node scripts/api.js",
     "dados:auditar": "node scripts/auditar-dados.js",
     "dados:status": "node scripts/pipeline-status.js",
