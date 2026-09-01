@@ -9,6 +9,7 @@
 const axios = require('axios');
 const logger = require('../logger');
 const { createSafeHttpsAgent, assertSafeUrl } = require('../http/safe-network');
+const { collectorProxyConfigured, proxyCollectorRequest } = require('../http/collector-proxy');
 const {
   BASE_URL,
   extrairTokens,
@@ -42,14 +43,40 @@ function paraFormatoIso(dataBr) {
   return `${ano}-${mes}-${dia}`;
 }
 
+// Este cliente usa cookie de sessão por chamada (Cookie manual em cada
+// request, não um cookie jar) — não passa por ColetorBase.buscarComRetry
+// (que já roteia pelo proxy sozinho). Quando COLLECTOR_PROXY_URL/TOKEN
+// estão configurados (ver src/http/collector-proxy.js — hoje necessário
+// porque a Oracle Cloud é bloqueada pelo Cloudflare do portal, HTTP 403),
+// o interceptor reescreve a request pra passar pelo Worker, preservando
+// Cookie/Referer como headers normais.
 function criarCliente() {
-  return axios.create({
+  const cliente = axios.create({
     baseURL: BASE_URL,
     timeout: 20000,
     responseEncoding: 'latin1',
     httpsAgent: createSafeHttpsAgent(),
     validateStatus: (status) => status >= 200 && status < 400,
   });
+
+  if (collectorProxyConfigured()) {
+    cliente.interceptors.request.use((requestConfig) => {
+      const alvo = axios.getUri(requestConfig);
+      const roteado = proxyCollectorRequest({
+        method: requestConfig.method,
+        url: alvo,
+        options: { headers: requestConfig.headers },
+      });
+      requestConfig.baseURL = '';
+      requestConfig.url = roteado.url;
+      requestConfig.params = undefined;
+      requestConfig.headers = { ...requestConfig.headers, ...roteado.options.headers };
+      requestConfig.maxRedirects = 0;
+      return requestConfig;
+    });
+  }
+
+  return cliente;
 }
 
 function extrairCookie(response) {
