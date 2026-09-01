@@ -47,10 +47,11 @@ module.exports = {
   nvidiaApiKey: process.env.NVIDIA_API_KEY || '',
   nvidiaBaseUrl: process.env.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1',
   // meta/llama-3.1-70b-instruct atingiu fim de vida na NVIDIA em 26/08/2026
-  // (API passou a responder 410 Gone pra todo resumo) — substituido pelo
-  // maior modelo puramente instruct (nao "reasoning", que mistura raciocinio
-  // no content) disponivel nesta conta, testado e validado com JSON limpo.
-  nvidiaModel: process.env.NVIDIA_MODEL || 'meta/llama-3.2-90b-vision-instruct',
+  // (API passou a responder 410 Gone pra todo resumo). Trocado pro gpt-oss-120b
+  // (OpenAI, open-weight, gratis no catalogo NVIDIA NIM) — mais moderno,
+  // JSON limpo, validado end-to-end com documento real de producao
+  // (44k caracteres, 9 chunks + consolidacao, saida correta).
+  nvidiaModel: process.env.NVIDIA_MODEL || 'openai/gpt-oss-120b',
   // Override opcional: modelo mais forte só para a investigação de
   // descobertas (menor volume, mais exige julgamento) — sem mexer no modelo
   // padrão usado por resumo/leitura simples/anexo. Vazio = usa nvidiaModel.
