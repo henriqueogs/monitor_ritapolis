@@ -43,9 +43,9 @@ export default async function SobrePage() {
           <div className={styles.statusRow}>
             <div>
               <strong>Câmara Municipal de Ritápolis</strong>
-              <p>Leis, decretos, portarias, resoluções e atos legislativos. 13 registros coletados.</p>
+              <p>Leis, decretos, portarias, resoluções e atos legislativos. Site da Câmara parou de publicar novidades — coleta automática pausada desde 05/2026, 3 registros antigos na base.</p>
             </div>
-            <DataAvailabilityBadge status="real" />
+            <DataAvailabilityBadge status="pendente" />
           </div>
           <div className={styles.statusRow}>
             <div>

@@ -7,7 +7,7 @@ export default function UpdatesSection({ documentos, anoPadrao }) {
     <div className="content-stack">
       <SectionBlock
         title="Publicado recentemente"
-        description="O que a Prefeitura e a Câmara publicaram por último — editais, contratos, decretos e mais, do mais novo ao mais antigo."
+        description="O que a Prefeitura publicou por último — editais, contratos, decretos e mais, do mais novo ao mais antigo."
         aside={
           <Link href={`/acervo${anoPadrao ? `?ano=${anoPadrao}` : ''}`}>
             Abrir acervo &rarr;

@@ -103,10 +103,6 @@ export default async function TemasPage() {
             <div><strong>Todas as licitações</strong><p>Editais, pregões, dispensas e compras públicas de Ritápolis.</p></div>
             <span>→</span>
           </Link>
-          <Link href="/acervo?fonte=camara" className="quality-row">
-            <div><strong>Câmara Municipal</strong><p>Leis, atas, portarias e atos legislativos.</p></div>
-            <span>→</span>
-          </Link>
           <Link href="/analises" className="quality-row">
             <div><strong>Análises verificáveis</strong><p>Leituras feitas por IA sobre documentos com fonte identificada.</p></div>
             <span>→</span>

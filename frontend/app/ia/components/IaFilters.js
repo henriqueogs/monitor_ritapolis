@@ -22,7 +22,6 @@ export default function IaFilters({ filters, years, types }) {
       <select name="fonte" defaultValue={filters.fonte} className="field-select">
         <option value="">Todas as fontes</option>
         <option value="site_prefeitura">Prefeitura</option>
-        <option value="camara">Camara</option>
       </select>
       <select name="status_job" defaultValue={filters.status_job} className="field-select">
         <option value="">Todos os jobs</option>
