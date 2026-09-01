@@ -15,6 +15,27 @@ import styles from './styles.module.css';
 
 const SEV_COR = { critico: '#d97706', atencao: '#2563eb', info: '#64748b' };
 
+// Agrupa as ~18 chaves de config em seções — a lista solta misturava
+// detectores legados, investigação factual, scheduler e gasto atípico sem
+// nenhuma organização.
+const GRUPOS_CONFIG = [
+  { titulo: 'Investigação factual (IA)', prefixos: ['alertas:investigacao_', 'alertas:narrativa_'] },
+  { titulo: 'Detectores temáticos (legado)', prefixos: ['alertas:min_repeticao', 'alertas:valor_threshold', 'alertas:anomalia_', 'alertas:gatilhos_ativos'] },
+  { titulo: 'Scheduler incremental', prefixos: ['descobertas:'] },
+  { titulo: 'Gasto atípico (empenhos)', prefixos: ['gasto_atipico.'] },
+];
+
+function agruparConfig(config) {
+  const grupos = GRUPOS_CONFIG.map((g) => ({ ...g, itens: [] }));
+  const outros = [];
+  for (const c of config) {
+    const grupo = grupos.find((g) => g.prefixos.some((p) => c.chave.startsWith(p)));
+    (grupo ? grupo.itens : outros).push(c);
+  }
+  if (outros.length) grupos.push({ titulo: 'Outros', itens: outros });
+  return grupos.filter((g) => g.itens.length > 0);
+}
+
 function valorParaInput(valor) {
   if (typeof valor === 'boolean') return valor;
   if (valor && typeof valor === 'object') return JSON.stringify(valor);
@@ -28,7 +49,10 @@ export default function AdminAlertasPanel({ initialStats, initialConfig, initial
   const [loading, setLoading] = useState(null);
   const [log, setLog] = useState([]);
   const [filtroTema, setFiltroTema] = useState('todos');
-  const [filtroEditorial, setFiltroEditorial] = useState('todos');
+  // 'rejeitado' são itens arquivados (legado/superado por rebuild) — nunca
+  // foram públicos, não precisam de atenção. Sem isso, a fila de 90 mostra 81
+  // itens mortos por padrão. 'todos' continua disponível pra quem quiser ver.
+  const [filtroEditorial, setFiltroEditorial] = useState('nao_rejeitado');
 
   const registrar = useCallback((msg, erro = false) => {
     setLog((prev) => [{ msg, erro, ts: new Date() }, ...prev.slice(0, 5)]);
@@ -118,15 +142,20 @@ export default function AdminAlertasPanel({ initialStats, initialConfig, initial
   const alertasFiltrados = alertas.filter((a) => {
     const discovery = a.metadados?.discovery_v3 || a.metadados?.discovery_v2;
     const tema = discovery?.tipo_investigacao || a.metadados?.investigacao_tipo || 'sem_ia';
-    return (filtroTema === 'todos' || tema === filtroTema)
-      && (filtroEditorial === 'todos' || a.estado_editorial === filtroEditorial);
+    const passaEditorial = filtroEditorial === 'todos'
+      ? true
+      : filtroEditorial === 'nao_rejeitado'
+        ? a.estado_editorial !== 'rejeitado'
+        : a.estado_editorial === filtroEditorial;
+    return (filtroTema === 'todos' || tema === filtroTema) && passaEditorial;
   });
   const temas = [...new Set(alertas
     .map((a) => (a.metadados?.discovery_v3 || a.metadados?.discovery_v2)?.tipo_investigacao || a.metadados?.investigacao_tipo)
     .filter(Boolean))];
   const estadosEditoriais = [...new Set(alertas.map((a) => a.estado_editorial || 'sem_estado'))];
-  const severidade = stats.severidade || { total: 0 };
   const editorial = stats.editorial || { total: 0 };
+  const acionaveis = (editorial.publicado || 0) + (editorial.revisao || 0) + (editorial.candidato || 0);
+  const gruposConfig = agruparConfig(config);
 
   return (
     <div className={styles.panel}>
@@ -134,8 +163,8 @@ export default function AdminAlertasPanel({ initialStats, initialConfig, initial
         <div>
           <h1>Descobertas</h1>
           <p>
-            {severidade.total} ativas · {editorial.publicado || 0} publicadas · {editorial.revisao || 0} em revisão ·{' '}
-            {editorial.candidato || 0} candidatas
+            {acionaveis} acionáve{acionaveis === 1 ? 'l' : 'is'} ({editorial.publicado || 0} publicada, {editorial.revisao || 0} em revisão,{' '}
+            {editorial.candidato || 0} candidata){editorial.rejeitado ? ` · ${editorial.rejeitado} arquivada${editorial.rejeitado === 1 ? '' : 's'}` : ''}
           </p>
         </div>
         <button className="button" onClick={handleGerar} disabled={loading === 'gerar'}>
@@ -156,11 +185,16 @@ export default function AdminAlertasPanel({ initialStats, initialConfig, initial
       <section className={styles.section}>
         <h2>Configuração de gatilhos</h2>
         {config.length === 0 && <p className="empty-state">Sem configurações registradas (usando defaults).</p>}
-        <div className={styles.configGrid}>
-          {config.map((c) => (
-            <ConfigRow key={c.chave} c={c} loading={loading === `config-${c.chave}`} onSalvar={handleConfig} />
-          ))}
-        </div>
+        {gruposConfig.map((grupo) => (
+          <div key={grupo.titulo} className={styles.configGrupo}>
+            <h3>{grupo.titulo}</h3>
+            <div className={styles.configGrid}>
+              {grupo.itens.map((c) => (
+                <ConfigRow key={c.chave} c={c} loading={loading === `config-${c.chave}`} onSalvar={handleConfig} />
+              ))}
+            </div>
+          </div>
+        ))}
       </section>
 
       <section className={styles.section}>
@@ -176,6 +210,7 @@ export default function AdminAlertasPanel({ initialStats, initialConfig, initial
           <label className={styles.configRow}>
             <span className={styles.configChave}>Estado editorial</span>
             <select value={filtroEditorial} onChange={(e) => setFiltroEditorial(e.target.value)}>
+              <option value="nao_rejeitado">ativas (sem arquivadas)</option>
               <option value="todos">todos</option>
               {estadosEditoriais.map((estado) => <option key={estado} value={estado}>{estado}</option>)}
             </select>
