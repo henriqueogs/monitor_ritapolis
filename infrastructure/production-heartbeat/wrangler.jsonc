@@ -4,7 +4,7 @@
   "main": "src/index.js",
   "compatibility_date": "2026-08-12",
   "vars": {
-    "API_HEALTH_URL": "https://monitor-ritapolis-api.onrender.com/api/health"
+    "API_HEALTH_URL": "https://api.ritapolis.com/api/health"
   },
   "triggers": {
     "crons": ["*/10 * * * *"]

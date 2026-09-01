@@ -161,6 +161,13 @@ function upstreamHeaders(request, target) {
   if (contentType) {
     headers.set('content-type', contentType);
   }
+  // Fluxos com sessão (ex.: portal-transparencia-thread-http.js) mandam o
+  // Cookie explicitamente por chamada — sem isso, cada request proxiado
+  // vira uma sessão nova no portal.
+  const cookie = request.headers.get('cookie');
+  if (cookie) {
+    headers.set('cookie', cookie);
+  }
   return headers;
 }
 
@@ -198,6 +205,12 @@ async function proxyCollectorRequest(request, env) {
       const contentLength = response.headers.get('content-length');
       if (contentLength) {
         headers.set('content-length', contentLength);
+      }
+      // getSetCookie() devolve cada Set-Cookie separado — response.headers.get()
+      // junta tudo numa string só com vírgula, o que quebra o parsing no
+      // coletor (extrairCookie espera um array).
+      for (const setCookie of response.headers.getSetCookie?.() || []) {
+        headers.append('set-cookie', setCookie);
       }
       return new Response(response.body, { status: response.status, headers });
     }
