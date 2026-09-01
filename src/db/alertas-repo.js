@@ -262,8 +262,14 @@ function upsertAlerta(alerta, documentos = [], evidencias = []) {
     const publicadoEm = estadoEditorial === 'publicado'
       ? campos.publicado_em || existing.publicado_em || agora
       : null;
-    const preservarConteudoPublicado = mesmoHash && existing.estado_editorial === 'publicado'
-      && (!estadoInformado || preservarEstadoTerminal);
+    // Mesma condição que preserva o ESTADO (preservarEstadoTerminal) também tem
+    // que preservar o CONTEÚDO investigado (título/narrativa/discovery_v3):
+    // antes só 'publicado' era protegido, então um candidato em 'revisao' com
+    // narrativa real gerada por IA (e o diagnóstico de por que foi reprovado)
+    // era apagado e substituído pelo template genérico no próximo ciclo de
+    // generateAlerts() que regenerasse o mesmo fato — mesmo com o estado
+    // certo, o admin via só o texto mecânico, não a investigação de verdade.
+    const preservarConteudoInvestigado = preservarEstadoTerminal;
     // chave_unica não muda no UPDATE; node:sqlite rejeita parâmetros não usados.
     const { chave_unica: _chave, ...semChave } = campos;
     db.prepare(
@@ -282,13 +288,13 @@ function upsertAlerta(alerta, documentos = [], evidencias = []) {
       ...semChave,
       status,
       estado_editorial: estadoEditorial,
-      titulo: preservarConteudoPublicado ? existing.titulo : semChave.titulo,
-      narrativa: preservarConteudoPublicado ? existing.narrativa : semChave.narrativa,
-      metadados_json: preservarConteudoPublicado ? existing.metadados_json : semChave.metadados_json,
-      qualidade_motivos_json: preservarConteudoPublicado
+      titulo: preservarConteudoInvestigado ? existing.titulo : semChave.titulo,
+      narrativa: preservarConteudoInvestigado ? existing.narrativa : semChave.narrativa,
+      metadados_json: preservarConteudoInvestigado ? existing.metadados_json : semChave.metadados_json,
+      qualidade_motivos_json: preservarConteudoInvestigado
         ? existing.qualidade_motivos_json
         : semChave.qualidade_motivos_json,
-      qualidade_versao: preservarConteudoPublicado ? existing.qualidade_versao : semChave.qualidade_versao,
+      qualidade_versao: preservarConteudoInvestigado ? existing.qualidade_versao : semChave.qualidade_versao,
       publicado_em: publicadoEm,
       agora,
       id: existing.id,

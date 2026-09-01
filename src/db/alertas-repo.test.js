@@ -148,6 +148,45 @@ describe('alertas-repo', () => {
       }, [{ documento_id: 2 }], [{ documento_id: 2, papel: 'evidencia', trecho_fonte: 'nova fonte' }]);
       expect(repo.getAlerta(id).estado_editorial).toBe('candidato');
     });
+
+    it('preserva a narrativa investigada (nao so o estado) quando o alerta esta em revisao', () => {
+      // Bug real: o estado ficava 'revisao' corretamente (preservarEstadoTerminal
+      // ja cobria isso), mas titulo/narrativa/metadados_json eram sobrescritos
+      // pelo template bruto do detector no proximo ciclo de generateAlerts() —
+      // a narrativa real gerada por IA (e o motivo da reprovacao editorial)
+      // sumia, mesmo sem o estado mudar.
+      seedDocumento(1, '2026-03-01');
+      const evidencia = [{ documento_id: 1, papel: 'evidencia', trecho_fonte: '60 arvores' }];
+      const base = {
+        tipo: 'tematico',
+        titulo: 'Titulo investigado pela IA',
+        narrativa: 'Narrativa real gerada pela IA, com o diagnostico do porque foi pra revisao.',
+        chave_unica: 'factual-em-revisao',
+        severidade: 'info',
+        estado_editorial: 'revisao',
+        qualidade_motivos: ['EDITORIAL_GENERIC_TITLE'],
+        metadados: { discovery_kind: 'investigacao_factual', discovery_v3: { editorial: { narrativa_consolidada: 'real' } } },
+      };
+      const { id } = repo.upsertAlerta(base, [{ documento_id: 1 }], evidencia);
+
+      // generateAlerts() regenerando o candidato bruto do zero, mesma evidencia
+      repo.upsertAlerta({
+        ...base,
+        titulo: 'Titulo bruto do detector',
+        narrativa: 'Narrativa bruta.',
+        estado_editorial: 'candidato',
+        estado_editorial_origem: 'gerador_factual',
+        qualidade_motivos: [],
+        metadados: { discovery_kind: 'investigacao_factual' },
+      }, [{ documento_id: 1 }], evidencia);
+
+      const preservado = repo.getAlerta(id);
+      expect(preservado.estado_editorial).toBe('revisao');
+      expect(preservado.titulo).toBe('Titulo investigado pela IA');
+      expect(preservado.narrativa).toContain('diagnostico');
+      expect(preservado.metadados.discovery_v3.editorial.narrativa_consolidada).toBe('real');
+      expect(preservado.qualidade_motivos).toEqual(['EDITORIAL_GENERIC_TITLE']);
+    });
   });
 
   describe('removerAtivosNaoListados', () => {
