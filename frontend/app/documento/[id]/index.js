@@ -1,5 +1,6 @@
 import DocumentPreviewPane from '../../components/DocumentPreviewPane';
 import { fetchDocumento, fetchDocumentoProdutos, fetchDocumentoEmpenhos } from '../../lib/api';
+import { safeJsonLdHtml } from '../../lib/json-ld';
 import AiSummarySection from './components/AiSummarySection';
 import AttachmentsSection from './components/AttachmentsSection';
 import DocumentHeader from './components/DocumentHeader';
@@ -46,7 +47,7 @@ export default async function DocumentoPage({ params: paramsPromise }) {
     <main className="page-container">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLdHtml(jsonLd) }}
       />
       <DocumentHeader documento={documento} licitacao={licitacao} />
       <SummaryAndSource documento={documento} licitacao={licitacao} />

@@ -128,4 +128,42 @@ describe('api security middleware', () => {
       }
     );
   });
+
+  test('blocks a burst of requests from one client well before the 15-minute limit', async () => {
+    await withServer(
+      { ADMIN_AUTH_USER: 'admin', ADMIN_AUTH_PASSWORD: 'secret', NODE_ENV: 'test', BURST_LIMIT_PUBLICREAD: '3' },
+      async (baseUrl) => {
+        const results = [];
+        for (let i = 0; i < 5; i += 1) {
+          // eslint-disable-next-line no-await-in-loop
+          results.push((await fetch(`${baseUrl}/api/health`)).status);
+        }
+        expect(results.slice(0, 3)).toEqual([200, 200, 200]);
+        expect(results.slice(3)).toEqual([429, 429]);
+      }
+    );
+  });
+
+  test('reports Retry-After in seconds when a burst is blocked', async () => {
+    await withServer(
+      { ADMIN_AUTH_USER: 'admin', ADMIN_AUTH_PASSWORD: 'secret', NODE_ENV: 'test', BURST_LIMIT_PUBLICREAD: '1' },
+      async (baseUrl) => {
+        await fetch(`${baseUrl}/api/health`);
+        const blocked = await fetch(`${baseUrl}/api/health`);
+        expect(blocked.status).toBe(429);
+        expect(Number(blocked.headers.get('retry-after'))).toBeGreaterThan(0);
+        expect(Number(blocked.headers.get('retry-after'))).toBeLessThanOrEqual(10);
+      }
+    );
+  });
+
+  test('does not let unbounded distinct clients grow the rate-limit table forever', () => {
+    security.resetRateLimitForTests();
+    const makeReq = (ip) => ({ path: '/api/health', method: 'GET', ip, get: () => null });
+    const res = { setHeader: () => {}, status: () => res, json: () => res };
+    for (let i = 0; i < 25000; i += 1) {
+      security.rateLimit(makeReq(`10.0.${Math.floor(i / 255)}.${i % 255}`), res, () => {});
+    }
+    expect(security.getRateLimitBucketSize()).toBeLessThanOrEqual(security.MAX_RATE_LIMIT_ENTRIES);
+  });
 });

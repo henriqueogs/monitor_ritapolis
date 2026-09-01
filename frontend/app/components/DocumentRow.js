@@ -2,6 +2,7 @@ import Link from 'next/link';
 import QualitySignals from './QualitySignals';
 import StatusBadge from './StatusBadge';
 import { cleanDocumentTitle, cleanDocumentSummary, formatDate, labelFonte, labelTipo } from '../lib/format';
+import { parseFtsSnippetSegments } from '../lib/fts-snippet';
 
 export default function DocumentRow({ documento }) {
   // snippet_texto vem da busca FTS5 — tem <mark> tags para highlight
@@ -20,7 +21,11 @@ export default function DocumentRow({ documento }) {
           <Link href={`/documento/${documento.id}`}>{cleanDocumentTitle(documento)}</Link>
         </h3>
         {ftsSnippet ? (
-          <p className="fts-snippet" dangerouslySetInnerHTML={{ __html: ftsSnippet }} />
+          <p className="fts-snippet">
+            {parseFtsSnippetSegments(ftsSnippet).map((segment, index) =>
+              segment.highlight ? <mark key={index}>{segment.text}</mark> : segment.text
+            )}
+          </p>
         ) : (
           <p>{resumoTexto}</p>
         )}

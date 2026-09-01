@@ -8,6 +8,7 @@ import TopNav from './components/TopNav';
 import RequestToaster from './components/RequestToaster';
 import { DISCLAIMER_RODAPE } from './lib/disclaimer';
 import { BRAND, BRAND_TAGLINE, SITE_URL } from './lib/brand';
+import { safeJsonLdHtml } from './lib/json-ld';
 
 export const metadata = {
   metadataBase: new URL(SITE_URL),
@@ -51,7 +52,7 @@ export default function RootLayout({ children }) {
       <body>
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdWebSite) }}
+          dangerouslySetInnerHTML={{ __html: safeJsonLdHtml(jsonLdWebSite) }}
         />
         <TopNav />
         <RequestToaster />

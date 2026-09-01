@@ -5,11 +5,10 @@ const auth = require('../auth/admin-basic-auth');
 const adminSessions = require('../auth/admin-session');
 const adminAuthRepo = require('../db/admin-auth-repo');
 const logger = require('../logger');
+const { createRateLimiter, getRateLimitBucketSize, MAX_RATE_LIMIT_ENTRIES, resetRateLimitForTests } = require('./rate-limit');
 
 const MUTATION_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const DEFAULT_JSON_LIMIT = '1mb';
-const RATE_WINDOW_MS = 15 * 60 * 1000;
-const buckets = new Map();
 
 function splitList(value) {
   return String(value || '')
@@ -158,39 +157,7 @@ function applyCachePolicy(req, res, next) {
   return next();
 }
 
-function getRateLimit(classification, env = process.env) {
-  const defaults = {
-    publicRead: 600,
-    search: 120,
-    auth: 20,
-    adminRead: 180,
-    adminWrite: 60,
-    expensiveJob: 20,
-  };
-  const key = `RATE_LIMIT_${classification.toUpperCase()}`;
-  return Math.max(Number(env[key] || defaults[classification] || 300), 1);
-}
-
-function rateLimit(req, res, next) {
-  const classification = classifyRequest(req);
-  const limit = getRateLimit(classification);
-  const key = `${classification}:${req.ip || req.socket?.remoteAddress || 'unknown'}`;
-  const now = Date.now();
-  const current = buckets.get(key);
-
-  if (!current || current.resetAt <= now) {
-    buckets.set(key, { count: 1, resetAt: now + RATE_WINDOW_MS });
-    return next();
-  }
-
-  current.count += 1;
-  if (current.count > limit) {
-    res.setHeader('Retry-After', Math.ceil((current.resetAt - now) / 1000));
-    return res.status(429).json({ error: 'Muitas requisicoes; tente novamente em instantes' });
-  }
-
-  return next();
-}
+const rateLimit = createRateLimiter(classifyRequest);
 
 function corsOptions(req, callback) {
   const origin = req.get('origin');
@@ -210,10 +177,6 @@ function getJsonLimit(env = process.env) {
   return env.JSON_BODY_LIMIT || DEFAULT_JSON_LIMIT;
 }
 
-function resetRateLimitForTests() {
-  buckets.clear();
-}
-
 module.exports = {
   applyCachePolicy,
   applySecurityHeaders,
@@ -221,7 +184,9 @@ module.exports = {
   corsOptions,
   getAllowedOrigins,
   getJsonLimit,
+  getRateLimitBucketSize,
   isAllowedOrigin,
+  MAX_RATE_LIMIT_ENTRIES,
   rateLimit,
   requireAdmin,
   resetRateLimitForTests,
