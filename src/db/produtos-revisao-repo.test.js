@@ -90,6 +90,11 @@ describe('produtos-revisao-repo', () => {
       const { itens } = listProdutosParaRevisao({ documentoId: 1 }, conn);
       expect(itens[0].documento_numero).toBe('PP-001/2024');
     });
+
+    it('inclui a origem do documento — sem isso o admin não tem como validar o trecho contra a fonte', () => {
+      const { itens } = listProdutosParaRevisao({ documentoId: 1 }, conn);
+      expect(itens[0].documento_url_origem).toBe('http://x');
+    });
   });
 
   describe('setProdutoStatusRevisao', () => {
