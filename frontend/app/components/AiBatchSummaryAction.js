@@ -55,6 +55,7 @@ export default function AiBatchSummaryAction({ filters, pendingTotal = 0 }) {
             <option value="5">5 documentos</option>
             <option value="10">10 documentos</option>
             <option value="20">20 documentos</option>
+            <option value="50">50 documentos</option>
           </select>
         </label>
         <label>
