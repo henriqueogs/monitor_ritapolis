@@ -251,7 +251,13 @@ function upsertAlerta(alerta, documentos = [], evidencias = []) {
     const mesmoHash = Boolean(evidenciasHash && existing.evidencias_hash === evidenciasHash);
     const origemGerador = ['gerador_factual', 'migracao_legado'].includes(alerta.estado_editorial_origem);
     const estadoTerminal = ['publicado', 'revisao', 'rejeitado'].includes(existing.estado_editorial);
-    const preservarEstadoTerminal = mesmoHash && origemGerador && estadoTerminal;
+    // 'rejeitado' é decisão humana sobre a CATEGORIA do alerta ("esse tipo é
+    // ruído"), não sobre uma citação específica — evidência nova entrando no
+    // bucket (ex: mais um fato extraído) não deve reabrir sozinho. Os outros
+    // estados terminais seguem exigindo mesmoHash: conteúdo novo ali é sinal
+    // legítimo de que vale reinvestigar.
+    const rejeitado = existing.estado_editorial === 'rejeitado';
+    const preservarEstadoTerminal = origemGerador && estadoTerminal && (mesmoHash || rejeitado);
     const estadoEditorial = preservarEstadoTerminal
       ? existing.estado_editorial
       : estadoInformado
