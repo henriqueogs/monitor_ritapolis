@@ -1,8 +1,14 @@
 import './globals.css';
 
-// O conteúdo vem da API publicada separadamente. Evita que o build dependa de
-// uma API local e mantém o cache por fetch/revalidate definido em app/lib/api.
-export const dynamic = 'force-dynamic';
+// Nao forcar dynamic aqui: isso propagava pra TODA rota da arvore e impedia
+// paginas com segmento dinamico (empenho/[id], credores/[cnpj]...) de usar
+// `revalidate` -- toda pagina virava dynamic sempre, sem cache de edge nenhum
+// (bots batendo em cada empenho/credor individual = 71K invocacoes em 12h).
+// Paginas SEM searchParams que buscam dado no server (home, /sobre, /temas)
+// declaram force-dynamic elas mesmas, senao o build tentaria SSG contra uma
+// API que nao existe em CI. As demais ja sao dynamic de forma automatica
+// (usam searchParams) ou nao buscam nada (redirects). /admin/* tem seu
+// proprio layout com force-dynamic proprio, nao depende deste.
 import Link from 'next/link';
 import TopNav from './components/TopNav';
 import RequestToaster from './components/RequestToaster';

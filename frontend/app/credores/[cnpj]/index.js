@@ -6,6 +6,15 @@ import FinalidadeBadge from '../../components/FinalidadeBadge';
 import TransparenciaSubnav from '../../components/TransparenciaSubnav';
 import EmpenhosCredor from './components/EmpenhosCredor';
 import HistoricoPorMandato from './components/HistoricoPorMandato';
+import BreadcrumbJsonLd from '../../components/BreadcrumbJsonLd';
+
+// Vazio de proposito: nao pre-renderiza nenhum cnpj no build (evita bater na
+// API, que nao existe em CI). So DEFINIR generateStaticParams (mesmo vazio)
+// e o que liga o modo ISR-on-demand nessa rota -- sem isso, `revalidate`
+// abaixo e ignorado e a rota fica sempre dynamic (ver PR do cache de bots).
+export async function generateStaticParams() {
+  return [];
+}
 
 export async function generateMetadata({ params: paramsPromise }) {
   const params = await paramsPromise;
@@ -164,6 +173,12 @@ export default async function CredorProfilePage({
 
   return (
     <main className="page-container">
+      <BreadcrumbJsonLd
+        items={[
+          { name: 'Fornecedores', url: '/credores' },
+          { name: nome, url: `/credores/${params.cnpj}` },
+        ]}
+      />
       <div className="page-title">
         <div>
           <p style={{ margin: '0 0 6px', fontSize: 13, color: 'var(--text-muted)' }}>
