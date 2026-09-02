@@ -187,6 +187,39 @@ describe('alertas-repo', () => {
       expect(preservado.metadados.discovery_v3.editorial.narrativa_consolidada).toBe('real');
       expect(preservado.qualidade_motivos).toEqual(['EDITORIAL_GENERIC_TITLE']);
     });
+
+    it('nao reabre alerta rejeitado quando evidencia nova entra no bucket (hash muda)', () => {
+      // Bug real: rejeitar em lote (scripts/rejeitar-legado-sem-gate.js) e depois
+      // rodar gerar-alertas.js --full com novos fatos extraidos mudava o
+      // evidencias_hash do bucket agregado -> mesmoHash falhava -> a rejeicao
+      // manual era descartada e o alerta voltava pra 'revisao' sozinho.
+      seedDocumento(1, '2026-03-01');
+      seedDocumento(2, '2026-03-02');
+      const base = {
+        tipo: 'tematico',
+        titulo: 'Servicos — 4 processos em 2026',
+        chave_unica: 'legado-servicos-2026',
+        severidade: 'info',
+      };
+      const { id } = repo.upsertAlerta(
+        base,
+        [{ documento_id: 1 }],
+        [{ documento_id: 1, papel: 'evidencia', trecho_fonte: 'x' }]
+      );
+      repo.setEstadoEditorial(id, 'rejeitado', { origem: 'migracao_legado', motivos: ['LEGACY_NO_QUALITY_GATE'] });
+
+      // regeneracao com um fato novo no bucket -> evidencias_hash diferente
+      repo.upsertAlerta(
+        { ...base, estado_editorial: 'candidato', estado_editorial_origem: 'gerador_factual' },
+        [{ documento_id: 1 }, { documento_id: 2 }],
+        [
+          { documento_id: 1, papel: 'evidencia', trecho_fonte: 'x' },
+          { documento_id: 2, papel: 'evidencia', trecho_fonte: 'novo fato' },
+        ]
+      );
+
+      expect(repo.getAlerta(id).estado_editorial).toBe('rejeitado');
+    });
   });
 
   describe('removerAtivosNaoListados', () => {
