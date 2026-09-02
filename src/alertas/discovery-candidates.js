@@ -10,6 +10,7 @@ const DEFAULT_TEMAS = {
   'compras.precos_itens': true,
   'contratos.recorrencia_fornecedor_objeto': true,
   'eventos.gastos_eventos_publicos': true,
+  'riscos.alerta_resumo_ia': true,
 };
 
 const STOPWORDS_OBJETO = new Set([
@@ -405,6 +406,48 @@ function candidatosEventos(fatos) {
   return candidatos;
 }
 
+// Um candidato por risco 'alto' já sinalizado pela IA no resumo do documento
+// (fatos-resumo-riscos.js) — não agrupa entre documentos (cada risco já é
+// uma afirmação específica sobre UM documento, diferente de recorrência/
+// evento que só fazem sentido cruzando vários). Sem trecho literal do PDF
+// (só a leitura da IA) — por isso sempre cai em revisão humana, nunca
+// publica sozinho (ver alertas:investigacao_publicacao_automatica).
+function candidatosRiscosResumo(fatos) {
+  const candidatos = [];
+  for (const fato of fatos.filter((item) => item.tipo === 'riscos_resumo' && item.subtipo === 'risco_alto')) {
+    const ano = anoFato(fato);
+    if (!ano) {continue;}
+    const chaveFato = fato.origem_hash ? fato.origem_hash.slice(0, 16) : `${fato.documento_id}-${fato.descricao}`;
+    candidatos.push(alertaBase({
+      tipoInvestigacao: 'riscos.alerta_resumo_ia',
+      subjectKey: `risco|doc-${fato.documento_id}|${chaveFato}`,
+      categoria: 'Riscos sinalizados pela IA',
+      subcategoria: fato.metadados?.nivel || 'alto',
+      ano,
+      titulo: fato.descricao,
+      narrativa: fato.metadados?.motivo || fato.descricao,
+      fatos: [fato],
+      valor: 1,
+      unidade: 'ocorrencia',
+      label: `Sinalizado em ${ano}`,
+      prioridade: 78,
+      metricaPrincipal: { nome: 'risco_sinalizado', valor: 1, unidade: 'ocorrencia' },
+      metricas: { nivel: fato.metadados?.nivel || 'alto' },
+      campos: ['confirmar o risco apontado contra o documento oficial'],
+      lacunas: ['este alerta vem da leitura da IA sobre o resumo do documento, não de uma citação literal do PDF — confirme antes de publicar'],
+      questionamentos: ['O risco apontado pela IA se confirma no documento oficial?'],
+      detalhes: {
+        risco_resumo: {
+          documento_id: fato.documento_id,
+          resumo_ai_id: fato.metadados?.resumo_ai_id || null,
+          nivel: fato.metadados?.nivel || 'alto',
+        },
+      },
+    }));
+  }
+  return candidatos;
+}
+
 function candidatosArvores(fatos, thresholdArvores) {
   const fatosPorId = new Map(fatos.map((fato) => [Number(fato.id), fato]));
   return detectarFatosAgregados(fatos, {
@@ -475,6 +518,7 @@ function gerarCandidatosInvestigativos(fatos, options = {}) {
   if (ativos['compras.precos_itens']) {candidatos.push(...candidatosCompras(fatos));}
   if (ativos['contratos.recorrencia_fornecedor_objeto']) {candidatos.push(...candidatosContratos(fatos));}
   if (ativos['eventos.gastos_eventos_publicos']) {candidatos.push(...candidatosEventos(fatos));}
+  if (ativos['riscos.alerta_resumo_ia']) {candidatos.push(...candidatosRiscosResumo(fatos));}
   return candidatos.sort((a, b) => {
     const ano = Number(b.metadados?.ano || 0) - Number(a.metadados?.ano || 0);
     return ano || Number(b.metadados?.prioridade || 0) - Number(a.metadados?.prioridade || 0);
@@ -488,6 +532,7 @@ module.exports = {
   candidatosCompras,
   candidatosContratos,
   candidatosEventos,
+  candidatosRiscosResumo,
   dedupePorDocumento,
   normalizarTexto,
   chaveObjeto,

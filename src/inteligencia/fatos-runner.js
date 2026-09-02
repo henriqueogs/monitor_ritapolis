@@ -7,6 +7,8 @@ const {
   extrairFatosProdutos,
   resumirAnexoLocal,
 } = require('./fatos-extractor');
+const { extrairFatosRiscoAlto } = require('./fatos-resumo-riscos');
+const { getLatestResumoAiByDocumentoId } = require('../db/ai-jobs-repo');
 const {
   listarAnexosDocumento,
   salvarResumoAnexo,
@@ -57,11 +59,15 @@ function processarDocumento(documento, { apply = true } = {}) {
   const fatosTitulo = extrairFatosTexto({ documento, texto: textoTitulo, origem: 'texto_documento:v1:titulo' });
   const fatosTexto = extrairFatosTexto({ documento, texto: textoCompleto, origem: 'texto_documento:v1:completo' });
   const fatosProdutos = extrairFatosProdutos({ documento, produtos: listarProdutos(documento.id) });
+  // Riscos já apontados pela IA no resumo do documento (riscos_ou_alertas) —
+  // reaproveita a leitura já feita, sem chamada de IA nova. Ver fatos-resumo-riscos.js.
+  const resumoAi = getLatestResumoAiByDocumentoId(documento.id);
+  const fatosRiscos = resumoAi ? extrairFatosRiscoAlto({ documento, resumo: resumoAi }) : [];
   const anexos = listarAnexosDocumento(documento.id);
 
   const total = {
     documento_id: documento.id,
-    fatos_encontrados: fatosTitulo.length + fatosTexto.length + fatosProdutos.length,
+    fatos_encontrados: fatosTitulo.length + fatosTexto.length + fatosProdutos.length + fatosRiscos.length,
     fatos_salvos: 0,
     anexos: anexos.length,
     resumos_anexos: 0,
@@ -77,6 +83,11 @@ function processarDocumento(documento, { apply = true } = {}) {
       documentoId: documento.id,
       origemPrefixo: 'produto:',
       fatos: fatosProdutos,
+    }).length;
+    total.fatos_salvos += substituirFatosOrigem({
+      documentoId: documento.id,
+      origemPrefixo: 'resumo_ai:v1',
+      fatos: fatosRiscos,
     }).length;
   }
 

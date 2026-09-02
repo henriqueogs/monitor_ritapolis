@@ -88,6 +88,7 @@ const SEMENTES = [
       'compras.precos_itens': true,
       'contratos.recorrencia_fornecedor_objeto': true,
       'eventos.gastos_eventos_publicos': true,
+      'riscos.alerta_resumo_ia': true,
     },
     descricao: 'Temas investigativos ativos para a expansao das Descobertas.',
   },
