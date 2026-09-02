@@ -1,6 +1,6 @@
 'use strict';
 
-const { gerarCandidatosInvestigativos } = require('./discovery-candidates');
+const { gerarCandidatosInvestigativos, candidatosRiscosResumo } = require('./discovery-candidates');
 
 function fato(id, tipo, subtipo, documentoId, ano, overrides = {}) {
   return {
@@ -91,5 +91,53 @@ describe('gerarCandidatosInvestigativos', () => {
 
     const contratos = candidatos.find((c) => c.metadados.investigacao_tipo === 'contratos.recorrencia_fornecedor_objeto');
     expect(contratos.evidencias.every((e) => e.origem_hash)).toBe(true);
+  });
+});
+
+describe('candidatosRiscosResumo', () => {
+  it('gera um candidato por risco alto, sem agrupar entre documentos', () => {
+    const fatos = [
+      fato(1, 'riscos_resumo', 'risco_alto', 10, 2026, {
+        descricao: 'Falta licença ambiental',
+        origem_hash: 'hash-risco-1',
+        metadados: { nivel: 'alto', motivo: 'Documento não cita licença.', resumo_ai_id: 500 },
+      }),
+      fato(2, 'riscos_resumo', 'risco_alto', 11, 2026, {
+        descricao: 'Fornecedor único em processo de dispensa',
+        origem_hash: 'hash-risco-2',
+        metadados: { nivel: 'alto', motivo: 'Só um fornecedor cotou.', resumo_ai_id: 501 },
+      }),
+    ];
+    const candidatos = candidatosRiscosResumo(fatos);
+    expect(candidatos).toHaveLength(2);
+    expect(new Set(candidatos.map((c) => c.chave_unica)).size).toBe(2);
+    expect(candidatos[0].titulo).toBe('Falta licença ambiental');
+    expect(candidatos[0].documentos_ids).toEqual([10]);
+  });
+
+  it('marca a lacuna de traceabilidade — narrativa vem da IA, não de citação literal', () => {
+    const candidatos = candidatosRiscosResumo([
+      fato(1, 'riscos_resumo', 'risco_alto', 10, 2026, {
+        descricao: 'D', origem_hash: 'h1', metadados: { nivel: 'alto', motivo: 'M' },
+      }),
+    ]);
+    expect(candidatos[0].metadados.lacunas_deterministicas.join(' ')).toMatch(/leitura da IA/);
+  });
+
+  it('ignora fatos de outros tipos/subtipos', () => {
+    const candidatos = candidatosRiscosResumo([
+      fato(1, 'meio_ambiente', 'supressao_arvores', 10, 2026, { quantidade: 60 }),
+      fato(2, 'riscos_resumo', 'risco_medio', 11, 2026, {}),
+    ]);
+    expect(candidatos).toHaveLength(0);
+  });
+
+  it('gerarCandidatosInvestigativos inclui riscos junto com os outros temas', () => {
+    const candidatos = gerarCandidatosInvestigativos([
+      fato(1, 'riscos_resumo', 'risco_alto', 10, 2026, {
+        descricao: 'D', origem_hash: 'h1', metadados: { nivel: 'alto', motivo: 'M' },
+      }),
+    ]);
+    expect(candidatos.some((c) => c.metadados.investigacao_tipo === 'riscos.alerta_resumo_ia')).toBe(true);
   });
 });

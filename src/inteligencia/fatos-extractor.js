@@ -278,4 +278,6 @@ module.exports = {
   extrairFatosProdutos,
   resumirAnexoLocal,
   normalizar,
+  buildFato,
+  periodoDocumento,
 };
