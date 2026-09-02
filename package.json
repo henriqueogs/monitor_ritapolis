@@ -136,5 +136,9 @@
     "jszip": "^3.10.1",
     "playwright": "^1.60.0",
     "prettier": "^3.8.3"
+  },
+  "overrides": {
+    "qs": "^6.16.0",
+    "@xmldom/xmldom": "^0.9.12"
   }
 }
