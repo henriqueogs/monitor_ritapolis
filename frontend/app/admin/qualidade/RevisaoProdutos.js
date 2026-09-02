@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import {
   fetchProdutosRevisao,
@@ -198,6 +199,23 @@ export default function RevisaoProdutos() {
                       </p>
                     </details>
                   )}
+                  {/* Sem isso não dá pra validar de verdade — só o trecho não confirma
+                      se o extrator leu certo (regra 11.3, CLAUDE.md: origem sempre visível). */}
+                  <div style={{ display: 'flex', gap: 10, marginTop: 6, fontSize: 12 }}>
+                    <Link href={`/documento/${it.documento_id}`} target="_blank" style={{ color: 'var(--accent)' }}>
+                      Abrir documento (com preview) →
+                    </Link>
+                    {(it.documento_url_pdf || it.documento_url_origem) && (
+                      <a
+                        href={it.documento_url_pdf || it.documento_url_origem}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ color: 'var(--text-muted)' }}
+                      >
+                        Fonte oficial direta ↗
+                      </a>
+                    )}
+                  </div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <button

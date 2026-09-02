@@ -79,7 +79,8 @@ function listProdutosParaRevisao(
               lp.valor_unitario_final, lp.valor_total_final, lp.fornecedor_nome,
               lp.origem, lp.origem_detalhe, lp.trecho_fonte, lp.confianca,
               lp.status_revisao,
-              d.numero AS documento_numero, d.ano AS documento_ano, d.titulo AS documento_titulo
+              d.numero AS documento_numero, d.ano AS documento_ano, d.titulo AS documento_titulo,
+              d.url_origem AS documento_url_origem, d.url_pdf AS documento_url_pdf
          FROM licitacoes_produtos lp
          JOIN documentos d ON d.id = lp.documento_id
          ${where}
