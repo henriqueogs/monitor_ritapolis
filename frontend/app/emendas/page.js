@@ -7,6 +7,9 @@ export const metadata = {
   title: 'Emendas Parlamentares',
   description: 'Emendas parlamentares estaduais e federais recebidas por Ritápolis'
 };
+// Busca dado no server -- sem isso o build tenta SSG contra a API (que nao
+// existe em CI) e congela a pagina vazia ate o proximo deploy.
+export const dynamic = 'force-dynamic';
 
 function RangeAnos({ totais }) {
   if (!totais || totais.length === 0) return null;

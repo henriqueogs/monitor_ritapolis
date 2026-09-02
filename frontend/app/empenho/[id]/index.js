@@ -7,6 +7,14 @@ import TransparenciaSubnav from '../../components/TransparenciaSubnav';
 import LinhaDoTempoPagamento from './components/LinhaDoTempoPagamento';
 import EmpenhosRelacionados from './components/EmpenhosRelacionados';
 
+// Vazio de proposito: nao pre-renderiza nenhum id no build (evita bater na
+// API, que nao existe em CI). So DEFINIR generateStaticParams (mesmo vazio)
+// e o que liga o modo ISR-on-demand nessa rota -- sem isso, `revalidate`
+// abaixo e ignorado e a rota fica sempre dynamic (ver PR do cache de bots).
+export async function generateStaticParams() {
+  return [];
+}
+
 export async function generateMetadata({ params: paramsPromise }) {
   const params = await paramsPromise;
   const dossie = await fetchEmpenho(params.id);

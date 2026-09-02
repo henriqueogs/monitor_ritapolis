@@ -10,6 +10,9 @@ export const metadata = {
   description:
     'Gastos e contratos públicos de Ritápolis/MG que valem um segundo olhar — em linguagem simples, com a fonte oficial e como pedir explicação.',
 };
+// Busca dado no server -- sem isso o build tenta SSG contra a API (que nao
+// existe em CI) e congela a pagina vazia ate o proximo deploy.
+export const dynamic = 'force-dynamic';
 
 // Quantos temas mostrar como filtro antes de agrupar o resto em "Todas".
 const MAX_CHIPS_TEMA = 8;

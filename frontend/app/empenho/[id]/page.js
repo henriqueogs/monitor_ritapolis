@@ -1,6 +1,7 @@
-import EmpenhoPage, { generateMetadata } from './index';
+import EmpenhoPage, { generateMetadata, generateStaticParams } from './index';
 export { /* @next-codemod-error `generateMetadata` export is re-exported. Check if this component uses `params` or `searchParams`*/
 generateMetadata };
+export { generateStaticParams };
 // ISR: dado de empenho muda no maximo 1x/dia (coleta incremental), mas a rota
 // e dinamica (milhares de ids) e sem revalidate cada hit vira uma invocacao
 // nova sem cache de edge -- crawlers (claudebot/gptbot) bateram 40K vezes em
