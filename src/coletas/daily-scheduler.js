@@ -51,6 +51,32 @@ function isDue(tipo, minHoras) {
   return elapsedMs >= minHoras * 60 * 60 * 1000;
 }
 
+/**
+ * 'despesas' loga UMA linha por exercício (não uma por ciclo, como 'pncp') —
+ * isDue() com MAX(coletado_em) global tratava "um ano qualquer OK recente"
+ * como "tudo em dia", travando a re-tentativa dos outros anos ainda com erro
+ * por até `minHoras`. Aqui exige que TODOS os anos de config.transparenciaAnoInicio
+ * até o atual tenham 'ok' dentro da janela — qualquer um faltando, ainda é due.
+ */
+function despesasEmDia(minHoras) {
+  const anoAtual = new Date().getFullYear();
+  const cutoffMs = Date.now() - minHoras * 60 * 60 * 1000;
+  const rows = db
+    .prepare(
+      `SELECT exercicio, MAX(coletado_em) AS last
+         FROM transparencia_coletas_log
+        WHERE tipo = 'despesas' AND status = 'ok'
+        GROUP BY exercicio`
+    )
+    .all();
+  const okPorAno = new Map(rows.map((r) => [r.exercicio, new Date(r.last).getTime()]));
+  for (let ano = config.transparenciaAnoInicio; ano <= anoAtual; ano += 1) {
+    const ts = okPorAno.get(ano);
+    if (!ts || ts < cutoffMs) {return false;}
+  }
+  return true;
+}
+
 // ── Coleta de transparência (despesas + receitas) ─────────────────────────────
 
 async function coletarTransparencia() {
@@ -58,8 +84,8 @@ async function coletarTransparencia() {
     logger.debug('daily-scheduler: transparência já em andamento, ignorando tick');
     return;
   }
-  if (!isDue('despesas', config.dailySchedulerTransparenciaIntervalHoras)) {
-    logger.debug('daily-scheduler: transparência dentro do intervalo');
+  if (despesasEmDia(config.dailySchedulerTransparenciaIntervalHoras)) {
+    logger.debug('daily-scheduler: transparência dentro do intervalo (todos os anos em dia)');
     return;
   }
 
