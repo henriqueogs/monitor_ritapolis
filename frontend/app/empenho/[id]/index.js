@@ -4,6 +4,7 @@ import { formatMoney } from '../../lib/format';
 import SectionBlock from '../../components/SectionBlock';
 import FinalidadeBadge from '../../components/FinalidadeBadge';
 import TransparenciaSubnav from '../../components/TransparenciaSubnav';
+import BreadcrumbJsonLd from '../../components/BreadcrumbJsonLd';
 import LinhaDoTempoPagamento from './components/LinhaDoTempoPagamento';
 import EmpenhosRelacionados from './components/EmpenhosRelacionados';
 
@@ -70,6 +71,12 @@ export default async function EmpenhoPage({ params: paramsPromise }) {
 
   return (
     <main className="page-container">
+      <BreadcrumbJsonLd
+        items={[
+          { name: 'Dinheiro público', url: '/transparencia' },
+          { name: `Empenho ${empenho.empenho}/${empenho.exercicio_orcamento}`, url: `/empenho/${params.id}` },
+        ]}
+      />
       <div className="page-title">
         <div>
           <p style={{ margin: '0 0 6px', fontSize: 13, color: 'var(--text-muted)' }}>

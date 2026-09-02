@@ -9,6 +9,7 @@ import LicitationGroup from './components/LicitationGroup';
 import LicitationRelatedSources from './components/LicitationRelatedSources';
 import RelatedSources from './components/RelatedSources';
 import SummaryAndSource from './components/SummaryAndSource';
+import BreadcrumbJsonLd from '../../components/BreadcrumbJsonLd';
 
 function buildResumoAi(documento) {
   return {
@@ -47,6 +48,12 @@ export default async function DocumentoPage({ params: paramsPromise }) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <BreadcrumbJsonLd
+        items={[
+          { name: 'Acervo', url: '/acervo' },
+          { name: String(documento.titulo || 'Documento').slice(0, 110), url: `/documento/${params.id}` },
+        ]}
       />
       <DocumentHeader documento={documento} licitacao={licitacao} />
       <SummaryAndSource documento={documento} licitacao={licitacao} />

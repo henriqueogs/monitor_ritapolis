@@ -6,6 +6,7 @@ import FinalidadeBadge from '../../components/FinalidadeBadge';
 import TransparenciaSubnav from '../../components/TransparenciaSubnav';
 import EmpenhosCredor from './components/EmpenhosCredor';
 import HistoricoPorMandato from './components/HistoricoPorMandato';
+import BreadcrumbJsonLd from '../../components/BreadcrumbJsonLd';
 
 // Vazio de proposito: nao pre-renderiza nenhum cnpj no build (evita bater na
 // API, que nao existe em CI). So DEFINIR generateStaticParams (mesmo vazio)
@@ -172,6 +173,12 @@ export default async function CredorProfilePage({
 
   return (
     <main className="page-container">
+      <BreadcrumbJsonLd
+        items={[
+          { name: 'Fornecedores', url: '/credores' },
+          { name: nome, url: `/credores/${params.cnpj}` },
+        ]}
+      />
       <div className="page-title">
         <div>
           <p style={{ margin: '0 0 6px', fontSize: 13, color: 'var(--text-muted)' }}>
