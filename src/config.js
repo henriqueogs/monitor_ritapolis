@@ -46,12 +46,19 @@ module.exports = {
   aiSaveRawResponse: String(process.env.AI_SAVE_RAW_RESPONSE || 'false').toLowerCase() === 'true',
   nvidiaApiKey: process.env.NVIDIA_API_KEY || '',
   nvidiaBaseUrl: process.env.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1',
-  // meta/llama-3.1-70b-instruct atingiu fim de vida na NVIDIA em 26/08/2026
-  // (API passou a responder 410 Gone pra todo resumo). Trocado pro gpt-oss-120b
-  // (OpenAI, open-weight, gratis no catalogo NVIDIA NIM) — mais moderno,
-  // JSON limpo, validado end-to-end com documento real de producao
-  // (44k caracteres, 9 chunks + consolidacao, saida correta).
-  nvidiaModel: process.env.NVIDIA_MODEL || 'openai/gpt-oss-120b',
+  // Catalogo NVIDIA NIM tem alta rotatividade de modelos gratuitos -- 2a vez
+  // que o padrao morre: meta/llama-3.1-70b-instruct (fim de vida 26/08/2026)
+  // -> openai/gpt-oss-120b (fim de vida 03/09/2026, sobreviveu ~1 semana) ->
+  // moonshotai/kimi-k3. Candidatos testados no dia da troca: gpt-oss-20b (200
+  // OK mas devolve so `reasoning`, `content` vem null -- quebra o parser),
+  // mistral-nemotron (500, instavel), nemotron-nano-3-30b-a3b (404, sem
+  // entitlement na conta). kimi-k3: JSON limpo em `content`, reasoning
+  // separado em `reasoning_content`, validado com prompt real de producao
+  // (validar-produtos-ia.js, vereditos corretos). Se morrer de novo, o
+  // diagnostico e sempre o mesmo: rodar scripts/ai-status.js ou testar
+  // https://integrate.api.nvidia.com/v1/models direto (a SDK openai esconde
+  // o corpo do erro 410 -- só um fetch cru revela "reached its end of life").
+  nvidiaModel: process.env.NVIDIA_MODEL || 'moonshotai/kimi-k3',
   // Override opcional: modelo mais forte só para a investigação de
   // descobertas (menor volume, mais exige julgamento) — sem mexer no modelo
   // padrão usado por resumo/leitura simples/anexo. Vazio = usa nvidiaModel.
