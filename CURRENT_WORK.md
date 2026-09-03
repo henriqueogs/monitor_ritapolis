@@ -69,6 +69,18 @@ genérico e detector de gasto atípico nas Descobertas
   `npm run transparencia:validar-links` ao daily-scheduler (amostra ~5) com
   alerta em log se o portal mudar o contrato de URL. Rodar manual/mensal até lá.
 
+## ⏳ Pendente — Confirmar queda de tráfego de bot pós-ISR (02/09/2026)
+
+Investigado "uso estranho" na Vercel: claudebot (66K reqs) + gptbot (11K) =
+81% de 81K edge requests em 12h, 0% cached, em `/empenho/[id]` e
+`/credores/[cnpj]` (rotas sem ISR real — corrigido no PR #44). Confirmado em
+produção que o header `x-nextjs-prerender: 1` aparece em `/empenho/1`.
+
+- Task agendada (`check-vercel-bot-traffic-isr`, roda 04/09 10h sozinha) vai
+  comparar volume de bot e % cached antes/depois desse baseline.
+- Se a task não rodar ou o resultado não aparecer aqui, checar manualmente
+  em vercel.com/henriqueogs-projects/monitor-ritapolis/observability/edge-requests.
+
 ## Backlog menor (baixa prioridade, sem prazo)
 
 - `/temas` → virar filtro de `/licitacoes`; `/analises` redirecionar (páginas

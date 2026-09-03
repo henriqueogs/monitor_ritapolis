@@ -121,6 +121,37 @@ usuário revisando `/anexo/3284` e `/descobertas/57`:
   (Super quebra o contrato JSON; Llama-3.3 dá timeout, indício de acesso não
   liberado). Ver `CURRENT_WORK.md` (arquivado após conclusão) para os dados.
 
+**Detector de risco via resumo de IA + estabilidade editorial (02/09/2026)**:
+- **`riscos.alerta_resumo_ia`**: novo detector de Descobertas minera
+  `riscos_ou_alertas` (nível "alto") já presentes nos resumos de IA
+  existentes por documento — sem chamada de IA nova, reaproveita leitura já
+  paga (`src/inteligencia/fatos-resumo-riscos.js`). 210 candidatos gerados
+  no primeiro `--full`.
+- **Bug de churn corrigido**: `preservarEstadoTerminal` exigia
+  `evidencias_hash` idêntico pra proteger qualquer estado terminal —
+  `rejeitado` reabria sozinho quando evidência nova entrava no bucket
+  agregado (reproduzido ao vivo: os 51 alertas legado rejeitados via
+  `scripts/rejeitar-legado-sem-gate.js` voltaram pra `revisao` no
+  `--full` seguinte). `rejeitado` agora dispensa `mesmoHash` — é decisão
+  sobre a categoria, não sobre uma citação específica.
+- **`npm audit`**: advisory novo em `qs`/`@xmldom/xmldom` (via
+  `body-parser`/`express`/`mammoth`) sem fix não-force disponível — resolvido
+  via `overrides` no `package.json` forçando `qs@^6.16.0` e
+  `@xmldom/xmldom@^0.9.12`.
+- **Cache/ISR real em `/empenho/[id]` e `/credores/[cnpj]`**: investigação de
+  "uso estranho" na Vercel revelou claudebot+gptbot = 81% de 81K edge
+  requests/12h, 0% cached, batendo em cada empenho/credor individualmente.
+  Causa raiz dupla: `app/layout.js` tinha `dynamic = 'force-dynamic'` na
+  raiz (bloqueia `revalidate` de qualquer página filha — config de layout
+  pai não pode ser afrouxada por filho) e, mesmo sem isso,
+  `revalidate` sozinho em rota de segmento dinâmico não liga ISR sem
+  `generateStaticParams` (mesmo vazio). `force-dynamic` movido pra cada
+  página estática que realmente precisa; ISR real habilitado nas duas rotas
+  quentes. Confirmado em produção via header `x-nextjs-prerender: 1`.
+- **SEO**: JSON-LD `BreadcrumbList` em empenho/credor/documento. Google
+  Search Console verificado via DNS (fora do código).
+- Ver PRs #42–#45.
+
 ---
 
 ## 5. Análise do Processo (leitura integrada)
