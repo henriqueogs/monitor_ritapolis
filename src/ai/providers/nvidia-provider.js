@@ -27,7 +27,13 @@ class NvidiaProvider extends BaseProvider {
       apiKey: config.apiKey,
       baseURL: config.baseURL || 'https://integrate.api.nvidia.com/v1',
       timeout: config.timeoutMs || 60000,
-      maxRetries: 0
+      // A conta NVIDIA rate-limita (429) ja com 2 chamadas simultaneas --
+      // achado ao rodar validar-produtos-ia.js, mas vale pra QUALQUER
+      // chamada (resumo de documento, investigacao de descoberta, etc), e
+      // sem retry aqui o 429 cru vazava pra tela do admin ("429 status code
+      // (no body)"). O SDK da openai so retenta 429/5xx com backoff — erro
+      // permanente (410 modelo morto, 404 sem entitlement) nao e retentado.
+      maxRetries: 2
     });
   }
 

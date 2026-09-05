@@ -26,7 +26,10 @@ export const statusLabels = {
   homologada: 'Homologada',
   deserta: 'Deserta',
   suspensa: 'Suspensa',
-  revisar: 'Revisar'
+  revisar: 'Revisar',
+  parcial: 'Parcial',
+  indisponivel: 'Indisponível',
+  processando: 'Processando'
 };
 
 export function labelFonte(value) {

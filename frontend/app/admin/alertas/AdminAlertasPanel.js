@@ -10,7 +10,7 @@ import {
   updateAlertaConfig,
   gerarAlertasManual,
 } from '../../lib/api';
-import { nivelLabel } from '../../lib/descobertas';
+import { nivelLabel, qualidadeMotivoLabel } from '../../lib/descobertas';
 import styles from './styles.module.css';
 
 const SEV_COR = { critico: '#d97706', atencao: '#2563eb', info: '#64748b' };
@@ -226,7 +226,7 @@ export default function AdminAlertasPanel({ initialStats, initialConfig, initial
                   #{a.id} · {a.estado_editorial || 'sem estado'} · {nivelLabel(a.severidade)} · {a.categoria || '—'} · {a.ultima_publicacao_documento || 's/ data'}
                 </span>
                 {a.qualidade_motivos?.length ? (
-                  <span className={styles.alertaMotivos}>{a.qualidade_motivos.join(' · ')}</span>
+                  <span className={styles.alertaMotivos}>{a.qualidade_motivos.map(qualidadeMotivoLabel).join(' · ')}</span>
                 ) : null}
               </div>
               <div className={styles.alertaAcoes}>
