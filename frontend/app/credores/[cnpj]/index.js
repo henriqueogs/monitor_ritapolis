@@ -7,6 +7,7 @@ import TransparenciaSubnav from '../../components/TransparenciaSubnav';
 import EmpenhosCredor from './components/EmpenhosCredor';
 import HistoricoPorMandato from './components/HistoricoPorMandato';
 import BreadcrumbJsonLd from '../../components/BreadcrumbJsonLd';
+import { SITE_URL } from '../../lib/brand';
 
 export async function generateMetadata({ params: paramsPromise }) {
   const params = await paramsPromise;
@@ -157,6 +158,16 @@ export default async function CredorProfilePage({
 
   const { nome, cnpj, chave, tipo, cargo, resumo, por_ano, por_mandato, por_funcao, finalidades, licitacoes_ganhas, enriquecimento } = perfil;
   const isPf = tipo === 'pf';
+  // JSON-LD: Organization (CNPJ) ou Person (CPF/PF) -- schema mais especifico
+  // que o WebSite generico da raiz, ajuda o Google a entender "isso e uma
+  // empresa/pessoa que recebe recursos publicos", nao so uma pagina de texto.
+  const jsonLdCredor = {
+    '@context': 'https://schema.org',
+    '@type': isPf ? 'Person' : 'Organization',
+    name: nome,
+    url: `${SITE_URL}/credores/${params.cnpj}`,
+    ...(cnpj && !isPf ? { identifier: cnpj, taxID: cnpj } : {}),
+  };
   const periodoQuery = new URLSearchParams({
     ...(empExercicio ? { exercicio: String(empExercicio) } : {}),
     ...(empMandato ? { mandato: String(empMandato) } : {}),
@@ -165,6 +176,10 @@ export default async function CredorProfilePage({
 
   return (
     <main className="page-container">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdCredor) }}
+      />
       <BreadcrumbJsonLd
         items={[
           { name: 'Fornecedores', url: '/credores' },
