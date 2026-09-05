@@ -31,6 +31,7 @@ export default function TransparenciaSubnav() {
           <Link
             key={link.href}
             href={link.href}
+            prefetch={false}
             aria-current={active ? 'page' : undefined}
             style={{
               display: 'inline-flex',
