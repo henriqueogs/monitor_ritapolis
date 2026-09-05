@@ -128,20 +128,21 @@ async function compararCoberturaPrefeitura({ limite = 500 } = {}) {
   const registros = [];
   const erros = [];
 
+  // `normalizedLimit` e um teto POR AREA (nao dividido entre elas) -- antes
+  // era um orcamento global, e a primeira area da lista ('editais', que
+  // sozinha bate no teto) consumia tudo, deixando as outras 4 marcadas
+  // 'nao_consultada_por_limite' pra sempre, mesmo sem nunca terem sido
+  // olhadas. `collectRecordsForPage` pagina e para cedo ao bater o
+  // maxRecords, entao o custo extra por area e limitado ao que ela
+  // realmente tem (as menores param bem antes de 500).
   for (const area of getPrefeituraAreas()) {
     try {
-      const remaining = Math.max(normalizedLimit - registros.length, 0);
-      const encontrados = remaining > 0
-        ? await coletor.collectRecordsForPage(area, { maxRecords: remaining })
-        : [];
+      const encontrados = await coletor.collectRecordsForPage(area, { maxRecords: normalizedLimit });
       const areaRegistros = encontrados.map((record) => toCoverageItem(record, area, conhecidos));
-      const disponiveisNoLimite = Math.max(normalizedLimit - registros.length, 0);
-      if (disponiveisNoLimite > 0) {
-        registros.push(...areaRegistros.slice(0, disponiveisNoLimite));
-      }
+      registros.push(...areaRegistros);
       areas.push(buildAreaSummary({
         area,
-        status: remaining > 0 ? 'ok' : 'nao_consultada_por_limite',
+        status: 'ok',
         registros: areaRegistros,
         conhecidosAreaCount: conhecidosPorArea.get(area.id) || 0
       }));
@@ -164,8 +165,10 @@ async function compararCoberturaPrefeitura({ limite = 500 } = {}) {
     }
   }
 
+  // A lista combinada (pra tabela detalhada da UI) ainda trunca em
+  // normalizedLimit -- isso e so exibicao, nao afeta o status por area acima.
   const dados = registros.slice(0, normalizedLimit);
-  const areasDisponiveis = areas.filter((area) => area.status === 'ok' || area.status === 'nao_consultada_por_limite').length;
+  const areasDisponiveis = areas.filter((area) => area.status === 'ok').length;
   const status = areasDisponiveis === areas.length
     ? 'ok'
     : areasDisponiveis > 0
