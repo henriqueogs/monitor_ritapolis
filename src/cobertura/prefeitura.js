@@ -165,9 +165,6 @@ async function compararCoberturaPrefeitura({ limite = 500 } = {}) {
     }
   }
 
-  // A lista combinada (pra tabela detalhada da UI) ainda trunca em
-  // normalizedLimit -- isso e so exibicao, nao afeta o status por area acima.
-  const dados = registros.slice(0, normalizedLimit);
   const areasDisponiveis = areas.filter((area) => area.status === 'ok').length;
   const status = areasDisponiveis === areas.length
     ? 'ok'
@@ -175,16 +172,23 @@ async function compararCoberturaPrefeitura({ limite = 500 } = {}) {
       ? 'parcial'
       : 'indisponivel';
 
+  // Resumo/por_ano/ausentes usam TODOS os registros (de todas as areas), nao
+  // so os primeiros `normalizedLimit` -- cada area ja tem seu proprio teto
+  // (acima), entao truncar de novo aqui so escondia as areas menores atras
+  // da maior ('editais' vindo primeiro preenchia sozinha o corte de exibicao,
+  // e o Resumo geral parecia so falar de editais mesmo com as outras areas
+  // corretas na lista "Areas monitoradas").
+  const dados = registros.slice(0, normalizedLimit);
   const payload = {
     status,
     fontes_consultadas: getCoberturaPrefeituraSourceLinks(),
     areas,
     erros,
-    total_site: dados.length,
-    total_presentes_sistema: dados.filter((item) => item.presente_no_sistema).length,
-    total_ausentes_sistema: dados.filter((item) => !item.presente_no_sistema).length,
-    por_ano: summarizeByYear(dados),
-    ausentes: dados.filter((item) => !item.presente_no_sistema),
+    total_site: registros.length,
+    total_presentes_sistema: registros.filter((item) => item.presente_no_sistema).length,
+    total_ausentes_sistema: registros.filter((item) => !item.presente_no_sistema).length,
+    por_ano: summarizeByYear(registros),
+    ausentes: registros.filter((item) => !item.presente_no_sistema),
     dados,
     cache: 'miss'
   };
