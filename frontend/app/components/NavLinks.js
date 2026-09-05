@@ -32,6 +32,7 @@ export default function NavLinks() {
             <Link
               key={link.href}
               href={link.href}
+              prefetch={false}
               className={`topnav-link${isActive ? ' is-active' : ''}`}
             >
               {link.label}
@@ -58,6 +59,7 @@ export default function NavLinks() {
               <Link
                 key={link.href}
                 href={link.href}
+                prefetch={false}
                 className={`mobile-nav-link${isActive ? ' is-active' : ''}`}
                 onClick={() => setOpen(false)}
               >

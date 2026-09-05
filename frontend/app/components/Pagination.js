@@ -38,7 +38,7 @@ export default function Pagination({ basePath, filters, total, pagina, limite })
       </p>
       <div className="pagination-links">
         {current > 1 ? (
-          <Link href={href(current - 1)} className="pagination-link">
+          <Link href={href(current - 1)} prefetch={false} className="pagination-link">
             Anterior
           </Link>
         ) : (
@@ -49,6 +49,7 @@ export default function Pagination({ basePath, filters, total, pagina, limite })
           <Link
             key={page}
             href={href(page)}
+            prefetch={false}
             className={page === current ? 'pagination-link is-active' : 'pagination-link'}
           >
             {page}
@@ -56,7 +57,7 @@ export default function Pagination({ basePath, filters, total, pagina, limite })
         ))}
 
         {current < totalPages ? (
-          <Link href={href(current + 1)} className="pagination-link">
+          <Link href={href(current + 1)} prefetch={false} className="pagination-link">
             Proxima
           </Link>
         ) : (
