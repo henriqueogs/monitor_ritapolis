@@ -7,9 +7,12 @@ import { useState, useEffect } from 'react';
 const links = [
   { href: '/', label: 'Início', exact: true },
   { href: '/licitacoes', label: 'Licitações' },
+  { href: '/legislacao', label: 'Legislação' },
   { href: '/emendas', label: 'Emendas' },
   { href: '/transparencia', label: 'Dinheiro público' },
   { href: '/na-lupa', label: 'Na Lupa' },
+  { href: '/temas', label: 'Temas' },
+  { href: '/analises', label: 'Análises' },
   { href: '/acervo', label: 'Acervo' },
   { href: '/sobre', label: 'Sobre' },
 ];

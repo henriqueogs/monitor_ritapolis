@@ -12,7 +12,22 @@ export const tipoLabels = {
   portaria: 'Portaria',
   contrato: 'Contrato',
   decreto: 'Decreto',
-  documento: 'Documento'
+  documento: 'Documento',
+  // Legislacao municipal (coletor de decretos/leis/portarias)
+  lei_ordinaria: 'Lei Ordin\u00e1ria',
+  lei_complementar: 'Lei Complementar',
+  lei_organica: 'Lei Org\u00e2nica',
+  instrucao_normativa: 'Instru\u00e7\u00e3o Normativa',
+  ata: 'Ata',
+  ata_comissao: 'Ata de Comiss\u00e3o',
+  regimento_interno: 'Regimento Interno',
+  estatuto: 'Estatuto',
+  projeto_lei: 'Projeto de Lei',
+  projeto_lei_complementar: 'Projeto de Lei Complementar',
+  deliberacao: 'Delibera\u00e7\u00e3o',
+  decreto_legislativo: 'Decreto Legislativo',
+  portaria_legislativo: 'Portaria do Legislativo',
+  oficio: 'Of\u00edcio'
 };
 
 export const statusLabels = {
