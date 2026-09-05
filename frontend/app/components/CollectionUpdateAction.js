@@ -102,6 +102,7 @@ export default function CollectionUpdateAction({ initialStatus }) {
         >
           <option value="todas">Todas as fontes ativas</option>
           <option value="site_prefeitura">Somente Prefeitura</option>
+          <option value="legislacao_prefeitura">Somente Legislação (decretos/leis/portarias)</option>
           <option value="camara">Somente Camara (pausada — manual)</option>
         </select>
       </div>

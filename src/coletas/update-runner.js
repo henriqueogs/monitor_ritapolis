@@ -1,6 +1,7 @@
 const logger = require('../logger');
 const ColetorCamara = require('../coletores/camara');
 const ColetorSitePrefeitura = require('../coletores/site-prefeitura');
+const ColetorLegislacaoPrefeitura = require('../coletores/site-prefeitura-legislacao');
 const ColetorPncp = require('../coletores/pncp');
 const ColetorPortalTransparencia = require('../coletores/portal-transparencia');
 
@@ -28,11 +29,13 @@ function snapshot() {
 
 function buildCollectors(fonte) {
   if (fonte === 'site_prefeitura') {return [new ColetorSitePrefeitura()];}
+  if (fonte === 'legislacao_prefeitura') {return [new ColetorLegislacaoPrefeitura()];}
   if (fonte === 'camara') {return [new ColetorCamara()];}
   if (fonte === 'pncp') {return [new ColetorPncp()];}
   if (fonte === 'portal_transparencia') {return [new ColetorPortalTransparencia()];}
   if (!fonte || fonte === 'todas') {return [
     new ColetorSitePrefeitura(),
+    new ColetorLegislacaoPrefeitura(),
     // Camara fora do ciclo automatico: site nao esta publicando nada novo
     // (ultimo documento coletado 13/05/2026, 3 registros no total, todos
     // sem PDF). Continua disponivel via fonte='camara' pra retomar manual
