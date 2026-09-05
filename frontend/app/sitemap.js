@@ -1,6 +1,13 @@
 import { SITE_URL } from './lib/brand';
 import { fetchDocumentos, fetchCredores, fetchAlertas } from './lib/api';
 
+// Rota de metadata (nao page.js) -- revalidate funciona direto aqui, sem
+// precisar de generateStaticParams (essa exigencia so vale pra segmentos
+// dinamicos de pagina, ver PR do cache de bots). Sem isso, cada crawl (Google
+// incluido) reconstroi o sitemap do zero -- 3 fetches paginados (ate 1500+500+200
+// itens) levavam >30s por request.
+export const revalidate = 3600;
+
 // Sitemap dinâmico: páginas estáticas + documentos + top credores + descobertas.
 // Empenhos (30k+) ficam de fora por crawl budget — as páginas de documento e
 // credor são a cauda longa que interessa. Cap defensivo por seção.
