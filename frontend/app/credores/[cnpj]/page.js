@@ -1,11 +1,12 @@
-import CredorProfilePage, { generateMetadata, generateStaticParams } from './index';
+import CredorProfilePage, { generateMetadata } from './index';
 export { /* @next-codemod-error `generateMetadata` export is re-exported. Check if this component uses `params` or `searchParams`*/
 generateMetadata };
-export { generateStaticParams };
-// ISR: perfil de credor muda no maximo 1x/dia (coleta incremental), mas a
-// rota e dinamica (milhares de cnpjs) e sem revalidate cada hit vira uma
-// invocacao nova sem cache de edge -- crawlers (claudebot/gptbot) bateram
-// 30K vezes em 12h nessa rota, 0% cached. 1h de cache corta isso sem afetar
-// frescor real.
-export const revalidate = 3600;
+// SEM generateStaticParams/revalidate aqui: essa pagina le `searchParams`
+// (filtro/paginacao de empenhos), e Next nao deixa misturar rota estatica
+// (generateStaticParams) com leitura de searchParams -- da DYNAMIC_SERVER_USAGE
+// e quebra a pagina inteira (500 em producao, achado 3 dias depois de eu ter
+// adicionado isso pra resolver bot traffic -- reverti aqui). ISR real só é
+// possível pra rotas de segmento dinamico que NAO leem searchParams, como
+// /empenho/[id]. Pra essa rota, o cache que sobra e o dos fetches
+// individuais (REVALIDATE_PADRAO_S em app/lib/api.js).
 export default CredorProfilePage;
