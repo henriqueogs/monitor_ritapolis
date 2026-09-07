@@ -173,6 +173,106 @@
   white-space: nowrap;
 }
 
+.hubs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin: 8px 0 48px;
+}
+
+.hub {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 260px;
+  padding: 32px 28px;
+  border-radius: var(--radius-xl);
+  color: var(--text-inverse);
+  box-shadow: var(--shadow-colored-lg);
+  transition: transform var(--motion-base) var(--ease-out), box-shadow var(--motion-base) var(--ease-out);
+}
+
+.hub:hover {
+  transform: translateY(-4px);
+  color: var(--text-inverse);
+}
+
+.hub::after {
+  content: '';
+  position: absolute;
+  right: -40px;
+  bottom: -40px;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+
+.hubDinheiro {
+  background: var(--gradient-brand);
+}
+
+.hubAtos {
+  background: linear-gradient(135deg, #8a5a10 0%, #c98f2f 100%);
+}
+
+.hub h2 {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0 0 8px;
+}
+
+.hub p {
+  max-width: 38ch;
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  opacity: 0.92;
+}
+
+.hubStats {
+  display: flex;
+  gap: 26px;
+  margin-bottom: 18px;
+}
+
+.hubStat {
+  display: flex;
+  flex-direction: column;
+}
+
+.hubStat strong {
+  font-size: 1.25rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.hubStat span {
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.hubCta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+@media (max-width: 720px) {
+  .hubs {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 960px) {
   .hero {
     padding: 60px 0 52px;
