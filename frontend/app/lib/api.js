@@ -514,8 +514,9 @@ export function fetchAlertasAdmin(params = {}) {
   return fetchJson(`/admin/alertas${buildQuery(params)}`, { revalidate: 0 });
 }
 
-export function fetchAlertasDestaques(limite = 5) {
-  return fetchJson(`/alertas/destaques?limite=${limite}`);
+export function fetchAlertasDestaques(limite = 5, tiposDocumento) {
+  const query = tiposDocumento ? `&tipos_documento=${encodeURIComponent(tiposDocumento)}` : '';
+  return fetchJson(`/alertas/destaques?limite=${limite}${query}`);
 }
 
 export function fetchAlerta(id) {

@@ -15,13 +15,13 @@ jest.mock('./connection', () => ({ db: mockConn }));
 
 const repo = require('./alertas-repo');
 
-function seedDocumento(id, dataPub) {
+function seedDocumento(id, dataPub, tipo = 'edital') {
   mockConn
     .prepare(
       `INSERT INTO documentos (id, fonte, tipo, titulo, url_origem, data_publicacao)
-       VALUES (?, 'site_prefeitura', 'edital', ?, 'https://x/y', ?)`
+       VALUES (?, 'site_prefeitura', ?, ?, 'https://x/y', ?)`
     )
-    .run(id, `Doc ${id}`, dataPub);
+    .run(id, tipo, `Doc ${id}`, dataPub);
 }
 
 describe('alertas-repo', () => {
@@ -382,6 +382,47 @@ describe('alertas-repo', () => {
       const w = repo.getWatermark('ciclo');
       expect(w.ultimo_processado_em).toBe('2026-06-02T00:00:00Z');
       expect(w.total_gerados).toBe(5);
+    });
+  });
+
+  describe('listarDestaquesPublicos', () => {
+    function publicarAlerta(chave, documentoId) {
+      repo.upsertAlerta(
+        {
+          tipo: 'tematico',
+          titulo: `Alerta ${chave}`,
+          chave_unica: chave,
+          severidade: 'info',
+          status: 'ativo',
+          estado_editorial: 'publicado',
+          publicado_em: '2026-01-01',
+        },
+        [{ documento_id: documentoId, papel: 'origem' }]
+      );
+    }
+
+    it('sem tiposDocumento, retorna todos os publicados (comportamento antigo)', () => {
+      seedDocumento(1, '2026-01-01', 'edital');
+      seedDocumento(2, '2026-01-01', 'decreto');
+      publicarAlerta('k-edital', 1);
+      publicarAlerta('k-decreto', 2);
+
+      expect(repo.listarDestaquesPublicos(10)).toHaveLength(2);
+    });
+
+    it('com tiposDocumento, filtra so os alertas cujo documento vinculado bate a lista (escopo por area)', () => {
+      seedDocumento(1, '2026-01-01', 'edital');
+      seedDocumento(2, '2026-01-01', 'decreto');
+      publicarAlerta('k-edital', 1);
+      publicarAlerta('k-decreto', 2);
+
+      const dinheiro = repo.listarDestaquesPublicos(10, 'edital,contrato');
+      expect(dinheiro).toHaveLength(1);
+      expect(dinheiro[0].titulo).toBe('Alerta k-edital');
+
+      const atos = repo.listarDestaquesPublicos(10, ['decreto', 'lei_ordinaria']);
+      expect(atos).toHaveLength(1);
+      expect(atos[0].titulo).toBe('Alerta k-decreto');
     });
   });
 

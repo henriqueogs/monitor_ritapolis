@@ -754,6 +754,14 @@ h1, h2, h3, h4, p {
   filter: brightness(1.08);
 }
 
+/* Busca de area (dentro do page-hero de /transparencia e /legislacao) --
+   hero-search por padrao centraliza e usa max-width maior, pensado pra home;
+   aqui o hero e' alinhado a esquerda, entao ancora e encolhe a caixa. */
+.page-hero-search {
+  margin: 20px 0 0;
+  max-width: 640px;
+}
+
 /* ── Buttons ───────────────────────────────────────────────── */
 .button,
 .brief-search button {

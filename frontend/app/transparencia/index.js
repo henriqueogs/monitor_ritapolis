@@ -1,6 +1,17 @@
 import Link from 'next/link';
+import AlertasDestaque from '../components/AlertasDestaque';
+import AreaSearchForm from '../components/AreaSearchForm';
+import IntelligenceBrief from '../components/IntelligenceBrief';
 import SectionBlock from '../components/SectionBlock';
-import { fetchTransparenciaResumo, fetchTransparenciaGastos, fetchFilaPagamentos } from '../lib/api';
+import {
+  fetchAlertasDestaques,
+  fetchAnalisesResumos,
+  fetchDocumentos,
+  fetchFilaPagamentos,
+  fetchTransparenciaGastos,
+  fetchTransparenciaResumo,
+} from '../lib/api';
+import { TIPOS_DINHEIRO_PUBLICO } from '../lib/areas';
 import TransparenciaSubnav from '../components/TransparenciaSubnav';
 import FilaPagamentos from './components/FilaPagamentos';
 import FinalidadesResumo from './components/FinalidadesResumo';
@@ -52,12 +63,25 @@ function montarPeriodoLabel(modo, periodo, porMandato) {
 export default async function TransparenciaPage({ searchParams: searchParamsPromise }) {
   const searchParams = await searchParamsPromise;
   const { modo, fetchParams } = resolverFiltro(searchParams);
-  const [dados, gastos, fila] = await Promise.all([
+  const tiposDinheiro = TIPOS_DINHEIRO_PUBLICO.join(',');
+  const [dados, gastos, fila, analises, alertas, publicacoesRecentes] = await Promise.all([
     fetchTransparenciaResumo(fetchParams),
     fetchTransparenciaGastos(fetchParams),
     // Fila filtra só por exercício (mandato não se aplica a pendência atual)
     fetchFilaPagamentos(fetchParams.exercicio ? { exercicio: fetchParams.exercicio } : {}),
+    fetchAnalisesResumos({ tipo: tiposDinheiro, limite: 6 }).catch(() => ({ itens: [] })),
+    fetchAlertasDestaques(4, tiposDinheiro).catch(() => []),
+    fetchDocumentos({ tipo: tiposDinheiro, limite: 1 }).catch(() => ({ dados: [] })),
   ]);
+  const destaqueIa = analises.itens?.[0]
+    ? {
+        ...analises.itens[0],
+        id: analises.itens[0].documento_id,
+        resumo: analises.itens[0].objeto || analises.itens[0].resumo_cidadao,
+        titulo: analises.itens[0].titulo_curto || analises.itens[0].titulo,
+      }
+    : null;
+  const ultimaPublicacao = publicacoesRecentes.dados?.[0] || null;
 
   if (!dados || !dados.periodo) {
     return (
@@ -92,9 +116,22 @@ export default async function TransparenciaPage({ searchParams: searchParamsProm
           </a>
           , cruzado com o acervo de licitações.
         </p>
+        <AreaSearchForm
+          tipos={TIPOS_DINHEIRO_PUBLICO}
+          placeholder="Buscar edital, contrato ou emenda…"
+          className="page-hero-search"
+        />
       </div>
 
       <TransparenciaSubnav />
+
+      <IntelligenceBrief resumoAi={destaqueIa} publicacao={ultimaPublicacao} />
+      <AlertasDestaque
+        alertas={alertas}
+        title="Na Lupa · Dinheiro público"
+        description="Gastos e contratos que valem um segundo olhar, com fonte oficial."
+        ctaHref="/na-lupa"
+      />
 
       <PeriodoSelector porMandato={porMandato} periodo={periodo} anosCobertos={periodo.anos_cobertos} modo={modo} />
 

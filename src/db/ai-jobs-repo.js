@@ -538,8 +538,17 @@ function listResumoAnalises({ tipo, limite = 50 } = {}) {
   };
 
   if (tipo) {
-    filters.push('d.tipo = @tipo');
-    params.tipo = tipo;
+    // "tipo=edital,contrato,..." filtra por qualquer um da lista (usado pra
+    // escopar "analise em destaque" por area -- dinheiro publico x atos
+    // oficiais). Sem virgula, comportamento inalterado (match exato).
+    const tipos = String(tipo).split(',').map((t) => t.trim()).filter(Boolean);
+    if (tipos.length > 1) {
+      filters.push(`d.tipo IN (${tipos.map((_, i) => `@tipo${i}`).join(', ')})`);
+      tipos.forEach((t, i) => { params[`tipo${i}`] = t; });
+    } else {
+      filters.push('d.tipo = @tipo');
+      params.tipo = tipos[0] || tipo;
+    }
   }
 
   const rows = db

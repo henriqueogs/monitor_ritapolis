@@ -888,10 +888,12 @@ function createServer() {
     }));
   });
 
-  // GET /api/alertas/destaques — top N para home (ativos, mais recentes)
+  // GET /api/alertas/destaques — top N para home (ativos, mais recentes).
+  // ?tipos_documento=edital,contrato escopa pelo documento vinculado (usado
+  // pelo "Na Lupa" de cada area — dinheiro publico x atos oficiais).
   app.get('/api/alertas/destaques', (req, res) => {
     const limite = req.query.limite ? Number(req.query.limite) : 5;
-    return res.json(alertasRepo.listarDestaquesPublicos(limite));
+    return res.json(alertasRepo.listarDestaquesPublicos(limite, req.query.tipos_documento || undefined));
   });
 
   // GET /api/alertas/stats — contagem por severidade

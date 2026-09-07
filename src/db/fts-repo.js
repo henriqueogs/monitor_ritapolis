@@ -100,7 +100,18 @@ function searchDocumentos(query, { limite = LIMITE_DEFAULT, pagina = 1, tipo, fo
   // Filtros adicionais nos campos estruturados
   const extraFilters = [];
   const extraParams = [];
-  if (tipo) { extraFilters.push('d.tipo = ?'); extraParams.push(tipo); }
+  if (tipo) {
+    // "tipo=edital,contrato,..." filtra por qualquer um da lista (busca
+    // escopada por area). Sem virgula, comportamento inalterado.
+    const tipos = String(tipo).split(',').map((t) => t.trim()).filter(Boolean);
+    if (tipos.length > 1) {
+      extraFilters.push(`d.tipo IN (${tipos.map(() => '?').join(', ')})`);
+      extraParams.push(...tipos);
+    } else {
+      extraFilters.push('d.tipo = ?');
+      extraParams.push(tipos[0] || tipo);
+    }
+  }
   if (fonte) { extraFilters.push('d.fonte = ?'); extraParams.push(fonte); }
   if (ano) { extraFilters.push('d.ano = ?'); extraParams.push(Number(ano)); }
   const extraWhere = extraFilters.length ? `AND ${extraFilters.join(' AND ')}` : '';

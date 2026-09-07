@@ -1,12 +1,12 @@
 import Link from 'next/link';
 import styles from '../styles.module.css';
-import HeroSearchForm from './HeroSearchForm';
 
 const CATEGORIAS = ['Saúde', 'Alimentação', 'Educação', 'Obras e Infraestrutura', 'Serviços', 'Equipamentos e Materiais'];
 
-// Sem tira de numeros aqui -- os hubs logo abaixo ja carregam os numeros
-// reais e escopados por periodo. Repetir "585 documentos / 553 licitacoes"
-// bem em cima dos cards do hub era volume duplicado, nao informacao nova.
+// Sem tira de numeros e sem busca aqui -- os hubs logo abaixo ja carregam os
+// numeros reais escopados por periodo, e cada hub tem sua propria busca
+// escopada (AreaSearchForm em /transparencia e /legislacao). A home vira
+// so' porta de entrada + selecao de area.
 export default function HomeHero() {
   return (
     <section className={styles.hero}>
@@ -25,8 +25,6 @@ export default function HomeHero() {
           Editais, decretos, licitações e gastos de Ritápolis, Minas Gerais —
           organizados com dados reais, sempre com caminho para a fonte oficial.
         </p>
-
-        <HeroSearchForm />
 
         <div className={`${styles.promptList} prompt-chips`}>
           {CATEGORIAS.map((cat) => (
