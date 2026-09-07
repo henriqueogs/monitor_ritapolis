@@ -1,10 +1,17 @@
 import IntelligenceBrief from '../components/IntelligenceBrief';
-import { fetchAlertasDestaques, fetchAnalisesResumos, fetchPainelCidadao } from '../lib/api';
+import { fetchAlertasDestaques, fetchAnalisesResumos, fetchDocumentos, fetchPainelCidadao } from '../lib/api';
+import { TIPOS_LEGISLACAO } from '../legislacao/components/LegislacaoFilters';
 import AlertasDestaque from './components/AlertasDestaque';
+import AtosOficiaisSection from './components/AtosOficiaisSection';
 import HomeHero from './components/HomeHero';
 import LimitsAndSources from './components/LimitsAndSources';
 import PrefeituraAutoSync from './components/PrefeituraAutoSync';
 import UpdatesSection from './components/UpdatesSection';
+
+// "Dinheiro publico" (home) mostra so o que envolve gasto/contratacao direto
+// -- decreto/lei/portaria (legislacao) tem secao propria (Atos oficiais),
+// senao os dois feeds da home ficariam misturados de novo.
+const TIPOS_DINHEIRO_PUBLICO = ['edital', 'contrato', 'emenda_parlamentar', 'publicacao_extrato'].join(',');
 
 function buildDestaqueIa(analisesItens) {
   const first = analisesItens[0];
@@ -20,14 +27,16 @@ function buildDestaqueIa(analisesItens) {
 }
 
 export default async function HomePage() {
-  const [painel, analises, alertas] = await Promise.all([
+  const [painel, analises, alertas, dinheiroPublico, atosOficiais] = await Promise.all([
     fetchPainelCidadao(),
     fetchAnalisesResumos({ limite: 6 }).catch(() => ({ itens: [], por_tipo: [], totais: {} })),
     fetchAlertasDestaques(4).catch(() => []),
+    fetchDocumentos({ tipo: TIPOS_DINHEIRO_PUBLICO, limite: 6 }).catch(() => ({ dados: [] })),
+    fetchDocumentos({ tipo: TIPOS_LEGISLACAO.join(','), limite: 6 }).catch(() => ({ dados: [] })),
   ]);
   const resumo = painel.resumo || {};
   const analisesItens = analises.itens || [];
-  const atualizacoesRecentes = painel.publicacoes_recentes || [];
+  const atualizacoesRecentes = dinheiroPublico.dados || [];
   const destaqueIa = buildDestaqueIa(analisesItens);
   const ultimaPublicacao = atualizacoesRecentes[0] || null;
   const licitacaoDestaque =
@@ -46,6 +55,7 @@ export default async function HomePage() {
       />
       <AlertasDestaque alertas={alertas} />
       <UpdatesSection documentos={atualizacoesRecentes} anoPadrao={resumo.ano_padrao} />
+      <AtosOficiaisSection documentos={atosOficiais.dados || []} />
       <LimitsAndSources fontes={painel.fontes || []} />
     </main>
   );

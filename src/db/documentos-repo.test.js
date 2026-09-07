@@ -18,7 +18,20 @@ jest.mock('./connection', () => ({
   db: mockConn,
 }));
 
-const { listDocumentos, listPublicacoesRecentes } = require('./documentos-repo');
+const { listDocumentos, listPublicacoesRecentes, labelTipo } = require('./documentos-repo');
+
+describe('labelTipo', () => {
+  it('traduz tipos de legislacao pra texto legivel (nao vaza o valor cru do banco)', () => {
+    expect(labelTipo('lei_ordinaria')).toBe('Lei Ordinária');
+    expect(labelTipo('lei_complementar')).toBe('Lei Complementar');
+    expect(labelTipo('decreto')).toBe('Decreto');
+    expect(labelTipo('portaria')).toBe('Portaria');
+  });
+
+  it('tipo desconhecido cai no proprio valor (nunca "undefined")', () => {
+    expect(labelTipo('algo_nunca_visto')).toBe('algo_nunca_visto');
+  });
+});
 
 describe('listDocumentos', () => {
   beforeEach(() => {

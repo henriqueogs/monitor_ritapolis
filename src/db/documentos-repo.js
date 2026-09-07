@@ -66,6 +66,23 @@ const TIPO_LABELS = {
   documento: 'Documento',
   documento_publico: 'Documento Público',
   resolucao: 'Resolução',
+  // Legislacao municipal (coletor de decretos/leis/portarias) -- sem essas
+  // entradas, `tipo_nome` (o que o frontend efetivamente usa, ver
+  // DocumentPreview.js) vazava o valor cru do banco em vez de texto legivel.
+  lei_ordinaria: 'Lei Ordinária',
+  lei_complementar: 'Lei Complementar',
+  lei_organica: 'Lei Orgânica',
+  instrucao_normativa: 'Instrução Normativa',
+  ata: 'Ata',
+  ata_comissao: 'Ata de Comissão',
+  regimento_interno: 'Regimento Interno',
+  estatuto: 'Estatuto',
+  projeto_lei: 'Projeto de Lei',
+  projeto_lei_complementar: 'Projeto de Lei Complementar',
+  deliberacao: 'Deliberação',
+  decreto_legislativo: 'Decreto Legislativo',
+  portaria_legislativo: 'Portaria do Legislativo',
+  oficio: 'Ofício',
 };
 
 const STATUS_LABELS = {
