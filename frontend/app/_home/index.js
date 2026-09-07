@@ -30,18 +30,13 @@ function buildDestaqueIa(analisesItens) {
   };
 }
 
-// Total empenhado do mandato atual, somado por ano real coberto pelos dados
-// (nunca todos os exercicios sem intervalo -- regra de apresentacao do
-// CLAUDE.md: valor monetario sempre escopado e rotulado com o periodo).
+// `total` ja vem escopado ao mandato pelo WHERE do repositorio (diferente de
+// `porAno`, que sempre traz o historico inteiro pro grafico da pagina de
+// transparencia) -- mesmo campo/rotulo que MetricasPeriodo usa em /transparencia,
+// nunca soma sem intervalo (regra de apresentacao do CLAUDE.md).
 function buildDinheiroStats(resumoTransparencia, totalLicitacoes) {
-  const porAno = resumoTransparencia?.porAno || [];
-  const valorEmpenhado = porAno.reduce((soma, linha) => soma + Number(linha.valor_empenhado || 0), 0);
-  const [anoInicio, anoFim] = resumoTransparencia?.periodo?.anos_cobertos || [];
-  const periodoLabel = anoInicio
-    ? anoInicio === anoFim
-      ? anoInicio
-      : `${anoInicio}–${anoFim}`
-    : 'no mandato atual';
+  const valorEmpenhado = resumoTransparencia?.total?.valor_total || 0;
+  const periodoLabel = resumoTransparencia?.periodo?.mandato?.label || 'no mandato atual';
 
   return { valorEmpenhado, periodoLabel, totalLicitacoes };
 }
