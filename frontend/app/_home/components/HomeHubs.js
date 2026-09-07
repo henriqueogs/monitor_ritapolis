@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Landmark, ScrollText } from 'lucide-react';
 import { formatMoneyCompact } from '../../lib/format';
 import styles from '../styles.module.css';
 
@@ -12,6 +13,7 @@ export default function HomeHubs({ dinheiro, atos }) {
     <div className={styles.hubs}>
       <Link href="/transparencia" className={`${styles.hub} ${styles.hubDinheiro}`}>
         <div>
+          <div className={styles.hubIcon}><Landmark size={24} /></div>
           <h2>Dinheiro público</h2>
           <p>Pra onde vai o orçamento — empenhos, licitações, credores e o painel de gastos.</p>
         </div>
@@ -32,6 +34,7 @@ export default function HomeHubs({ dinheiro, atos }) {
 
       <Link href="/legislacao" className={`${styles.hub} ${styles.hubAtos}`}>
         <div>
+          <div className={styles.hubIcon}><ScrollText size={24} /></div>
           <h2>Atos oficiais</h2>
           <p>O que a prefeitura decreta, legisla e publica — decretos, leis e portarias.</p>
         </div>

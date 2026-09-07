@@ -186,12 +186,23 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-height: 260px;
-  padding: 32px 28px;
+  min-height: 280px;
+  padding: 40px 36px;
   border-radius: var(--radius-xl);
   color: var(--text-inverse);
   box-shadow: var(--shadow-colored-lg);
   transition: transform var(--motion-base) var(--ease-out), box-shadow var(--motion-base) var(--ease-out);
+}
+
+.hubIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 20px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.16);
 }
 
 .hub:hover {
@@ -220,24 +231,24 @@
 }
 
 .hub h2 {
-  font-size: 1.6rem;
+  font-size: 1.7rem;
   font-weight: 800;
   letter-spacing: -0.02em;
-  margin: 0 0 8px;
+  margin: 0 0 12px;
 }
 
 .hub p {
-  max-width: 38ch;
+  max-width: 36ch;
   margin: 0;
-  font-size: 0.95rem;
-  line-height: 1.55;
+  font-size: 0.96rem;
+  line-height: 1.6;
   opacity: 0.92;
 }
 
 .hubStats {
   display: flex;
-  gap: 26px;
-  margin-bottom: 18px;
+  gap: 30px;
+  margin-bottom: 22px;
 }
 
 .hubStat {
