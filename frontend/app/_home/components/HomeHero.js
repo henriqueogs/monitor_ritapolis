@@ -1,7 +1,7 @@
 import Link from 'next/link';
-import { Search } from 'lucide-react';
 import { formatMoneyCompact } from '../../lib/format';
 import styles from '../styles.module.css';
+import HeroSearchForm from './HeroSearchForm';
 
 const CATEGORIAS = ['Saúde', 'Alimentação', 'Educação', 'Obras e Infraestrutura', 'Serviços', 'Equipamentos e Materiais'];
 
@@ -26,17 +26,7 @@ export default function HomeHero({ resumo, licitacoesAno }) {
           organizados com dados reais, sempre com caminho para a fonte oficial.
         </p>
 
-        <form action="/busca" method="get" role="search" className={`${styles.heroSearch} hero-search`}>
-          <Search size={20} className="hero-search-icon" />
-          <input
-            name="q"
-            className="hero-search-input"
-            placeholder="Buscar documento, empenho, credor…"
-            aria-label="Buscar em documentos, empenhos e credores"
-            minLength={2}
-          />
-          <button type="submit" className="hero-search-button">Procurar</button>
-        </form>
+        <HeroSearchForm />
 
         <div className={`${styles.promptList} prompt-chips`}>
           {CATEGORIAS.map((cat) => (
