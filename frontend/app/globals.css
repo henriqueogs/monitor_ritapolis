@@ -299,6 +299,63 @@ h1, h2, h3, h4, p {
   transform: scaleX(1);
 }
 
+.topnav-group {
+  position: relative;
+}
+
+.topnav-group-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.topnav-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 99;
+  display: none;
+  flex-direction: column;
+  min-width: 190px;
+  padding: 6px;
+  margin-top: 4px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+}
+
+.topnav-group:hover .topnav-dropdown,
+.topnav-group:focus-within .topnav-dropdown {
+  display: flex;
+}
+
+.topnav-dropdown-link {
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.topnav-dropdown-link:hover {
+  background: var(--surface-muted);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.topnav-dropdown-link.is-active {
+  color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+
+.mobile-nav-sublink {
+  padding-left: 36px;
+  font-size: 0.9rem;
+}
+
 .mobile-nav-toggle {
   display: none;
   align-items: center;
