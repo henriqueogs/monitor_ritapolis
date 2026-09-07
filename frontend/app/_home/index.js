@@ -55,7 +55,6 @@ export default async function HomePage() {
     // Backend normaliza qualquer ano do mandato pro inicio dele.
     fetchTransparenciaResumo({ mandato: anoAtual }).catch(() => null),
   ]);
-  const resumo = painel.resumo || {};
   const analisesItens = analises.itens || [];
   const destaqueIa = buildDestaqueIa(analisesItens);
   const ultimaPublicacao = painel.publicacoes_recentes?.[0] || null;
@@ -67,7 +66,7 @@ export default async function HomePage() {
   return (
     <main className="page-container page-observatory">
       <PrefeituraAutoSync />
-      <HomeHero resumo={resumo} licitacoesAno={painel.licitacoes_ano_corrente} />
+      <HomeHero />
       <HomeHubs
         dinheiro={buildDinheiroStats(resumoTransparencia)}
         atos={{ totalAtos: atosOficiais.total || 0, totalLeis: leisOrdinarias.total || 0 }}
