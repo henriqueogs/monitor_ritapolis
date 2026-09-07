@@ -8,7 +8,7 @@ export default function TopNav() {
   return (
     <header className="topbar">
       <div className="topbar-inner">
-        <Link href="/" className="brand" aria-label="ritápolis.com — página inicial">
+        <Link href="/" prefetch={false} className="brand" aria-label="ritápolis.com — página inicial">
           <span className="brand-logo-frame">
             <Image
               src={brandLogo}

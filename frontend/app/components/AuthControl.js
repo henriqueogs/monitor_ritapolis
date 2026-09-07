@@ -38,7 +38,7 @@ export default function AuthControl() {
   if (state.authenticated) {
     return (
       <div className="admin-mode-control">
-        <Link href="/admin" className="admin-mode-link">
+        <Link href="/admin" prefetch={false} className="admin-mode-link">
           <Shield size={16} /> Operação
         </Link>
         <button type="button" className="admin-mode-button" onClick={handleLogout} title="Sair">
@@ -50,7 +50,7 @@ export default function AuthControl() {
 
   return (
     <div className="admin-mode-control">
-      <Link href="/login" className="admin-mode-button" title="Entrar no painel">
+      <Link href="/login" prefetch={false} className="admin-mode-button" title="Entrar no painel">
         <LogIn size={16} /> Entrar
       </Link>
     </div>
