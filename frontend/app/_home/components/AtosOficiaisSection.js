@@ -2,17 +2,13 @@ import Link from 'next/link';
 import SectionBlock from '../../components/SectionBlock';
 import DocumentPreview from './DocumentPreview';
 
-export default function UpdatesSection({ documentos, anoPadrao }) {
+export default function AtosOficiaisSection({ documentos }) {
   return (
     <div className="content-stack">
       <SectionBlock
-        title="Dinheiro público"
-        description="Editais, contratos e emendas — o que a Prefeitura está gastando ou contratando, do mais novo ao mais antigo."
-        aside={
-          <Link href={`/transparencia${anoPadrao ? `?ano=${anoPadrao}` : ''}`}>
-            Ver dinheiro público &rarr;
-          </Link>
-        }
+        title="Atos oficiais"
+        description="Decretos, leis e portarias publicados pela Prefeitura — do mais novo ao mais antigo."
+        aside={<Link href="/legislacao">Ver legislação →</Link>}
       >
         <div className="citizen-list">
           {documentos.length ? (
@@ -20,7 +16,7 @@ export default function UpdatesSection({ documentos, anoPadrao }) {
               <DocumentPreview key={documento.id} documento={documento} />
             ))
           ) : (
-            <p className="empty-state">Nenhuma atualizacao encontrada.</p>
+            <p className="empty-state">Nenhum ato oficial encontrado.</p>
           )}
         </div>
       </SectionBlock>
