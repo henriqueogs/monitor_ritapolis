@@ -279,7 +279,20 @@ function buildDocumentoWhere({ fonte, tipo, ano, status, termo, qualidade }, par
   const filters = [];
 
   if (fonte) { filters.push('fonte = @fonte'); params.fonte = fonte; }
-  if (tipo) { filters.push('tipo = @tipo'); params.tipo = tipo; }
+  if (tipo) {
+    // "tipo=decreto,lei_ordinaria,portaria" filtra por qualquer um da lista
+    // (usado pela pagina de Legislacao, que junta varios tipos numa vista so).
+    // Sem virgula, comportamento inalterado (match exato de sempre).
+    const tipos = String(tipo).split(',').map((t) => t.trim()).filter(Boolean);
+    if (tipos.length > 1) {
+      const placeholders = tipos.map((_, i) => `@tipo${i}`);
+      filters.push(`tipo IN (${placeholders.join(', ')})`);
+      tipos.forEach((t, i) => { params[`tipo${i}`] = t; });
+    } else {
+      filters.push('tipo = @tipo');
+      params.tipo = tipos[0] || tipo;
+    }
+  }
   if (ano) { filters.push('ano = @ano'); params.ano = Number(ano); }
   if (status) { filters.push('status_coleta = @status'); params.status = status; }
 

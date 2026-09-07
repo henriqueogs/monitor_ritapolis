@@ -47,6 +47,28 @@ describe('listDocumentos', () => {
     );
   }
 
+  it('tipo com virgula filtra por qualquer um da lista (pagina de Legislacao)', () => {
+    inserirDocumento({ numero: '1', ano: 2025, titulo: 'Decreto 1', tipo: 'decreto' });
+    inserirDocumento({ numero: '2', ano: 2025, titulo: 'Portaria 1', tipo: 'portaria' });
+    inserirDocumento({ numero: '3', ano: 2025, titulo: 'Edital 1', tipo: 'edital' });
+    inserirDocumento({ numero: '4', ano: 2025, titulo: 'Lei 1', tipo: 'lei_ordinaria' });
+
+    const resultado = listDocumentos({ tipo: 'decreto,portaria,lei_ordinaria', pagina: 1, limite: 10 });
+
+    expect(resultado.dados).toHaveLength(3);
+    expect(resultado.dados.map((d) => d.tipo).sort()).toEqual(['decreto', 'lei_ordinaria', 'portaria']);
+  });
+
+  it('tipo sem virgula continua filtrando por match exato (comportamento antigo)', () => {
+    inserirDocumento({ numero: '1', ano: 2025, titulo: 'Decreto 1', tipo: 'decreto' });
+    inserirDocumento({ numero: '2', ano: 2025, titulo: 'Portaria 1', tipo: 'portaria' });
+
+    const resultado = listDocumentos({ tipo: 'decreto', pagina: 1, limite: 10 });
+
+    expect(resultado.dados).toHaveLength(1);
+    expect(resultado.dados[0].tipo).toBe('decreto');
+  });
+
   it('ordena documentos por ano (cronológico) antes da data de publicação', () => {
     // Inserir documentos de anos diferentes com datas misturadas
     inserirDocumento({
