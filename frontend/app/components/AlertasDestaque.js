@@ -1,10 +1,19 @@
 import Link from 'next/link';
-import SectionBlock from '../../components/SectionBlock';
-import { formatMoney } from '../../lib/format';
-import { nivelLabel } from '../../lib/descobertas';
-import styles from '../../na-lupa/styles.module.css';
+import SectionBlock from './SectionBlock';
+import { formatMoney } from '../lib/format';
+import { nivelLabel } from '../lib/descobertas';
+import styles from '../na-lupa/styles.module.css';
 
-export default function AlertasDestaque({ alertas }) {
+// Compartilhado entre a home e as paginas de area (/transparencia,
+// /legislacao) -- cada uma passa `alertas` ja escopados (via
+// fetchAlertasDestaques(limite, tiposDocumento)) e pode customizar a
+// descricao/CTA pro contexto.
+export default function AlertasDestaque({
+  alertas,
+  title = 'Na Lupa',
+  description = 'Gastos e contratos públicos que valem um segundo olhar — com a fonte oficial e como pedir explicação.',
+  ctaHref = '/na-lupa',
+}) {
   if (!alertas || alertas.length === 0) {
     return null;
   }
@@ -12,9 +21,9 @@ export default function AlertasDestaque({ alertas }) {
   return (
     <div className="content-stack">
       <SectionBlock
-        title="Na Lupa"
-        description="Gastos e contratos públicos que valem um segundo olhar — com a fonte oficial e como pedir explicação."
-        aside={<Link href="/na-lupa">Ver todos &rarr;</Link>}
+        title={title}
+        description={description}
+        aside={<Link href={ctaHref}>Ver todos &rarr;</Link>}
       >
         <div className={styles.grid}>
           {alertas.map((alerta) => (

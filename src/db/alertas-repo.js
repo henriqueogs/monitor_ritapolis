@@ -476,18 +476,34 @@ function listarDestaques(limite = 5) {
   return rows.map(mapAlerta);
 }
 
-function listarDestaquesPublicos(limite = 5) {
+// `tiposDocumento` escopa o "Na Lupa" por area (dinheiro publico x atos
+// oficiais) via o documento vinculado, sem precisar de uma coluna de area
+// na propria tabela de alertas -- reusa o vinculo que ja existe.
+function listarDestaquesPublicos(limite = 5, tiposDocumento) {
+  const tipos = Array.isArray(tiposDocumento)
+    ? tiposDocumento
+    : typeof tiposDocumento === 'string' && tiposDocumento
+      ? tiposDocumento.split(',').map((t) => t.trim()).filter(Boolean)
+      : [];
+  const filtroTipo = tipos.length
+    ? `AND EXISTS (
+         SELECT 1 FROM alertas_documentos ad
+         JOIN documentos d ON d.id = ad.documento_id
+         WHERE ad.alerta_id = alertas.id AND d.tipo IN (${tipos.map(() => '?').join(', ')})
+       )`
+    : '';
   const rows = db
     .prepare(
       `SELECT * FROM alertas
         WHERE status = 'ativo' AND estado_editorial = 'publicado'
+        ${filtroTipo}
         ORDER BY CASE severidade WHEN 'critico' THEN 0 WHEN 'atencao' THEN 1 ELSE 2 END,
                  COALESCE(ultima_publicacao_documento, '') DESC,
                  COALESCE(publicado_em, '') DESC,
                  id DESC
         LIMIT ?`
     )
-    .all(limite);
+    .all(...tipos, limite);
   return rows.map(mapAlerta).map(alertaPublico).filter(Boolean);
 }
 

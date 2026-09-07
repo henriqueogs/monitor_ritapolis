@@ -1,15 +1,6 @@
 import FilterBar from '../../components/FilterBar';
 import SearchInput from '../../components/SearchInput';
 
-// Tipos que a pagina de Legislacao cobre -- mesma lista usada no backend
-// (src/coletores/site-prefeitura-legislacao.js) pra restringir a vista.
-export const TIPOS_LEGISLACAO = [
-  'decreto', 'lei_ordinaria', 'lei_complementar', 'portaria', 'resolucao',
-  'instrucao_normativa', 'lei_organica', 'ata', 'regimento_interno',
-  'estatuto', 'ata_comissao', 'projeto_lei', 'lei', 'deliberacao',
-  'decreto_legislativo', 'portaria_legislativo', 'projeto_lei_complementar', 'oficio',
-];
-
 const OPCOES_TIPO = [
   { value: '', label: 'Todos os tipos' },
   { value: 'decreto', label: 'Decreto' },
