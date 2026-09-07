@@ -24,8 +24,8 @@ export default function HomeHubs({ dinheiro, atos }) {
               <span>Empenhado {dinheiro.periodoLabel}</span>
             </div>
             <div className={styles.hubStat}>
-              <strong>{(dinheiro.totalLicitacoes || 0).toLocaleString('pt-BR')}</strong>
-              <span>Licitações mapeadas</span>
+              <strong>{(dinheiro.totalCredores || 0).toLocaleString('pt-BR')}</strong>
+              <span>Credores no período</span>
             </div>
           </div>
           <span className={styles.hubCta}>Explorar dinheiro público →</span>
