@@ -64,9 +64,23 @@ function comLinkPortal(rows, { exercicioKey = 'exercicio_orcamento' } = {}) {
   }));
 }
 
+const PORTAL_FOLHA_URL = 'https://pt.ritapolis.mg.gov.br/Folha';
+
+/**
+ * A folha salarial não tem deep-link estável por registro no portal (é
+ * sempre sessão+thread+CSV, sem um GET direto tipo Detalhamento_Despesa) --
+ * degrada honestamente pra listagem genérica do modulo Folha, sempre com
+ * `especifico: false`. Ainda cumpre §11.3 (nunca "sem origem").
+ */
+function buildPortalFolhaLink() {
+  return { url: PORTAL_FOLHA_URL, especifico: false };
+}
+
 module.exports = {
   buildPortalDespesaLink,
+  buildPortalFolhaLink,
   comLinkPortal,
   PORTAL_TEMPO_REAL_URL,
   PORTAL_DETALHE_DESPESA_URL,
+  PORTAL_FOLHA_URL,
 };
