@@ -161,6 +161,15 @@ export default async function TransparenciaPage({ searchParams: searchParamsProm
 
       <TiposEmpenho tiposEmpenho={tiposEmpenho} valorTotal={total.valor_total} periodoLabel={periodoLabel} />
 
+      <SectionBlock
+        title="Folha salarial"
+        description="Cargo, secretaria e remuneração de cada servidor, por competência — publicado no Portal da Transparência."
+      >
+        <Link href="/transparencia/servidores" className="availability-badge is-gov" style={{ textDecoration: 'none' }}>
+          Ver folha de servidores →
+        </Link>
+      </SectionBlock>
+
       {/* Análises de preço vivem na Inteligência — aqui só o convite */}
       <SectionBlock
         title="Evolução de preços por produto"
