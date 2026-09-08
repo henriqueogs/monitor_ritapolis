@@ -4,6 +4,7 @@ const ColetorSitePrefeitura = require('../coletores/site-prefeitura');
 const ColetorLegislacaoPrefeitura = require('../coletores/site-prefeitura-legislacao');
 const ColetorPncp = require('../coletores/pncp');
 const ColetorPortalTransparencia = require('../coletores/portal-transparencia');
+const ColetorFolha = require('../coletores/folha');
 
 const state = {
   running: false,
@@ -33,6 +34,7 @@ function buildCollectors(fonte) {
   if (fonte === 'camara') {return [new ColetorCamara()];}
   if (fonte === 'pncp') {return [new ColetorPncp()];}
   if (fonte === 'portal_transparencia') {return [new ColetorPortalTransparencia()];}
+  if (fonte === 'portal_transparencia_folha') {return [new ColetorFolha()];}
   if (!fonte || fonte === 'todas') {return [
     new ColetorSitePrefeitura(),
     new ColetorLegislacaoPrefeitura(),
@@ -42,6 +44,7 @@ function buildCollectors(fonte) {
     // quando o site voltar a funcionar.
     new ColetorPncp(),
     new ColetorPortalTransparencia(),
+    new ColetorFolha(),
   ];}
 
   throw new Error(`Fonte de coleta nao suportada: ${fonte}`);

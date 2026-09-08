@@ -107,5 +107,9 @@ module.exports = {
   descobertasInvestigacaoDelayMs: Number(process.env.DESCOBERTAS_INVESTIGACAO_DELAY_MS || 15_000),
   // Portal da Transparência (SH3): primeiro exercício coletado. API tem dados
   // desde 2019 (probe 16/16 janelas ok — scripts/testar-sh3-anos-anteriores.js).
-  transparenciaAnoInicio: Number(process.env.TRANSPARENCIA_ANO_INICIO || 2019)
+  transparenciaAnoInicio: Number(process.env.TRANSPARENCIA_ANO_INICIO || 2019),
+  // Folha salarial: mesmo portal, mas o seletor de exercício da tela /Folha
+  // oferece desde 2013 — sem o mesmo motivo pra atrasar o início (volume é
+  // baixo, ~1MB de CSV por ano).
+  folhaAnoInicio: Number(process.env.FOLHA_ANO_INICIO || 2013)
 };

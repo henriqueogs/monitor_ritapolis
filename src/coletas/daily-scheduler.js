@@ -34,6 +34,7 @@ let timerDiario = null;
 let timerPncp = null;
 let rodandoTransparencia = false;
 let rodandoPncp = false;
+let rodandoFolha = false;
 
 // ── Helpers de agendamento ────────────────────────────────────────────────────
 
@@ -71,6 +72,26 @@ function despesasEmDia(minHoras) {
     .all();
   const okPorAno = new Map(rows.map((r) => [r.exercicio, new Date(r.last).getTime()]));
   for (let ano = config.transparenciaAnoInicio; ano <= anoAtual; ano += 1) {
+    const ts = okPorAno.get(ano);
+    if (!ts || ts < cutoffMs) {return false;}
+  }
+  return true;
+}
+
+/** Mesma lógica de despesasEmDia, mas pro início de exercício da folha (2013). */
+function folhaEmDia(minHoras) {
+  const anoAtual = new Date().getFullYear();
+  const cutoffMs = Date.now() - minHoras * 60 * 60 * 1000;
+  const rows = db
+    .prepare(
+      `SELECT exercicio, MAX(coletado_em) AS last
+         FROM transparencia_coletas_log
+        WHERE tipo = 'folha' AND status = 'ok'
+        GROUP BY exercicio`
+    )
+    .all();
+  const okPorAno = new Map(rows.map((r) => [r.exercicio, new Date(r.last).getTime()]));
+  for (let ano = config.folhaAnoInicio; ano <= anoAtual; ano += 1) {
     const ts = okPorAno.get(ano);
     if (!ts || ts < cutoffMs) {return false;}
   }
@@ -119,6 +140,41 @@ async function coletarTransparencia() {
     logger.error('daily-scheduler: erro na coleta de transparência', { erro: err.message });
   } finally {
     rodandoTransparencia = false;
+  }
+}
+
+// ── Coleta de folha salarial ───────────────────────────────────────────────────
+
+async function coletarFolha() {
+  if (rodandoFolha) {
+    logger.debug('daily-scheduler: folha já em andamento, ignorando tick');
+    return;
+  }
+  if (folhaEmDia(config.dailySchedulerTransparenciaIntervalHoras)) {
+    logger.debug('daily-scheduler: folha dentro do intervalo (todos os anos em dia)');
+    return;
+  }
+
+  rodandoFolha = true;
+  logger.info('daily-scheduler: iniciando coleta de folha salarial');
+
+  try {
+    const ColetorFolha = require('../coletores/folha');
+    const coletor = new ColetorFolha();
+    const resultado = {
+      fonte: 'portal_transparencia_folha',
+      status: 'processando',
+      itens_novos: 0,
+      itens_atualizados: 0,
+      itens_com_erro: 0,
+      detalhes: []
+    };
+    await coletor.executar(resultado);
+    logger.info('daily-scheduler: folha concluída', resultado);
+  } catch (err) {
+    logger.error('daily-scheduler: erro na coleta de folha', { erro: err.message });
+  } finally {
+    rodandoFolha = false;
   }
 }
 
@@ -225,6 +281,7 @@ async function enriquecerCredoresTick() {
 
 async function tick() {
   await coletarTransparencia();
+  await coletarFolha();
   reprocessarFinalidades();
   await enriquecerCredoresTick();
   await sincronizarPncp();
@@ -264,18 +321,23 @@ function stop() {
 function getStatus() {
   const isDueTransp = isDue('despesas', config.dailySchedulerTransparenciaIntervalHoras);
   const isDuePncp = isDue('pncp', config.dailySchedulerPncpIntervalHoras);
+  const isDueFolha = isDue('folha', config.dailySchedulerTransparenciaIntervalHoras);
 
   const lastTransp = db.prepare("SELECT MAX(coletado_em) last FROM transparencia_coletas_log WHERE tipo='despesas' AND status='ok'").get();
   const lastPncp = db.prepare("SELECT MAX(coletado_em) last FROM transparencia_coletas_log WHERE tipo='pncp' AND status='ok'").get();
+  const lastFolha = db.prepare("SELECT MAX(coletado_em) last FROM transparencia_coletas_log WHERE tipo='folha' AND status='ok'").get();
 
   return {
     enabled: config.dailySchedulerEnabled,
     rodando_transparencia: rodandoTransparencia,
     rodando_pncp: rodandoPncp,
+    rodando_folha: rodandoFolha,
     proxima_transparencia_due: isDueTransp,
     proxima_pncp_due: isDuePncp,
+    proxima_folha_due: isDueFolha,
     ultima_transparencia: lastTransp?.last || null,
     ultima_pncp: lastPncp?.last || null,
+    ultima_folha: lastFolha?.last || null,
   };
 }
 
