@@ -353,6 +353,23 @@ export function fetchTransparenciaDespesas(params = {}) {
   }));
 }
 
+export function fetchTransparenciaFolhaServidores(params = {}) {
+  return fetchJson(`/transparencia/folha/servidores${buildQuery(params)}`).catch(() => ({
+    total: 0,
+    pagina: 1,
+    limite: 50,
+    dados: []
+  }));
+}
+
+export function fetchFolhaServidorDossie(vinculo, matricula) {
+  return fetchJson(`/transparencia/folha/servidores/${vinculo}/${matricula}`).catch(() => null);
+}
+
+export function fetchTransparenciaFolhaResumo(params = {}) {
+  return fetchJson(`/transparencia/folha/resumo${buildQuery(params)}`).catch(() => []);
+}
+
 export function fetchEstatisticas() {
   return fetchJson('/estatisticas').catch(async () => {
     const [documentos, licitacoes, coletas] = await Promise.all([
