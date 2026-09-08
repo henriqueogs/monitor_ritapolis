@@ -405,6 +405,41 @@ CREATE TABLE IF NOT EXISTS transparencia_receitas (
   UNIQUE (exercicio, codigo_receita)
 );
 
+-- Folha salarial (contracheque) -- mesmo portal/fluxo de despesas, mas
+-- entidade distinta: chave por CPF/vinculo (pessoa), nao por empenho, e
+-- recorrente por competencia (mes) em vez de por evento de pagamento.
+CREATE TABLE IF NOT EXISTS transparencia_folha (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  vinculo TEXT NOT NULL,
+  matricula TEXT NOT NULL,
+  competencia_ano INTEGER NOT NULL,
+  competencia_mes INTEGER NOT NULL,
+  nome_servidor TEXT,
+  cpf_mascarado TEXT,
+  situacao TEXT,
+  forma_admissao TEXT,
+  cargo TEXT,
+  funcao TEXT,
+  secretaria TEXT,
+  lotacao TEXT,
+  sigla_cargo TEXT,
+  data_admissao TEXT,
+  carga_horaria TEXT,
+  salario_base REAL NOT NULL DEFAULT 0,
+  remuneracao_bruta REAL NOT NULL DEFAULT 0,
+  total_liquido REAL NOT NULL DEFAULT 0,
+  dados_extras TEXT,
+  hash_folha TEXT NOT NULL,
+  coletado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (vinculo, matricula, competencia_ano, competencia_mes)
+);
+
+CREATE INDEX IF NOT EXISTS idx_transp_folha_competencia ON transparencia_folha(competencia_ano, competencia_mes);
+CREATE INDEX IF NOT EXISTS idx_transp_folha_secretaria ON transparencia_folha(secretaria);
+CREATE INDEX IF NOT EXISTS idx_transp_folha_cargo ON transparencia_folha(cargo);
+CREATE INDEX IF NOT EXISTS idx_transp_folha_vinculo_matricula ON transparencia_folha(vinculo, matricula);
+
 CREATE TABLE IF NOT EXISTS produtos_grupos (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   rotulo_canonico TEXT NOT NULL,
@@ -567,6 +602,33 @@ CREATE TRIGGER IF NOT EXISTS despesas_fts_au AFTER UPDATE ON transparencia_despe
   VALUES ('delete', old.id, old.historico, old.credor_nome, old.empenho);
   INSERT INTO despesas_fts(rowid, historico, credor_nome, empenho)
   VALUES (new.id, new.historico, new.credor_nome, new.empenho);
+END;
+
+-- FTS5 — Busca textual na folha salarial (nome, cargo, secretaria)
+CREATE VIRTUAL TABLE IF NOT EXISTS folha_fts USING fts5(
+  nome_servidor,
+  cargo,
+  secretaria,
+  content='transparencia_folha',
+  content_rowid='id',
+  tokenize='unicode61 remove_diacritics 2'
+);
+
+CREATE TRIGGER IF NOT EXISTS folha_fts_ai AFTER INSERT ON transparencia_folha BEGIN
+  INSERT INTO folha_fts(rowid, nome_servidor, cargo, secretaria)
+  VALUES (new.id, new.nome_servidor, new.cargo, new.secretaria);
+END;
+
+CREATE TRIGGER IF NOT EXISTS folha_fts_ad AFTER DELETE ON transparencia_folha BEGIN
+  INSERT INTO folha_fts(folha_fts, rowid, nome_servidor, cargo, secretaria)
+  VALUES ('delete', old.id, old.nome_servidor, old.cargo, old.secretaria);
+END;
+
+CREATE TRIGGER IF NOT EXISTS folha_fts_au AFTER UPDATE ON transparencia_folha BEGIN
+  INSERT INTO folha_fts(folha_fts, rowid, nome_servidor, cargo, secretaria)
+  VALUES ('delete', old.id, old.nome_servidor, old.cargo, old.secretaria);
+  INSERT INTO folha_fts(rowid, nome_servidor, cargo, secretaria)
+  VALUES (new.id, new.nome_servidor, new.cargo, new.secretaria);
 END;
 
 -- Tabela de detalhes estruturados de emendas parlamentares

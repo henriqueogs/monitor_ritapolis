@@ -160,6 +160,7 @@ module.exports = {
   BASE_URL,
   extrairTokens,
   parseValorCsv,
+  parseLinhaCsv,
   parseCsvDespesas,
   nomeCredorDoCsv,
   parseDetalhamentoDespesa,
