@@ -1,12 +1,9 @@
-import Link from 'next/link';
 import styles from '../styles.module.css';
 
-const CATEGORIAS = ['Saúde', 'Alimentação', 'Educação', 'Obras e Infraestrutura', 'Serviços', 'Equipamentos e Materiais'];
-
-// Sem tira de numeros e sem busca aqui -- os hubs logo abaixo ja carregam os
-// numeros reais escopados por periodo, e cada hub tem sua propria busca
-// escopada (AreaSearchForm em /transparencia e /legislacao). A home vira
-// so' porta de entrada + selecao de area.
+// So' titulo + descricao aqui -- chips de categoria e "coletado
+// automaticamente de..." saiam (redundante com o resto da pagina); os hubs
+// logo abaixo ja carregam numeros reais escopados e cada area tem sua
+// propria busca (AreaSearchForm em /transparencia e /legislacao).
 export default function HomeHero() {
   return (
     <section className={styles.hero}>
@@ -24,25 +21,6 @@ export default function HomeHero() {
         <p>
           Editais, decretos, licitações e gastos de Ritápolis, Minas Gerais —
           organizados com dados reais, sempre com caminho para a fonte oficial.
-        </p>
-
-        <div className={`${styles.promptList} prompt-chips`}>
-          {CATEGORIAS.map((cat) => (
-            <Link
-              key={cat}
-              href={`/licitacoes?categoria=${encodeURIComponent(cat)}`}
-              className="prompt-chip"
-            >
-              {cat}
-            </Link>
-          ))}
-        </div>
-
-        <p className={styles.heroSource}>
-          Coletado automaticamente do{' '}
-          <a href="https://ritapolis.mg.gov.br" target="_blank" rel="noopener noreferrer">portal da Prefeitura de Ritápolis</a>
-          {' '}e do{' '}
-          <a href="https://pncp.gov.br" target="_blank" rel="noopener noreferrer">PNCP</a>.
         </p>
       </div>
     </section>

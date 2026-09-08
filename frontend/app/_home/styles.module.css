@@ -82,9 +82,9 @@
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  font-size: clamp(2.6rem, 5.8vw, 4rem);
+  font-size: clamp(2.2rem, 4.6vw, 3.2rem);
   font-weight: 900;
-  line-height: 1.02;
+  line-height: 1.05;
   letter-spacing: -0.05em;
 }
 
@@ -94,75 +94,6 @@
   color: var(--text-secondary);
   font-size: 1.1rem;
   line-height: 1.65;
-}
-
-.promptList {
-  justify-content: center;
-}
-
-.heroStats {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0;
-  flex-wrap: wrap;
-  margin-top: 40px;
-  padding-top: 28px;
-  border-top: 1px solid var(--border);
-  animation: fade-in 700ms 350ms var(--ease-out) both;
-}
-
-.heroStat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 0 28px;
-  text-decoration: none;
-  transition: opacity var(--motion-fast) var(--ease-out);
-}
-
-.heroStat:hover {
-  opacity: 0.72;
-}
-
-.heroSource {
-  margin: 14px auto 0;
-  max-width: 640px;
-  text-align: center;
-  font-size: 0.78rem;
-  line-height: 1.5;
-  color: var(--text-muted);
-}
-
-.heroSource a {
-  color: var(--text-secondary);
-  text-decoration: underline;
-}
-
-.heroStatDivider {
-  width: 1px;
-  height: 34px;
-  background: var(--border);
-  flex-shrink: 0;
-}
-
-.heroStat strong {
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: var(--accent);
-  letter-spacing: -0.045em;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-}
-
-.heroStat span {
-  font-size: 0.76rem;
-  color: var(--text-muted);
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  white-space: nowrap;
 }
 
 .hubs {
@@ -336,29 +267,5 @@
 @media (max-width: 720px) {
   .hero {
     padding: 48px 0 40px;
-  }
-
-  .hero h1 {
-    font-size: 2.2rem;
-  }
-
-  .heroStats {
-    flex-direction: row;
-    gap: 0;
-    overflow-x: auto;
-    padding-bottom: 4px;
-  }
-
-  .heroStat {
-    padding: 0 18px;
-    flex-shrink: 0;
-  }
-
-  .heroStat strong {
-    font-size: 1.2rem;
-  }
-
-  .heroStatDivider {
-    height: 28px;
   }
 }
