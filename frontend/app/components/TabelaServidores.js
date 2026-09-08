@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { formatMoney } from '../lib/format';
 
 const MESES = [
@@ -15,7 +16,12 @@ function LinhaServidor({ item }) {
   return (
     <div className="table-row" style={{ display: 'grid', gridTemplateColumns: '1fr 190px 110px 140px', gap: 12, alignItems: 'start', padding: '10px 0' }}>
       <span style={{ minWidth: 0 }}>
-        <span style={{ display: 'block', fontSize: 13, fontWeight: 600 }}>{item.nome_servidor}</span>
+        <Link
+          href={`/transparencia/servidores/${item.vinculo}/${item.matricula}`}
+          style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'inherit' }}
+        >
+          {item.nome_servidor}
+        </Link>
         <span style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
           {item.cargo}
         </span>
