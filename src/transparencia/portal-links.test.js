@@ -2,6 +2,7 @@
 
 const {
   buildPortalDespesaLink,
+  buildPortalFolhaLink,
   comLinkPortal,
   PORTAL_TEMPO_REAL_URL,
 } = require('./portal-links');
@@ -114,6 +115,14 @@ describe('portal-links', () => {
     it('retorna lista vazia para entrada não-array', () => {
       expect(comLinkPortal(null)).toEqual([]);
       expect(comLinkPortal(undefined)).toEqual([]);
+    });
+  });
+
+  describe('buildPortalFolhaLink', () => {
+    it('sempre degrada pra listagem generica do modulo Folha (sem deep-link por registro)', () => {
+      const { url, especifico } = buildPortalFolhaLink();
+      expect(url).toBe('https://pt.ritapolis.mg.gov.br/Folha');
+      expect(especifico).toBe(false);
     });
   });
 });

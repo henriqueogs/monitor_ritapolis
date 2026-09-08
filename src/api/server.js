@@ -59,6 +59,7 @@ const { buscaUnificada } = require('../busca/busca-unificada');
 const { getEmpenhoDossie } = require('../transparencia/empenho-service');
 const { getGastosPanorama, getCategoriaDossie } = require('../transparencia/gastos-service');
 const { getFinalidadesResumo, getFinalidadeDossie, resolverExercicios } = require('../transparencia/finalidade-service');
+const { listarServidores, getServidorDossie, getResumoSecretarias } = require('../transparencia/folha-service');
 const { slugParaPrefixos } = require('../transparencia/categorias');
 const { FINALIDADES } = require('../transparencia/finalidade');
 const {
@@ -769,6 +770,30 @@ function createServer() {
     return res.json(
       getDespesasComPortal({ exercicio, exercicios, credor_cnpj, documento_id, categoriaPrefixos, finalidade, q, pagina, limite })
     );
+  });
+
+  // ── Folha salarial ──────────────────────────────────────────────────────
+  app.get('/api/transparencia/folha/servidores', (req, res) => {
+    const { q, secretaria, cargo, situacao, competencia_ano, competencia_mes, pagina, limite } = req.query;
+    return res.json(
+      listarServidores({
+        q, secretaria, cargo, situacao,
+        competenciaAno: competencia_ano,
+        competenciaMes: competencia_mes,
+        pagina, limite,
+      })
+    );
+  });
+
+  app.get('/api/transparencia/folha/servidores/:vinculo/:matricula', (req, res) => {
+    const dossie = getServidorDossie({ vinculo: req.params.vinculo, matricula: req.params.matricula });
+    if (!dossie) { return res.status(404).json({ error: 'Servidor não encontrado' }); }
+    return res.json(dossie);
+  });
+
+  app.get('/api/transparencia/folha/resumo', (req, res) => {
+    const { competencia_ano, competencia_mes } = req.query;
+    return res.json(getResumoSecretarias({ competenciaAno: competencia_ano, competenciaMes: competencia_mes }));
   });
 
   app.get('/api/transparencia/gastos', (req, res) => {
