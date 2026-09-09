@@ -10,4 +10,8 @@ export const TIPOS_LEGISLACAO = [
   'instrucao_normativa', 'lei_organica', 'ata', 'regimento_interno',
   'estatuto', 'ata_comissao', 'projeto_lei', 'lei', 'deliberacao',
   'decreto_legislativo', 'portaria_legislativo', 'projeto_lei_complementar', 'oficio',
+  // Legislação da Câmara (site-prefeitura-legislacao.js + camara-legislacao.js
+  // compartilham a mesma taxonomia — ver src/coletores/legislacao-tipos.js).
+  'indicacao', 'requerimento', 'ata_ordinaria', 'ata_extraordinaria',
+  'ata_solene', 'ata_audiencia_publica', 'ato_da_mesa', 'emenda_lei_organica',
 ];

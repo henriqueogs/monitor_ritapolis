@@ -27,7 +27,16 @@ export const tipoLabels = {
   deliberacao: 'Delibera\u00e7\u00e3o',
   decreto_legislativo: 'Decreto Legislativo',
   portaria_legislativo: 'Portaria do Legislativo',
-  oficio: 'Of\u00edcio'
+  oficio: 'Of\u00edcio',
+  // Legislacao da Camara (camara-legislacao.js)
+  indicacao: 'Indica\u00e7\u00e3o',
+  requerimento: 'Requerimento',
+  ata_ordinaria: 'Ata Ordin\u00e1ria',
+  ata_extraordinaria: 'Ata Extraordin\u00e1ria',
+  ata_solene: 'Ata Solene',
+  ata_audiencia_publica: 'Ata de Audi\u00eancia P\u00fablica',
+  ato_da_mesa: 'Ato da Mesa',
+  emenda_lei_organica: 'Emenda \u00e0 Lei Org\u00e2nica'
 };
 
 export const statusLabels = {

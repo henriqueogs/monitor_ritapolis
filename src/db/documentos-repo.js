@@ -83,6 +83,16 @@ const TIPO_LABELS = {
   decreto_legislativo: 'Decreto Legislativo',
   portaria_legislativo: 'Portaria do Legislativo',
   oficio: 'Ofício',
+  // Legislacao da Camara (camara-legislacao.js) -- mesmo motivo do bloco
+  // acima, mesmo mapa de tipo (src/coletores/legislacao-tipos.js).
+  indicacao: 'Indicação',
+  requerimento: 'Requerimento',
+  ata_ordinaria: 'Ata Ordinária',
+  ata_extraordinaria: 'Ata Extraordinária',
+  ata_solene: 'Ata Solene',
+  ata_audiencia_publica: 'Ata de Audiência Pública',
+  ato_da_mesa: 'Ato da Mesa',
+  emenda_lei_organica: 'Emenda à Lei Orgânica',
 };
 
 const STATUS_LABELS = {

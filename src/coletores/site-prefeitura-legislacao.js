@@ -14,9 +14,10 @@ const cheerio = require('cheerio');
 const ColetorBase = require('./base');
 const { getDocumentoByUrlPdfRaw } = require('../db');
 const { extractOfficialFileText, inferFileExtension } = require('../parsers/document-file');
-const { decodeHttpBody, normalizeText } = require('../utils/text');
+const { decodeHttpBody } = require('../utils/text');
 const { naoFutura } = require('../utils/datas');
 const { mandatoInicio } = require('../utils/mandato');
+const { normalizarTipo, normalizeSpaces } = require('./legislacao-tipos');
 
 const BASE_URL = 'https://ritapolis.mg.gov.br';
 const SEARCH_URL = `${BASE_URL}/ws_consulta/wsBuscarLeis.php`;
@@ -27,44 +28,6 @@ const MESES = {
   maio: '05', junho: '06', julho: '07', agosto: '08', setembro: '09',
   outubro: '10', novembro: '11', dezembro: '12',
 };
-
-// Tipo da fonte (rótulo em português, ex: "Lei Complementar") -> nosso `tipo`
-// normalizado (snake_case), consistente com o resto do banco.
-const TIPO_MAP = {
-  'decreto': 'decreto',
-  'lei ordinaria': 'lei_ordinaria',
-  'lei complementar': 'lei_complementar',
-  'portaria': 'portaria',
-  'resolucao': 'resolucao',
-  'instrucao normativa': 'instrucao_normativa',
-  'lei organica': 'lei_organica',
-  'atas': 'ata',
-  'regimento interno': 'regimento_interno',
-  'estatuto': 'estatuto',
-  'ata de comissao': 'ata_comissao',
-  'projeto de lei': 'projeto_lei',
-  'lei': 'lei',
-  'deliberacao': 'deliberacao',
-  'decreto legislativo': 'decreto_legislativo',
-  'portaria do legislativo': 'portaria_legislativo',
-  'projeto de lei complementar': 'projeto_lei_complementar',
-  'oficio': 'oficio',
-};
-
-function normalizeSpaces(value) {
-  return normalizeText(String(value || '')).replace(/\s+/g, ' ').trim();
-}
-
-function chaveTipo(rotulo) {
-  return normalizeSpaces(rotulo)
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '');
-}
-
-function normalizarTipo(rotulo) {
-  return TIPO_MAP[chaveTipo(rotulo)] || 'documento_publico';
-}
 
 // "PORTARIA 432 DE 05 DE JANEIRO DE 2026.pdf" -> "2026-01-05". A listagem de
 // resultado não traz a data de publicação como coluna própria; o nome do
