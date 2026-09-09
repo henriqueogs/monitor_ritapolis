@@ -60,6 +60,7 @@ const { getEmpenhoDossie } = require('../transparencia/empenho-service');
 const { getGastosPanorama, getCategoriaDossie } = require('../transparencia/gastos-service');
 const { getFinalidadesResumo, getFinalidadeDossie, resolverExercicios } = require('../transparencia/finalidade-service');
 const { listarServidores, getServidorDossie, getResumoSecretarias } = require('../transparencia/folha-service');
+const { getProjetos, getProjetoDossie, getVereadores, getVereadorDossie } = require('../db/camara-repo');
 const { slugParaPrefixos } = require('../transparencia/categorias');
 const { FINALIDADES } = require('../transparencia/finalidade');
 const {
@@ -794,6 +795,28 @@ function createServer() {
   app.get('/api/transparencia/folha/resumo', (req, res) => {
     const { competencia_ano, competencia_mes } = req.query;
     return res.json(getResumoSecretarias({ competenciaAno: competencia_ano, competenciaMes: competencia_mes }));
+  });
+
+  // ── Câmara Municipal: projetos de lei em tramitação e vereadores ────────
+  app.get('/api/camara/projetos', (req, res) => {
+    const { exercicio, situacao, tipo, origem, pagina, limite } = req.query;
+    return res.json(getProjetos({ exercicio, situacao, tipo, origem, pagina, limite }));
+  });
+
+  app.get('/api/camara/projetos/:id', (req, res) => {
+    const projeto = getProjetoDossie(req.params.id);
+    if (!projeto) { return res.status(404).json({ error: 'Projeto não encontrado' }); }
+    return res.json(projeto);
+  });
+
+  app.get('/api/camara/vereadores', (req, res) => {
+    return res.json(getVereadores());
+  });
+
+  app.get('/api/camara/vereadores/:int_pes', (req, res) => {
+    const vereador = getVereadorDossie(req.params.int_pes);
+    if (!vereador) { return res.status(404).json({ error: 'Vereador não encontrado' }); }
+    return res.json(vereador);
   });
 
   app.get('/api/transparencia/gastos', (req, res) => {

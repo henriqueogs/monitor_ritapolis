@@ -51,6 +51,12 @@ const TIPO_MAP = {
   'ata audiencia publica': 'ata_audiencia_publica',
   'ato da mesa': 'ato_da_mesa',
   'emenda a lei organica': 'emenda_lei_organica',
+  // Projeto em tramitação (buscarProjetos.php da Câmara, achado 09/09/2026 --
+  // rótulo diferente de "Projeto de Lei"/"Projeto de Lei Complementar" acima,
+  // que já existiam pro caso raro de aparecerem como legislação promulgada).
+  'projeto de lei substitutivo': 'projeto_lei_substitutivo',
+  'projeto de resolucao': 'projeto_resolucao',
+  'projeto de emenda a lei organica': 'projeto_emenda_lei_organica',
 };
 
 function normalizarTipo(rotulo) {

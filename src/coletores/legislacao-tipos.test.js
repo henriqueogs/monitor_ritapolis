@@ -20,6 +20,14 @@ describe('legislacao-tipos · normalizarTipo', () => {
     expect(normalizarTipo('Emenda à Lei Orgânica')).toBe('emenda_lei_organica');
   });
 
+  it('mapeia os tipos de projeto em tramitacao achados na Camara', () => {
+    expect(normalizarTipo('Projeto de Lei')).toBe('projeto_lei');
+    expect(normalizarTipo('Projeto de Lei Complementar')).toBe('projeto_lei_complementar');
+    expect(normalizarTipo('Projeto de Lei Substitutivo')).toBe('projeto_lei_substitutivo');
+    expect(normalizarTipo('Projeto de Resolução')).toBe('projeto_resolucao');
+    expect(normalizarTipo('Projeto de Emenda à Lei Orgânica')).toBe('projeto_emenda_lei_organica');
+  });
+
   it('cai em documento_publico pra rotulo desconhecido (ex: "Promulgada", filtro de status, nao tipo de item)', () => {
     expect(normalizarTipo('Promulgada')).toBe('documento_publico');
     expect(normalizarTipo('Algo Nunca Visto')).toBe('documento_publico');
