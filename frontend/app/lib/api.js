@@ -370,6 +370,27 @@ export function fetchTransparenciaFolhaResumo(params = {}) {
   return fetchJson(`/transparencia/folha/resumo${buildQuery(params)}`).catch(() => []);
 }
 
+export function fetchCamaraProjetos(params = {}) {
+  return fetchJson(`/camara/projetos${buildQuery(params)}`).catch(() => ({
+    total: 0,
+    pagina: 1,
+    limite: 30,
+    dados: []
+  }));
+}
+
+export function fetchCamaraProjetoDossie(id) {
+  return fetchJson(`/camara/projetos/${id}`).catch(() => null);
+}
+
+export function fetchCamaraVereadores() {
+  return fetchJson('/camara/vereadores').catch(() => []);
+}
+
+export function fetchCamaraVereadorDossie(intPes) {
+  return fetchJson(`/camara/vereadores/${intPes}`).catch(() => null);
+}
+
 export function fetchEstatisticas() {
   return fetchJson('/estatisticas').catch(async () => {
     const [documentos, licitacoes, coletas] = await Promise.all([
