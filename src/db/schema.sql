@@ -755,3 +755,73 @@ CREATE TABLE IF NOT EXISTS alertas_config (
   editavel INTEGER NOT NULL DEFAULT 1,
   atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP
 );
+
+-- ── Câmara Municipal: projetos de lei em tramitação, vereadores e votos ─────
+-- Domínio novo (não é "documento publicado" como legislacao/fonte=camara em
+-- `documentos` -- é processo/pessoa em andamento). Chaves = id nativo da
+-- fonte (INT_PES/INT_PRJT) pra facilitar re-sync sem mapear id proprio.
+CREATE TABLE IF NOT EXISTS camara_vereadores (
+  int_pes INTEGER PRIMARY KEY,
+  nome TEXT NOT NULL,
+  coletado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Um vereador pode ter varios mandatos (legislaturas diferentes, ou trocou de partido)
+CREATE TABLE IF NOT EXISTS camara_mandatos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  int_pes INTEGER NOT NULL REFERENCES camara_vereadores(int_pes) ON DELETE CASCADE,
+  periodo_inicio INTEGER NOT NULL,
+  periodo_fim INTEGER NOT NULL,
+  partido TEXT,
+  coletado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (int_pes, periodo_inicio)
+);
+
+CREATE TABLE IF NOT EXISTS camara_projetos (
+  int_prjt INTEGER PRIMARY KEY,
+  c_org TEXT NOT NULL DEFAULT 'P',
+  tipo TEXT,
+  numero TEXT,
+  exercicio INTEGER,
+  autor_texto TEXT,
+  origem TEXT,
+  ementa TEXT,
+  situacao TEXT,
+  localizacao TEXT,
+  anexo_url TEXT,
+  anexo_nome TEXT,
+  hash_projeto TEXT NOT NULL,
+  coletado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_camara_projetos_exercicio ON camara_projetos(exercicio);
+CREATE INDEX IF NOT EXISTS idx_camara_projetos_situacao ON camara_projetos(situacao);
+
+-- Pronta pra usar quando/se a fonte tiver dado de votacao real -- confirmado
+-- ao vivo em 09/09/2026: os 108 projetos existentes nunca saíram de
+-- "Rascunho", buscarDadosVotacao.php nunca tem payload populado. Fica vazia.
+CREATE TABLE IF NOT EXISTS camara_votos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  int_sess INTEGER NOT NULL,
+  int_prjt INTEGER NOT NULL REFERENCES camara_projetos(int_prjt) ON DELETE CASCADE,
+  int_turno INTEGER NOT NULL,
+  int_pes INTEGER NOT NULL REFERENCES camara_vereadores(int_pes) ON DELETE CASCADE,
+  voto TEXT,
+  coletado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (int_sess, int_prjt, int_turno, int_pes)
+);
+
+CREATE TABLE IF NOT EXISTS camara_coletas_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tipo TEXT NOT NULL,
+  exercicio INTEGER,
+  registros INTEGER NOT NULL DEFAULT 0,
+  novos INTEGER NOT NULL DEFAULT 0,
+  atualizados INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'ok',
+  erro TEXT,
+  coletado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (tipo, exercicio)
+);

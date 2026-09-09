@@ -27,6 +27,12 @@ const ALLOWED_PROXY_HOSTS = new Set([
   'pt.ritapolis.mg.leg.br',
   'pncp.gov.br',
   'api.pncp.gov.br',
+  // Camara Municipal (SGC): host bloqueia por IP/ASN de datacenter (ex.
+  // Oracle Cloud), confirmado ao vivo em 09/09/2026 -- mesma URL responde
+  // normal de fora, so falha a partir da VM de producao. sgc.* e o host
+  // dos anexos/PDF (paraHttps em camara-legislacao.js).
+  'ritapolis.mg.leg.br',
+  'sgc.ritapolis.mg.leg.br',
 ]);
 const MAX_REDIRECTS = 5;
 

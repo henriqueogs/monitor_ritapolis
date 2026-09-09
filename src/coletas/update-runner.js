@@ -6,6 +6,7 @@ const ColetorPncp = require('../coletores/pncp');
 const ColetorPortalTransparencia = require('../coletores/portal-transparencia');
 const ColetorFolha = require('../coletores/folha');
 const ColetorCamaraLegislacao = require('../coletores/camara-legislacao');
+const ColetorCamaraProjetos = require('../coletores/camara-projetos');
 
 const state = {
   running: false,
@@ -34,6 +35,7 @@ function buildCollectors(fonte) {
   if (fonte === 'legislacao_prefeitura') {return [new ColetorLegislacaoPrefeitura()];}
   if (fonte === 'camara') {return [new ColetorCamara()];}
   if (fonte === 'camara_legislacao') {return [new ColetorCamaraLegislacao()];}
+  if (fonte === 'camara_projetos') {return [new ColetorCamaraProjetos()];}
   if (fonte === 'pncp') {return [new ColetorPncp()];}
   if (fonte === 'portal_transparencia') {return [new ColetorPortalTransparencia()];}
   if (fonte === 'portal_transparencia_folha') {return [new ColetorFolha()];}

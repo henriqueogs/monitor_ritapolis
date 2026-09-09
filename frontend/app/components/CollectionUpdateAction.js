@@ -105,6 +105,7 @@ export default function CollectionUpdateAction({ initialStatus }) {
           <option value="legislacao_prefeitura">Somente Legislação (decretos/leis/portarias)</option>
           <option value="camara">Somente Camara (pausada — manual)</option>
           <option value="camara_legislacao">Somente Legislação da Câmara (manual)</option>
+          <option value="camara_projetos">Somente Projetos/Vereadores da Câmara (manual)</option>
           <option value="portal_transparencia_folha">Somente Folha salarial</option>
         </select>
       </div>
