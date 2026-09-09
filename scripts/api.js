@@ -4,6 +4,14 @@ async function main() {
   await restoreDatabaseFromR2IfMissing();
   // Importa módulos que abrem o SQLite somente depois da restauração.
   const { setupDatabase } = require('../src/db/setup');
+  // setupDatabase() PRECISA rodar antes de qualquer require que toque em
+  // repositórios -- vários (ex.: camara-repo.js) preparam statements contra
+  // tabelas no topo do módulo (fora de função), e isso já executa no
+  // `require`. Achado real em produção 09/09/2026: server.js sendo
+  // requerido antes de setupDatabase() derrubou a API em crash-loop assim
+  // que uma tabela nova (camara_vereadores) apareceu no schema.sql.
+  setupDatabase();
+
   const { startServer } = require('../src/api/server');
   const collectionScheduler = require('../src/coletas/collection-scheduler');
   const aiScheduler = require('../src/ai/ai-daily-scheduler');
@@ -15,7 +23,6 @@ async function main() {
     enriquecerDetalhesComEmpenhos,
   } = require('../src/db/transparencia-repo');
 
-  setupDatabase();
   try {
     const vinculados = crosswalkDespesasDocumentos();
     const enriquecidos = vinculados > 0 ? enriquecerDetalhesComEmpenhos() : 0;
