@@ -1,5 +1,4 @@
 const logger = require('../logger');
-const ColetorCamara = require('../coletores/camara');
 const ColetorSitePrefeitura = require('../coletores/site-prefeitura');
 const ColetorLegislacaoPrefeitura = require('../coletores/site-prefeitura-legislacao');
 const ColetorPncp = require('../coletores/pncp');
@@ -33,7 +32,6 @@ function snapshot() {
 function buildCollectors(fonte) {
   if (fonte === 'site_prefeitura') {return [new ColetorSitePrefeitura()];}
   if (fonte === 'legislacao_prefeitura') {return [new ColetorLegislacaoPrefeitura()];}
-  if (fonte === 'camara') {return [new ColetorCamara()];}
   if (fonte === 'camara_legislacao') {return [new ColetorCamaraLegislacao()];}
   if (fonte === 'camara_projetos') {return [new ColetorCamaraProjetos()];}
   if (fonte === 'pncp') {return [new ColetorPncp()];}
@@ -42,13 +40,11 @@ function buildCollectors(fonte) {
   if (!fonte || fonte === 'todas') {return [
     new ColetorSitePrefeitura(),
     new ColetorLegislacaoPrefeitura(),
-    // ColetorCamara (fonte='camara', modulo antigo de "cadastro generico")
-    // fora do ciclo automatico: mira uma parte do site da Camara que nunca
-    // publicou quase nada (3 registros, sem PDF). Achado em 08/09/2026: o
-    // site institucional da Camara (ritapolis.mg.leg.br) esta ativo e tem um
-    // modulo SGC bem mais rico (ColetorCamaraLegislacao, fonte=
-    // 'camara_legislacao') -- esse sim roda manual por ora ate validar em
-    // producao, antes de entrar no ciclo 'todas'.
+    // ColetorCamaraLegislacao/ColetorCamaraProjetos: validados em producao
+    // em 09/09/2026 (1019 + 107/5 registros, 0 erros) -- entram no ciclo
+    // automatico agora.
+    new ColetorCamaraLegislacao(),
+    new ColetorCamaraProjetos(),
     new ColetorPncp(),
     new ColetorPortalTransparencia(),
     new ColetorFolha(),
