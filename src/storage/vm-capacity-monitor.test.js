@@ -22,6 +22,7 @@ describe('vm-capacity-monitor', () => {
         memTotalMb: 954,
         memUsedMb: 521,
         memFreeMb: 69,
+        memAvailableMb: 432,
         memUsedPercent: 55,
         swapUsedMb: 76,
         diskUsedPercent: 13,
@@ -53,10 +54,23 @@ describe('vm-capacity-monitor', () => {
       expect(r.motivos[0]).toMatch(/Disco em 92%/);
     });
 
-    it('sinaliza pressao quando ha uso relevante de swap', () => {
-      const r = avaliarCapacidade({ memUsedPercent: 10, diskUsedPercent: 10, swapUsedMb: 800 });
+    it('sinaliza pressao quando ha uso relevante de swap E memoria disponivel curta', () => {
+      const r = avaliarCapacidade({ memUsedPercent: 10, diskUsedPercent: 10, swapUsedMb: 800, memAvailableMb: 80 });
       expect(r.status).toBe('pressao');
       expect(r.motivos[0]).toMatch(/Swap em uso: 800MB/);
+    });
+
+    it('NAO sinaliza pressao so por swap alto se a memoria disponivel esta saudavel (residuo estacionado, nao thrashing)', () => {
+      // Achado ao vivo 10/09/2026: swap fica "estacionado" (Linux nao libera
+      // ate precisar) apos picos passados -- 500MB+ de swap sem memAvailableMb
+      // baixo nao e sinal de pressao real, so historico.
+      const r = avaliarCapacidade({ memUsedPercent: 10, diskUsedPercent: 10, swapUsedMb: 800, memAvailableMb: 400 });
+      expect(r.status).toBe('ok');
+    });
+
+    it('sinaliza pressao por swap quando memAvailableMb nao esta disponivel (formato antigo, fallback conservador)', () => {
+      const r = avaliarCapacidade({ memUsedPercent: 10, diskUsedPercent: 10, swapUsedMb: 800 });
+      expect(r.status).toBe('pressao');
     });
 
     it('respeita limiares customizados', () => {
