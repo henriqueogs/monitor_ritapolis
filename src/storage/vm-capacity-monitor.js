@@ -17,6 +17,12 @@
 const LIMIAR_MEMORIA_PERCENT = 85;
 const LIMIAR_DISCO_PERCENT = 85;
 const LIMIAR_SWAP_MB = 500;
+// Achado ao vivo 10/09/2026: swap "estacionado" (paginas de um pico passado
+// que o Linux so libera quando precisa, nao ativamente) fica alto por dias
+// sem indicar pressao real -- vmstat mostrava swap-out ~0 com a VM saudavel.
+// swapUsedMb sozinho e' ruido; exigir memAvailableMb curto junto e' o sinal
+// de que a folga de memoria (a que importa) esta realmente pequena agora.
+const LIMIAR_MEM_DISPONIVEL_MB = 150;
 
 function parseRelatorioCapacidade(texto) {
   const linhas = String(texto || '').split(/\r?\n/);
@@ -31,7 +37,7 @@ function parseRelatorioCapacidade(texto) {
   }
 
   const memPartes = linhaMem.trim().split(/\s+/).map(Number);
-  const [, memTotalMb, memUsedMb, memFreeMb] = memPartes;
+  const [, memTotalMb, memUsedMb, memFreeMb, , , memAvailableMb] = memPartes;
 
   const swapPartes = linhaSwap ? linhaSwap.trim().split(/\s+/).map(Number) : [];
   const swapUsedMb = swapPartes[2] || 0;
@@ -46,6 +52,7 @@ function parseRelatorioCapacidade(texto) {
     memTotalMb,
     memUsedMb,
     memFreeMb,
+    memAvailableMb: Number.isFinite(memAvailableMb) ? memAvailableMb : null,
     memUsedPercent: memTotalMb ? Math.round((memUsedMb / memTotalMb) * 100) : null,
     swapUsedMb,
     diskUsedPercent,
@@ -61,6 +68,7 @@ function avaliarCapacidade(relatorio, limiares = {}) {
     memoriaPercent = LIMIAR_MEMORIA_PERCENT,
     discoPercent = LIMIAR_DISCO_PERCENT,
     swapMb = LIMIAR_SWAP_MB,
+    memDisponivelMb = LIMIAR_MEM_DISPONIVEL_MB,
   } = limiares;
 
   const motivos = [];
@@ -71,10 +79,27 @@ function avaliarCapacidade(relatorio, limiares = {}) {
     motivos.push(`Disco em ${relatorio.diskUsedPercent}% (limiar ${discoPercent}%)`);
   }
   if (relatorio.swapUsedMb !== null && relatorio.swapUsedMb !== undefined && relatorio.swapUsedMb >= swapMb) {
-    motivos.push(`Swap em uso: ${relatorio.swapUsedMb}MB (limiar ${swapMb}MB)`);
+    // Swap alto sozinho pode ser residuo estacionado de um pico passado (o
+    // Linux nao libera swap ate precisar). So conta como pressao real se a
+    // memoria disponivel tambem estiver curta agora -- quando memAvailableMb
+    // nao vem no relatorio (formato antigo), mantem o comportamento
+    // conservador anterior (so swap já basta).
+    const disponivelCurta = relatorio.memAvailableMb === null || relatorio.memAvailableMb === undefined
+      ? true
+      : relatorio.memAvailableMb < memDisponivelMb;
+    if (disponivelCurta) {
+      motivos.push(`Swap em uso: ${relatorio.swapUsedMb}MB (limiar ${swapMb}MB)`);
+    }
   }
 
   return { status: motivos.length ? 'pressao' : 'ok', motivos };
 }
 
-module.exports = { parseRelatorioCapacidade, avaliarCapacidade, LIMIAR_MEMORIA_PERCENT, LIMIAR_DISCO_PERCENT, LIMIAR_SWAP_MB };
+module.exports = {
+  parseRelatorioCapacidade,
+  avaliarCapacidade,
+  LIMIAR_MEMORIA_PERCENT,
+  LIMIAR_DISCO_PERCENT,
+  LIMIAR_SWAP_MB,
+  LIMIAR_MEM_DISPONIVEL_MB,
+};

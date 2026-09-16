@@ -39,8 +39,12 @@ apertada.
 `.github/workflows/vm-capacity-check.yml` roda diariamente, lê memória/
 disco/swap/carga da VM via SSH restrita (só executa
 `/opt/monitor-ritapolis/report-capacity.sh`, leitura, nada muda) e falha
-alto quando memória ou disco passam de 85% ou o swap em uso passa de
-500MB (`src/storage/vm-capacity-monitor.js`).
+alto quando memória ou disco passam de 85%, ou quando o swap em uso passa
+de 500MB **e** a memória disponível (`available` do `free -m`) está abaixo
+de 150MB (`src/storage/vm-capacity-monitor.js`). Achado ao vivo 10/09/2026:
+swap fica "estacionado" por dias após um pico passado — o Linux só libera
+quando precisa, não é sinal de pressão sozinho; exigir memória disponível
+curta junto evita alarme falso.
 
 Se o alerta disparar: **primeiro** checar se a Oracle tem capacidade
 A1.Flex disponível agora (`oci compute instance launch --shape
