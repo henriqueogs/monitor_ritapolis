@@ -5,6 +5,9 @@ const { extractEntitiesFromResumes } = require('./extract-entities');
 const { generateAlerts } = require('../alertas/alert-generator');
 const { enfileirarItensPendentes } = require('./enfileirar-itens-pendentes');
 const { runPendingItensEstruturacaoJobs } = require('./itens-processo-job-worker');
+const schedulerLock = require('../coletas/scheduler-lock');
+
+const LOCK_OWNER = 'ai';
 
 let timer = null;
 let cycleRunning = false;
@@ -19,6 +22,15 @@ async function runCycle() {
 
   if (!config.aiSummaryEnabled) {
     logger.debug('AI scheduler: resumo IA desabilitado');
+    return;
+  }
+
+  // Ver scheduler-lock.js: evita rodar concorrente com collection-scheduler/
+  // daily-scheduler/descobertas-scheduler na mesma VM pequena.
+  if (!schedulerLock.tryAcquire(LOCK_OWNER)) {
+    logger.debug('AI scheduler: outro scheduler em andamento, pulando ciclo', {
+      dono_do_lock: schedulerLock.getDono(),
+    });
     return;
   }
 
@@ -95,6 +107,7 @@ async function runCycle() {
     logger.error('AI scheduler: ciclo falhou', { erro: error.message });
   } finally {
     cycleRunning = false;
+    schedulerLock.release(LOCK_OWNER);
   }
 }
 

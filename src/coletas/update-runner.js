@@ -1,4 +1,7 @@
 const logger = require('../logger');
+const schedulerLock = require('./scheduler-lock');
+
+const LOCK_OWNER = 'collection';
 const ColetorSitePrefeitura = require('../coletores/site-prefeitura');
 const ColetorLegislacaoPrefeitura = require('../coletores/site-prefeitura-legislacao');
 const ColetorPncp = require('../coletores/pncp');
@@ -72,6 +75,21 @@ function startCollectionUpdate({ fonte = 'todas' } = {}) {
     };
   }
 
+  // Achado real 17/09/2026: sem essa checagem, este scheduler roda
+  // concorrente com ai-daily-scheduler/daily-scheduler/descobertas-scheduler
+  // (cada um com seu proprio timer independente) e derruba a VM de 2 vCPU
+  // em memory/IO thrashing. Se outro scheduler estiver rodando, pula este
+  // tick -- o proprio scheduler tenta de novo no proximo check.
+  if (!schedulerLock.tryAcquire(LOCK_OWNER)) {
+    logger.debug('Atualizacao de coleta: outro scheduler em andamento, pulando', {
+      dono_do_lock: schedulerLock.getDono(),
+    });
+    return {
+      started: false,
+      status: snapshot()
+    };
+  }
+
   state.running = true;
   state.startedAt = new Date().toISOString();
   state.finishedAt = null;
@@ -97,6 +115,7 @@ function startCollectionUpdate({ fonte = 'todas' } = {}) {
     .finally(() => {
       state.running = false;
       state.finishedAt = new Date().toISOString();
+      schedulerLock.release(LOCK_OWNER);
     });
 
   return {

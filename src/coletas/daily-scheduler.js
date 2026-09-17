@@ -18,6 +18,9 @@ const { db } = require('../db');
 const { consolidarFornecedores } = require('../db');
 const { backfillClassificacoesDespesas } = require('../db/transparencia-repo');
 const { enriquecerCredores } = require('../integracoes/enriquecer-credores');
+const schedulerLock = require('./scheduler-lock');
+
+const LOCK_OWNER = 'daily';
 
 // Máximo de empenhos reclassificados por tick quando a versão da classificação
 // de finalidade muda. Empenhos novos já são classificados no insert; isto só
@@ -280,11 +283,24 @@ async function enriquecerCredoresTick() {
 // ── Tick ─────────────────────────────────────────────────────────────────────
 
 async function tick() {
-  await coletarTransparencia();
-  await coletarFolha();
-  reprocessarFinalidades();
-  await enriquecerCredoresTick();
-  await sincronizarPncp();
+  // Ver scheduler-lock.js: evita rodar concorrente com collection-scheduler/
+  // ai-daily-scheduler/descobertas-scheduler na mesma VM pequena.
+  if (!schedulerLock.tryAcquire(LOCK_OWNER)) {
+    logger.debug('daily-scheduler: outro scheduler em andamento, pulando tick', {
+      dono_do_lock: schedulerLock.getDono(),
+    });
+    return;
+  }
+
+  try {
+    await coletarTransparencia();
+    await coletarFolha();
+    reprocessarFinalidades();
+    await enriquecerCredoresTick();
+    await sincronizarPncp();
+  } finally {
+    schedulerLock.release(LOCK_OWNER);
+  }
 }
 
 // ── Interface pública ─────────────────────────────────────────────────────────
