@@ -242,6 +242,42 @@ async function sincronizarPncp() {
   }
 }
 
+// ── Validação de deep-links do Portal da Transparência ────────────────────────
+
+/**
+ * Amostra pequena (padrão 1 por exercício×tipo) validada mensalmente contra
+ * o portal real -- alerta em log se o portal mudou o contrato de URL. Item
+ * de backlog (CURRENT_WORK.md): antes só rodava manual via
+ * `npm run transparencia:validar-links`.
+ */
+async function validarDeepLinks() {
+  if (!isDue('deep_links', config.dailySchedulerDeepLinksIntervalHoras)) {
+    logger.debug('daily-scheduler: validação de deep-links dentro do intervalo');
+    return;
+  }
+
+  try {
+    const { validarAmostra } = require('../../scripts/validar-links-portal');
+    const { resultados, falhas } = await validarAmostra(config.dailySchedulerDeepLinksPorGrupo);
+
+    if (falhas > 0) {
+      logger.warn('daily-scheduler: deep-links com falha — portal pode ter mudado o contrato de URL', {
+        falhas,
+        total: resultados.length,
+        exemplos: resultados.filter((r) => !r.ok).slice(0, 3).map((r) => ({ empenho: r.empenho, status: r.status })),
+      });
+    } else {
+      logger.info('daily-scheduler: deep-links validados sem falha', { total: resultados.length });
+    }
+
+    db.prepare(
+      "INSERT INTO transparencia_coletas_log (tipo, exercicio, status, novos, atualizados) VALUES ('deep_links', ?, 'ok', ?, ?)"
+    ).run(new Date().getFullYear(), resultados.length, falhas);
+  } catch (err) {
+    logger.error('daily-scheduler: erro ao validar deep-links', { erro: err.message });
+  }
+}
+
 // ── Reprocessamento de classificação de finalidade ────────────────────────────
 
 /**
@@ -298,6 +334,7 @@ async function tick() {
     reprocessarFinalidades();
     await enriquecerCredoresTick();
     await sincronizarPncp();
+    await validarDeepLinks();
   } finally {
     schedulerLock.release(LOCK_OWNER);
   }
@@ -315,6 +352,7 @@ function start() {
   logger.info('daily-scheduler: iniciado', {
     transparencia_intervalo_h: config.dailySchedulerTransparenciaIntervalHoras,
     pncp_intervalo_h: config.dailySchedulerPncpIntervalHoras,
+    deep_links_intervalo_h: config.dailySchedulerDeepLinksIntervalHoras,
     check_intervalo_min: Math.round(config.dailySchedulerCheckMs / 60000),
   });
 
@@ -338,10 +376,12 @@ function getStatus() {
   const isDueTransp = isDue('despesas', config.dailySchedulerTransparenciaIntervalHoras);
   const isDuePncp = isDue('pncp', config.dailySchedulerPncpIntervalHoras);
   const isDueFolha = isDue('folha', config.dailySchedulerTransparenciaIntervalHoras);
+  const isDueDeepLinks = isDue('deep_links', config.dailySchedulerDeepLinksIntervalHoras);
 
   const lastTransp = db.prepare("SELECT MAX(coletado_em) last FROM transparencia_coletas_log WHERE tipo='despesas' AND status='ok'").get();
   const lastPncp = db.prepare("SELECT MAX(coletado_em) last FROM transparencia_coletas_log WHERE tipo='pncp' AND status='ok'").get();
   const lastFolha = db.prepare("SELECT MAX(coletado_em) last FROM transparencia_coletas_log WHERE tipo='folha' AND status='ok'").get();
+  const lastDeepLinks = db.prepare("SELECT MAX(coletado_em) last, atualizados last_falhas FROM transparencia_coletas_log WHERE tipo='deep_links' AND status='ok' ORDER BY coletado_em DESC LIMIT 1").get();
 
   return {
     enabled: config.dailySchedulerEnabled,
@@ -351,9 +391,12 @@ function getStatus() {
     proxima_transparencia_due: isDueTransp,
     proxima_pncp_due: isDuePncp,
     proxima_folha_due: isDueFolha,
+    proxima_deep_links_due: isDueDeepLinks,
     ultima_transparencia: lastTransp?.last || null,
     ultima_pncp: lastPncp?.last || null,
     ultima_folha: lastFolha?.last || null,
+    ultima_deep_links: lastDeepLinks?.last || null,
+    ultima_deep_links_falhas: lastDeepLinks?.last_falhas ?? null,
   };
 }
 

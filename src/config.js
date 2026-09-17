@@ -81,6 +81,11 @@ module.exports = {
   dailySchedulerCheckMs: Number(process.env.DAILY_SCHEDULER_CHECK_MS || 30 * 60 * 1000),
   dailySchedulerTransparenciaIntervalHoras: Number(process.env.DAILY_SCHEDULER_TRANSPARENCIA_INTERVAL_H || 24),
   dailySchedulerPncpIntervalHoras: Number(process.env.DAILY_SCHEDULER_PNCP_INTERVAL_H || 168),
+  // Validação de deep-links do Portal da Transparência: mensal (720h) --
+  // detecta se o portal mudou o contrato de URL, amostra pequena de propósito
+  // (backlog dizia "rodar manual/mensal até integrar ao scheduler").
+  dailySchedulerDeepLinksIntervalHoras: Number(process.env.DAILY_SCHEDULER_DEEP_LINKS_INTERVAL_H || 720),
+  dailySchedulerDeepLinksPorGrupo: Number(process.env.DAILY_SCHEDULER_DEEP_LINKS_POR_GRUPO || 1),
 
   // Scheduler de IA — processa resumos pendentes em ciclos controlados
   aiSchedulerEnabled: String(process.env.AI_SCHEDULER_ENABLED || 'true').toLowerCase() !== 'false',
