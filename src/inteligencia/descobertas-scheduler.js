@@ -9,6 +9,9 @@ const {
   reprocessarInvestigacoesPendentes,
   getInvestigacaoStatus,
 } = require('./discovery-investigation-runner');
+const schedulerLock = require('../coletas/scheduler-lock');
+
+const LOCK_OWNER = 'descobertas';
 
 let timer = null;
 let investigationTimer = null;
@@ -48,6 +51,12 @@ async function runCycle({ force = false } = {}) {
   }
   if (!force && atual.hour < config.descobertasSchedulerHour) {
     return { skipped: true, reason: 'before_scheduled_hour' };
+  }
+
+  // Ver scheduler-lock.js: evita rodar concorrente com collection-scheduler/
+  // daily-scheduler/ai-daily-scheduler na mesma VM pequena.
+  if (!schedulerLock.tryAcquire(LOCK_OWNER)) {
+    return { skipped: true, reason: 'other_scheduler_running' };
   }
 
   running = true;
@@ -102,6 +111,7 @@ async function runCycle({ force = false } = {}) {
     throw err;
   } finally {
     running = false;
+    schedulerLock.release(LOCK_OWNER);
   }
 }
 
@@ -112,6 +122,11 @@ async function runInvestigationCycle({ force = false } = {}) {
   const enabledByDb = repo.getConfig('descobertas:investigacao_scheduler_ativo', true) !== false;
   if (!force && (!config.descobertasInvestigacaoSchedulerEnabled || !enabledByDb)) {
     return { skipped: true, reason: 'disabled' };
+  }
+
+  // Ver scheduler-lock.js.
+  if (!schedulerLock.tryAcquire(LOCK_OWNER)) {
+    return { skipped: true, reason: 'other_scheduler_running' };
   }
 
   investigationRunning = true;
@@ -126,6 +141,7 @@ async function runInvestigationCycle({ force = false } = {}) {
     throw err;
   } finally {
     investigationRunning = false;
+    schedulerLock.release(LOCK_OWNER);
   }
 }
 
