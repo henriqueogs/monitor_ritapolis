@@ -4,8 +4,10 @@
  * Remove documentos da Câmara que foram criados a partir de páginas estáticas
  * institucionais (LAI, ordem cronológica) ou que são referências a legislação
  * externa (federal / órgão de controle) e widgets de UI — sem conteúdo nem fonte
- * própria. Usa exatamente os mesmos filtros do coletor (camara.js), então o que
- * é limpo aqui é o que o coletor passou a recusar.
+ * própria. Filtros herdados do coletor antigo (camara.js, removido em
+ * 09/09/2026 -- superado pelo modulo SGC, camara-legislacao.js/
+ * camara-projetos.js) -- essa garbage só existe em registros coletados por
+ * ele antes da remoção; o coletor atual nunca produz `modulo` institucional.
  *
  * Conservador: só remove documentos SEM PDF e SEM texto (contentless). Normas
  * municipais legítimas (Resolução/Portaria Legislativa) são preservadas.
@@ -19,7 +21,19 @@ process.loadEnvFile?.() || require('dotenv').config();
 
 const { setupDatabase } = require('../src/db/setup');
 const { db } = require('../src/db');
-const { isLegislacaoExterna, isModuloInstitucional } = require('../src/coletores/camara');
+const { normalizeText } = require('../src/utils/text');
+
+function isLegislacaoExterna(titulo) {
+  const s = normalizeText(String(titulo || ''));
+  return /\bfederal\b/i.test(s) || /\bT\.?\s?C\.?\s?[UE]\b/i.test(s);
+}
+
+// Página institucional / de referência (LAI, "ordem cronológica de pagamentos")
+// que NÃO lista documentos — só tem texto explicativo e links de navegação.
+function isModuloInstitucional(moduloText) {
+  const s = normalizeText(String(moduloText || '')).toLowerCase();
+  return /acesso [àa] informa|sobre a lei de acesso|ordem cronol[óo]gica de pagamentos/.test(s);
+}
 
 function parseArgs(argv) {
   return { apply: argv.includes('--apply') };

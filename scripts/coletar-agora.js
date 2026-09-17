@@ -1,10 +1,11 @@
 const { setupDatabase } = require('../src/db/setup');
 const ColetorSitePrefeitura = require('../src/coletores/site-prefeitura');
-const ColetorCamara = require('../src/coletores/camara');
+const ColetorCamaraLegislacao = require('../src/coletores/camara-legislacao');
+const ColetorCamaraProjetos = require('../src/coletores/camara-projetos');
 
 async function main() {
   setupDatabase();
-  const coletores = [new ColetorSitePrefeitura(), new ColetorCamara()];
+  const coletores = [new ColetorSitePrefeitura(), new ColetorCamaraLegislacao(), new ColetorCamaraProjetos()];
   const resultados = [];
 
   for (const coletor of coletores) {

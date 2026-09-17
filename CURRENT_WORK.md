@@ -10,21 +10,22 @@ Ver `QUICK_SUMMARY.md` para o mapa geral dos documentos do projeto.
 
 ---
 
-## ⏳ Pendente — Publicação (MVP), spec-driven em `.specs/`
+## ✅ Concluído — Publicação (MVP)
 
-Rascunho aguardando **sua confirmação** antes de avançar para Design/Tasks:
+Deploy em produção desde 28/08/2026 (API em VM Oracle Cloud Always Free +
+systemd + Caddy, frontend na Vercel, deploy automático nos dois lados a
+cada merge em `master` — ver `docs/DEPLOY.md`). Autenticação admin evoluiu
+além do Basic Auth original: login com sessão real (`admin_users`/
+`admin_sessions`, `/login`, `src/auth/admin-session.js`). Ver
+`.specs/STATE.md` pro fechamento formal da spec.
 
-- Spec: [`.specs/features/publicacao-mvp/spec.md`](.specs/features/publicacao-mvp/spec.md)
-- Estado: [`.specs/STATE.md`](.specs/STATE.md)
-- Deploy concluído (28/08/2026, ver `docs/DEPLOY.md`): API em VM Oracle
-  Cloud Always Free + systemd + Caddy (TLS automático), frontend na Vercel,
-  deploy automático nos dois lados a cada merge em `master`. Migração saiu
-  do Render (estourou banda grátis) — Cloudflare Workers/OpenNext pro
-  frontend foi avaliado e descartado (Vercel resolveu sem upgrade de Next).
-- Ainda em aberto: evolução da autenticação admin além do Basic Auth.
+## ✅ Concluído — Câmara Municipal + Folha Salarial + operação de produção
 
-Já pronto, não bloqueia a decisão: Basic Auth em `/admin/*`
-(`src/auth/admin-basic-auth.js` + `frontend/middleware.js`).
+Ver `DEVELOPMENT_PLAN.md` §4 (v0.10) pro resumo completo: migração Oracle
+Cloud, fix do fd-leak do litestream, Folha Salarial (13.648 registros),
+Câmara Municipal (legislação + projetos + vereadores), mutex entre
+schedulers de background, cache de fetch corrigido (`unstable_cache`
+sobrevivendo a `force-dynamic`), `vm.swappiness`/timer de restart semanal.
 
 ## ⏳ Pendente — Transparência: dados e vinculação (pós Empenhos v2, 02/07/2026)
 
@@ -69,17 +70,36 @@ genérico e detector de gasto atípico nas Descobertas
   `npm run transparencia:validar-links` ao daily-scheduler (amostra ~5) com
   alerta em log se o portal mudar o contrato de URL. Rodar manual/mensal até lá.
 
-## ⏳ Pendente — Confirmar queda de tráfego de bot pós-ISR (02/09/2026)
+## ⏳ Pendente — Confirmar efeito do fix de cache pós-crawler (17/09/2026)
 
-Investigado "uso estranho" na Vercel: claudebot (66K reqs) + gptbot (11K) =
-81% de 81K edge requests em 12h, 0% cached, em `/empenho/[id]` e
-`/credores/[cnpj]` (rotas sem ISR real — corrigido no PR #44). Confirmado em
-produção que o header `x-nextjs-prerender: 1` aparece em `/empenho/1`.
+Continuação do achado de 02/09 (PR #44, ISR em `/empenho/[id]` e
+`/credores/[cnpj]`): em 17/09 achado que o **resto** das páginas públicas
+(`/acervo`, `/legislacao`, `/transparencia`, etc.) tinha o mesmo problema
+por uma causa diferente — `dynamic = 'force-dynamic'` zerava o
+`next.revalidate` de todo fetch da rota, então o cache que já existia em
+`lib/api.js` nunca funcionou. Corrigido via `unstable_cache` (PR #74).
+Crawler confirmado ao vivo (rajada de 6+ req/6s em `/acervo`, sem
+`Crawl-delay` no `robots.txt`).
 
-- Task agendada (`check-vercel-bot-traffic-isr`, roda 04/09 10h sozinha) vai
-  comparar volume de bot e % cached antes/depois desse baseline.
-- Se a task não rodar ou o resultado não aparecer aqui, checar manualmente
-  em vercel.com/henriqueogs-projects/monitor-ritapolis/observability/edge-requests.
+- Sem task agendada desta vez (a de 04/09 expirou sem deixar resultado
+  registrado aqui — sessões anteriores não persistem `ScheduleWakeup`/cron
+  entre si). Checar manualmente em
+  vercel.com/henriqueogs-projects/monitor-ritapolis/observability/edge-requests
+  daqui a alguns dias, comparando com o volume de hoje.
+- VM: swap estava sob pressão real hoje (thrashing confirmado via
+  `vmstat`), causa dupla (schedulers concorrentes + crawler sem cache).
+  Ambas corrigidas (PRs #73, #74) + `vm.swappiness=10` + timer semanal de
+  restart. **Reconfirmar em alguns dias** que a pressão não voltou.
+
+## ⏳ Pendente — Na Lupa: scheduler de promoção pausado
+
+`DESCOBERTAS_SCHEDULER_ENABLED=false` desde jul/2026 (confirmado em
+produção 17/09/2026). 211 candidatos parados em `estado_editorial=
+'candidato'`, só 1 público (#57). O ciclo incremental do `ai-daily-
+scheduler` continua gerando/atualizando candidatos, mas nunca promove —
+isso exige o ciclo factual+investigação dedicado do `descobertas-
+scheduler.js`. Retomar: rodar `descobertas:processar --force` com o
+provider de IA fresco e confirmar estabilidade antes de religar o flag.
 
 ## Backlog menor (baixa prioridade, sem prazo)
 
@@ -95,7 +115,7 @@ produção que o header `x-nextjs-prerender: 1` aparece em `/empenho/1`.
 
 ```bash
 npm start              # API :3001 + frontend :3000
-npm test                # suíte completa (495 testes em 01/07/2026)
+npm test                # suíte completa (1026 testes em 17/09/2026)
 ```
 
 Ordem de leitura pra retomar contexto: `QUICK_SUMMARY.md` → este arquivo →

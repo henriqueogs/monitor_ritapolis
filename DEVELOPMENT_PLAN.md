@@ -4,7 +4,7 @@
 ao vivo (isso é `COBERTURA.md`, auto-gerado) nem de tarefas em andamento
 (isso é `CURRENT_WORK.md`). Ver `QUICK_SUMMARY.md` para o mapa dos três.
 
-Atualizado em: 2026-07-01 (v0.9 — Qualidade de conteúdo: resumo de anexo via IA, narrativa de descobertas consolidada).
+Atualizado em: 2026-09-17 (v0.10 — Migração Oracle Cloud, Folha Salarial, Câmara Municipal, operação de produção).
 
 ---
 
@@ -152,6 +152,61 @@ usuário revisando `/anexo/3284` e `/descobertas/57`:
   Search Console verificado via DNS (fora do código).
 - Ver PRs #42–#45.
 
+### v0.10 — Migração Oracle Cloud, Folha Salarial, Câmara Municipal, operação de produção
+
+**Migração de hosting (25/08/2026)**: Render suspendeu o workspace (banda
+grátis estourada — causa já corrigida, migrou mesmo assim). Backend foi pra
+VM Oracle Cloud Always Free (`VM.Standard.E2.1.Micro`, systemd + Caddy TLS
+automático), banco SQLite replicado continuamente pro Cloudflare R2 via
+litestream. Frontend segue na Vercel. Ver `docs/DEPLOY.md`.
+
+**Litestream fd-leak (03–09/09/2026)**: binário v0.5.14 acumulava file
+descriptors (2845 após ~2h uptime) até exaurir `tcp_mem` do kernel,
+derrubando conexões TCP do sistema inteiro (não só do app) — sintoma
+observado como ECONNRESET/timeout no frontend, causa real só achada via
+SSH/`journalctl -k`. Corrigido com upgrade pra v0.5.17.
+
+**Folha Salarial (PRs #60–64)**: novo módulo do Portal da Transparência
+(`/Folha`, mesmo fluxo sessão+thread+CSV de despesas). Parser lida com
+rodapé de bloco com quebra de linha literal dentro de campo CSV
+(`reconstruirLinhasLogicas`) e com um mismatch de encoding real
+(`folha-thread-http.js` usava `latin1` pra tudo, mas o CSV de Folha é
+`utf8`). 13.648 registros, 2013–2026. Páginas `/transparencia/servidores`
+(lista) e dossiê individual.
+
+**Câmara Municipal — legislação + projetos + vereadores (PRs #65, #67–70)**:
+achado que o site institucional da Câmara (`ritapolis.mg.leg.br`, módulo
+SGC) está ativo e é bem mais rico que o coletor antigo (removido). Dois
+domínios: legislação promulgada (reaproveita `documentos`, fonte='camara',
+1019 itens 1963–2026) e projetos em tramitação + vereadores (domínio novo,
+`camara_projetos`/`camara_vereadores`/`camara_mandatos`, 107+5+6 registros).
+Achados reais: bloqueio de rede por IP/ASN da VM Oracle contra o host da
+Câmara (contornado via proxy Cloudflare Worker já existente); dois
+endpoints da fonte servem ISO-8859-1 cru (precisou `responseEncoding:
+'latin1'` explícito, mesma classe de bug da Folha); `camara_votos` fica
+vazia de propósito — nunca houve votação registrada digitalmente no
+sistema (confirmado varrendo os 108 projetos existentes). Frontend em
+`/legislacao/camara/*` (aba, não hub novo — decisão do usuário).
+
+**Operação de produção (17/09/2026)**: investigação ao vivo (SSH + `vmstat`)
+achou a VM em memory/IO thrashing real. Duas causas, ambas corrigidas:
+(1) os 4 schedulers de background (collection/daily/ai/descobertas) rodam
+no mesmo processo sem coordenação, disparando o primeiro ciclo 30s-180s
+após todo boot — mutex compartilhado (`src/coletas/scheduler-lock.js`)
+serializa; (2) o cache de fetch em `lib/api.js` (`next.revalidate: 120`,
+desde sempre) nunca funcionou de verdade — `dynamic = 'force-dynamic'`
+(presente em quase toda página pública) zera silenciosamente o
+`next.revalidate` de todo fetch da rota. Complementa o fix de ISR do
+02/09 (que cobriu só as rotas de segmento dinâmico via
+`generateStaticParams`); esta rodada usa `unstable_cache` (camada de
+cache separada da do `fetch()`, não afetada por `force-dynamic`) pras
+páginas de path estático (`/acervo`, `/legislacao`, etc.) — confirmado
+crawler legítimo (sem `Crawl-delay` no `robots.txt`) gerando rajadas de
+6+ requisições/6s nessas rotas, toda `cache=MISS`. Também: `vm.swappiness
+=10` e timer systemd de restart semanal na VM; check de capacidade
+(`vm-capacity-monitor.js`) ajustado pra não alarmar em swap "estacionado"
+(residual de picos passados) sem memória disponível também curta.
+
 ---
 
 ## 5. Análise do Processo (leitura integrada)
@@ -184,17 +239,19 @@ A "Análise do Processo" é gerada por IA (contrato v2.0) e aparece na página d
 
 ### Prioridade alta
 
-**Autenticação administrativa**
-Implementado em 2026-06-30: `/admin/*` usa HTTP Basic Auth quando
-`ADMIN_AUTH_USER` e `ADMIN_AUTH_PASSWORD` estão definidos. Sem banco de usuários,
-sem OAuth — proteção mínima antes de publicar amplamente, com fallback aberto
-para desenvolvimento local quando as variáveis não existem.
+**Autenticação administrativa** *(concluído)*
+Basic Auth (2026-06-30) foi substituída por login com sessão real:
+`admin_users`/`admin_sessions` no schema, `src/auth/admin-session.js`,
+página `/login`, `frontend/middleware.js`. `admin-basic-auth.js` segue no
+repo mas não é mais chamado por `server.js`.
 
 **Cobertura PNCP anos anteriores** *(parcialmente concluído)*
-Coletor ativo desde 2023. Confirmado: Prefeitura publica apenas pontualmente no PNCP (1 edital em 2025). Monitorar crescimento — executar `npm run coletar -- --fonte=pncp` periodicamente.
+Coletor ativo desde 2023, incluso no ciclo `'todas'`. Confirmado: Prefeitura publica apenas pontualmente no PNCP.
 
-**Build de produção e deploy**
-Testar `next build && next start` em produção. Dockerizar backend + SQLite. Deploy em Railway/Fly.io (backend) + Vercel (frontend).
+**Build de produção e deploy** *(concluído, diferente do planejado)*
+Backend não foi pra Railway/Fly.io — foi pra VM Oracle Cloud Always Free
+(systemd + Caddy), não Docker. Frontend na Vercel, como planejado. Deploy
+automático nos dois lados a cada merge em `master`. Ver `docs/DEPLOY.md`.
 
 ### Prioridade média
 
@@ -262,13 +319,15 @@ via `repo.removerAtivosNaoListados`, preservando decisões humanas
 
 API em `/api/alertas*` (`/config` GET/PATCH, `POST /gerar` aceita `full`); CLI
 `npm run alertas:gerar[:dry]` e `node scripts/gerar-alertas.js --full`. Frontend:
-destaques na home, **`/descobertas`** (lista) e **`/descobertas/[id]`** (detalhe
-com documentos e `url_origem`) — CSS Module próprio
-(`frontend/app/descobertas/styles.module.css`), tom de curiosidade, paleta calma
-(nível como ponto+rótulo, sem vermelho de pânico). Validado em dados reais (539
-docs → 50 descobertas: 13 "Vale conferir" + 37 "Curiosidade"). Futuro:
-notificação por e-mail/WhatsApp, assinatura por cidadão, seletor de intervalo nas
-telas de valores.
+destaques na home, **`/na-lupa`** (lista, renomeado de `/descobertas` em
+10/07/2026) e **`/na-lupa/[id]`** (detalhe com documentos e `url_origem`) —
+tom de curiosidade, paleta calma (nível como ponto+rótulo, sem vermelho de
+pânico). Validado em dados reais (539 docs → 50 descobertas: 13 "Vale
+conferir" + 37 "Curiosidade"). **Estado operacional (17/09/2026)**: scheduler
+factual pausado desde jul/2026 (`DESCOBERTAS_SCHEDULER_ENABLED=false`),
+só 1 alerta público (#57, supressão de árvores) — retomar é backlog aberto,
+não característica do produto. Futuro: notificação por e-mail/WhatsApp,
+assinatura por cidadão, seletor de intervalo nas telas de valores.
 
 ### Decisões técnicas permanentes
 

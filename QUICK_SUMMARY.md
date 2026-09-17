@@ -17,7 +17,7 @@ entre si (se encontrar números diferentes pro mesmo dado em dois lugares,
 
 ```bash
 npm start     # API :3001 + frontend :3000
-npm test      # 495 testes / 47 suites (verde em 01/07/2026)
+npm test      # 1026 testes / 104 suites (verde em 17/09/2026)
 ```
 
-Páginas-chave: `/descobertas`, `/admin/alertas`.
+Páginas-chave: `/na-lupa`, `/admin/alertas`.
