@@ -103,8 +103,13 @@ provider de IA fresco e confirmar estabilidade antes de religar o flag.
 
 ## Backlog menor (baixa prioridade, sem prazo)
 
-- `/temas` → virar filtro de `/licitacoes`; `/analises` redirecionar (páginas
-  órfãs, já fora da navegação).
+- ~~`/temas` → virar filtro de `/licitacoes`; `/analises` redirecionar~~ —
+  **item obsoleto, verificado e descartado em 17/09/2026**: a premissa
+  ("páginas órfãs, fora da navegação") está errada. As duas estão
+  ativamente linkadas em `NavLinks.js`, dentro do dropdown "Dinheiro
+  público" (`temas`/`analises` como filhos) — comentário no código
+  confirma que foram deliberadamente mantidas lá numa reorganização de nav
+  posterior a esta nota. Não remover.
 - Ver `DEVELOPMENT_PLAN.md` §6 (Roadmap) para o backlog completo — detecção
   de PDF-imagem (testes unitários, scheduler, UI admin), portal de
   transparência financeira, alertas públicos por e-mail/WhatsApp, etc.
