@@ -57,9 +57,7 @@ async function buildRequestHeaders(path, headers = {}) {
   return finalHeaders;
 }
 
-async function fetchJson(path, { revalidate = REVALIDATE_PADRAO_S } = {}) {
-  const semCache = PREFIXOS_SEM_CACHE.some((prefixo) => path.startsWith(prefixo));
-  const cacheOpts = semCache ? { cache: 'no-store' } : { next: { revalidate } };
+async function doFetchJson(path, cacheOpts) {
   const url = buildRequestUrl(path);
   let response;
 
@@ -86,6 +84,42 @@ async function fetchJson(path, { revalidate = REVALIDATE_PADRAO_S } = {}) {
   }
 
   return response.json();
+}
+
+// Achado real 17/09/2026: quase toda pagina publica usa `dynamic =
+// 'force-dynamic'` (necessario -- sem ele o build tenta prerenderizar contra
+// a API, que nao existe em CI, e quebra; testado ao vivo, nao e' teoria).
+// Mas force-dynamic tambem zera `next.revalidate` de TODO fetch da rota,
+// deixando o cache de baixo (`{ next: { revalidate } }` alguns paragrafos
+// acima) sem efeito nenhum -- todo visitante (inclusive crawler, que gerava
+// rajadas de 6+ req/6s em /acervo/legislacao/transparencia) batia direto na
+// API numa VM de 954MB. unstable_cache e' uma camada de cache separada da
+// do fetch(), nao afetada por force-dynamic -- e' o jeito certo de cachear
+// dado numa rota forcadamente dinamica. So no servidor (next/cache e'
+// server-only, mesmo motivo do import dinamico de next/headers acima).
+async function fetchJsonCacheado(path, cacheOpts, revalidate) {
+  const { unstable_cache } = await import('next/cache');
+  const cached = unstable_cache(
+    () => doFetchJson(path, cacheOpts),
+    [path],
+    { revalidate }
+  );
+  return cached();
+}
+
+async function fetchJson(path, { revalidate = REVALIDATE_PADRAO_S } = {}) {
+  const semCache = PREFIXOS_SEM_CACHE.some((prefixo) => path.startsWith(prefixo));
+  const cacheOpts = semCache ? { cache: 'no-store' } : { next: { revalidate } };
+
+  // unstable_cache nao permite ler cookies() dentro do escopo cacheado (doc
+  // oficial) -- rotas protegidas passam Cookie via buildRequestHeaders, entao
+  // nunca podem entrar no caminho cacheado, mesmo as que nao estao em
+  // PREFIXOS_SEM_CACHE (ex.: /cobertura/prefeitura, /inteligencia/auditoria).
+  const podeCachear = !semCache && !isProtectedApiPath(path) && typeof window === 'undefined';
+  if (podeCachear) {
+    return fetchJsonCacheado(path, cacheOpts, revalidate);
+  }
+  return doFetchJson(path, cacheOpts);
 }
 
 async function postJson(path, body = {}) {
