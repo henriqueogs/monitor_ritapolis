@@ -12,6 +12,7 @@ import {
   fetchTransparenciaResumo,
 } from '../lib/api';
 import { TIPOS_DINHEIRO_PUBLICO } from '../lib/areas';
+import { formatMoney } from '../lib/format';
 import TransparenciaSubnav from '../components/TransparenciaSubnav';
 import FilaPagamentos from './components/FilaPagamentos';
 import FinalidadesResumo from './components/FinalidadesResumo';
@@ -95,6 +96,7 @@ export default async function TransparenciaPage({ searchParams: searchParamsProm
   }
 
   const { total, porAno, porMandato, periodo, topCredores, ultimosEmpenhos, logs, tiposEmpenho, receitasPorAno, finalidadesEmpenho } = dados;
+  const diarias = (gastos?.categorias || []).find((c) => c.slug === 'diarias');
   const periodoLabel = montarPeriodoLabel(modo, periodo, porMandato);
   const queryPeriodo = modo === 'todos'
     ? 'periodo=todos'
@@ -137,6 +139,30 @@ export default async function TransparenciaPage({ searchParams: searchParamsProm
 
       <MetricasPeriodo total={total} periodoLabel={periodoLabel} pctVinculado={pctVinculado} />
 
+      <div className="observatory-grid" style={{ marginBottom: 20 }}>
+        <SectionBlock
+          title="Folha salarial"
+          description="Cargo, secretaria e remuneração de cada servidor, por competência."
+        >
+          <Link href="/transparencia/servidores" className="availability-badge is-gov" style={{ textDecoration: 'none' }}>
+            Ver folha de servidores →
+          </Link>
+        </SectionBlock>
+
+        <SectionBlock
+          title="Diárias"
+          description={
+            diarias
+              ? `${diarias.n_empenhos.toLocaleString('pt-BR')} pagamento${diarias.n_empenhos === 1 ? '' : 's'} de diária a servidores/vereadores em ${periodoLabel}, totalizando ${formatMoney(diarias.valor_total)}.`
+              : 'Pagamentos de diária a servidores e vereadores em viagem a serviço.'
+          }
+        >
+          <Link href="/transparencia/categoria/diarias" className="availability-badge is-gov" style={{ textDecoration: 'none' }}>
+            Ver diárias {periodoLabel} →
+          </Link>
+        </SectionBlock>
+      </div>
+
       <FinalidadesResumo
         finalidades={finalidadesEmpenho}
         periodoLabel={periodoLabel}
@@ -160,15 +186,6 @@ export default async function TransparenciaPage({ searchParams: searchParamsProm
       <EmpenhosRecentes ultimosEmpenhos={ultimosEmpenhos} periodoLabel={periodoLabel} />
 
       <TiposEmpenho tiposEmpenho={tiposEmpenho} valorTotal={total.valor_total} periodoLabel={periodoLabel} />
-
-      <SectionBlock
-        title="Folha salarial"
-        description="Cargo, secretaria e remuneração de cada servidor, por competência — publicado no Portal da Transparência."
-      >
-        <Link href="/transparencia/servidores" className="availability-badge is-gov" style={{ textDecoration: 'none' }}>
-          Ver folha de servidores →
-        </Link>
-      </SectionBlock>
 
       {/* Análises de preço vivem na Inteligência — aqui só o convite */}
       <SectionBlock
