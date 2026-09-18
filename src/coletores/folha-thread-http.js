@@ -25,6 +25,16 @@ const { upsertFolhaRegistro } = require('../db/folha-repo');
 const TENTATIVAS_MAX_THREAD = 20;
 const DELAY_MS = Number(process.env.PORTAL_THREAD_DELAY_MS || 1200);
 
+// Achado real 18/09/2026: a busca de Folha com STR_TFA_FUNC em branco (todos
+// os vinculos) exclui SILENCIOSAMENTE quem tem Forma de Admissao "Agente
+// Politico" (prefeito, vice-prefeito, secretarios municipais) e "Comissionado"
+// (chefe de gabinete, subsecretarios, supervisores) -- confirmado comparando
+// a mesma busca com/sem o campo setado (37 vinculos somem só nesses 2
+// grupos). Sem filtro nenhum documentado no portal que explique -- bug/
+// comportamento do backend de terceiros, nao da nossa coleta. Contorno:
+// iterar uma busca por cada codigo em vez de 1 wildcard.
+const FORMAS_ADMISSAO = ['0', '1', '2', '3', '4', '5', '7', '9'];
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -78,21 +88,22 @@ async function iniciarSessaoFolha(cliente) {
 }
 
 // Campos confirmados no <form id='cns'> de /Folha -- exercicio fixo, resto
-// em branco/coringa pra trazer todos os servidores/meses do exercicio.
-function montarCorpoBuscaFolha({ exercicio }) {
+// em branco/coringa. STR_TFA_FUNC (forma de admissao) e' o unico setado
+// explicitamente -- ver FORMAS_ADMISSAO acima.
+function montarCorpoBuscaFolha({ exercicio, formaAdmissao }) {
   const campos = {
     INT_PAG: '1', Mes: '%', INT_EXR: String(exercicio),
-    ID7_FUNC: '', INT_PSSOA: '', NM_FUNC: '', STR_TFA_FUNC: '', NM_TST_FUNC: '%',
+    ID7_FUNC: '', INT_PSSOA: '', NM_FUNC: '', STR_TFA_FUNC: formaAdmissao, NM_TST_FUNC: '%',
     ID5_CGO: '', INT_SGLA_CGO: '', ID5_FCAO: '', NM_SEC: '', STR_LOT: '', LG_PENS_FUNC: '',
     LG_ALT_PAG: 'N', URL: 'Folha',
   };
   return new URLSearchParams(campos).toString();
 }
 
-async function iniciarThreadFolha(cliente, sessao, { exercicio }) {
+async function iniciarThreadFolha(cliente, sessao, { exercicio, formaAdmissao }) {
   const url = `/gerar_relatorio.php?Data=${Date.now()}&SHA1_TOKEN=${sessao.sha1Token}&INT_TOKEN=${sessao.intToken}`;
   assertSafeUrl(`${BASE_URL}${url}`);
-  const resp = await cliente.post(url, montarCorpoBuscaFolha({ exercicio }), {
+  const resp = await cliente.post(url, montarCorpoBuscaFolha({ exercicio, formaAdmissao }), {
     headers: {
       Cookie: sessao.cookie,
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -152,25 +163,38 @@ async function baixarCsvFolha(cliente, sessao, pathResultadoHtml) {
  * todos os meses — Mes='%') via o fluxo thread. Sem janelamento: o CSV de
  * um ano inteiro fica em torno de 1MB, bem abaixo do que exige janelas
  * semanais como despesas.
+ *
+ * Uma busca por FORMAS_ADMISSAO (8 requests) em vez de 1 wildcard -- ver
+ * comentario da constante: o portal descarta "Agente Politico"/
+ * "Comissionado" quando o campo vem em branco.
  * @returns {{novos, atualizados, registros}}
  */
 async function coletarFolhaExercicioViaThread(exercicio) {
   const cliente = criarCliente();
-  const sessao = await iniciarSessaoFolha(cliente);
-  const threadId = await iniciarThreadFolha(cliente, sessao, { exercicio });
-  const pathResultado = await aguardarResultadoFolha(cliente, sessao, threadId);
-  const csv = await baixarCsvFolha(cliente, sessao, pathResultado);
-  const registros = parseCsvFolha(csv);
-
   let novos = 0;
   let atualizados = 0;
-  for (const registro of registros) {
-    const action = upsertFolhaRegistro(registro);
-    if (action === 'inserted') { novos += 1; }
-    else if (action === 'updated') { atualizados += 1; }
+  let totalRegistros = 0;
+
+  for (const formaAdmissao of FORMAS_ADMISSAO) {
+    // eslint-disable-next-line no-await-in-loop
+    const sessao = await iniciarSessaoFolha(cliente);
+    // eslint-disable-next-line no-await-in-loop
+    const threadId = await iniciarThreadFolha(cliente, sessao, { exercicio, formaAdmissao });
+    // eslint-disable-next-line no-await-in-loop
+    const pathResultado = await aguardarResultadoFolha(cliente, sessao, threadId);
+    // eslint-disable-next-line no-await-in-loop
+    const csv = await baixarCsvFolha(cliente, sessao, pathResultado);
+    const registros = parseCsvFolha(csv);
+    totalRegistros += registros.length;
+
+    for (const registro of registros) {
+      const action = upsertFolhaRegistro(registro);
+      if (action === 'inserted') { novos += 1; }
+      else if (action === 'updated') { atualizados += 1; }
+    }
   }
 
-  return { novos, atualizados, registros: registros.length };
+  return { novos, atualizados, registros: totalRegistros };
 }
 
 module.exports = { coletarFolhaExercicioViaThread };
