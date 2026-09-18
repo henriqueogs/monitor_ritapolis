@@ -52,13 +52,19 @@ npm start   # API na porta 3001 + Next.js dev na porta 3000
 |---|---|
 | `/` | Home com gráficos reais e destaques |
 | `/acervo` | Consulta principal de documentos |
+| `/legislacao` | Decretos, leis, portarias e resoluções (Prefeitura + Câmara) |
+| `/legislacao/camara/projetos` | Projetos de lei em tramitação na Câmara |
+| `/legislacao/camara/vereadores` | Vereadores em mandato, com partido e período |
 | `/licitacoes` | Licitações e compras por ano e categoria |
 | `/documento/:id` | Detalhe com fonte oficial, resumo IA e leitura integrada |
 | `/analises` | Feed de análises verificáveis |
 | `/temas` | Navegação por categoria |
-| `/transparencia` | Indicadores públicos da base |
+| `/transparencia` | Indicadores públicos da base (despesas, receitas, fila de pagamentos) |
+| `/transparencia/empenhos` | Busca de empenhos com FTS |
+| `/transparencia/servidores` | Folha salarial — lista + dossiê individual |
+| `/emendas` | Emendas parlamentares estaduais e federais |
 | `/inteligencia` | Dashboard cruzado — fornecedores, categorias, gastos |
-| `/descobertas` | Descobertas (curiosidades/padrões nos dados) + detalhe `/descobertas/:id` |
+| `/na-lupa` | Descobertas (curiosidades/padrões nos dados) + detalhe `/na-lupa/:id` |
 | `/sobre` | Como a plataforma funciona e suas limitações |
 
 ## Área administrativa
@@ -73,9 +79,9 @@ npm start   # API na porta 3001 + Next.js dev na porta 3000
 | `/admin/jobs` | Jobs & schedulers + ferramentas de manutenção e progresso |
 | `/admin/qualidade` | Score de qualidade por documento |
 
-`/admin` e subrotas usam HTTP Basic Auth quando `ADMIN_AUTH_USER` e
-`ADMIN_AUTH_PASSWORD` estão definidos no ambiente. Sem essas variáveis, a
-proteção fica desativada para desenvolvimento local.
+`/admin` e subrotas exigem login com sessão real (`/login`,
+`src/auth/admin-session.js`, tabelas `admin_users`/`admin_sessions`) —
+`frontend/middleware.js` redireciona quem não está autenticado.
 
 Aliases: `/documentos` → `/acervo`, `/estatisticas` → `/transparencia`, `/ia` → `/admin/ia`, `/cobertura` → `/admin/cobertura`.
 
@@ -122,19 +128,23 @@ npm run build --prefix frontend
 
 ## Estado atual (gerado automaticamente)
 
-Atualizado em: 2026-08-14. Gere novamente com `npm run docs:dados`.
+Atualizado em: 2026-09-17. Gere novamente com `npm run docs:dados`.
 
-- 578 documentos: 574 de site_prefeitura, 3 de camara, 1 de pncp
-- 544 editais; 548/578 documentos com texto extraido (95%)
-- 1493 resumos IA ok; 9 resumo(s) exigem revalidacao por falta de texto-fonte atual
-- 495/544 editais com vencedor (91%)
-- 291/544 editais com valor final (53%)
-- 12999 produtos estruturados em 419 documento(s); 132 editais ainda sem produtos
-- 14 edital(is) do mandato atual com produtos sem preço final por item: preco_item_nao_aplicavel=5, resultado_final_nao_publicado=4, fonte_sem_detalhamento_por_item=3, valor_global_sem_rateio=2
-- 494 fornecedores consolidados; 7 categorias ativas
-- 88 descobertas/alertas ativos; automação ligada; pendente=não
+- 2324 documentos: 1305 de site_prefeitura, 1018 de camara, 1 de pncp
+- 556 editais; 1304/2324 documentos com texto extraido (56%)
+- 1629 resumos IA ok; 10 resumo(s) exigem revalidacao por falta de texto-fonte atual
+- 507/556 editais com vencedor (91%)
+- 303/556 editais com valor final (54%)
+- 13054 produtos estruturados em 423 documento(s); 140 editais ainda sem produtos
+- 17 edital(is) do mandato atual com produtos sem preço final por item: preco_item_nao_aplicavel=5, valor_global_sem_rateio=4, fonte_sem_detalhamento_por_item=4, resultado_final_nao_publicado=4
+- 821 fornecedores consolidados; 7 categorias ativas
+- 297 descobertas/alertas ativos (211 candidatos, 1 público — scheduler de promoção pausado, ver backlog); automação ligada; pendente=não
 - 0 anexo(s) aguardando OCR; 37 edital(is) sem PDF (9 sem texto, 28 com texto oficial da pagina)
-- Diretório `data/`: 3.2 GB, incluindo 15 backup(s) SQLite (1.8 GB)
+- Diretório `data/`: 2.4 GB, incluindo 0 backup(s) SQLite (0 B) — backup real é via litestream/R2, não backup local
+
+Além disso: 13.648 registros de folha salarial (2013–2026, `transparencia_folha`,
+fora da contagem de `documentos`) e 107 projetos de lei em tramitação + 5
+vereadores (`camara_projetos`/`camara_vereadores`, idem).
 
 ## Limitações conhecidas
 
@@ -142,9 +152,8 @@ Atualizado em: 2026-08-14. Gere novamente com `npm run docs:dados`.
   Públicas (1 Pregão confirmado, 2025/1) — a base principal vem do portal
   próprio da Prefeitura. `pncp:sincronizar` roda automaticamente conforme o
   município publicar mais.
-- Área administrativa protegida por Basic Auth quando `ADMIN_AUTH_USER` e `ADMIN_AUTH_PASSWORD` estão configurados
-- Banco SQLite local, sem replicação com servidor externo
-- Câmara usa certificado expirado — o coletor já trata automaticamente
+- Área administrativa protegida por login com sessão (ver acima)
+- Banco SQLite replicado continuamente pro Cloudflare R2 via litestream em produção (local de dev não replica)
 
 ## Problemas de ambiente
 
