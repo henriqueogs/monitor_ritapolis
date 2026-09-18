@@ -76,30 +76,50 @@ async function validarLink(despesa) {
   }
 }
 
-async function main() {
-  const porGrupo = readFlag('por-grupo', POR_GRUPO_DEFAULT);
+/**
+ * Núcleo reutilizável (sem console.log) -- usado pelo CLI abaixo e pelo
+ * daily-scheduler (amostra menor, periódica, ver src/coletas/daily-scheduler.js).
+ * @returns {{ porGrupo: number, resultados: Array, falhas: number }}
+ */
+async function validarAmostra(porGrupo = POR_GRUPO_DEFAULT) {
   const amostra = coletarAmostra(porGrupo);
-  console.log(`Validando ${amostra.length} deep-links (${porGrupo} por exercício × tipo)…\n`);
-
+  const resultados = [];
   let falhas = 0;
+
   for (const despesa of amostra) {
     // eslint-disable-next-line no-await-in-loop
     const resultado = await validarLink(despesa);
+    resultados.push(resultado);
     if (!resultado.ok) {falhas += 1;}
-    console.log(
-      `${resultado.ok ? '✓' : '✗'} ${despesa.exercicio_orcamento} ${despesa.empenho} ` +
-        `(${(despesa.tipo || '').slice(0, 2)}) → ${resultado.status}`
-    );
-    if (!resultado.ok) {console.log(`   ${resultado.url}`);}
     // eslint-disable-next-line no-await-in-loop
     await pausar(PAUSA_ENTRE_REQUESTS_MS);
   }
 
-  console.log(`\n${amostra.length - falhas}/${amostra.length} links válidos.`);
+  return { porGrupo, resultados, falhas };
+}
+
+async function main() {
+  const porGrupo = readFlag('por-grupo', POR_GRUPO_DEFAULT);
+  console.log(`Validando deep-links (${porGrupo} por exercício × tipo)…\n`);
+
+  const { resultados, falhas } = await validarAmostra(porGrupo);
+  for (const resultado of resultados) {
+    console.log(
+      `${resultado.ok ? '✓' : '✗'} ${resultado.exercicio_orcamento} ${resultado.empenho} ` +
+        `(${(resultado.tipo || '').slice(0, 2)}) → ${resultado.status}`
+    );
+    if (!resultado.ok) {console.log(`   ${resultado.url}`);}
+  }
+
+  console.log(`\n${resultados.length - falhas}/${resultados.length} links válidos.`);
   if (falhas > 0) {
     console.error('Falhas encontradas — o portal pode ter mudado o contrato de URL.');
     process.exitCode = 1;
   }
 }
 
-main();
+module.exports = { validarAmostra };
+
+if (require.main === module) {
+  main();
+}
