@@ -26,12 +26,21 @@ export default async function ServidoresPage({ searchParams: searchParamsPromise
   const q = searchParams?.q || '';
   const secretaria = searchParams?.secretaria || '';
   const anoAtual = new Date().getFullYear();
-  const mesAtual = new Date().getMonth() + 1;
-  // Sem competencia escolhida, assume o mes corrente -- listar TODAS as
-  // competencias de uma vez misturaria a mesma pessoa repetida por mes.
-  const competenciaAno = searchParams?.competencia_ano ? Number(searchParams.competencia_ano) : anoAtual;
-  const competenciaMes = searchParams?.competencia_mes !== undefined ? searchParams.competencia_mes : String(mesAtual);
   const pagina = searchParams?.pagina ? Number(searchParams.pagina) : 1;
+
+  // Sem competencia escolhida (1a visita), usa a mais recente com dado --
+  // o mes corrente calendario quase sempre ainda nao foi publicado no portal
+  // (folha do mes so fecha depois), o que dava "0 encontrados" de cara.
+  let competenciaAno = searchParams?.competencia_ano ? Number(searchParams.competencia_ano) : null;
+  let competenciaMes = searchParams?.competencia_mes !== undefined ? searchParams.competencia_mes : null;
+  if (searchParams?.competencia_ano === undefined && searchParams?.competencia_mes === undefined) {
+    const ultima = await fetchTransparenciaFolhaServidores({ limite: 1 }).catch(() => null);
+    const linha = ultima?.dados?.[0];
+    competenciaAno = linha?.competencia_ano || anoAtual;
+    competenciaMes = linha ? String(linha.competencia_mes) : '';
+  }
+  competenciaAno = competenciaAno || anoAtual;
+  competenciaMes = competenciaMes || '';
 
   const resultado = await fetchTransparenciaFolhaServidores({
     q: q || undefined,
