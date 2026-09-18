@@ -16,6 +16,8 @@ const links = [
     children: [
       { href: '/licitacoes', label: 'Licitações' },
       { href: '/transparencia/empenhos', label: 'Empenhos' },
+      { href: '/transparencia/servidores', label: 'Folha de servidores' },
+      { href: '/transparencia/categoria/diarias', label: 'Diárias' },
       { href: '/credores', label: 'Credores' },
       { href: '/emendas', label: 'Emendas' },
       { href: '/temas', label: 'Temas' },
