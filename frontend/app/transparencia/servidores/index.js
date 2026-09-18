@@ -1,4 +1,3 @@
-// deploy-test: valida se o Vercel volta a gerar deployment de producao
 import Link from 'next/link';
 import { fetchTransparenciaFolhaServidores } from '../../lib/api';
 import SectionBlock from '../../components/SectionBlock';
