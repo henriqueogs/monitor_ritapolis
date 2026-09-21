@@ -1,5 +1,18 @@
 # Monitor Ritápolis
 
+> **English summary:** Full-stack civic-transparency platform for a Brazilian
+> municipality. Scrapes official city hall and city council sources, parses
+> ~2,300 public documents (bids, contracts, laws, payroll) with deterministic
+> parsers, cross-references them against Brazil's national public procurement
+> API (PNCP), and enriches everything with AI-generated summaries and
+> cross-document analysis. Node.js/Express API + Next.js frontend, SQLite
+> replicated to Cloudflare R2 via Litestream, admin dashboard with real
+> session auth. Currently indexing 2,300+ documents, 13,600+ payroll records,
+> and 800+ suppliers. Stack: Node.js, Next.js, SQLite, LLM-based summarization
+> (NVIDIA API), Cloudflare R2/Litestream. See below for architecture, routes
+> and commands (Portuguese, since the platform itself is Portuguese-only for
+> its target audience).
+
 Plataforma de inteligência pública verificável para o município de Ritápolis/MG. Coleta documentos oficiais da Prefeitura e da Câmara, estrutura dados com parsers determinísticos, enriquece com IA e apresenta ao cidadão de forma rastreável.
 
 **Não é um repositório de PDFs.** É uma leitura do poder público local: o que está sendo contratado, por quem, a que preço, onde os dados estão incompletos e o que a IA consegue inferir com segurança.
