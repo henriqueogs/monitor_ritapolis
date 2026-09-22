@@ -80,7 +80,7 @@ export default async function EmpenhosPage({ searchParams: searchParamsPromise }
           defaultValue={q}
           placeholder="Buscar na descrição ou credor…"
           className="field-input"
-          style={{ flex: '1 1 240px', minWidth: 0 }}
+          style={{ flex: '1 1 0%', minWidth: 240 }}
         />
         {categoria && <input type="hidden" name="categoria" value={categoria} />}
         {mandato && <input type="hidden" name="mandato" value={mandato} />}

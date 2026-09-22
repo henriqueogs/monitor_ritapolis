@@ -13,7 +13,8 @@ export default function ItensSolicitados({ itens, documento }) {
         Itens listados no edital, com quantidade e valor estimado. Preço final por item aparece
         quando a ata detalhou o resultado item a item.
       </p>
-      <div className="simple-table">
+      <div className="table-scroll-x">
+      <div className="simple-table" style={{ minWidth: 480 }}>
         <div className="table-row table-row-header" style={{ display: 'grid', gridTemplateColumns: '48px 1fr 120px 150px', gap: 12 }}>
           <span>Item</span>
           <span>Descrição</span>
@@ -56,6 +57,7 @@ export default function ItensSolicitados({ itens, documento }) {
             </span>
           </div>
         ))}
+      </div>
       </div>
     </div>
   );

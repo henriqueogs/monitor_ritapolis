@@ -94,7 +94,8 @@ function FinalidadesCredor({ finalidades, chave, valorTotal, periodoQuery = '' }
       title="Finalidades deste credor"
       description="Distribuicao do que este credor recebeu por finalidade. Os links abrem os empenhos do proprio credor ja filtrados."
     >
-      <div className="simple-table">
+      <div className="table-scroll-x">
+      <div className="simple-table" style={{ minWidth: 480 }}>
         {finalidades.map((item) => {
           const pct = valorTotal ? Math.round((Number(item.valor_total || 0) / valorTotal) * 100) : 0;
           const query = new URLSearchParams({
@@ -126,6 +127,7 @@ function FinalidadesCredor({ finalidades, chave, valorTotal, periodoQuery = '' }
             </div>
           );
         })}
+      </div>
       </div>
     </SectionBlock>
   );

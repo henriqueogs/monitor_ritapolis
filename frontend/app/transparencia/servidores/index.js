@@ -84,7 +84,7 @@ export default async function ServidoresPage({ searchParams: searchParamsPromise
           defaultValue={q}
           placeholder="Buscar por nome ou cargo…"
           className="field-input"
-          style={{ flex: '1 1 240px', minWidth: 0 }}
+          style={{ flex: '1 1 0%', minWidth: 240 }}
         />
         <input
           type="text"

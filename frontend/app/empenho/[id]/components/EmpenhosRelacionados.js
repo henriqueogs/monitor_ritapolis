@@ -5,29 +5,31 @@ import { formatMoney, formatDate } from '../../../lib/format';
 function ListaExemplos({ exemplos }) {
   if (!exemplos?.length) {return null;}
   return (
-    <div className="simple-table" style={{ marginTop: 10 }}>
-      {exemplos.map((e) => (
-        <Link
-          key={e.id}
-          href={`/empenho/${e.id}`}
-          className="table-row"
-          style={{
-            textDecoration: 'none', color: 'inherit',
-            display: 'grid', gridTemplateColumns: '92px 110px 1fr 110px', gap: 12, alignItems: 'center',
-          }}
-        >
-          <span style={{ fontSize: 12, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
-            {formatDate(e.data_empenho, '—')}
-          </span>
-          <span style={{ fontSize: 13, fontVariantNumeric: 'tabular-nums' }}>{e.empenho}</span>
-          <span style={{ fontSize: 12, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {e.historico || '—'}
-          </span>
-          <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>
-            {formatMoney(e.valor)}
-          </span>
-        </Link>
-      ))}
+    <div className="table-scroll-x">
+      <div className="simple-table" style={{ marginTop: 10, minWidth: 480 }}>
+        {exemplos.map((e) => (
+          <Link
+            key={e.id}
+            href={`/empenho/${e.id}`}
+            className="table-row"
+            style={{
+              textDecoration: 'none', color: 'inherit',
+              display: 'grid', gridTemplateColumns: '92px 110px 1fr 110px', gap: 12, alignItems: 'center',
+            }}
+          >
+            <span style={{ fontSize: 12, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+              {formatDate(e.data_empenho, '—')}
+            </span>
+            <span style={{ fontSize: 13, fontVariantNumeric: 'tabular-nums' }}>{e.empenho}</span>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {e.historico || '—'}
+            </span>
+            <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>
+              {formatMoney(e.valor)}
+            </span>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }
