@@ -4,6 +4,7 @@ import { formatMoney } from '../../../lib/format';
 import SectionBlock from '../../../components/SectionBlock';
 import PeriodoSelector from '../../../components/PeriodoSelector';
 import TransparenciaSubnav from '../../../components/TransparenciaSubnav';
+import FilterBar from '../../../components/FilterBar';
 
 export async function generateMetadata({ params: paramsPromise }) {
   const params = await paramsPromise;
@@ -13,6 +14,33 @@ export async function generateMetadata({ params: paramsPromise }) {
       ? `${dossie.categoria.rotulo} — Dinheiro público`
       : 'Categoria',
   };
+}
+
+/** Query params do período ativo — preservados ao submeter a busca por nome. */
+function paramsPeriodo(searchParams) {
+  if (searchParams?.exercicio) {return { exercicio: String(searchParams.exercicio) };}
+  if (searchParams?.mandato) {return { mandato: String(searchParams.mandato) };}
+  if (searchParams?.periodo === 'todos') {return { periodo: 'todos' };}
+  return {};
+}
+
+function BuscaPorNome({ basePath, busca, searchParams, isDiarias }) {
+  return (
+    <FilterBar action={basePath}>
+      <input
+        type="search"
+        name="busca"
+        defaultValue={busca || ''}
+        placeholder={isDiarias ? 'Buscar servidor ou vereador por nome…' : 'Buscar recebedor por nome…'}
+        aria-label="Buscar por nome"
+        className="field-input"
+        style={{ flex: '1 1 0%', minWidth: 240 }}
+      />
+      {Object.entries(paramsPeriodo(searchParams)).map(([k, v]) => (
+        <input key={k} type="hidden" name={k} value={v} />
+      ))}
+    </FilterBar>
+  );
 }
 
 function resolverFiltro(searchParams) {
@@ -65,7 +93,11 @@ export default async function CategoriaPage({
 }) {
   const [params, searchParams] = await Promise.all([paramsPromise, searchParamsPromise]);
   const { modo, fetchParams } = resolverFiltro(searchParams);
-  const dossie = await fetchTransparenciaCategoria(params.slug, fetchParams);
+  const buscaParam = typeof searchParams?.busca === 'string' ? searchParams.busca : '';
+  const dossie = await fetchTransparenciaCategoria(params.slug, {
+    ...fetchParams,
+    ...(buscaParam ? { busca: buscaParam } : {}),
+  });
 
   if (!dossie) {
     return (
@@ -78,7 +110,8 @@ export default async function CategoriaPage({
     );
   }
 
-  const { categoria, periodo, por_ano, por_mandato, top_credores, por_unidade, por_fonte } = dossie;
+  const { categoria, periodo, por_ano, por_mandato, top_credores, por_unidade, por_fonte, busca } = dossie;
+  const basePath = `/transparencia/categoria/${categoria.slug}`;
   const periodoLabel = labelPeriodo(modo, periodo, por_mandato);
   const isDiarias = categoria.slug === 'diarias';
   const totalPeriodo = top_credores.reduce((s, c) => s + c.valor_total, 0);
@@ -86,7 +119,12 @@ export default async function CategoriaPage({
   const queryEmpenhos = new URLSearchParams({
     categoria: categoria.slug,
     ...(periodo.exercicio ? { exercicio: String(periodo.exercicio) } : {}),
+    ...(busca ? { q: busca } : {}),
   }).toString();
+  const limparBuscaHref = (() => {
+    const query = new URLSearchParams(paramsPeriodo(searchParams)).toString();
+    return query ? `${basePath}?${query}` : basePath;
+  })();
 
   return (
     <main className="page-container">
@@ -128,13 +166,25 @@ export default async function CategoriaPage({
         periodo={periodo}
         anosCobertos={periodo.anos_cobertos}
         modo={modo}
-        basePath={`/transparencia/categoria/${categoria.slug}`}
+        basePath={basePath}
+        extraParams={busca ? { busca } : {}}
       />
+
+      <BuscaPorNome basePath={basePath} busca={busca} searchParams={searchParams} isDiarias={isDiarias} />
+
+      {busca && (
+        <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text-muted)' }}>
+          {top_credores.length
+            ? `${top_credores.length} resultado${top_credores.length === 1 ? '' : 's'} para “${busca}” em ${periodoLabel}. `
+            : `Nenhum recebedor com “${busca}” no nome em ${periodoLabel}. Tente outro período ou parte do nome. `}
+          <Link href={limparBuscaHref}>Limpar busca</Link>
+        </p>
+      )}
 
       {/* Quem mais recebe */}
       {top_credores?.length > 0 && (
         <SectionBlock
-          title={`Quem mais recebe (${periodoLabel})`}
+          title={busca ? `Resultados para “${busca}” (${periodoLabel})` : `Quem mais recebe (${periodoLabel})`}
           description={
             isDiarias
               ? `Diárias pagas a servidores no período ${periodoLabel} — fonte: Portal da Transparência. Clique para ver o perfil completo.`
@@ -142,7 +192,7 @@ export default async function CategoriaPage({
           }
           aside={
             <Link href={`/transparencia/empenhos?${queryEmpenhos}`} className="availability-badge is-gov" style={{ textDecoration: 'none' }}>
-              Ver todos os empenhos
+              {busca ? 'Ver empenhos encontrados' : 'Ver todos os empenhos'}
             </Link>
           }
         >
