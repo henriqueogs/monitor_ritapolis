@@ -19,6 +19,7 @@ const { consolidarFornecedores } = require('../db');
 const { backfillClassificacoesDespesas } = require('../db/transparencia-repo');
 const { enriquecerCredores } = require('../integracoes/enriquecer-credores');
 const schedulerLock = require('./scheduler-lock');
+const { invalidarTodos } = require('../services/cache-registry');
 
 const LOCK_OWNER = 'daily';
 
@@ -131,6 +132,7 @@ async function coletarTransparencia() {
     await coletor.executar(resultado);
 
     logger.info('daily-scheduler: transparência concluída', resultado);
+    invalidarTodos();
 
     // Consolidar fornecedores após coleta de dados financeiros
     try {
@@ -174,6 +176,7 @@ async function coletarFolha() {
     };
     await coletor.executar(resultado);
     logger.info('daily-scheduler: folha concluída', resultado);
+    invalidarTodos();
   } catch (err) {
     logger.error('daily-scheduler: erro na coleta de folha', { erro: err.message });
   } finally {

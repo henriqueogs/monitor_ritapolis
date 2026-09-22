@@ -22,6 +22,10 @@ module.exports = {
   collectorMaxResponseBytes: Number(process.env.COLETOR_MAX_RESPONSE_BYTES || 50 * 1024 * 1024),
   collectorMaxRedirects: Number(process.env.COLETOR_MAX_REDIRECTS || 5),
   prefeituraSyncCheckIntervalMs: Number(process.env.PREFEITURA_SYNC_CHECK_INTERVAL_MS || 10 * 60 * 1000),
+  // VM de 1 GB -- default 64 MB de cache de pagina; reduzir via env se a
+  // memoria apertar (ver workflow vm-capacity-check).
+  sqliteCacheKb: Number(process.env.SQLITE_CACHE_KB || 65536),
+  sqliteMmapBytes: Number(process.env.SQLITE_MMAP_BYTES || 268435456),
   collectorUserAgent:
     process.env.COLETOR_USER_AGENT ||
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',

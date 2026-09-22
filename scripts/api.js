@@ -36,6 +36,20 @@ async function main() {
     logger.error('falha na reconciliacao de vinculos despesas-documentos', { erro: error.message });
   }
   const server = await startServer();
+
+  // Deploy a cada merge + restart semanal da VM apagam o cache em memoria dos
+  // agregados (Fase 3 do plano de performance) -- popular antes do primeiro
+  // visitante em vez de deixar ele pagar o recomputo.
+  setImmediate(() => {
+    try {
+      const { warmUpAgregados } = require('../src/services/painel-cidadao-service');
+      warmUpAgregados();
+      logger.info('warm-up dos agregados concluido');
+    } catch (error) {
+      logger.warn('warm-up dos agregados falhou', { erro: error.message });
+    }
+  });
+
   collectionScheduler.start();
   aiScheduler.start();
   dailyScheduler.start();

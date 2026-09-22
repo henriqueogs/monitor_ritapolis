@@ -11,6 +11,13 @@ const METODOS_MUTACAO = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const TTL_SUCESSO_MS = 4000;
 const TTL_ERRO_MS = 9000;
 
+// Sync automatico da Prefeitura (PrefeituraAutoSync, dispara em toda visita
+// anonima a home) e' verificacao em background, nao acao do usuario -- nao
+// deve virar toast de erro pra visitante sem sessao admin (achado real:
+// virou client component na Fase 1 do plano de performance e passou a
+// aparecer como "Requisicao falhou" pra todo mundo).
+const ROTAS_SILENCIOSAS = ['/coletas/sincronizar-prefeitura'];
+
 function extrairMetodo(input, init) {
   if (init?.method) return init.method.toUpperCase();
   if (typeof input === 'object' && input?.method) return input.method.toUpperCase();
@@ -55,12 +62,15 @@ export default function RequestToaster() {
     async function fetchComToast(input, init) {
       const metodo = extrairMetodo(input, init);
       const url = extrairUrl(input);
-      const devToast = METODOS_MUTACAO.has(metodo) && url.includes('/api/');
+      const rota = rotuloRota(url);
+      const devToast =
+        METODOS_MUTACAO.has(metodo) &&
+        url.includes('/api/') &&
+        !ROTAS_SILENCIOSAS.some((silenciosa) => rota.startsWith(silenciosa));
 
       try {
         const response = await originalFetch(input, init);
         if (devToast) {
-          const rota = rotuloRota(url);
           if (response.ok) {
             addToast({ tipo: 'ok', titulo: 'Requisição concluída', detalhe: `${metodo} ${rota}` });
           } else {

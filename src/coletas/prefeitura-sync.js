@@ -6,7 +6,8 @@ const { startCollectionUpdate, getCollectionUpdateStatus } = require('./update-r
 
 const state = {
   lastCheckedAt: null,
-  lastResult: null
+  lastResult: null,
+  checking: false
 };
 
 function parsePrefeituraUpdatedAt(text) {
@@ -89,41 +90,63 @@ function shouldUseCachedResult(now) {
   return now - new Date(state.lastCheckedAt).getTime() < intervalMs;
 }
 
-async function checkPrefeituraSyncOnPortalOpen() {
-  const now = Date.now();
+// Consulta todas as areas em paralelo (nao em serie) -- cada falha vira
+// status 'indisponivel' pra area, sem derrubar as demais.
+async function fetchAllAreas(coletor) {
+  const settled = await Promise.allSettled(
+    ColetorSitePrefeitura.AREAS.map((area) => fetchAreaUpdatedAt(coletor, area))
+  );
 
-  if (shouldUseCachedResult(now)) {
-    return {
-      ...state.lastResult,
-      cache: 'hit'
-    };
-  }
-
-  const checkedAt = new Date().toISOString();
-  const local = getLatestLocalPrefeituraCollection();
-  const coletor = new ColetorSitePrefeitura();
   const areas = [];
   const erros = [];
 
-  for (const area of ColetorSitePrefeitura.AREAS) {
-    try {
-      areas.push(await fetchAreaUpdatedAt(coletor, area));
-    } catch (error) {
-      erros.push({
-        area_id: area.id,
-        titulo: area.titulo,
-        public_url: area.publicUrl,
-        erro: error.message || 'Falha ao consultar area'
-      });
-      areas.push({
-        area_id: area.id,
-        titulo: area.titulo,
-        public_url: area.publicUrl,
-        atualizado_em: null,
-        status: 'indisponivel'
-      });
+  settled.forEach((outcome, index) => {
+    const area = ColetorSitePrefeitura.AREAS[index];
+    if (outcome.status === 'fulfilled') {
+      areas.push(outcome.value);
+      return;
     }
-  }
+    erros.push({
+      area_id: area.id,
+      titulo: area.titulo,
+      public_url: area.publicUrl,
+      erro: outcome.reason?.message || 'Falha ao consultar area'
+    });
+    areas.push({
+      area_id: area.id,
+      titulo: area.titulo,
+      public_url: area.publicUrl,
+      atualizado_em: null,
+      status: 'indisponivel'
+    });
+  });
+
+  return { areas, erros };
+}
+
+function pendingResult(checkedAt) {
+  return {
+    ...(state.lastResult || {
+      status: 'verificando',
+      site_atualizado_em: null,
+      ultima_coleta_local: null,
+      areas: [],
+      erros: [],
+      coleta: { started: false, motivo: 'verificando' }
+    }),
+    checked_at: checkedAt,
+    verificando: true,
+    cache: 'checking'
+  };
+}
+
+// Faz a verificacao de fato (rede + decisao de coleta) em background --
+// nunca deve ser aguardada pelo caminho de renderizacao da home.
+async function performCheck() {
+  const checkedAt = new Date().toISOString();
+  const local = getLatestLocalPrefeituraCollection();
+  const coletor = new ColetorSitePrefeitura();
+  const { areas, erros } = await fetchAllAreas(coletor);
 
   const referencias = areas
     .map((area) => area.atualizado_em)
@@ -171,6 +194,40 @@ async function checkPrefeituraSyncOnPortalOpen() {
   });
 
   return result;
+}
+
+// Nunca aguarda rede: responde com o ultimo resultado conhecido (ou um
+// placeholder 'verificando') e deixa a checagem de verdade rodar em
+// background. Uma checagem ja em andamento nao dispara outra (state.checking).
+async function checkPrefeituraSyncOnPortalOpen() {
+  const now = Date.now();
+
+  if (shouldUseCachedResult(now)) {
+    return {
+      ...state.lastResult,
+      cache: 'hit'
+    };
+  }
+
+  const checkedAt = new Date().toISOString();
+
+  if (state.checking) {
+    return pendingResult(checkedAt);
+  }
+
+  state.checking = true;
+  performCheck()
+    .catch((error) => {
+      logger.warn('Falha ao verificar sincronizacao automatica da Prefeitura em background', {
+        erro: error.message,
+        stack: error.stack
+      });
+    })
+    .finally(() => {
+      state.checking = false;
+    });
+
+  return pendingResult(checkedAt);
 }
 
 module.exports = {

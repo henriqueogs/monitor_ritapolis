@@ -16,8 +16,6 @@ const {
   updateLicitacaoFonteRelacionadaStatus,
   getLicitacaoGrupoByDocumentoId,
   syncLicitacoesGrupos,
-  getEstatisticas,
-  getPainelCidadao,
   getDocumentoById,
   listColetasLog,
   getResumoAiStatus,
@@ -25,8 +23,6 @@ const {
   getFornecedoresRanking,
   getProdutosGruposComparaveis,
   getEvolucaoPrecoGrupo,
-  getInteligenciaPanorama,
-  getCoberturaPorAno,
   getCategoriasStats,
   listCategoriasDocumentos,
   createResumoAiJob,
@@ -53,6 +49,12 @@ const {
   getDespesasComPortal,
   getDespesasDocumentoComPortal,
 } = require('../transparencia/painel-service');
+const {
+  getPainelCidadao,
+  getEstatisticas,
+  getInteligenciaPanorama,
+  getCoberturaPorAno,
+} = require('../services/painel-cidadao-service');
 const { getCredorDossie } = require('../transparencia/credor-service');
 const { parseCredorChave } = require('../transparencia/credor-chave');
 const { buscaUnificada } = require('../busca/busca-unificada');
@@ -633,11 +635,15 @@ function createServer() {
     );
   });
 
+  // Agregados pesados memoizados (src/services/painel-cidadao-service.js) --
+  // header habilita cache de borda (Cloudflare/Vercel) sem mudar codigo depois.
   app.get('/api/estatisticas', (_req, res) => {
+    res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=600, stale-while-revalidate=3600');
     res.json(getEstatisticas());
   });
 
   app.get('/api/painel-cidadao', (_req, res) => {
+    res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=600, stale-while-revalidate=3600');
     res.json(getPainelCidadao());
   });
 
@@ -759,6 +765,7 @@ function createServer() {
   app.get('/api/transparencia/resumo', (req, res) => {
     const exercicio = req.query.exercicio ? Number(req.query.exercicio) : undefined;
     const mandato = req.query.mandato ? Number(req.query.mandato) : undefined;
+    res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=600, stale-while-revalidate=3600');
     return res.json(getPainelTransparencia({ exercicio, mandato }));
   });
 
@@ -822,6 +829,7 @@ function createServer() {
   app.get('/api/transparencia/gastos', (req, res) => {
     const exercicio = req.query.exercicio ? Number(req.query.exercicio) : undefined;
     const mandato = req.query.mandato ? Number(req.query.mandato) : undefined;
+    res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=600, stale-while-revalidate=3600');
     return res.json(getGastosPanorama({ exercicio, mandato }));
   });
 
@@ -1499,10 +1507,12 @@ function createServer() {
   });
 
   app.get('/api/inteligencia/panorama', (_req, res) => {
+    res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=600, stale-while-revalidate=3600');
     res.json(getInteligenciaPanorama());
   });
 
   app.get('/api/inteligencia/cobertura', (_req, res) => {
+    res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=600, stale-while-revalidate=3600');
     res.json({ dados: getCoberturaPorAno() });
   });
 
@@ -1556,7 +1566,8 @@ function createServer() {
 
   app.post('/api/coletas/sincronizar-prefeitura', async (_req, res) => {
     try {
-      res.json(await checkPrefeituraSyncOnPortalOpen());
+      const resultado = await checkPrefeituraSyncOnPortalOpen();
+      res.status(resultado.verificando ? 202 : 200).json(resultado);
     } catch (error) {
       logger.warn('Falha ao verificar sincronizacao automatica da Prefeitura', {
         erro: error.message,

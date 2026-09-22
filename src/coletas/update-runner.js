@@ -1,5 +1,6 @@
 const logger = require('../logger');
 const schedulerLock = require('./scheduler-lock');
+const { invalidarTodos } = require('../services/cache-registry');
 
 const LOCK_OWNER = 'collection';
 const ColetorSitePrefeitura = require('../coletores/site-prefeitura');
@@ -102,6 +103,7 @@ function startCollectionUpdate({ fonte = 'todas' } = {}) {
     .then((resultados) => {
       state.resultados = resultados;
       state.status = resultados.some((item) => item.status === 'erro_total') ? 'erro_parcial' : 'ok';
+      invalidarTodos();
     })
     .catch((error) => {
       state.status = 'erro_total';

@@ -6,6 +6,6 @@ export const homePageContract = {
     'does not render a separate purchases list on the home page',
     'keeps full document text out of list payloads',
     'keeps operational admin controls outside public content',
-    'calls the Prefeitura auto-sync component when the portal opens'
+    'renders the Prefeitura auto-sync as a client component that fires in useEffect, never blocking the home render'
   ]
 };

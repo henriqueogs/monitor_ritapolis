@@ -15,8 +15,11 @@ const {
 } = require('../db/transparencia-agregados-repo');
 const { classificarCategoria, slugParaPrefixos, CATEGORIAS } = require('./categorias');
 const { agruparPorMandato, mandatoInicio, mandatoLabel } = require('../utils/mandato');
+const { memoTtl } = require('../utils/memo-ttl');
+const { registrar } = require('../services/cache-registry');
 
 const MANDATO_ANOS = 4;
+const TTL_MS = 10 * 60 * 1000;
 const LIMITE_CREDORES = 15;
 
 function resolverExercicios({ exercicio, mandato } = {}) {
@@ -70,7 +73,7 @@ function reclassificarPorSlug(rowsBrutas) {
     .sort((a, b) => b.valor_total - a.valor_total);
 }
 
-function getGastosPanorama({ exercicio, mandato } = {}) {
+function getGastosPanoramaSemCache({ exercicio, mandato } = {}) {
   const exercicios = resolverExercicios({ exercicio, mandato });
   const serieTotal = getCategoriaPorAno({});
 
@@ -85,6 +88,13 @@ function getGastosPanorama({ exercicio, mandato } = {}) {
     por_fonte: getAgregadoPorFonteRecurso({ exercicios }),
   };
 }
+
+const getGastosPanorama = registrar(
+  memoTtl(getGastosPanoramaSemCache, {
+    ttlMs: TTL_MS,
+    key: ({ exercicio, mandato } = {}) => `${exercicio || ''}:${mandato || ''}`,
+  })
+);
 
 function getCategoriaDossie(slug, { exercicio, mandato } = {}) {
   const meta = CATEGORIAS.find((c) => c.slug === slug);

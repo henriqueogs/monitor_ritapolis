@@ -13,6 +13,10 @@ const {
 } = require('../db/transparencia-repo');
 const { agruparPorMandato, mandatoInicio, mandatoLabel } = require('../utils/mandato');
 const { comLinkPortal } = require('./portal-links');
+const { memoTtl } = require('../utils/memo-ttl');
+const { registrar } = require('../services/cache-registry');
+
+const TTL_MS = 10 * 60 * 1000;
 
 const CAMPOS_SOMA_MANDATO = ['n_empenhos', 'valor_total', 'n_empenhos_vinculados', 'valor_receita_previsto'];
 
@@ -51,7 +55,7 @@ function montarPeriodo({ exercicio, mandato }, porAno) {
  * @param {{ exercicio?: number, mandato?: number }} filtro — `mandato` é o ano
  * de início do mandato; escopa pelos 4 exercícios correspondentes.
  */
-function getPainelTransparencia({ exercicio, mandato } = {}) {
+function getPainelTransparenciaSemCache({ exercicio, mandato } = {}) {
   const inicioMandato = Number(mandato);
   const filtroRepo =
     Number.isInteger(inicioMandato) && inicioMandato > 0 && !exercicio
@@ -71,6 +75,13 @@ function getPainelTransparencia({ exercicio, mandato } = {}) {
     ultimosEmpenhos: comLinkPortal(painel.ultimosEmpenhos),
   };
 }
+
+const getPainelTransparencia = registrar(
+  memoTtl(getPainelTransparenciaSemCache, {
+    ttlMs: TTL_MS,
+    key: ({ exercicio, mandato } = {}) => `${exercicio || ''}:${mandato || ''}`
+  })
+);
 
 function getDespesasComPortal(filtros = {}) {
   const resultado = getDespesas(filtros);

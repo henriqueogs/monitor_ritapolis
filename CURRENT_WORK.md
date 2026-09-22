@@ -27,6 +27,37 @@ Câmara Municipal (legislação + projetos + vereadores), mutex entre
 schedulers de background, cache de fetch corrigido (`unstable_cache`
 sobrevivendo a `force-dynamic`), `vm.swappiness`/timer de restart semanal.
 
+## ✅ Concluído — Performance: site lento pra iniciar (diagnóstico + fix 18/09/2026)
+
+Home levava ~8 s em cache frio porque um *server component* aguardava `POST
+/coletas/sincronizar-prefeitura` (5 áreas da Prefeitura em série, ~9 s) e os
+agregados da API (`/transparencia/resumo` 5–10 s na VM) não tinham cache nem
+cache de página SQLite; function do Vercel rodava em `iad1`. Diagnóstico e
+plano em fases (evidências, aceite, arquivos) em
+`docs/PLANO_PERFORMANCE_CARREGAMENTO.md`. Todas as 5 fases implementadas e
+com testes passando (1041 testes, 109 suites) — falta só medir em produção
+após o próximo deploy:
+
+- [x] Fase 1 — `PrefeituraAutoSync` virou client component (fire-and-forget);
+  `checkPrefeituraSyncOnPortalOpen` responde na hora e verifica as 5 áreas em
+  paralelo em background (`state.checking` evita duplicar); rota responde `202`.
+- [x] Fase 2 — `src/utils/memo-ttl.js` (TTL 10 min) aplicado em
+  `getPainelTransparencia`, `getGastosPanorama`,
+  `getPainelCidadao`/`getEstatisticas`/`getInteligenciaPanorama`/`getCoberturaPorAno`
+  (novo `src/services/painel-cidadao-service.js`, sem mexer no monólito);
+  invalidação central via `src/services/cache-registry.js` ao fim de coleta;
+  `Cache-Control: s-maxage=600` nos 6 endpoints de agregado.
+- [x] Fase 3 — `PRAGMA cache_size`/`mmap_size`/`temp_store` em
+  `src/db/connection.js` (config via env); `warmUpAgregados()` no boot de
+  `scripts/api.js`.
+- [x] Fase 4 — `frontend/vercel.json` (`regions: ["gru1"]`); confirmado que
+  nenhum server component aguarda POST/no-store no caminho de render.
+- [x] Fase 5 — `tests/e2e/home-tempo.spec.js` (@perf, guardrail < 3s) +
+  regra documentada: nenhum server component aguarda rede não-cacheada;
+  side effects (sync, coleta, log) sempre client-side ou scheduler.
+- [ ] **Pendente**: medir em produção após deploy (curl frio/quente,
+  `x-vercel-id`, `free -m` na VM) — checklist completo no plano.
+
 ## ⏳ Pendente — Transparência: dados e vinculação (pós Empenhos v2, 02/07/2026)
 
 Entregue em 02/07 (Empenhos v2): página `/empenho/[id]`, painel "Pra onde
@@ -120,7 +151,7 @@ provider de IA fresco e confirmar estabilidade antes de religar o flag.
 
 ```bash
 npm start              # API :3001 + frontend :3000
-npm test                # suíte completa (1026 testes em 17/09/2026)
+npm test                # suíte completa (1041 testes em 18/09/2026)
 ```
 
 Ordem de leitura pra retomar contexto: `QUICK_SUMMARY.md` → este arquivo →

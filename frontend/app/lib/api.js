@@ -337,7 +337,7 @@ export async function fetchDocumentoEmpenhos(id) {
 
 export async function fetchTransparenciaResumo(params = {}) {
   try {
-    return await fetchJson(`/transparencia/resumo${buildQuery(params)}`);
+    return await fetchJson(`/transparencia/resumo${buildQuery(params)}`, { revalidate: 600 });
   } catch {
     return null;
   }
@@ -348,7 +348,7 @@ export function fetchEmpenho(id) {
 }
 
 export function fetchTransparenciaGastos(params = {}) {
-  return fetchJson(`/transparencia/gastos${buildQuery(params)}`).catch(() => null);
+  return fetchJson(`/transparencia/gastos${buildQuery(params)}`, { revalidate: 600 }).catch(() => null);
 }
 
 export function fetchTransparenciaFinalidades(params = {}) {
@@ -426,7 +426,7 @@ export function fetchCamaraVereadorDossie(intPes) {
 }
 
 export function fetchEstatisticas() {
-  return fetchJson('/estatisticas').catch(async () => {
+  return fetchJson('/estatisticas', { revalidate: 600 }).catch(async () => {
     const [documentos, licitacoes, coletas] = await Promise.all([
       fetchDocumentos({ limite: 1 }).catch(() => emptyList({ limite: 1 })),
       fetchDocumentos({ tipo: 'edital', limite: 1 }).catch(() => emptyList({ limite: 1 })),
@@ -480,7 +480,7 @@ export function fetchEstatisticas() {
 }
 
 export function fetchPainelCidadao() {
-  return fetchJson('/painel-cidadao').catch(async () => {
+  return fetchJson('/painel-cidadao', { revalidate: 600 }).catch(async () => {
     const [estatisticas, recentes, licitacoes, coletas] = await Promise.all([
       fetchEstatisticas().catch(() => emptyEstatisticas()),
       fetchDocumentos({ limite: 8 }).catch(() => emptyList({ limite: 8 })),
@@ -574,7 +574,7 @@ export function fetchFornecedoresRanking(params = {}) {
 }
 
 export function fetchInteligenciaPanorama() {
-  return fetchJson('/inteligencia/panorama');
+  return fetchJson('/inteligencia/panorama', { revalidate: 600 });
 }
 
 // ── Alertas de inteligência ──────────────────────────────────────────────
