@@ -27,16 +27,15 @@ Câmara Municipal (legislação + projetos + vereadores), mutex entre
 schedulers de background, cache de fetch corrigido (`unstable_cache`
 sobrevivendo a `force-dynamic`), `vm.swappiness`/timer de restart semanal.
 
-## ✅ Concluído — Performance: site lento pra iniciar (diagnóstico + fix 18/09/2026)
+## ✅ Concluído — Performance: site lento pra iniciar (diagnóstico + fix, deploy 22/09/2026)
 
 Home levava ~8 s em cache frio porque um *server component* aguardava `POST
 /coletas/sincronizar-prefeitura` (5 áreas da Prefeitura em série, ~9 s) e os
 agregados da API (`/transparencia/resumo` 5–10 s na VM) não tinham cache nem
 cache de página SQLite; function do Vercel rodava em `iad1`. Diagnóstico e
 plano em fases (evidências, aceite, arquivos) em
-`docs/PLANO_PERFORMANCE_CARREGAMENTO.md`. Todas as 5 fases implementadas e
-com testes passando (1041 testes, 109 suites) — falta só medir em produção
-após o próximo deploy:
+`docs/PLANO_PERFORMANCE_CARREGAMENTO.md`. Todas as 5 fases implementadas,
+testadas (2067 testes, 213 suites) **e confirmadas em produção em 22/09**:
 
 - [x] Fase 1 — `PrefeituraAutoSync` virou client component (fire-and-forget);
   `checkPrefeituraSyncOnPortalOpen` responde na hora e verifica as 5 áreas em
@@ -55,8 +54,19 @@ após o próximo deploy:
 - [x] Fase 5 — `tests/e2e/home-tempo.spec.js` (@perf, guardrail < 3s) +
   regra documentada: nenhum server component aguarda rede não-cacheada;
   side effects (sync, coleta, log) sempre client-side ou scheduler.
-- [ ] **Pendente**: medir em produção após deploy (curl frio/quente,
-  `x-vercel-id`, `free -m` na VM) — checklist completo no plano.
+- [x] **Medido em produção 22/09**: home fria `total` 0,42 s (era 8,1 s);
+  `x-vercel-id: gru1::gru1::…` (era `gru1::iad1`); `Cache-Control:
+  s-maxage=600` presente no `/transparencia/resumo`; VM com `memAvailableMb:
+  261` pós-warm-up (workflow `vm-capacity-check` disparado manualmente,
+  status `ok`, bem acima do limiar de 150 MB — não precisou reduzir
+  `SQLITE_CACHE_KB`).
+
+**Follow-up 22/09** — achado adicional: `HomePage` ainda fazia um único
+`Promise.all` de 4 fetches antes de renderizar qualquer coisa (hero/quick
+links ficavam presos atrás do agregado mais lento). Corrigido: `HomePage`
+virou sync, hero/quick links renderizam na hora; hubs (`HomeHubsData`) e
+fontes oficiais (`LimitsAndSourcesData`) viraram componentes async isolados,
+cada um no seu `<Suspense>` com skeleton próprio.
 
 ## ⏳ Pendente — Transparência: dados e vinculação (pós Empenhos v2, 02/07/2026)
 

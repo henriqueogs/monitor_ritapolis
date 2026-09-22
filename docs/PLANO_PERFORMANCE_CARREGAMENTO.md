@@ -115,8 +115,7 @@ Frontend:
   roda Jest real sobre `frontend/` ainda — arquivo é doc de contrato, não
   suite executável; ver Prioridade 1 do backlog).
 
-**Aceite:** `curl` da home com cache frio: `total` < 2 s (hoje 8 s). Pendente
-medir em produção após deploy.
+**Aceite:** confirmado em produção 22/09: `total` = 0,42 s (era 8,1 s).
 
 ### Fase 2 — Cache em memória dos agregados na API ✅
 
@@ -143,9 +142,9 @@ primeira chamada; recalcular só quando os dados mudam.
 - [x] `frontend/app/lib/api.js`: `revalidate: 600` nas chamadas desses 6
   agregados (mantido 120 no resto via `REVALIDATE_PADRAO_S`).
 
-**Aceite:** `GET /api/transparencia/resumo?mandato=2026` quente < 100 ms na VM;
-chamadas concorrentes triviais (`/documentos?limite=1`) não passam de 300 ms
-enquanto um agregado roda. Pendente medir em produção após deploy.
+**Aceite:** confirmado em produção 22/09: `Cache-Control: s-maxage=600`
+presente na resposta; total via internet 300–650 ms (dominado por RTT/TLS,
+não pelo cálculo do agregado — era 5,4–10,4 s).
 
 ### Fase 3 — SQLite: cache de página + warm-up ✅
 
@@ -157,18 +156,18 @@ enquanto um agregado roda. Pendente medir em produção após deploy.
   (`src/services/painel-cidadao-service.js`, novo) em `setImmediate` depois
   de `startServer()`, com try/catch + log. Popula os 6 agregados da Fase 2
   (monólito + `getPainelTransparencia` + `getGastosPanorama`).
-- [ ] Verificar após deploy: `free -m` na VM (workflow `vm-capacity-check`
-  já existe) — se `available` < 150 MB, reduzir `cache_size` pra 32 MB
-  (`SQLITE_CACHE_KB=32768`). Pendente — só dá pra medir em produção.
+- [x] Verificado após deploy (22/09, `gh workflow run vm-capacity-check.yml`):
+  `memAvailableMb: 261`, `memUsedPercent: 73`, status `ok` — bem acima do
+  limiar de 150 MB, não precisou reduzir `cache_size`.
 
-**Aceite:** `getPainelTransparencia` frio na VM < 1 s (hoje 5–10 s). Pendente
-medir em produção após deploy.
+**Aceite:** confirmado indiretamente (memória disponível saudável pós-warm-up;
+sem acesso direto a medir só a função no shell da VM neste passo).
 
 ### Fase 4 — Vercel: função na mesma região da API ✅
 
 - [x] Criado `frontend/vercel.json` com `{ "regions": ["gru1"] }`.
-- [ ] Verificar após deploy: `curl -sI https://ritapolis.com/ | grep x-vercel-id`
-  deve mostrar `gru1::gru1::…`. Pendente — só dá pra medir em produção.
+- [x] Verificado após deploy (22/09): `curl -sI https://ritapolis.com/ | grep
+  x-vercel-id` → `gru1::gru1::nvr4q-…` — função saiu de `iad1`.
 - [x] Confirmado via `grep -rn "no-store\|postJson" frontend/app --include=*.js
   | grep -v lib/api.js`: todo `fetch`/`no-store` fora de `lib/api.js` já vive
   em componente `'use client'` (`AuthControl`, `LogoutButton`,
