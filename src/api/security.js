@@ -8,7 +8,14 @@ const logger = require('../logger');
 
 const MUTATION_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const DEFAULT_JSON_LIMIT = '1mb';
-const RATE_WINDOW_MS = 15 * 60 * 1000;
+// Cotas RATE_LIMIT_* são configuradas "por 15 minutos" (semântica histórica do
+// .env da VM). Leituras usam janela curta com a cota proporcional: um pico de
+// crawler bloqueia por segundos, não por 15 min — todo o SSR da Vercel sai de
+// poucos IPs e compartilha o bucket. Auth/escrita mantêm a janela longa
+// (anti força bruta).
+const JANELA_COTA_MS = 15 * 60 * 1000;
+const JANELA_CURTA_MS = 60 * 1000;
+const CLASSES_JANELA_CURTA = new Set(['publicRead', 'search', 'adminRead']);
 const buckets = new Map();
 
 function splitList(value) {
@@ -171,15 +178,24 @@ function getRateLimit(classification, env = process.env) {
   return Math.max(Number(env[key] || defaults[classification] || 300), 1);
 }
 
+function resolverJanelaRateLimit(classification, env = process.env) {
+  const cota = getRateLimit(classification, env);
+  if (!CLASSES_JANELA_CURTA.has(classification)) {
+    return { windowMs: JANELA_COTA_MS, limit: cota };
+  }
+  const limit = Math.max(Math.ceil((cota * JANELA_CURTA_MS) / JANELA_COTA_MS), 1);
+  return { windowMs: JANELA_CURTA_MS, limit };
+}
+
 function rateLimit(req, res, next) {
   const classification = classifyRequest(req);
-  const limit = getRateLimit(classification);
+  const { windowMs, limit } = resolverJanelaRateLimit(classification);
   const key = `${classification}:${req.ip || req.socket?.remoteAddress || 'unknown'}`;
   const now = Date.now();
   const current = buckets.get(key);
 
   if (!current || current.resetAt <= now) {
-    buckets.set(key, { count: 1, resetAt: now + RATE_WINDOW_MS });
+    buckets.set(key, { count: 1, resetAt: now + windowMs });
     return next();
   }
 
@@ -225,5 +241,6 @@ module.exports = {
   rateLimit,
   requireAdmin,
   resetRateLimitForTests,
+  resolverJanelaRateLimit,
   validateOrigin,
 };
