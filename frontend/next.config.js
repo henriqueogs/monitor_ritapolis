@@ -1,5 +1,6 @@
 const { PHASE_DEVELOPMENT_SERVER } = require('next/constants');
 const path = require('path');
+const { buildCsp, originDe, CSP_ISR_SOURCES } = require('./lib/csp');
 
 const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
@@ -18,7 +19,19 @@ module.exports = (phase) => ({
     root: path.resolve(__dirname),
   },
   async headers() {
-    return [{ source: '/:path*', headers: securityHeaders }];
+    // Rotas ISR não passam pelo proxy.js (nonce); CSP estático sem nonce aqui.
+    const cspIsr = buildCsp({
+      nonce: null,
+      isDev: phase === PHASE_DEVELOPMENT_SERVER,
+      apiOrigin: originDe(process.env.NEXT_PUBLIC_API_URL),
+    });
+    return [
+      { source: '/:path*', headers: securityHeaders },
+      ...CSP_ISR_SOURCES.map((source) => ({
+        source,
+        headers: [{ key: 'Content-Security-Policy', value: cspIsr }],
+      })),
+    ];
   },
   async redirects() {
     return [
