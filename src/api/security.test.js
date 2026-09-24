@@ -129,3 +129,84 @@ describe('api security middleware', () => {
     );
   });
 });
+
+describe('rate limit', () => {
+  function fakeReq({ path = '/api/documentos', ip = '10.0.0.1', method = 'GET' } = {}) {
+    return { path, ip, method, query: {}, socket: {} };
+  }
+
+  function fakeRes() {
+    return {
+      statusCode: 200,
+      headers: {},
+      setHeader(k, v) { this.headers[k] = v; },
+      status(code) { this.statusCode = code; return this; },
+      json(body) { this.body = body; return this; },
+    };
+  }
+
+  function disparar(n, reqOpts) {
+    let bloqueadas = 0;
+    let ultimaRes;
+    for (let i = 0; i < n; i++) {
+      const res = fakeRes();
+      let passou = false;
+      security.rateLimit(fakeReq(reqOpts), res, () => { passou = true; });
+      if (!passou) { bloqueadas += 1; }
+      ultimaRes = res;
+    }
+    return { bloqueadas, ultimaRes };
+  }
+
+  beforeEach(() => {
+    security.resetRateLimitForTests();
+    jest.useFakeTimers({ now: new Date('2026-09-24T12:00:00Z') });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  describe('resolverJanelaRateLimit', () => {
+    it('leitura pública usa janela de 1 minuto com a cota de 15 min proporcional', () => {
+      expect(security.resolverJanelaRateLimit('publicRead', {})).toEqual({ windowMs: 60000, limit: 40 });
+    });
+
+    it('respeita RATE_LIMIT_* do ambiente como cota por 15 minutos', () => {
+      expect(security.resolverJanelaRateLimit('publicRead', { RATE_LIMIT_PUBLICREAD: '1500' }))
+        .toEqual({ windowMs: 60000, limit: 100 });
+    });
+
+    it('auth e escrita mantêm janela de 15 minutos (anti força bruta)', () => {
+      expect(security.resolverJanelaRateLimit('auth', {})).toEqual({ windowMs: 900000, limit: 20 });
+      expect(security.resolverJanelaRateLimit('adminWrite', {})).toEqual({ windowMs: 900000, limit: 60 });
+    });
+
+    it('nunca retorna limite menor que 1', () => {
+      expect(security.resolverJanelaRateLimit('search', { RATE_LIMIT_SEARCH: '1' }).limit).toBe(1);
+    });
+  });
+
+  describe('rateLimit middleware', () => {
+    it('bloqueia leitura pública acima de 40 req no mesmo minuto com Retry-After curto', () => {
+      const { bloqueadas, ultimaRes } = disparar(41);
+      expect(bloqueadas).toBe(1);
+      expect(ultimaRes.statusCode).toBe(429);
+      expect(Number(ultimaRes.headers['Retry-After'])).toBeLessThanOrEqual(60);
+    });
+
+    it('libera de novo depois de 1 minuto (não prende por 15 min)', () => {
+      expect(disparar(41).bloqueadas).toBe(1);
+      jest.advanceTimersByTime(60 * 1000);
+      const { bloqueadas } = disparar(1);
+      expect(bloqueadas).toBe(0);
+    });
+
+    it('login continua bloqueado após 1 minuto quando estourou a cota', () => {
+      expect(disparar(21, { path: '/api/auth/login', method: 'POST' }).bloqueadas).toBe(1);
+      jest.advanceTimersByTime(60 * 1000);
+      const { bloqueadas } = disparar(1, { path: '/api/auth/login', method: 'POST' });
+      expect(bloqueadas).toBe(1);
+    });
+  });
+});
