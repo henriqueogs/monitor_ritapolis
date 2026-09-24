@@ -1,6 +1,6 @@
 export const coberturaPageContract = {
   route: '/cobertura',
-  files: ['page.js', 'index.js', 'styles.module.css', 'page.test.js'],
+  redirect: 'next.config.js redirects() (preserva query, 307)',
   expectations: [
     'redirects legacy public route to /admin/cobertura',
     'preserves query filters while redirecting'
