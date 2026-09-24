@@ -83,5 +83,38 @@ describe('gastos-service', () => {
       expect(dossie.por_mandato[0].valor_total).toBe(375); // 2025 (40) + 2026 (335)
       expect(dossie.top_credores).toHaveLength(1);
     });
+
+    it('sem busca, dossiê expõe busca null', () => {
+      const dossie = getCategoriaDossie('diarias', { exercicio: 2026 });
+      expect(dossie.busca).toBeNull();
+    });
+
+    it('com busca, filtra credores por nome normalizado e amplia o limite', () => {
+      const dossie = getCategoriaDossie('diarias', { exercicio: 2026, busca: '  José  da Silva ' });
+
+      expect(repo.getRankingCredores).toHaveBeenCalledWith({
+        prefixos: ['3.3.90.14'],
+        exercicios: [2026],
+        limite: 100,
+        busca: { nome: 'José da Silva', slug: 'jose-da-silva' },
+      });
+      expect(dossie.busca).toBe('José da Silva');
+    });
+
+    it('trunca busca longa em 60 caracteres (limita chaves de cache)', () => {
+      const dossie = getCategoriaDossie('diarias', { exercicio: 2026, busca: 'a'.repeat(200) });
+      expect(dossie.busca).toHaveLength(60);
+    });
+
+    it('ignora busca com menos de 2 caracteres', () => {
+      const dossie = getCategoriaDossie('diarias', { exercicio: 2026, busca: ' a ' });
+
+      expect(repo.getRankingCredores).toHaveBeenCalledWith({
+        prefixos: ['3.3.90.14'],
+        exercicios: [2026],
+        limite: 15,
+      });
+      expect(dossie.busca).toBeNull();
+    });
   });
 });

@@ -138,9 +138,26 @@ function getAgregadoPorFonteRecurso({ exercicios, prefixos } = {}) {
     .all(...ex.params, ...cat.params);
 }
 
-function getRankingCredores({ prefixos, exercicios, limite = 15 } = {}) {
+function escaparLike(texto) {
+  return String(texto).replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
+/**
+ * Filtro por nome do credor. `nome` casa credor_nome (LIKE, caixa ASCII);
+ * `slug` (sem acento, calculado no domínio) casa credor_chave 'pf-…'.
+ */
+function filtroBuscaCredor(busca) {
+  if (!busca?.nome) {return { sql: '1=1', params: [] };}
+  return {
+    sql: `(credor_nome LIKE ? ESCAPE '\\' OR (? <> '' AND credor_chave LIKE ?))`,
+    params: [`%${escaparLike(busca.nome)}%`, busca.slug || '', `%${busca.slug || ''}%`],
+  };
+}
+
+function getRankingCredores({ prefixos, exercicios, limite = 15, busca } = {}) {
   const ex = filtroExercicios(exercicios);
   const cat = filtroCategoria(prefixos);
+  const nome = filtroBuscaCredor(busca);
   // Agrupa por credor_chave (CNPJ ou pf-slug) — une grafias do mesmo nome PF.
   // MAX(credor_cargo) pode trazer cargo antigo se a pessoa mudou de cargo;
   // aceito (a alternativa exigiria subquery pelo empenho mais recente).
@@ -150,11 +167,11 @@ function getRankingCredores({ prefixos, exercicios, limite = 15 } = {}) {
               MAX(credor_cargo) AS credor_cargo,
               COUNT(*) AS n, ROUND(SUM(valor), 2) AS valor_total
        FROM transparencia_despesas
-       WHERE ${ex.sql} AND ${cat.sql} AND credor_nome IS NOT NULL
+       WHERE ${ex.sql} AND ${cat.sql} AND ${nome.sql} AND credor_nome IS NOT NULL
        GROUP BY COALESCE(credor_chave, credor_nome)
        ORDER BY valor_total DESC LIMIT ?`
     )
-    .all(...ex.params, ...cat.params, Number(limite));
+    .all(...ex.params, ...cat.params, ...nome.params, Number(limite));
 }
 
 function getCategoriaPorAno({ prefixos } = {}) {

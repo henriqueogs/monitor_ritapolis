@@ -850,7 +850,8 @@ function createServer() {
   app.get('/api/transparencia/categoria/:slug', (req, res) => {
     const exercicio = req.query.exercicio ? Number(req.query.exercicio) : undefined;
     const mandato = req.query.mandato ? Number(req.query.mandato) : undefined;
-    const dossie = getCategoriaDossie(req.params.slug, { exercicio, mandato });
+    const busca = typeof req.query.busca === 'string' ? req.query.busca : undefined;
+    const dossie = getCategoriaDossie(req.params.slug, { exercicio, mandato, busca });
     if (!dossie) { return res.status(404).json({ error: 'Categoria não encontrada' }); }
     return res.json(dossie);
   });
