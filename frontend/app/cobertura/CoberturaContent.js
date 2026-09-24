@@ -8,7 +8,8 @@ function formatNumber(value) {
   return new Intl.NumberFormat('pt-BR').format(Number(value || 0));
 }
 
-export default async function CoberturaContent({ searchParams }) {
+export default async function CoberturaContent({ searchParams: searchParamsPromise }) {
+  const searchParams = await searchParamsPromise;
   const limite = searchParams?.limite || '100';
   const cobertura = await fetchCoberturaPrefeitura({ limite });
   const coverageLimited = ['parcial', 'indisponivel'].includes(cobertura.status);

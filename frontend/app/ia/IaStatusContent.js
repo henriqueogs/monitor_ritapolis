@@ -8,7 +8,8 @@ import PendingByTypeTable from './components/PendingByTypeTable';
 import ProvidersPanel from './components/ProvidersPanel';
 import { currentValue } from './components/ia-format';
 
-export default async function IaStatusContent({ searchParams }) {
+export default async function IaStatusContent({ searchParams: searchParamsPromise }) {
+  const searchParams = await searchParamsPromise;
   const filters = {
     ano: currentValue(searchParams, 'ano'),
     tipo: currentValue(searchParams, 'tipo'),

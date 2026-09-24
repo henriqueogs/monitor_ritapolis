@@ -40,6 +40,12 @@ module.exports = (phase) => ({
         destination: '/transparencia/finalidades',
         permanent: true,
       },
+      // Aliases legados. Aqui (e não em page.js com redirect()) a query string
+      // é preservada pelo próprio Next, a resposta é um 307 de verdade (não
+      // meta refresh após streaming) e nenhuma função roda na Vercel.
+      { source: '/documentos', destination: '/acervo', permanent: false },
+      { source: '/cobertura', destination: '/admin/cobertura', permanent: false },
+      { source: '/ia', destination: '/admin/ia', permanent: false },
     ];
   },
 });
