@@ -8,6 +8,7 @@ import EmpenhosCredor from './components/EmpenhosCredor';
 import HistoricoPorMandato from './components/HistoricoPorMandato';
 import BreadcrumbJsonLd from '../../components/BreadcrumbJsonLd';
 import { SITE_URL } from '../../lib/brand';
+import { serializarJsonLd } from '../../../lib/json-ld';
 
 export async function generateMetadata({ params: paramsPromise }) {
   const params = await paramsPromise;
@@ -180,7 +181,7 @@ export default async function CredorProfilePage({
     <main className="page-container">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdCredor) }}
+        dangerouslySetInnerHTML={{ __html: serializarJsonLd(jsonLdCredor) }}
       />
       <BreadcrumbJsonLd
         items={[
