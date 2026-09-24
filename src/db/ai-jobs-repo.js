@@ -31,6 +31,11 @@ function _buildTextoHash(textoCompleto) {
   return crypto.createHash('sha256').update(String(textoCompleto || ''), 'utf8').digest('hex');
 }
 
+// Mesmo hash disponível no SQL: sem ele a fila de pendentes filtrava "já
+// resumido" só em JS, depois do LIMIT — pendentes mais antigos que a janela
+// dos N mais recentes nunca eram selecionados.
+db.function('texto_hash_sha256', { deterministic: true }, _buildTextoHash);
+
 const _fonteLabels = { site_prefeitura: 'Prefeitura', camara: 'Câmara' };
 const _tipoLabels = {
   edital: 'Licitação/Edital',
@@ -370,9 +375,24 @@ function finishResumoAiJobError(id, erro) {
 
 // ── Listagem de documentos para IA ───────────────────────────────────────────
 
-function listDocumentosPendentesResumoAi({ limite = 20, fonte, tipo, ano } = {}) {
-  const filters = ["IFNULL(texto_completo, '') <> ''"];
-  const params = { limite };
+function listDocumentosPendentesResumoAi({
+  limite = 20,
+  fonte,
+  tipo,
+  ano,
+  contratoVersao = config.aiContractVersion,
+} = {}) {
+  const filters = [
+    "IFNULL(texto_completo, '') <> ''",
+    `NOT EXISTS (
+       SELECT 1 FROM documentos_resumos_ai r
+       WHERE r.documento_id = d.id
+         AND r.contrato_versao = @contratoVersao
+         AND r.status = 'ok'
+         AND r.texto_hash = texto_hash_sha256(d.texto_completo)
+     )`,
+  ];
+  const params = { limite, contratoVersao };
 
   if (fonte) {
     filters.push('fonte = @fonte');
@@ -409,7 +429,7 @@ function listDocumentosParaResumoAi({
   contratoVersao = config.aiContractVersion,
 } = {}) {
   const candidateLimit = Math.max(Number(limite || 20) * 20, 200);
-  return listDocumentosPendentesResumoAi({ limite: candidateLimit, fonte, tipo, ano })
+  return listDocumentosPendentesResumoAi({ limite: candidateLimit, fonte, tipo, ano, contratoVersao })
     .filter((documento) => {
       const textoCompleto = documento.texto_completo || '';
       if (!textoCompleto) { return false; }

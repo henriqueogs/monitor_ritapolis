@@ -13,7 +13,8 @@ function criarBancoMemoria() {
 const mockConn = criarBancoMemoria();
 jest.mock('./connection', () => ({ db: mockConn }));
 
-const { listResumoAnalises } = require('./ai-jobs-repo');
+const crypto = require('crypto');
+const { listResumoAnalises, listDocumentosPendentesResumoAi } = require('./ai-jobs-repo');
 
 function seedDocumentoComResumo(id, tipo) {
   mockConn
@@ -58,5 +59,57 @@ describe('listResumoAnalises', () => {
 
     const resultado = listResumoAnalises({ tipo: 'decreto', limite: 10 });
     expect(resultado.itens.map((i) => i.documento_id)).toEqual([2]);
+  });
+});
+
+describe('listDocumentosPendentesResumoAi', () => {
+  const sha256 = (t) => crypto.createHash('sha256').update(t, 'utf8').digest('hex');
+
+  function seedDoc(id, dataPublicacao, texto) {
+    mockConn
+      .prepare(
+        `INSERT INTO documentos (id, fonte, tipo, titulo, url_origem, data_publicacao, texto_completo)
+         VALUES (?, 'site_prefeitura', 'portaria', ?, 'https://x/y', ?, ?)`
+      )
+      .run(id, `Doc ${id}`, dataPublicacao, texto);
+  }
+
+  function seedResumo(id, { hash, status = 'ok', versao = '1.1' }) {
+    mockConn
+      .prepare(
+        `INSERT INTO documentos_resumos_ai (documento_id, provider, modelo, contrato_versao, resumo_json, texto_hash, status)
+         VALUES (?, 'nvidia', 'm', ?, '{}', ?, ?)`
+      )
+      .run(id, versao, hash, status);
+  }
+
+  beforeEach(() => {
+    mockConn.exec('DELETE FROM documentos_resumos_ai; DELETE FROM documentos;');
+  });
+
+  it('exclui no SQL quem ja tem resumo ok do texto atual, para o limite nao esconder pendentes antigos', () => {
+    // Arrange: o mais recente ja esta resumido; o pendente e mais antigo
+    seedDoc(1, '2026-09-01', 'texto novo resumido');
+    seedResumo(1, { hash: sha256('texto novo resumido') });
+    seedDoc(2, '2020-01-01', 'texto antigo pendente');
+
+    // Act
+    const pendentes = listDocumentosPendentesResumoAi({ limite: 1, contratoVersao: '1.1' });
+
+    // Assert
+    expect(pendentes.map((d) => d.id)).toEqual([2]);
+  });
+
+  it('mantem pendente quem tem resumo de texto antigo, de outra versao ou com erro', () => {
+    seedDoc(1, '2026-01-03', 'texto mudou');
+    seedResumo(1, { hash: sha256('texto anterior') });
+    seedDoc(2, '2026-01-02', 'outra versao');
+    seedResumo(2, { hash: sha256('outra versao'), versao: '1.0' });
+    seedDoc(3, '2026-01-01', 'deu erro');
+    seedResumo(3, { hash: sha256('deu erro'), status: 'erro' });
+
+    const pendentes = listDocumentosPendentesResumoAi({ limite: 10, contratoVersao: '1.1' });
+
+    expect(pendentes.map((d) => d.id)).toEqual([1, 2, 3]);
   });
 });

@@ -62,7 +62,13 @@ module.exports = {
   // diagnostico e sempre o mesmo: rodar scripts/ai-status.js ou testar
   // https://integrate.api.nvidia.com/v1/models direto (a SDK openai esconde
   // o corpo do erro 410 -- só um fetch cru revela "reached its end of life").
-  nvidiaModel: process.env.NVIDIA_MODEL || 'moonshotai/kimi-k3',
+  // 24/09/2026: kimi-k3 nao morreu mas ficou inviavel -- ~80s pra responder
+  // um JSON trivial, estourava o timeout de 120s em resumo real (ciclos de 9h
+  // com 22-28/30 erros). Troca pra nemotron-3-super-120b-a12b: 1,4s trivial,
+  // 34-41s em resumo real, JSON limpo. Descartados no mesmo teste: glm-5.3
+  // (rapido no trivial, travou no resumo real), deepseek-v4.1-flash e
+  // glm-5.3-flash (timeout 150s), kimi-k2.6/mistral-large-2 (404 na conta).
+  nvidiaModel: process.env.NVIDIA_MODEL || 'nvidia/nemotron-3-super-120b-a12b',
   // Override opcional: modelo mais forte só para a investigação de
   // descobertas (menor volume, mais exige julgamento) — sem mexer no modelo
   // padrão usado por resumo/leitura simples/anexo. Vazio = usa nvidiaModel.
