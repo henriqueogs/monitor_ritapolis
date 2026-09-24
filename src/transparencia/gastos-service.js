@@ -24,10 +24,12 @@ const TTL_MS = 10 * 60 * 1000;
 const LIMITE_CREDORES = 15;
 const LIMITE_CREDORES_BUSCA = 100;
 const BUSCA_MIN_CHARS = 2;
+// Teto do termo: cada busca distinta vira uma entrada de cache no frontend (Vercel).
+const BUSCA_MAX_CHARS = 60;
 
 /** Normaliza o termo de busca por nome; null quando curto demais. */
 function normalizarBusca(busca) {
-  const termo = String(busca || '').trim().replace(/\s+/g, ' ');
+  const termo = String(busca || '').trim().replace(/\s+/g, ' ').slice(0, BUSCA_MAX_CHARS).trim();
   if (termo.length < BUSCA_MIN_CHARS) {return null;}
   return termo;
 }

@@ -6,6 +6,8 @@ import PeriodoSelector from '../../../components/PeriodoSelector';
 import TransparenciaSubnav from '../../../components/TransparenciaSubnav';
 import FilterBar from '../../../components/FilterBar';
 
+const BUSCA_MAX_CHARS = 60;
+
 export async function generateMetadata({ params: paramsPromise }) {
   const params = await paramsPromise;
   const dossie = await fetchTransparenciaCategoria(params.slug);
@@ -31,6 +33,7 @@ function BuscaPorNome({ basePath, busca, searchParams, isDiarias }) {
         type="search"
         name="busca"
         defaultValue={busca || ''}
+        maxLength={BUSCA_MAX_CHARS}
         placeholder={isDiarias ? 'Buscar servidor ou vereador por nome…' : 'Buscar recebedor por nome…'}
         aria-label="Buscar por nome"
         className="field-input"
@@ -93,7 +96,8 @@ export default async function CategoriaPage({
 }) {
   const [params, searchParams] = await Promise.all([paramsPromise, searchParamsPromise]);
   const { modo, fetchParams } = resolverFiltro(searchParams);
-  const buscaParam = typeof searchParams?.busca === 'string' ? searchParams.busca : '';
+  // Trunca antes do fetch: a URL é a chave do unstable_cache (Data Cache da Vercel).
+  const buscaParam = typeof searchParams?.busca === 'string' ? searchParams.busca.trim().slice(0, BUSCA_MAX_CHARS) : '';
   const dossie = await fetchTransparenciaCategoria(params.slug, {
     ...fetchParams,
     ...(buscaParam ? { busca: buscaParam } : {}),

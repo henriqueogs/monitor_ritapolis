@@ -101,6 +101,11 @@ describe('gastos-service', () => {
       expect(dossie.busca).toBe('José da Silva');
     });
 
+    it('trunca busca longa em 60 caracteres (limita chaves de cache)', () => {
+      const dossie = getCategoriaDossie('diarias', { exercicio: 2026, busca: 'a'.repeat(200) });
+      expect(dossie.busca).toHaveLength(60);
+    });
+
     it('ignora busca com menos de 2 caracteres', () => {
       const dossie = getCategoriaDossie('diarias', { exercicio: 2026, busca: ' a ' });
 
