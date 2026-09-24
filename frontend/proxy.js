@@ -1,49 +1,18 @@
 import { NextResponse } from 'next/server';
+import { buildCsp, originDe } from './lib/csp';
 
 const SESSION_COOKIE =
   process.env.NODE_ENV === 'production'
     ? '__Host-monitor_admin_session'
     : 'monitor_admin_session';
 
-// O portal oficial pode responder pelo domínio canônico ou pelo alias www.
-// Mantemos a lista explícita para que a política de frames não vire um proxy
-// aberto para origens arbitrárias.
-const OFFICIAL_SOURCE_FRAME_ORIGINS = [
-  'https://ritapolis.mg.gov.br',
-  'https://www.ritapolis.mg.gov.br',
-  // Worker Cloudflare que serve o preview do PDF oficial (substitui o antigo
-  // /api/source-preview do Render, que consumia banda gratuita do plano).
-  'https://monitor-ritapolis-heartbeat.henriqueguimaraes.workers.dev',
-];
-
 export function proxy(request) {
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
-  const isDev = process.env.NODE_ENV === 'development';
-  const apiOrigin = (() => {
-    try {
-      return new URL(process.env.NEXT_PUBLIC_API_URL).origin;
-    } catch {
-      return '';
-    }
-  })();
-  const csp = [
-    "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${isDev ? " 'unsafe-eval'" : ''}`,
-    `style-src 'self' 'nonce-${nonce}' https://fonts.googleapis.com`,
-    "style-src-attr 'unsafe-inline'",
-    "img-src 'self' blob: data:",
-    "font-src 'self' https://fonts.gstatic.com",
-    `connect-src 'self'${apiOrigin ? ` ${apiOrigin}` : ''}`,
-    `frame-src 'self' ${OFFICIAL_SOURCE_FRAME_ORIGINS.join(' ')}`,
-    // Compatibilidade com navegadores que ainda consultam child-src para
-    // navegações incorporadas, sem ampliar a lista de origens permitidas.
-    `child-src 'self' ${OFFICIAL_SOURCE_FRAME_ORIGINS.join(' ')}`,
-    "object-src 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-    "frame-ancestors 'none'",
-    ...(!isDev ? ['upgrade-insecure-requests'] : []),
-  ].join('; ');
+  const csp = buildCsp({
+    nonce,
+    isDev: process.env.NODE_ENV === 'development',
+    apiOrigin: originDe(process.env.NEXT_PUBLIC_API_URL),
+  });
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-nonce', nonce);
   requestHeaders.set('Content-Security-Policy', csp);
@@ -62,10 +31,14 @@ export function proxy(request) {
   return response;
 }
 
+// Rotas ISR (ROTAS_ISR em lib/csp.js) ficam fora: HTML em cache não tem nonce,
+// então o CSP de nonce bloquearia os scripts. Elas recebem CSP estático via
+// next.config.js. O matcher precisa ser literal (análise estática do Next).
 export const config = {
   matcher: [
     {
-      source: '/((?!api|_next/static|_next/image|icon.svg|apple-icon|opengraph-image|robots.txt).*)',
+      source:
+        '/((?!api|_next/static|_next/image|icon.svg|apple-icon|opengraph-image|robots.txt|empenho/|transparencia/servidores/|legislacao/camara/projetos/|legislacao/camara/vereadores/).*)',
       missing: [
         { type: 'header', key: 'next-router-prefetch' },
         { type: 'header', key: 'purpose', value: 'prefetch' },
