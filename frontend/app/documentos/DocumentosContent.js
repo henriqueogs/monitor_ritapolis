@@ -34,7 +34,9 @@ function preservedFilters(filters) {
   };
 }
 
-export default async function DocumentosContent({ searchParams, basePath = '/acervo' }) {
+export default async function DocumentosContent({ searchParams: searchParamsPromise, basePath = '/acervo' }) {
+  // Next 16: searchParams é Promise (await também aceita objeto já resolvido).
+  const searchParams = await searchParamsPromise;
   const filters = buildFilters(searchParams);
   // Usar FTS5 quando há termo de busca — resultados ordenados por relevância com snippets
   const fetchFn = filters.q && filters.q.length >= 2 ? fetchBusca : fetchDocumentos;

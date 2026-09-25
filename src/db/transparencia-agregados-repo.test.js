@@ -195,6 +195,42 @@ describe('transparencia-agregados-repo', () => {
       expect(pj[0].valor_total).toBe(40);
     });
 
+    it('getRankingCredores filtra por nome (busca) sem distinguir acento/caixa', () => {
+      seedDespesa({ valor: 45, credorCnpj: null, credorNome: 'JOSÉ DA SILVA', cargo: 'MOTORISTA' });
+      seedDespesa({ valor: 55, credorCnpj: null, credorNome: 'MARIA SOUZA', cargo: 'ENFERMEIRA' });
+
+      const ranking = repo.getRankingCredores({
+        prefixos: ['3.3.90.14'],
+        exercicios: [2026],
+        busca: { nome: 'josé', slug: 'jose' },
+      });
+
+      expect(ranking).toHaveLength(1);
+      expect(ranking[0].credor_nome).toBe('JOSÉ DA SILVA');
+    });
+
+    it('getRankingCredores busca também casa nome de PJ pelo credor_nome', () => {
+      seedDespesa({ valor: 10, credorCnpj: '99999999000199', credorNome: 'EMPRESA Y LTDA' });
+
+      const ranking = repo.getRankingCredores({
+        prefixos: ['3.3.90.14'],
+        exercicios: [2026],
+        busca: { nome: 'empresa y', slug: 'empresa-y' },
+      });
+
+      expect(ranking.map((r) => r.credor_nome)).toEqual(['EMPRESA Y LTDA']);
+    });
+
+    it('getRankingCredores trata % e _ da busca como literais', () => {
+      const ranking = repo.getRankingCredores({
+        prefixos: ['3.3.90.14'],
+        exercicios: [2026],
+        busca: { nome: '__', slug: '' },
+      });
+
+      expect(ranking).toEqual([]);
+    });
+
     it('getCategoriaPorAno série anual da categoria', () => {
       const serie = repo.getCategoriaPorAno({ prefixos: ['3.3.90.14'] });
       expect(serie).toEqual([

@@ -15,6 +15,8 @@ const { normalizeText, deepRepairStrings } = require('../utils/text');
 const { classifyAiError, getAiOperationPlan } = require('../ai/operation-policy');
 const config = require('../config');
 
+const FILA_RECENTE_DIAS = 30;
+
 // ── Utilitários privados ──────────────────────────────────────────────────────
 // Cópias locais de helpers compartilhados para evitar deps circulares com index.js
 
@@ -429,18 +431,28 @@ function listDocumentosParaResumoAi({
   contratoVersao = config.aiContractVersion,
 } = {}) {
   const candidateLimit = Math.max(Number(limite || 20) * 20, 200);
-  return listDocumentosPendentesResumoAi({ limite: candidateLimit, fonte, tipo, ano, contratoVersao })
-    .filter((documento) => {
-      const textoCompleto = documento.texto_completo || '';
-      if (!textoCompleto) { return false; }
-      if (maxChars && textoCompleto.length > Number(maxChars)) { return false; }
-      if (minChars && textoCompleto.length < Number(minChars)) { return false; }
+  const recenteDesde = new Date(Date.now() - FILA_RECENTE_DIAS * 86400000).toISOString().slice(0, 10);
+  // [recente nunca tentado, recente com erro, antigo nunca tentado, antigo com erro]
+  const camadas = [[], [], [], []];
+  const candidatos = listDocumentosPendentesResumoAi({ limite: candidateLimit, fonte, tipo, ano, contratoVersao });
+  for (const documento of candidatos) {
+    const textoCompleto = documento.texto_completo || '';
+    if (!textoCompleto) { continue; }
+    if (maxChars && textoCompleto.length > Number(maxChars)) { continue; }
+    if (minChars && textoCompleto.length < Number(minChars)) { continue; }
 
-      const textoHash = _buildTextoHash(textoCompleto);
-      const resumo = getResumoAiByDocumentoHash(documento.id, textoHash, contratoVersao);
-      return resumo?.status !== 'ok';
-    })
-    .slice(0, Math.max(Number(limite || 20), 1));
+    const resumo = getResumoAiByDocumentoHash(documento.id, _buildTextoHash(textoCompleto), contratoVersao);
+    if (resumo?.status === 'ok') { continue; }
+    const isRecente = (documento.data_publicacao || '') >= recenteDesde;
+    camadas[(isRecente ? 0 : 2) + (resumo ? 1 : 0)].push(documento);
+  }
+  // Publicados recentes primeiro (é o que o cidadão procura), mesmo se já deram
+  // erro. Entre antigos, nunca tentados antes dos com erro, para a fila não
+  // travar em quem falha sempre.
+  // ponytail: retry de recente com erro é limitado pela janela de 30 dias, não
+  // por contador; adicionar tentativas em documentos_resumos_ai se um recente
+  // que sempre falha começar a ocupar o ciclo todo.
+  return camadas.flat().slice(0, Math.max(Number(limite || 20), 1));
 }
 
 // ── Status e análises ─────────────────────────────────────────────────────────

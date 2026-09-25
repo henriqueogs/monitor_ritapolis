@@ -1,5 +1,6 @@
 const { PHASE_DEVELOPMENT_SERVER } = require('next/constants');
 const path = require('path');
+const { buildCsp, originDe, CSP_ISR_SOURCES } = require('./lib/csp');
 
 const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
@@ -18,7 +19,19 @@ module.exports = (phase) => ({
     root: path.resolve(__dirname),
   },
   async headers() {
-    return [{ source: '/:path*', headers: securityHeaders }];
+    // Rotas ISR não passam pelo proxy.js (nonce); CSP estático sem nonce aqui.
+    const cspIsr = buildCsp({
+      nonce: null,
+      isDev: phase === PHASE_DEVELOPMENT_SERVER,
+      apiOrigin: originDe(process.env.NEXT_PUBLIC_API_URL),
+    });
+    return [
+      { source: '/:path*', headers: securityHeaders },
+      ...CSP_ISR_SOURCES.map((source) => ({
+        source,
+        headers: [{ key: 'Content-Security-Policy', value: cspIsr }],
+      })),
+    ];
   },
   async redirects() {
     return [
@@ -27,6 +40,12 @@ module.exports = (phase) => ({
         destination: '/transparencia/finalidades',
         permanent: true,
       },
+      // Aliases legados. Aqui (e não em page.js com redirect()) a query string
+      // é preservada pelo próprio Next, a resposta é um 307 de verdade (não
+      // meta refresh após streaming) e nenhuma função roda na Vercel.
+      { source: '/documentos', destination: '/acervo', permanent: false },
+      { source: '/cobertura', destination: '/admin/cobertura', permanent: false },
+      { source: '/ia', destination: '/admin/ia', permanent: false },
     ];
   },
 });

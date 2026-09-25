@@ -41,7 +41,8 @@ function buildDestaqueIa(item) {
   };
 }
 
-export default async function LegislacaoPage({ searchParams }) {
+export default async function LegislacaoPage({ searchParams: searchParamsPromise }) {
+  const searchParams = await searchParamsPromise;
   const filters = buildFilters(searchParams);
   const tiposLegislacao = TIPOS_LEGISLACAO.join(',');
   const [data, analises, alertas, publicacoesRecentes] = await Promise.all([

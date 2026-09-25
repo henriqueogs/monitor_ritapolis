@@ -55,6 +55,7 @@ const {
   getInteligenciaPanorama,
   getCoberturaPorAno,
 } = require('../services/painel-cidadao-service');
+const { getSaudePipeline } = require('../services/pipeline-saude-service');
 const { getCredorDossie } = require('../transparencia/credor-service');
 const { parseCredorChave } = require('../transparencia/credor-chave');
 const { buscaUnificada } = require('../busca/busca-unificada');
@@ -637,6 +638,13 @@ function createServer() {
 
   // Agregados pesados memoizados (src/services/painel-cidadao-service.js) --
   // header habilita cache de borda (Cloudflare/Vercel) sem mudar codigo depois.
+  // Saúde do pipeline de IA (público: só contagens e categoria do erro).
+  // Consumido pelo workflow .github/workflows/pipeline-health.yml.
+  app.get('/api/saude/pipeline', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.json(getSaudePipeline());
+  });
+
   app.get('/api/estatisticas', (_req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=600, stale-while-revalidate=3600');
     res.json(getEstatisticas());
@@ -850,7 +858,8 @@ function createServer() {
   app.get('/api/transparencia/categoria/:slug', (req, res) => {
     const exercicio = req.query.exercicio ? Number(req.query.exercicio) : undefined;
     const mandato = req.query.mandato ? Number(req.query.mandato) : undefined;
-    const dossie = getCategoriaDossie(req.params.slug, { exercicio, mandato });
+    const busca = typeof req.query.busca === 'string' ? req.query.busca : undefined;
+    const dossie = getCategoriaDossie(req.params.slug, { exercicio, mandato, busca });
     if (!dossie) { return res.status(404).json({ error: 'Categoria não encontrada' }); }
     return res.json(dossie);
   });

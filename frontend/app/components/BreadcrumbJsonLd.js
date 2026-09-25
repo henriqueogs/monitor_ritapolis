@@ -1,4 +1,5 @@
 import { SITE_URL } from '../lib/brand';
+import { serializarJsonLd } from '../../lib/json-ld';
 
 // JSON-LD BreadcrumbList -- ajuda o Google a mostrar a trilha nos resultados
 // de busca e da pro crawler (Googlebot, GPTBot, ClaudeBot...) contexto de
@@ -21,7 +22,7 @@ export default function BreadcrumbJsonLd({ items }) {
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      dangerouslySetInnerHTML={{ __html: serializarJsonLd(jsonLd) }}
     />
   );
 }

@@ -1,8 +1,9 @@
 import { SITE_URL } from './lib/brand';
+import { buildRobotsRules } from '../lib/robots-rules';
 
 export default function robots() {
   return {
-    rules: [{ userAgent: '*', allow: '/', disallow: ['/admin', '/login', '/api'] }],
+    rules: buildRobotsRules(),
     sitemap: `${SITE_URL}/sitemap.xml`,
   };
 }

@@ -53,6 +53,20 @@ de novo depois; capacidade flutua ao longo do dia). Só migrar de verdade
 se a VM atual estiver sob pressão **e** a capacidade existir — nunca migrar
 só porque "seria melhor", isso já causou um retrabalho na primeira tentativa.
 
+## Saúde do pipeline de IA
+
+`GET /api/saude/pipeline` (público: só contagens e categoria do erro) diz se a
+IA está resumindo: último resumo ok, último erro classificado
+(`modelo_indisponivel`, `credencial`, `limite_provider`, `timeout`…), último
+ciclo do scheduler e quantos documentos dos últimos 30 dias estão sem resumo.
+`.github/workflows/pipeline-health.yml` consulta todo dia (10:30 UTC) e **falha**
+— o GitHub avisa por e-mail — quando o status é `alerta` (nenhum resumo ok há
+24h com pendentes, maioria dos recentes sem resumo, ou scheduler desligado).
+
+Se o motivo for `modelo_indisponivel`: o catálogo NVIDIA aposentou o modelo;
+trocar `NVIDIA_MODEL` no `.env` da VM (ver comentário em `src/config.js`) e
+reiniciar o serviço.
+
 ## Disjuntor de uso do R2
 
 `.github/workflows/r2-usage-guard.yml` roda de hora em hora, verifica a

@@ -14,6 +14,7 @@ const {
   getCategoriaPorAno,
 } = require('../db/transparencia-agregados-repo');
 const { classificarCategoria, slugParaPrefixos, CATEGORIAS } = require('./categorias');
+const { slugNomeCredor } = require('./credor-chave');
 const { agruparPorMandato, mandatoInicio, mandatoLabel } = require('../utils/mandato');
 const { memoTtl } = require('../utils/memo-ttl');
 const { registrar } = require('../services/cache-registry');
@@ -21,6 +22,17 @@ const { registrar } = require('../services/cache-registry');
 const MANDATO_ANOS = 4;
 const TTL_MS = 10 * 60 * 1000;
 const LIMITE_CREDORES = 15;
+const LIMITE_CREDORES_BUSCA = 100;
+const BUSCA_MIN_CHARS = 2;
+// Teto do termo: cada busca distinta vira uma entrada de cache no frontend (Vercel).
+const BUSCA_MAX_CHARS = 60;
+
+/** Normaliza o termo de busca por nome; null quando curto demais. */
+function normalizarBusca(busca) {
+  const termo = String(busca || '').trim().replace(/\s+/g, ' ').slice(0, BUSCA_MAX_CHARS).trim();
+  if (termo.length < BUSCA_MIN_CHARS) {return null;}
+  return termo;
+}
 
 function resolverExercicios({ exercicio, mandato } = {}) {
   const ano = Number(exercicio);
@@ -96,20 +108,32 @@ const getGastosPanorama = registrar(
   })
 );
 
-function getCategoriaDossie(slug, { exercicio, mandato } = {}) {
+function buscarCredores({ prefixos, exercicios, termo }) {
+  if (!termo) {return getRankingCredores({ prefixos, exercicios, limite: LIMITE_CREDORES });}
+  return getRankingCredores({
+    prefixos,
+    exercicios,
+    limite: LIMITE_CREDORES_BUSCA,
+    busca: { nome: termo, slug: slugNomeCredor(termo) },
+  });
+}
+
+function getCategoriaDossie(slug, { exercicio, mandato, busca } = {}) {
   const meta = CATEGORIAS.find((c) => c.slug === slug);
   if (!meta) {return null;}
 
   const prefixos = slugParaPrefixos(slug);
   const exercicios = resolverExercicios({ exercicio, mandato });
   const porAno = getCategoriaPorAno({ prefixos });
+  const termo = normalizarBusca(busca);
 
   return {
     categoria: { slug: meta.slug, rotulo: meta.rotulo, grupo: meta.grupo },
     periodo: montarPeriodo({ exercicio, mandato }, porAno),
     por_ano: porAno,
     por_mandato: agruparPorMandato(porAno, { anoKey: 'exercicio', camposSoma: ['n', 'valor_total'] }),
-    top_credores: getRankingCredores({ prefixos, exercicios, limite: LIMITE_CREDORES }),
+    busca: termo,
+    top_credores: buscarCredores({ prefixos, exercicios, termo }),
     por_unidade: getAgregadoPorUnidade({ exercicios, prefixos }),
     por_fonte: getAgregadoPorFonteRecurso({ exercicios, prefixos }),
   };

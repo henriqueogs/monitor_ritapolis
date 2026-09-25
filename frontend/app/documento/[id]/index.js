@@ -10,6 +10,7 @@ import LicitationRelatedSources from './components/LicitationRelatedSources';
 import RelatedSources from './components/RelatedSources';
 import SummaryAndSource from './components/SummaryAndSource';
 import BreadcrumbJsonLd from '../../components/BreadcrumbJsonLd';
+import { serializarJsonLd } from '../../../lib/json-ld';
 
 function buildResumoAi(documento) {
   return {
@@ -47,7 +48,7 @@ export default async function DocumentoPage({ params: paramsPromise }) {
     <main className="page-container">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: serializarJsonLd(jsonLd) }}
       />
       <BreadcrumbJsonLd
         items={[
