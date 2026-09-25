@@ -15,7 +15,11 @@ jest.mock('./connection', () => ({ db: mockConn }));
 
 const crypto = require('crypto');
 const config = require('../config');
-const { listResumoAnalises, listDocumentosParaResumoAi } = require('./ai-jobs-repo');
+const {
+  listResumoAnalises,
+  listDocumentosPendentesResumoAi,
+  listDocumentosParaResumoAi,
+} = require('./ai-jobs-repo');
 
 function seedDocumentoComResumo(id, tipo) {
   mockConn
@@ -63,7 +67,61 @@ describe('listResumoAnalises', () => {
   });
 });
 
+const sha256 = (t) => crypto.createHash('sha256').update(t, 'utf8').digest('hex');
+
+describe('listDocumentosPendentesResumoAi', () => {
+  function seedDoc(id, dataPublicacao, texto) {
+    mockConn
+      .prepare(
+        `INSERT INTO documentos (id, fonte, tipo, titulo, url_origem, data_publicacao, texto_completo)
+         VALUES (?, 'site_prefeitura', 'portaria', ?, 'https://x/y', ?, ?)`
+      )
+      .run(id, `Doc ${id}`, dataPublicacao, texto);
+  }
+
+  function seedResumo(id, { hash, status = 'ok', versao = '1.1' }) {
+    mockConn
+      .prepare(
+        `INSERT INTO documentos_resumos_ai (documento_id, provider, modelo, contrato_versao, resumo_json, texto_hash, status)
+         VALUES (?, 'nvidia', 'm', ?, '{}', ?, ?)`
+      )
+      .run(id, versao, hash, status);
+  }
+
+  beforeEach(() => {
+    mockConn.exec('DELETE FROM documentos_resumos_ai; DELETE FROM documentos;');
+  });
+
+  it('exclui no SQL quem ja tem resumo ok do texto atual, para o limite nao esconder pendentes antigos', () => {
+    // Arrange: o mais recente ja esta resumido; o pendente e mais antigo
+    seedDoc(1, '2026-09-01', 'texto novo resumido');
+    seedResumo(1, { hash: sha256('texto novo resumido') });
+    seedDoc(2, '2020-01-01', 'texto antigo pendente');
+
+    // Act
+    const pendentes = listDocumentosPendentesResumoAi({ limite: 1, contratoVersao: '1.1' });
+
+    // Assert
+    expect(pendentes.map((d) => d.id)).toEqual([2]);
+  });
+
+  it('mantem pendente quem tem resumo de texto antigo, de outra versao ou com erro', () => {
+    seedDoc(1, '2026-01-03', 'texto mudou');
+    seedResumo(1, { hash: sha256('texto anterior') });
+    seedDoc(2, '2026-01-02', 'outra versao');
+    seedResumo(2, { hash: sha256('outra versao'), versao: '1.0' });
+    seedDoc(3, '2026-01-01', 'deu erro');
+    seedResumo(3, { hash: sha256('deu erro'), status: 'erro' });
+
+    const pendentes = listDocumentosPendentesResumoAi({ limite: 10, contratoVersao: '1.1' });
+
+    expect(pendentes.map((d) => d.id)).toEqual([1, 2, 3]);
+  });
+});
+
 describe('listDocumentosParaResumoAi', () => {
+  const diasAtras = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+
   function seedDocTexto(id, data, texto) {
     mockConn
       .prepare(
@@ -74,24 +132,23 @@ describe('listDocumentosParaResumoAi', () => {
   }
 
   function seedErro(id, texto) {
-    const hash = crypto.createHash('sha256').update(texto, 'utf8').digest('hex');
     mockConn
       .prepare(
         `INSERT INTO documentos_resumos_ai (documento_id, provider, modelo, contrato_versao, resumo_json, texto_hash, status, erro)
          VALUES (?, 'nvidia', 'm', ?, '{}', ?, 'erro', 'falhou')`
       )
-      .run(id, config.aiContractVersion, hash);
+      .run(id, config.aiContractVersion, sha256(texto));
   }
 
   beforeEach(() => {
     mockConn.exec('DELETE FROM documentos_resumos_ai; DELETE FROM documentos;');
   });
 
-  it('prioriza documentos nunca tentados antes dos que já deram erro (fila não trava)', () => {
-    // Arrange: o mais recente já falhou; um mais antigo nunca foi tentado
-    seedDocTexto(1, '2026-09-20', 'texto um');
+  it('entre antigos, prioriza nunca tentados antes dos que ja deram erro (fila nao trava)', () => {
+    // Arrange: o mais recente dos antigos ja falhou; um mais antigo nunca foi tentado
+    seedDocTexto(1, diasAtras(100), 'texto um');
     seedErro(1, 'texto um');
-    seedDocTexto(2, '2026-09-10', 'texto dois');
+    seedDocTexto(2, diasAtras(200), 'texto dois');
 
     // Act
     const fila = listDocumentosParaResumoAi({ limite: 1 });
@@ -100,13 +157,27 @@ describe('listDocumentosParaResumoAi', () => {
     expect(fila.map((d) => d.id)).toEqual([2]);
   });
 
-  it('com vagas sobrando, os que deram erro entram depois, mais recentes primeiro', () => {
-    seedDocTexto(1, '2026-09-20', 'texto um');
-    seedErro(1, 'texto um');
-    seedDocTexto(2, '2026-09-10', 'texto dois');
-    seedDocTexto(3, '2026-09-15', 'texto tres');
-    seedErro(3, 'texto tres');
+  it('publicado nos ultimos 30 dias vem antes de antigo nunca tentado, mesmo se ja deu erro', () => {
+    // Arrange: recente com timeout anterior; antigo nunca tentado
+    seedDocTexto(1, diasAtras(5), 'recente com erro');
+    seedErro(1, 'recente com erro');
+    seedDocTexto(2, diasAtras(400), 'antigo nunca tentado');
 
-    expect(listDocumentosParaResumoAi({ limite: 5 }).map((d) => d.id)).toEqual([2, 1, 3]);
+    // Act
+    const fila = listDocumentosParaResumoAi({ limite: 1 });
+
+    // Assert
+    expect(fila.map((d) => d.id)).toEqual([1]);
+  });
+
+  it('ordena recentes nunca tentados, recentes com erro, antigos nunca tentados, antigos com erro', () => {
+    seedDocTexto(1, diasAtras(2), 'recente erro');
+    seedErro(1, 'recente erro');
+    seedDocTexto(2, diasAtras(10), 'recente novo');
+    seedDocTexto(3, diasAtras(90), 'antigo erro');
+    seedErro(3, 'antigo erro');
+    seedDocTexto(4, diasAtras(300), 'antigo novo');
+
+    expect(listDocumentosParaResumoAi({ limite: 10 }).map((d) => d.id)).toEqual([2, 1, 4, 3]);
   });
 });
