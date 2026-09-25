@@ -8,6 +8,11 @@ function getAiDirectCharLimit() {
 function classifyAiError(error) {
   const message = String(error || '');
   if (!message) {return 'sem_erro';}
+  // Catálogo NVIDIA NIM aposenta modelos gratuitos sem aviso (410 "end of
+  // life" ou 404 do modelo) — já derrubou o resumo 2x (ver config.nvidiaModel).
+  if (/\b410\b|end of life|model[^\n]{0,80}not found|not found[^\n]{0,40}model/i.test(message)) {
+    return 'modelo_indisponivel';
+  }
   if (/timeout|timed out/i.test(message)) {return 'timeout';}
   if (/429|rate limit|too many requests/i.test(message)) {return 'limite_provider';}
   if (/contrato|zod|invalid|expected|required/i.test(message)) {return 'contrato_invalido';}

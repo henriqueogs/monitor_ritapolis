@@ -6,10 +6,18 @@ const { generateAlerts } = require('../alertas/alert-generator');
 const { enfileirarItensPendentes } = require('./enfileirar-itens-pendentes');
 const { runPendingItensEstruturacaoJobs } = require('./itens-processo-job-worker');
 const schedulerLock = require('../coletas/scheduler-lock');
+const { cicloDevido } = require('./pipeline-saude');
 
 const LOCK_OWNER = 'ai';
+// Checagem frequente em vez de um único disparo a cada 4h: com a trava
+// ocupada (coleta/daily rodam minutos após cada restart), o ciclo de IA era
+// pulado e só tentava de novo 4h depois — e cada deploy zerava o relógio.
+// Agora: a cada 15 min, roda se o último ciclo (que pegou a trava) passou do
+// intervalo.
+const CHECK_MS = 15 * 60 * 1000;
 
 let timer = null;
+let bootTimer = null;
 let cycleRunning = false;
 let lastRunAt = null;
 let lastRunStats = null;
@@ -111,6 +119,16 @@ async function runCycle() {
   }
 }
 
+function tick() {
+  const devido = cicloDevido({
+    agora: new Date(),
+    ultimoCicloEm: lastRunAt,
+    intervaloMs: config.aiSchedulerIntervalMs,
+  });
+  if (!devido) {return;}
+  runCycle().catch((e) => logger.error('AI scheduler: erro no ciclo', { erro: e.message }));
+}
+
 function start() {
   if (!config.aiSchedulerEnabled) {
     logger.info('AI scheduler: desabilitado (AI_SCHEDULER_ENABLED=false)');
@@ -129,23 +147,29 @@ function start() {
     estimativa_cobertura_dias: estimativaDias
   });
 
-  // Primeiro ciclo: 3 min após o servidor subir
-  setTimeout(() => {
-    runCycle().catch((e) => logger.error('AI scheduler: erro no ciclo inicial', { erro: e.message }));
-  }, 3 * 60 * 1000);
-
-  timer = setInterval(() => {
-    runCycle().catch((e) => logger.error('AI scheduler: erro no ciclo agendado', { erro: e.message }));
-  }, config.aiSchedulerIntervalMs);
+  // Primeira checagem 3 min após o servidor subir; depois a cada 15 min.
+  bootTimer = setTimeout(tick, 3 * 60 * 1000);
+  timer = setInterval(tick, CHECK_MS);
 
   timer.unref?.();
 }
 
 function stop() {
+  if (bootTimer) {
+    clearTimeout(bootTimer);
+    bootTimer = null;
+  }
   if (timer) {
     clearInterval(timer);
     timer = null;
   }
+}
+
+function resetForTests() {
+  stop();
+  cycleRunning = false;
+  lastRunAt = null;
+  lastRunStats = null;
 }
 
 function getStatus() {
@@ -162,4 +186,4 @@ function getStatus() {
   };
 }
 
-module.exports = { start, stop, getStatus, runCycle };
+module.exports = { start, stop, getStatus, runCycle, resetForTests };

@@ -409,18 +409,21 @@ function listDocumentosParaResumoAi({
   contratoVersao = config.aiContractVersion,
 } = {}) {
   const candidateLimit = Math.max(Number(limite || 20) * 20, 200);
-  return listDocumentosPendentesResumoAi({ limite: candidateLimit, fonte, tipo, ano })
-    .filter((documento) => {
-      const textoCompleto = documento.texto_completo || '';
-      if (!textoCompleto) { return false; }
-      if (maxChars && textoCompleto.length > Number(maxChars)) { return false; }
-      if (minChars && textoCompleto.length < Number(minChars)) { return false; }
+  const nuncaTentados = [];
+  const comErro = [];
+  for (const documento of listDocumentosPendentesResumoAi({ limite: candidateLimit, fonte, tipo, ano })) {
+    const textoCompleto = documento.texto_completo || '';
+    if (!textoCompleto) { continue; }
+    if (maxChars && textoCompleto.length > Number(maxChars)) { continue; }
+    if (minChars && textoCompleto.length < Number(minChars)) { continue; }
 
-      const textoHash = _buildTextoHash(textoCompleto);
-      const resumo = getResumoAiByDocumentoHash(documento.id, textoHash, contratoVersao);
-      return resumo?.status !== 'ok';
-    })
-    .slice(0, Math.max(Number(limite || 20), 1));
+    const resumo = getResumoAiByDocumentoHash(documento.id, _buildTextoHash(textoCompleto), contratoVersao);
+    if (resumo?.status === 'ok') { continue; }
+    (resumo ? comErro : nuncaTentados).push(documento);
+  }
+  // Nunca tentados primeiro: se os mais recentes falham sempre (texto
+  // problemático, modelo fora), a fila não fica presa neles a cada ciclo.
+  return [...nuncaTentados, ...comErro].slice(0, Math.max(Number(limite || 20), 1));
 }
 
 // ── Status e análises ─────────────────────────────────────────────────────────
