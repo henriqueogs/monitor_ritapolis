@@ -7,6 +7,12 @@ on:
       - 'frontend/**'
       - '**.md'
 
+# Dois merges seguidos disputavam o git fetch na VM ("cannot lock ref").
+# Enfileira em vez de cancelar: o deploy em andamento termina antes do próximo.
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
