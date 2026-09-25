@@ -55,6 +55,7 @@ const {
   getInteligenciaPanorama,
   getCoberturaPorAno,
 } = require('../services/painel-cidadao-service');
+const { getSaudePipeline } = require('../services/pipeline-saude-service');
 const { getCredorDossie } = require('../transparencia/credor-service');
 const { parseCredorChave } = require('../transparencia/credor-chave');
 const { buscaUnificada } = require('../busca/busca-unificada');
@@ -637,6 +638,13 @@ function createServer() {
 
   // Agregados pesados memoizados (src/services/painel-cidadao-service.js) --
   // header habilita cache de borda (Cloudflare/Vercel) sem mudar codigo depois.
+  // Saúde do pipeline de IA (público: só contagens e categoria do erro).
+  // Consumido pelo workflow .github/workflows/pipeline-health.yml.
+  app.get('/api/saude/pipeline', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.json(getSaudePipeline());
+  });
+
   app.get('/api/estatisticas', (_req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=600, stale-while-revalidate=3600');
     res.json(getEstatisticas());
