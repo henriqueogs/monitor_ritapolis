@@ -11,6 +11,25 @@ snapshot:
   interval: 24h
   retention: 72h
 
+# Os defaults do Litestream fazem a compactacao L1 a cada 30s. Em um SQLite
+# com os schedulers de coleta ativos isso gera milhares de PUT/LIST por ciclo
+# no R2, sem melhorar o backup (o L0 continua sendo sincronizado a cada 30s).
+# Compactacoes mais espaçadas preservam o PITR, mas reduzem drasticamente as
+# operacoes Classe A e os DeleteObjects de retencao.
+levels:
+  - interval: 5m
+  - interval: 1h
+  - interval: 24h
+
+# A API nao usa VFS/replica remota durante a operacao normal; uma verificacao
+# por minuto continua suficiente para a limpeza do L0 sem polling agressivo.
+l0-retention: 5m
+l0-retention-check-interval: 1m
+
+# A limpeza remota continua habilitada. O bucket nao deve crescer sem limite.
+retention:
+  enabled: true
+
 validation:
   interval: 6h
 

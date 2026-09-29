@@ -9,6 +9,9 @@ Arquitetura atual (migrado do Render em 28/08/2026 — estourou banda grátis):
 - **Banco**: SQLite replicado continuamente pro Cloudflare R2 via litestream
   (`litestream.yml`, `scripts/render-start.js` — nome antigo, mas genérico:
   restaura do R2 se o banco não existir localmente, depois roda `litestream replicate`).
+  A sincronização incremental permanece em 30s, mas a compactação L1 foi
+  espaçada para 5min (L2 1h, L3 24h) e a checagem de retenção do L0 para 1min;
+  isso reduz operações Classe A sem desativar a retenção remota.
 - **Preview de PDF oficial**: Worker Cloudflare (`infrastructure/production-heartbeat`),
   não passa pela API — evita consumir egress do host da API.
 - **Borda/CDN**: Cloudflare (DNS, proxy do domínio).
