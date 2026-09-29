@@ -39,7 +39,9 @@ const FREE_ACTIONS = new Set([
 
 const DEFAULT_LIMITS = Object.freeze({
   storageBytes: 8_000_000_000,
-  classAOperations: 800_000,
+  // A franquia Standard do R2 e de 1 milhao de operacoes Classe A. O teto
+  // preventivo fica em 900 mil para manter 100 mil de margem de seguranca.
+  classAOperations: 900_000,
   classBOperations: 8_000_000,
 });
 

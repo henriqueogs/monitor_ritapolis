@@ -31,7 +31,8 @@ jobs:
           R2_BUCKET: ${{ vars.R2_BUCKET }}
           R2_BILLING_CYCLE_DAY: ${{ vars.R2_BILLING_CYCLE_DAY }}
           R2_MAX_STORAGE_BYTES: '8000000000'
-          R2_MAX_CLASS_A_OPS: '800000'
+          # Mantem 100 mil operacoes de margem antes da franquia de 1 milhao.
+          R2_MAX_CLASS_A_OPS: '900000'
           R2_MAX_CLASS_B_OPS: '8000000'
       - name: Parar API preventivamente (disjuntor)
         if: steps.guard.outcome == 'failure'
