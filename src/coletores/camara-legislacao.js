@@ -16,6 +16,7 @@ const ColetorBase = require('./base');
 const { getDocumentoByUrlPdfRaw } = require('../db');
 const { extractOfficialFileText, inferFileExtension } = require('../parsers/document-file');
 const { naoFutura } = require('../utils/datas');
+const { arquivoExtraidoExistente } = require('../utils/documento-merge');
 const { normalizarTipo, normalizeSpaces } = require('./legislacao-tipos');
 
 const BASE_URL = 'https://ritapolis.mg.leg.br';
@@ -150,6 +151,7 @@ class ColetorCamaraLegislacao extends ColetorBase {
     let hashSource = `${item.tipoLabel}|${item.numero}|${item.exercicio}|${item.ementa}`;
 
     if (existing?.texto_completo) {
+      arquivo = arquivoExtraidoExistente(existing);
       textoBase = existing.texto_completo;
       hashSource = existing.hash_conteudo || hashSource;
     } else if (pdfUrl) {

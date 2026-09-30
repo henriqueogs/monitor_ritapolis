@@ -173,6 +173,7 @@ async function coletarFolhaExercicioViaThread(exercicio) {
   const cliente = criarCliente();
   let novos = 0;
   let atualizados = 0;
+  let semAlteracao = 0;
   let totalRegistros = 0;
 
   for (const formaAdmissao of FORMAS_ADMISSAO) {
@@ -191,10 +192,11 @@ async function coletarFolhaExercicioViaThread(exercicio) {
       const action = upsertFolhaRegistro(registro);
       if (action === 'inserted') { novos += 1; }
       else if (action === 'updated') { atualizados += 1; }
+      else if (action === 'unchanged') { semAlteracao += 1; }
     }
   }
 
-  return { novos, atualizados, registros: totalRegistros };
+  return { novos, atualizados, semAlteracao, registros: totalRegistros };
 }
 
 module.exports = { coletarFolhaExercicioViaThread };

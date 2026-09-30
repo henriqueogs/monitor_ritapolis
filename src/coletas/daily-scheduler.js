@@ -16,7 +16,8 @@ const logger = require('../logger');
 const config = require('../config');
 const { db } = require('../db');
 const { consolidarFornecedores } = require('../db');
-const { backfillClassificacoesDespesas } = require('../db/transparencia-repo');
+const { backfillClassificacoesDespesas, getColetaLog } = require('../db/transparencia-repo');
+const { planCollectionYears } = require('./collection-cadence');
 const { enriquecerCredores } = require('../integracoes/enriquecer-credores');
 const schedulerLock = require('./scheduler-lock');
 const { invalidarTodos } = require('../services/cache-registry');
@@ -56,50 +57,20 @@ function isDue(tipo, minHoras) {
   return elapsedMs >= minHoras * 60 * 60 * 1000;
 }
 
-/**
- * 'despesas' loga UMA linha por exercício (não uma por ciclo, como 'pncp') —
- * isDue() com MAX(coletado_em) global tratava "um ano qualquer OK recente"
- * como "tudo em dia", travando a re-tentativa dos outros anos ainda com erro
- * por até `minHoras`. Aqui exige que TODOS os anos de config.transparenciaAnoInicio
- * até o atual tenham 'ok' dentro da janela — qualquer um faltando, ainda é due.
- */
-function despesasEmDia(minHoras) {
-  const anoAtual = new Date().getFullYear();
-  const cutoffMs = Date.now() - minHoras * 60 * 60 * 1000;
-  const rows = db
-    .prepare(
-      `SELECT exercicio, MAX(coletado_em) AS last
-         FROM transparencia_coletas_log
-        WHERE tipo = 'despesas' AND status = 'ok'
-        GROUP BY exercicio`
-    )
-    .all();
-  const okPorAno = new Map(rows.map((r) => [r.exercicio, new Date(r.last).getTime()]));
-  for (let ano = config.transparenciaAnoInicio; ano <= anoAtual; ano += 1) {
-    const ts = okPorAno.get(ano);
-    if (!ts || ts < cutoffMs) {return false;}
-  }
-  return true;
+// Scheduler and collectors share ONE policy. Historical records do not make
+// the entire archive due every day, and a historical success cannot hide a
+// stale current year. Revenue retries are checked independently of expenses.
+function anosPendentes(tipo, anoInicio) {
+  return planCollectionYears({ anoInicio, getLog: (ano) => getColetaLog(tipo, ano, null) });
 }
 
-/** Mesma lógica de despesasEmDia, mas pro início de exercício da folha (2013). */
-function folhaEmDia(minHoras) {
-  const anoAtual = new Date().getFullYear();
-  const cutoffMs = Date.now() - minHoras * 60 * 60 * 1000;
-  const rows = db
-    .prepare(
-      `SELECT exercicio, MAX(coletado_em) AS last
-         FROM transparencia_coletas_log
-        WHERE tipo = 'folha' AND status = 'ok'
-        GROUP BY exercicio`
-    )
-    .all();
-  const okPorAno = new Map(rows.map((r) => [r.exercicio, new Date(r.last).getTime()]));
-  for (let ano = config.folhaAnoInicio; ano <= anoAtual; ano += 1) {
-    const ts = okPorAno.get(ano);
-    if (!ts || ts < cutoffMs) {return false;}
-  }
-  return true;
+function despesasEmDia() {
+  return anosPendentes('despesas', config.transparenciaAnoInicio).length === 0
+    && anosPendentes('receitas', config.transparenciaAnoInicio).length === 0;
+}
+
+function folhaEmDia() {
+  return anosPendentes('folha', config.folhaAnoInicio).length === 0;
 }
 
 // ── Coleta de transparência (despesas + receitas) ─────────────────────────────
@@ -109,8 +80,8 @@ async function coletarTransparencia() {
     logger.debug('daily-scheduler: transparência já em andamento, ignorando tick');
     return;
   }
-  if (despesasEmDia(config.dailySchedulerTransparenciaIntervalHoras)) {
-    logger.debug('daily-scheduler: transparência dentro do intervalo (todos os anos em dia)');
+  if (despesasEmDia()) {
+    logger.debug('daily-scheduler: nenhuma coleta de transparência pendente na cadência');
     return;
   }
 
@@ -155,8 +126,8 @@ async function coletarFolha() {
     logger.debug('daily-scheduler: folha já em andamento, ignorando tick');
     return;
   }
-  if (folhaEmDia(config.dailySchedulerTransparenciaIntervalHoras)) {
-    logger.debug('daily-scheduler: folha dentro do intervalo (todos os anos em dia)');
+  if (folhaEmDia()) {
+    logger.debug('daily-scheduler: nenhuma coleta de folha pendente na cadência');
     return;
   }
 
@@ -376,14 +347,15 @@ function stop() {
 }
 
 function getStatus() {
-  const isDueTransp = isDue('despesas', config.dailySchedulerTransparenciaIntervalHoras);
+  const isDueTransp = !despesasEmDia();
   const isDuePncp = isDue('pncp', config.dailySchedulerPncpIntervalHoras);
-  const isDueFolha = isDue('folha', config.dailySchedulerTransparenciaIntervalHoras);
+  const isDueFolha = !folhaEmDia();
   const isDueDeepLinks = isDue('deep_links', config.dailySchedulerDeepLinksIntervalHoras);
 
-  const lastTransp = db.prepare("SELECT MAX(coletado_em) last FROM transparencia_coletas_log WHERE tipo='despesas' AND status='ok'").get();
+  const anoAtual = new Date().getUTCFullYear();
+  const lastTransp = db.prepare("SELECT MAX(coletado_em) last FROM transparencia_coletas_log WHERE tipo='despesas' AND status='ok' AND exercicio=?").get(anoAtual);
   const lastPncp = db.prepare("SELECT MAX(coletado_em) last FROM transparencia_coletas_log WHERE tipo='pncp' AND status='ok'").get();
-  const lastFolha = db.prepare("SELECT MAX(coletado_em) last FROM transparencia_coletas_log WHERE tipo='folha' AND status='ok'").get();
+  const lastFolha = db.prepare("SELECT MAX(coletado_em) last FROM transparencia_coletas_log WHERE tipo='folha' AND status='ok' AND exercicio=?").get(anoAtual);
   const lastDeepLinks = db.prepare("SELECT MAX(coletado_em) last, atualizados last_falhas FROM transparencia_coletas_log WHERE tipo='deep_links' AND status='ok' ORDER BY coletado_em DESC LIMIT 1").get();
 
   return {

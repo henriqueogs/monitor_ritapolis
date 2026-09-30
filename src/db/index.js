@@ -3,6 +3,7 @@ const config = require('../config');
 const logger = require('../logger');
 const { deepRepairStrings, normalizeText } = require('../utils/text');
 const { devePreservarTextoOcr } = require('../utils/documento-merge');
+const { hasContentChanges } = require('../utils/persisted-content');
 const { parseLicitacaoDetalhes } = require('../parsers/licitacao-detalhes');
 const { parseProdutosLicitados } = require('../parsers/licitacao-produtos');
 const { parseResultadosItensLicitacao } = require('../parsers/licitacao-resultados-itens');
@@ -2876,7 +2877,7 @@ function saveDocumento(documento) {
 
   if (existing) {
     const atual = db
-      .prepare('SELECT texto_completo, resumo, dados_extras, ano FROM documentos WHERE id = ?')
+      .prepare('SELECT * FROM documentos WHERE id = ?')
       .get(existing.id);
 
     // Não-regressão: uma re-coleta (pdfjs) não pode rebaixar o texto de OCR
@@ -2906,7 +2907,8 @@ function saveDocumento(documento) {
     // Nunca apagar um `ano` já derivado com uma coleta que veio sem ano.
     payload.ano = documento.ano || atual?.ano || null;
 
-    db.prepare(
+    if (hasContentChanges(atual, payload)) {
+      db.prepare(
       `UPDATE documentos SET
         fonte = @fonte,
         tipo = @tipo,
@@ -2925,8 +2927,11 @@ function saveDocumento(documento) {
         status_coleta = @status_coleta,
         atualizado_em = @atualizadoEm
        WHERE id = @id`
-    ).run({ ...payload, id: existing.id, atualizadoEm: now });
-    result = { id: existing.id, action: 'updated' };
+      ).run({ ...payload, id: existing.id, atualizadoEm: now });
+      result = { id: existing.id, action: 'updated' };
+    } else {
+      result = { id: existing.id, action: 'unchanged' };
+    }
   } else {
     const insert = db.prepare(
       `INSERT INTO documentos (
@@ -2943,7 +2948,11 @@ function saveDocumento(documento) {
     result = { id: inserted.lastInsertRowid, action: 'inserted' };
   }
 
-  db.prepare(
+  const fonteAtual = db.prepare(
+    'SELECT hash_conteudo FROM documentos_fontes WHERE documento_id = ? AND fonte = ? AND url_origem = ? AND url_pdf = ?'
+  ).get(result.id, documento.fonte, documento.url_origem, documento.url_pdf || '');
+  if (!fonteAtual || fonteAtual.hash_conteudo !== (documento.hash_conteudo || null)) {
+    db.prepare(
     `INSERT INTO documentos_fontes (documento_id, fonte, url_origem, url_pdf, hash_conteudo, coletado_em)
      VALUES (?, ?, ?, ?, ?, ?)
      ON CONFLICT(documento_id, fonte, url_origem, url_pdf)
@@ -2955,10 +2964,29 @@ function saveDocumento(documento) {
     documento.url_pdf || '',
     documento.hash_conteudo || null,
     now
-  );
+    );
+  }
 
   if (documento.licitacao_detalhes) {
-    db.prepare(
+    const detalhesPayload = {
+      documento_id: result.id,
+      modalidade: documento.licitacao_detalhes.modalidade || null,
+      status: documento.licitacao_detalhes.status || null,
+      vencedor_nome: documento.licitacao_detalhes.vencedor_nome || null,
+      vencedor_cnpj: documento.licitacao_detalhes.vencedor_cnpj || null,
+      valor_final: documento.licitacao_detalhes.valor_final ?? null,
+      numero_pncp: documento.licitacao_detalhes.numero_pncp || null,
+      data_homologacao: documento.licitacao_detalhes.data_homologacao || null,
+      origem: documento.licitacao_detalhes.origem || null,
+      origem_detalhe: documento.licitacao_detalhes.origem_detalhe || null,
+      trecho_fonte: documento.licitacao_detalhes.trecho_fonte || null,
+      confianca: documento.licitacao_detalhes.confianca ?? null,
+    };
+    const detalhesAtuais = db.prepare('SELECT * FROM licitacoes_detalhes WHERE documento_id = ?').get(result.id);
+    const efetivos = Object.fromEntries(Object.entries(detalhesPayload).map(([key, value]) =>
+      [key, value ?? detalhesAtuais?.[key] ?? null]));
+    if (hasContentChanges(detalhesAtuais, efetivos)) {
+      db.prepare(
       `INSERT INTO licitacoes_detalhes (
         documento_id, modalidade, status, vencedor_nome, vencedor_cnpj,
         valor_final, numero_pncp, data_homologacao,
@@ -2981,21 +3009,9 @@ function saveDocumento(documento) {
         trecho_fonte = COALESCE(excluded.trecho_fonte, licitacoes_detalhes.trecho_fonte),
         confianca = COALESCE(excluded.confianca, licitacoes_detalhes.confianca),
         atualizado_em = excluded.atualizado_em`
-    ).run({
-      documento_id: result.id,
-      modalidade: documento.licitacao_detalhes.modalidade || null,
-      status: documento.licitacao_detalhes.status || null,
-      vencedor_nome: documento.licitacao_detalhes.vencedor_nome || null,
-      vencedor_cnpj: documento.licitacao_detalhes.vencedor_cnpj || null,
-      valor_final: documento.licitacao_detalhes.valor_final ?? null,
-      numero_pncp: documento.licitacao_detalhes.numero_pncp || null,
-      data_homologacao: documento.licitacao_detalhes.data_homologacao || null,
-      origem: documento.licitacao_detalhes.origem || null,
-      origem_detalhe: documento.licitacao_detalhes.origem_detalhe || null,
-      trecho_fonte: documento.licitacao_detalhes.trecho_fonte || null,
-      confianca: documento.licitacao_detalhes.confianca ?? null,
-      atualizado_em: now
-    });
+      ).run({ ...detalhesPayload, atualizado_em: now });
+      if (result.action === 'unchanged') { result.action = 'updated'; }
+    }
   }
 
   return result;

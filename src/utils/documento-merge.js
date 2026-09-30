@@ -39,4 +39,13 @@ function devePreservarTextoOcr({ existenteDadosExtras, existenteTexto } = {}) {
   return isOrigemOcr(existenteDadosExtras);
 }
 
-module.exports = { isOrigemOcr, devePreservarTextoOcr };
+// Reusing extracted text must also reuse its parser metadata. Otherwise every
+// cached recollection fabricates a zero-page/null-engine extraction result.
+function arquivoExtraidoExistente(documento) {
+  const parser = parseDados(documento?.dados_extras)?.parser_pdf || {};
+  return { text: documento?.texto_completo || '', pages: parser.paginas || 0,
+    error: parser.erro || null,
+    info: { parser: parser.engine || null, tipo_arquivo: parser.tipo_arquivo || null } };
+}
+
+module.exports = { isOrigemOcr, devePreservarTextoOcr, arquivoExtraidoExistente };

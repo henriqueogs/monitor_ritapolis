@@ -13,6 +13,7 @@ const logger = require('../logger');
 const config = require('../config');
 const { upsertColetaLog, getColetaLog } = require('../db/transparencia-repo');
 const { coletarFolhaExercicioViaThread } = require('./folha-thread-http');
+const { planCollectionYears } = require('../coletas/collection-cadence');
 
 const ANO_INICIO = config.folhaAnoInicio;
 
@@ -21,26 +22,22 @@ class ColetorFolha extends ColetorBase {
     super({ fonte: 'portal_transparencia_folha' });
   }
 
-  async executar(resultado) {
+  async executar(resultado, { force = false } = {}) {
     const hoje = new Date();
-    const anoAtual = hoje.getFullYear();
-    const hojeStr = hoje.toISOString().slice(0, 10);
 
     let totalNovos = 0;
     let totalAtualizados = 0;
 
-    for (let ano = ANO_INICIO; ano <= anoAtual; ano += 1) {
-      const logAno = getColetaLog('folha', ano, null);
-      if (logAno && logAno.coletado_em.startsWith(hojeStr) && logAno.status === 'ok') {
-        logger.debug('folha: ano já coletado hoje, pulando', { ano });
-        continue;
-      }
+    const anos = planCollectionYears({ anoInicio: ANO_INICIO, now: hoje, force,
+      getLog: (ano) => getColetaLog('folha', ano, null) });
+    for (const ano of anos) {
 
       try {
         logger.info('folha: coletando exercício', { ano });
         const stats = await coletarFolhaExercicioViaThread(ano);
         totalNovos += stats.novos;
         totalAtualizados += stats.atualizados;
+        resultado.itens_sem_alteracao = (resultado.itens_sem_alteracao || 0) + (stats.semAlteracao || 0);
 
         upsertColetaLog({
           tipo: 'folha',
@@ -52,7 +49,8 @@ class ColetorFolha extends ColetorBase {
           status: 'ok',
           erro: null,
         });
-        resultado.detalhes.push({ tipo: 'folha', ano, registros: stats.registros, novos: stats.novos });
+        resultado.detalhes.push({ tipo: 'folha', ano, registros: stats.registros, novos: stats.novos,
+          atualizados: stats.atualizados, sem_alteracao: stats.semAlteracao || 0 });
       } catch (err) {
         if ([401, 403].includes(Number(err?.response?.status))) {
           throw new Error(`Portal da Transparencia (folha) bloqueou a coleta: HTTP ${err.response.status}`);

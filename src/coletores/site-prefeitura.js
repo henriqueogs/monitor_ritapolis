@@ -5,6 +5,7 @@ const { extractOfficialFileText, inferFileExtension } = require('../parsers/docu
 const { parseLicitacao } = require('../parsers/licitacao');
 const { parseDecreto } = require('../parsers/decreto');
 const { parseDataBrasileira, naoFutura } = require('../utils/datas');
+const { arquivoExtraidoExistente } = require('../utils/documento-merge');
 const {
   decodeHttpBody,
   normalizeText,
@@ -391,6 +392,7 @@ class ColetorSitePrefeitura extends ColetorBase {
       );
 
     if (existing?.texto_completo && !existingCorrompido) {
+      arquivo = arquivoExtraidoExistente(existing);
       textoBase = existing.texto_completo;
       hashSource = existing.hash_conteudo || hashSource;
     } else if (pdfUrl) {
