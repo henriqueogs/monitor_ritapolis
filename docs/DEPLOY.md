@@ -92,6 +92,34 @@ sudo systemctl status monitor-ritapolis
 Logs: `/opt/monitor-ritapolis/logs/service.log` (aplicação) e
 `sudo journalctl -u caddy` (TLS/proxy).
 
+## Reinício automático da API
+
+A unit `monitor-ritapolis.service` só existe na VM, mas a política de restart
+é versionada como drop-in em
+`deploy/systemd/monitor-ritapolis.service.d/restart.conf` (`Restart=always`,
+`RestartSec=10`, sem limite de tentativas). Motivo: em 28/09/2026 o processo
+caiu ~15:33 UTC e a API ficou ~10h respondendo 502 até um restart manual.
+
+`systemctl stop` (deploy e disjuntor do R2) não dispara o restart — o systemd
+só reinicia saídas que não foram pedidas por ele.
+
+A chave de deploy só roda `deploy.sh`, então a instalação é manual, uma vez
+(e de novo só se o arquivo mudar):
+
+```bash
+ssh -i ~/.ssh/monitor-ritapolis-oracle ubuntu@<IP-da-VM>
+cd /opt/monitor-ritapolis && git pull
+sudo install -D -m 644 deploy/systemd/monitor-ritapolis.service.d/restart.conf \
+  /etc/systemd/system/monitor-ritapolis.service.d/restart.conf
+sudo systemctl daemon-reload
+systemctl show monitor-ritapolis -p Restart -p RestartUSec   # Restart=always, RestartUSec=10s
+```
+
+Não precisa reiniciar o serviço: `daemon-reload` já aplica a política ao
+processo em execução. Para ver se houve restarts automáticos:
+`systemctl show monitor-ritapolis -p NRestarts` e
+`journalctl -u monitor-ritapolis | grep -i "scheduled restart"`.
+
 ## Variáveis de ambiente da API (`/opt/monitor-ritapolis/.env` na VM)
 
 Não versionado — segredos ficam só na VM. Ver `.env.example` na raiz do
