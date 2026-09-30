@@ -172,7 +172,7 @@ class ColetorBase {
       if (
         documento.texto_completo &&
         documento.texto_completo.length > 500 &&
-        config.aiSchedulerEnabled
+        config.aiSchedulerEnabled && process.env.PIPELINE_ENABLED !== 'true'
       ) {
         try {
           createResumoAiJob({

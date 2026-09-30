@@ -234,6 +234,17 @@ function leituraIntegradaPublica(leitura) {
 
 function documentoPublico(documento) {
   const publico = { ...documento };
+  if (publico.resumo_ai?.corresponde_ao_texto_atual === false) {
+    publico.resumo_ai_desatualizado = true;
+    publico.resumo_ai = null;
+  }
+  if (publico.leitura_integrada_ai && publico.tipo === 'edital') {
+    const current = require('../db').buildLicitacaoLeituraIntegradaPayload(publico.id).texto_hash;
+    if (current !== publico.leitura_integrada_ai.texto_hash) {
+      publico.leitura_integrada_ai_desatualizada = true;
+      publico.leitura_integrada_ai = null;
+    }
+  }
   delete publico.texto_completo;
   delete publico.texto_hash_atual;
   delete publico.texto_completo_chars;
@@ -499,6 +510,7 @@ function createServer() {
 
   app.get('/api/scheduler/status', (_req, res) => {
     res.json({
+      pipeline: require('../pipeline/coordinator').enabled() ? require('../pipeline/coordinator').status() : null,
       coletas: collectionScheduler.getStatus(),
       ia: aiScheduler.getStatus(),
       alertas: getAlertasStatus(),
@@ -928,6 +940,12 @@ function createServer() {
   // POST /api/inteligencia/anomalias/narrativa?exercicio=2025
   app.post('/api/inteligencia/anomalias/narrativa', async (req, res) => {
     const exercicio = Number(req.query.exercicio || 2025);
+    const pipeline = require('../pipeline/coordinator');
+    if (pipeline.enabled()) {
+      const input = getEmpenhoAtipicos(exercicio);
+      const job = pipeline.enqueueManual('anomaly-narrative', exercicio, require('../pipeline/policy').hash(input), { exercicio });
+      return res.status(202).json({ job });
+    }
     try {
       const anomalias = getEmpenhoAtipicos(exercicio);
       const { narrativa, cached } = await gerarNarrativaAnomalias(anomalias);
@@ -988,6 +1006,12 @@ function createServer() {
   // POST /api/alertas/gerar — dispara geração manual (admin)
   app.post('/api/alertas/gerar', async (req, res) => {
     const { since, dryRun, limite, full, extrairFatos } = req.body || {};
+    const pipeline = require('../pipeline/coordinator');
+    if (pipeline.enabled()) {
+      const job = pipeline.enqueueManual('alerts', 'general', `manual:${Math.floor(Date.now()/3600000)}`,
+        { since, dryRun: Boolean(dryRun), limite: Math.min(Math.max(Number(limite)||200,1),200) });
+      return res.status(202).json({ job });
+    }
     const ehFull = Boolean(full);
     try {
       const fatos = ehFull && extrairFatos !== false
@@ -1068,6 +1092,12 @@ function createServer() {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) {
       return res.status(400).json({ error: 'id invalido' });
+    }
+    const pipeline = require('../pipeline/coordinator');
+    if (pipeline.enabled()) {
+      const job = pipeline.enqueueManual('investigation', id, `manual:${Math.floor(Date.now()/3600000)}`,
+        { id, dryRun: Boolean(req.body?.dryRun) });
+      return res.status(202).json({ job });
     }
     try {
       const resultado = await reprocessarInvestigacoesPendentes({
@@ -1416,6 +1446,14 @@ function createServer() {
   app.post('/api/documentos/:id/correlacionar', async (req, res) => {
     try {
       const force = req.body?.force === true || String(req.query.force || '').toLowerCase() === 'true';
+      const pipeline = require('../pipeline/coordinator');
+      if (pipeline.enabled()) {
+        const id = Number(req.params.id);
+        const payload = require('../db').buildLicitacaoLeituraIntegradaPayload(id);
+        const job = pipeline.enqueueManual('integrated', id, payload.texto_hash,
+          { documentoId: id, force }, force ? `2.0:manual:${Date.now()}` : '2.0');
+        return res.status(202).json({ status: job.status, job });
+      }
       const result = await correlateLicitation(Number(req.params.id), { force });
       return res.json({
         ...result,
@@ -1440,6 +1478,11 @@ function createServer() {
     }
 
     return res.json({ job });
+  });
+
+  app.get('/api/ia/pipeline/jobs/:id', (req, res) => {
+    const job = require('../pipeline/coordinator').getQueue().get(Number(req.params.id));
+    return job ? res.json({ job }) : res.status(404).json({ error: 'Tarefa nao encontrada' });
   });
 
   app.get('/api/ia/itens-estruturacao/jobs/:id', (req, res) => {
@@ -1613,6 +1656,7 @@ function createServer() {
     const snapshot = getAdminSnapshot();
     return res.json({
       ...snapshot,
+      pipeline: require('../pipeline/coordinator').enabled() ? require('../pipeline/coordinator').status() : null,
       schedulers: {
         coleta: collectionScheduler.getStatus(),
         ia: aiScheduler.getStatus(),
@@ -1636,7 +1680,20 @@ function createServer() {
   // POST /api/admin/trigger/:acao — dispara ação manual
   app.post('/api/admin/trigger/:acao', async (req, res) => {
     const { acao } = req.params;
-
+    const pipeline = require('../pipeline/coordinator');
+    if (pipeline.enabled() && ['ai-cycle','descobertas-ia-cycle','extract-entities','daily-transparencia'].includes(acao)) {
+      let jobs;
+      if (acao === 'ai-cycle') {
+        require('../pipeline/planner').planAi(pipeline.getQueue());
+        jobs = [];
+      } else if (acao === 'daily-transparencia') {
+        jobs = pipeline.enqueueCollectionRequest('portal_transparencia');
+      } else {
+        const job = pipeline.enqueueManual('analysis', 'general', `manual:${Math.floor(Date.now()/3600000)}`);
+        jobs = [job];
+      }
+      return res.status(202).json({ ok: true, acao, jobs, msg: 'Acao encaminhada ao pipeline unico.' });
+    }
     // Ferramentas de manutenção (catálogo em admin-tarefas.js)
     if (listarFerramentas().some((f) => f.id === acao)) {
       const resultado = await executarFerramenta(acao);

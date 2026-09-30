@@ -173,6 +173,12 @@ function resetForTests() {
 }
 
 function getStatus() {
+  const pipeline = require('../pipeline/coordinator');
+  if (pipeline.enabled()) {
+    const state = pipeline.getQueue().status();
+    return { enabled: true, running: true, cycle_running: Boolean(state.active), docs_por_ciclo: 1,
+      intervalo_horas: null, ultimo_ciclo: state.active?.started_at || null, ultimo_resultado: null, modo: 'pipeline_unico' };
+  }
   const intervalHoras = Math.round(config.aiSchedulerIntervalMs / 3600000);
   return {
     enabled: config.aiSchedulerEnabled,

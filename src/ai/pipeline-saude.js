@@ -39,7 +39,7 @@ function avaliarSaudePipeline({ agora, schedulerHabilitado, ultimoResumoOkEm, re
 
   if (!schedulerHabilitado) {motivos.push(MOTIVOS.SCHEDULER_DESABILITADO);}
 
-  if (!ultimoResumoOkEm) {
+  if (!ultimoResumoOkEm && pendentes > 0) {
     motivos.push(MOTIVOS.NUNCA_RESUMIU);
   } else if (pendentes > 0 && idadeMs(agora, ultimoResumoOkEm) > LIMITE_SEM_RESUMO_MS) {
     motivos.push(MOTIVOS.SEM_RESUMO_OK_24H);

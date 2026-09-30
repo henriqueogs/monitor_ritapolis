@@ -200,6 +200,11 @@ async function performCheck() {
 // placeholder 'verificando') e deixa a checagem de verdade rodar em
 // background. Uma checagem ja em andamento nao dispara outra (state.checking).
 async function checkPrefeituraSyncOnPortalOpen() {
+  if (require('../pipeline/coordinator').enabled()) {
+    return { status: 'agendado', checked_at: state.lastCheckedAt,
+      ultima_coleta_local: getLatestLocalPrefeituraCollection(),
+      coleta: { started: false, motivo: 'rotina_08h_20h' }, areas: [], erros: [], cache: 'scheduled' };
+  }
   const now = Date.now();
 
   if (shouldUseCachedResult(now)) {

@@ -12,7 +12,7 @@ function utcTimestamp(value) {
 function intervalHours(ano, now = new Date()) {
   const age = now.getUTCFullYear() - ano;
   if (age === 0) { return config.dailySchedulerTransparenciaIntervalHoras; }
-  return age === 1 ? 168 : 720;
+  return age === 1 ? 720 : 2160;
 }
 
 // The current year is always first. At most one historical year per day is

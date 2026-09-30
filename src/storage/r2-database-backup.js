@@ -194,6 +194,8 @@ function startBackupScheduler({ env = process.env } = {}) {
 }
 
 module.exports = {
+  clientFor,
+  sha256File,
   DATABASE_KEY,
   MANIFEST_KEY,
   backupDatabaseToR2,

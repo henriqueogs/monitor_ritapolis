@@ -1317,10 +1317,10 @@ function buildLicitacaoLeituraIntegradaPayload(documentoId) {
 
   return {
     documento_id: documento.id,
-    texto_hash: buildJsonHash({
+    texto_hash: buildJsonHash(require('../pipeline/policy').stableValue({
       ...payload,
       gerado_em: null
-    }),
+    })),
     payload
   };
 }

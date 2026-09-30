@@ -34,13 +34,15 @@ jobs:
           # Mantem 100 mil operacoes de margem antes da franquia de 1 milhao.
           R2_MAX_CLASS_A_OPS: '900000'
           R2_MAX_CLASS_B_OPS: '8000000'
-      - name: Parar API preventivamente (disjuntor)
-        if: steps.guard.outcome == 'failure'
+          R2_GUARD_OUTPUT: 'r2-guard.json'
+      - name: Atualizar disjuntor de escritas (preservar API)
+        if: always()
         run: |
           mkdir -p ~/.ssh
           echo "$SSH_KEY" > ~/.ssh/cb_key
           chmod 600 ~/.ssh/cb_key
-          ssh -i ~/.ssh/cb_key -o StrictHostKeyChecking=accept-new "ubuntu@${SSH_HOST}"
+          test -s r2-guard.json
+          ssh -i ~/.ssh/cb_key -o StrictHostKeyChecking=accept-new "ubuntu@${SSH_HOST}" < r2-guard.json
         env:
           SSH_KEY: ${{ secrets.ORACLE_CIRCUIT_BREAKER_SSH_KEY }}
           SSH_HOST: ${{ secrets.ORACLE_DEPLOY_HOST }}
