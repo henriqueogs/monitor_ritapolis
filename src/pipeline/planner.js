@@ -114,7 +114,7 @@ function planDocument(queue, doc, now = new Date()) {
       now
     );
   if (!doc.texto_completo?.trim()) {
-    return task('extract', hash([doc.url_pdf, doc.url_origem, doc.hash_conteudo]), {}, 0);
+    return task('extract', hash([doc.url_pdf, doc.url_origem, doc.hash_conteudo]), {}, 0, '2');
   }
   const signature = ai.buildTextoHash(doc.texto_completo);
   if (!api.getResumoAiByDocumentoHash(doc.id, signature, config.aiContractVersion)) {
@@ -136,7 +136,8 @@ function planDocument(queue, doc, now = new Date()) {
         'extract-anexo',
         hash([anexo.url, anexo.datahora]),
         { anexoId: anexo.id },
-        1
+        1,
+        '2'
       );
       if (job.status !== 'ok' && job.status !== 'failed') {
         return job;

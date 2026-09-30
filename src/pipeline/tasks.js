@@ -20,10 +20,17 @@ async function extract(payload, anexo = false) {
     url,
     filename: target.nome,
   });
-  if (!extraction.text?.trim() && /\.pdf(?:[?#]|$)/i.test(url)) {
+  // Official download endpoints often have no extension (e.g. ?Download=79714).
+  // Inspect the file signature rather than trusting the URL or content type.
+  const isPdf = buffer.subarray(0, 1024).includes(Buffer.from('%PDF-'));
+  if (!extraction.text?.trim() && isPdf && !extraction.error) {
     const ocr = require('../parsers/ocr');
-    const result = await ocr.ocrPdfBuffer(buffer, { maxPaginas: extraction.pages || 12 });
-    await ocr.encerrarWorker();
+    let result;
+    try {
+      result = await ocr.ocrPdfBuffer(buffer, { maxPaginas: extraction.pages || 12 });
+    } finally {
+      await ocr.encerrarWorker();
+    }
     extraction = { text: result.texto, pages: result.paginas, info: { parser: 'ocr' } };
   }
   if (!extraction.text?.trim()) {
