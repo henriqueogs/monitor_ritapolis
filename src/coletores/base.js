@@ -126,6 +126,7 @@ class ColetorBase {
       inicio,
       itens_novos: 0,
       itens_atualizados: 0,
+      itens_sem_alteracao: 0,
       itens_com_erro: 0,
       detalhes: [],
     };
@@ -143,6 +144,8 @@ class ColetorBase {
       });
     } finally {
       resultado.fim = new Date().toISOString();
+      resultado.detalhes.push({ etapa: 'persistencia', novos: resultado.itens_novos,
+        alterados: resultado.itens_atualizados, sem_alteracao: resultado.itens_sem_alteracao || 0 });
       finishColetaLog(logId, resultado);
     }
 
@@ -185,8 +188,10 @@ class ColetorBase {
           });
         }
       }
-    } else {
+    } else if (saved.action === 'updated') {
       resultado.itens_atualizados += 1;
+    } else if (saved.action === 'unchanged') {
+      resultado.itens_sem_alteracao = (resultado.itens_sem_alteracao || 0) + 1;
     }
     return saved;
   }

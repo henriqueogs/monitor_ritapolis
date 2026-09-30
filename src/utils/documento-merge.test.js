@@ -1,6 +1,12 @@
 'use strict';
 
-const { isOrigemOcr, devePreservarTextoOcr } = require('./documento-merge');
+const { isOrigemOcr, devePreservarTextoOcr, arquivoExtraidoExistente } = require('./documento-merge');
+
+test('cached extraction preserves pages and engine instead of resetting them', () => {
+  expect(arquivoExtraidoExistente({ texto_completo: 'Texto', dados_extras: JSON.stringify({
+    parser_pdf: { paginas: 12, engine: 'pdfjs-dist', tipo_arquivo: 'pdf' } }) })).toEqual({
+    text: 'Texto', pages: 12, error: null, info: { parser: 'pdfjs-dist', tipo_arquivo: 'pdf' } });
+});
 
 const TEXTO_OCR_BOM =
   'RESOLUÇÃO N. 01/2025 O Conselho Municipal dos Direitos da Criança e do Adolescente de Ritápolis resolve manter a conselheira tutelar suplente no cargo durante a atual gestão.';

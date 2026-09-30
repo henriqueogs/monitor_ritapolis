@@ -166,7 +166,7 @@ vereadores (`camara_projetos`/`camara_vereadores`, idem).
   próprio da Prefeitura. `pncp:sincronizar` roda automaticamente conforme o
   município publicar mais.
 - Área administrativa protegida por login com sessão (ver acima)
-- Banco SQLite replicado continuamente pro Cloudflare R2 via litestream em produção (local de dev não replica)
+- SQLite persistente na VM; backup incremental R2 a cada 15 minutos e snapshot diario via Litestream, sem segundo scheduler de backup. Politica: [coleta e protecao R2](docs/R2_USAGE_GUARD.md). O ambiente local de desenvolvimento nao replica.
 
 ## Problemas de ambiente
 

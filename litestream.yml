@@ -11,34 +11,34 @@ snapshot:
   interval: 24h
   retention: 72h
 
-# Os defaults do Litestream fazem a compactacao L1 a cada 30s. Em um SQLite
-# com os schedulers de coleta ativos isso gera milhares de PUT/LIST por ciclo
-# no R2, sem melhorar o backup (o L0 continua sendo sincronizado a cada 30s).
-# Compactacoes mais espaçadas preservam o PITR, mas reduzem drasticamente as
-# operacoes Classe A e os DeleteObjects de retencao.
+# Backup de um acervo municipal de baixo volume, nao replicacao em tempo real.
+# monitor-interval agrupa as paginas alteradas ANTES de gerar arquivos L0;
+# aumentar apenas sync-interval nao reduz a quantidade de objetos enviados.
 levels:
-  - interval: 5m
   - interval: 1h
+  - interval: 6h
   - interval: 24h
 
-# A API nao usa VFS/replica remota durante a operacao normal; uma verificacao
-# por minuto continua suficiente para a limpeza do L0 sem polling agressivo.
-l0-retention: 5m
-l0-retention-check-interval: 1m
+# A API le o banco persistente da VM, nao o R2. Limpeza sem polling continuo;
+# o Litestream so remove incrementais cobertos por compactacao.
+l0-retention: 30m
+l0-retention-check-interval: 15m
 
 # A limpeza remota continua habilitada. O bucket nao deve crescer sem limite.
 retention:
   enabled: true
 
 validation:
-  interval: 6h
+  interval: 24h
 
 verify-compaction: true
 
 dbs:
   - path: ${DB_PATH}
-    monitor-interval: 1s
-    checkpoint-interval: 1m
+    # Janela nominal de recuperacao: 15m + envio/processamento/rede. Edicoes
+    # administrativas recentes nao devem ser consideradas protegidas antes do envio.
+    monitor-interval: 15m
+    checkpoint-interval: 15m
     busy-timeout: 15s
     replica:
       type: s3
@@ -48,4 +48,4 @@ dbs:
       region: auto
       access-key-id: ${R2_ACCESS_KEY_ID}
       secret-access-key: ${R2_SECRET_ACCESS_KEY}
-      sync-interval: 30s
+      sync-interval: 1m

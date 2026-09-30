@@ -187,6 +187,7 @@ async function coletarDespesasJanelaViaThread(exercicio, dataInicialIso, dataFin
 
   let novos = 0;
   let atualizados = 0;
+  let semAlteracao = 0;
   for (const item of linhas) {
     let detalhe = null;
     try {
@@ -219,9 +220,10 @@ async function coletarDespesasJanelaViaThread(exercicio, dataInicialIso, dataFin
     });
     if (action === 'inserted') {novos += 1;}
     else if (action === 'updated') {atualizados += 1;}
+    else if (action === 'unchanged') {semAlteracao += 1;}
   }
 
-  return { novos, atualizados, registros: linhas.length };
+  return { novos, atualizados, semAlteracao, registros: linhas.length };
 }
 
 module.exports = {

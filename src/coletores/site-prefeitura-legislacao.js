@@ -16,6 +16,7 @@ const { getDocumentoByUrlPdfRaw } = require('../db');
 const { extractOfficialFileText, inferFileExtension } = require('../parsers/document-file');
 const { decodeHttpBody } = require('../utils/text');
 const { naoFutura } = require('../utils/datas');
+const { arquivoExtraidoExistente } = require('../utils/documento-merge');
 const { mandatoInicio } = require('../utils/mandato');
 const { normalizarTipo, normalizeSpaces } = require('./legislacao-tipos');
 
@@ -154,6 +155,7 @@ class ColetorLegislacaoPrefeitura extends ColetorBase {
     let hashSource = `${item.tipoLabel}|${item.numero}|${item.exercicio}|${item.ementa}`;
 
     if (existing?.texto_completo) {
+      arquivo = arquivoExtraidoExistente(existing);
       textoBase = existing.texto_completo;
       hashSource = existing.hash_conteudo || hashSource;
     } else if (pdfUrl) {

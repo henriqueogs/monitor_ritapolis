@@ -11,6 +11,7 @@
 const crypto = require('crypto');
 const { db } = require('./connection');
 const { sanitizeFtsQuery } = require('./fts-repo');
+const { hasContentChanges } = require('../utils/persisted-content');
 
 const LIMITE_MAX = 200;
 
@@ -74,10 +75,10 @@ function upsertFolhaRegistro(p) {
   }
 
   const existing = db.prepare(
-    'SELECT id FROM transparencia_folha WHERE vinculo = ? AND matricula = ? AND competencia_ano = ? AND competencia_mes = ?'
+    'SELECT * FROM transparencia_folha WHERE vinculo = ? AND matricula = ? AND competencia_ano = ? AND competencia_mes = ?'
   ).get(vinculo, matricula, competenciaAno, competenciaMes);
 
-  upsertFolhaStmt.run({
+  const payload = {
     vinculo,
     matricula,
     competencia_ano: competenciaAno,
@@ -98,7 +99,9 @@ function upsertFolhaRegistro(p) {
     total_liquido: Number(p.totalLiquido) || 0,
     dados_extras: JSON.stringify(p),
     hash_folha: hashFolha(vinculo, matricula, competenciaAno, competenciaMes),
-  });
+  };
+  if (!hasContentChanges(existing, payload)) { return 'unchanged'; }
+  upsertFolhaStmt.run(payload);
 
   return existing ? 'updated' : 'inserted';
 }

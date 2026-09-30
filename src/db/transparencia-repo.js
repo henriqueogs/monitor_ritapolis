@@ -9,6 +9,7 @@
 const crypto = require('crypto');
 const logger = require('../logger');
 const { db } = require('./index');
+const { hasContentChanges } = require('../utils/persisted-content');
 const { ensureDespesasMigracoes } = require('./transparencia-migracoes');
 const {
   CLASSIFICACAO_SELECT,
@@ -234,10 +235,10 @@ function upsertDespesa(dadosPrincipais) {
   const hash = hashDespesa(exercicio, empenho);
 
   const existing = db.prepare(
-    'SELECT hash_despesa FROM transparencia_despesas WHERE exercicio_orcamento = ? AND empenho = ?'
+    'SELECT * FROM transparencia_despesas WHERE exercicio_orcamento = ? AND empenho = ?'
   ).get(exercicio, empenho);
 
-  upsertDespesaStmt.run({
+  const payload = {
     exercicio_orcamento: exercicio,
     empenho,
     tipo: p.tipo || null,
@@ -262,7 +263,13 @@ function upsertDespesa(dadosPrincipais) {
     credor_chave: buildCredorChave({ cnpj: credorCnpj, nome: credorNome }),
     dados_extras: JSON.stringify(p),
     hash_despesa: hash,
-  });
+  };
+  // The identity hash does not describe content. Compare every persisted field
+  // before the UPSERT, avoiding even AUTOINCREMENT/FTS writes for identical data.
+  if (!hasContentChanges(existing, payload)) {
+    return 'unchanged';
+  }
+  upsertDespesaStmt.run(payload);
 
   const despesaPersistida = db.prepare(
     'SELECT * FROM transparencia_despesas WHERE exercicio_orcamento = ? AND empenho = ?'
@@ -458,7 +465,9 @@ function enriquecerDetalhesComEmpenhos() {
     ).get(docId);
 
     if (!atual) {continue;}
-    if (atual.vencedor_cnpj && atual.origem === 'portal_transparencia') {continue;}
+    // The SQL below never replaces an existing CNPJ. Do not update its
+    // timestamp (or report an enrichment) when nothing can change.
+    if (atual.vencedor_cnpj) {continue;}
 
     db.prepare(`
       INSERT INTO licitacoes_detalhes (documento_id, vencedor_nome, vencedor_cnpj, valor_final, origem, origem_detalhe)
@@ -499,16 +508,20 @@ const upsertReceitaStmt = db.prepare(`
  */
 function upsertReceita(exercicio, item) {
   const existing = db.prepare(
-    'SELECT id FROM transparencia_receitas WHERE exercicio = ? AND codigo_receita = ?'
+    'SELECT * FROM transparencia_receitas WHERE exercicio = ? AND codigo_receita = ?'
   ).get(exercicio, item.codigoDaReceita);
 
-  upsertReceitaStmt.run({
+  const payload = {
     exercicio,
     codigo_receita: item.codigoDaReceita,
     nome_receita: item.nomeReceita || null,
     tipo_conta: item.tipoDeContaDaReceita || null,
     valor_previsto: Number(item.valor) || 0,
-  });
+  };
+  if (!hasContentChanges(existing, payload)) {
+    return 'unchanged';
+  }
+  upsertReceitaStmt.run(payload);
 
   return existing ? 'updated' : 'inserted';
 }

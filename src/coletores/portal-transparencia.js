@@ -20,6 +20,7 @@ const {
   getColetaLog,
 } = require('../db/transparencia-repo');
 const { coletarDespesasJanelaViaThread } = require('./portal-transparencia-thread-http');
+const { planCollectionYears } = require('../coletas/collection-cadence');
 
 const BASE_URL = 'https://pt.ritapolis.mg.gov.br';
 
@@ -125,6 +126,7 @@ class ColetorPortalTransparencia extends ColetorBase {
     const itens = resultado.orcamentoAnualDeReceita || [];
     let novos = 0;
     let atualizados = 0;
+    let semAlteracao = 0;
 
     for (const item of itens) {
       try {
@@ -133,6 +135,8 @@ class ColetorPortalTransparencia extends ColetorBase {
           novos++;
         } else if (action === 'updated') {
           atualizados++;
+        } else if (action === 'unchanged') {
+          semAlteracao++;
         }
       } catch (err) {
         logger.warn('portal-transparencia: erro ao salvar receita', {
@@ -143,25 +147,20 @@ class ColetorPortalTransparencia extends ColetorBase {
       }
     }
 
-    return { novos, atualizados, registros: itens.length };
+    return { novos, atualizados, semAlteracao, registros: itens.length };
   }
 
-  async executar(resultado) {
+  async executar(resultado, { force = false } = {}) {
     const hoje = new Date();
-    const anoAtual = hoje.getFullYear();
+    const anoAtual = hoje.getUTCFullYear();
 
     let totalNovos = 0;
     let totalAtualizados = 0;
     let totalRegistros = 0;
 
-    for (let ano = ANO_INICIO; ano <= anoAtual; ano++) {
-      // Verificar se este ano já foi coletado hoje (com sucesso) — pular meses completos
-      const logAno = getColetaLog('despesas', ano, null);
-      const hojeStr = hoje.toISOString().slice(0, 10);
-      if (logAno && logAno.coletado_em.startsWith(hojeStr) && logAno.status === 'ok') {
-        logger.debug('portal-transparencia: ano já coletado hoje, pulando', { ano });
-        continue;
-      }
+    const anosDespesas = planCollectionYears({ anoInicio: ANO_INICIO, now: hoje, force,
+      getLog: (ano) => getColetaLog('despesas', ano, null) });
+    for (const ano of anosDespesas) {
 
       const dataInicio = `${ano}-01-01`;
       const dataFim = ano === anoAtual ? hoje.toISOString().slice(0, 10) : `${ano}-12-31`;
@@ -169,6 +168,7 @@ class ColetorPortalTransparencia extends ColetorBase {
       const janelas = this.gerarJanelas(dataInicio, dataFim);
       let anoNovos = 0;
       let anoAtualizados = 0;
+      let anoSemAlteracao = 0;
       let anoRegistros = 0;
       let anoErros = 0;
 
@@ -178,6 +178,7 @@ class ColetorPortalTransparencia extends ColetorBase {
           const stats = await this.coletarDespesasJanela(ano, janela.ini, janela.fim);
           anoNovos += stats.novos;
           anoAtualizados += stats.atualizados;
+          anoSemAlteracao += stats.semAlteracao || 0;
           anoRegistros += stats.registros;
         } catch (err) {
           if ([401, 403].includes(Number(err?.response?.status))) {
@@ -210,7 +211,9 @@ class ColetorPortalTransparencia extends ColetorBase {
         erro: anoErros > 0 ? `${anoErros} janelas com erro` : null,
       });
 
-      resultado.detalhes.push({ tipo: 'despesas', ano, registros: anoRegistros, novos: anoNovos });
+      resultado.itens_sem_alteracao = (resultado.itens_sem_alteracao || 0) + anoSemAlteracao;
+      resultado.detalhes.push({ tipo: 'despesas', ano, registros: anoRegistros, novos: anoNovos,
+        atualizados: anoAtualizados, sem_alteracao: anoSemAlteracao });
     }
 
     resultado.itens_novos += totalNovos;
@@ -218,13 +221,9 @@ class ColetorPortalTransparencia extends ColetorBase {
 
     // Receitas: orçamento anual previsto
     logger.info('portal-transparencia: coletando orçamento de receitas');
-    for (let ano = ANO_INICIO; ano <= anoAtual; ano++) {
-      const logReceita = getColetaLog('receitas', ano, null);
-      const hojeStr = hoje.toISOString().slice(0, 10);
-      if (logReceita && logReceita.coletado_em.startsWith(hojeStr) && logReceita.status === 'ok') {
-        logger.debug('portal-transparencia: receitas já coletadas hoje, pulando', { ano });
-        continue;
-      }
+    const anosReceitas = planCollectionYears({ anoInicio: ANO_INICIO, now: hoje, force,
+      getLog: (ano) => getColetaLog('receitas', ano, null) });
+    for (const ano of anosReceitas) {
       try {
         const stats = await this.coletarReceitas(ano);
         upsertColetaLog({
@@ -242,9 +241,12 @@ class ColetorPortalTransparencia extends ColetorBase {
           ano,
           registros: stats.registros,
           novos: stats.novos,
+          atualizados: stats.atualizados,
+          sem_alteracao: stats.semAlteracao || 0,
         });
         resultado.itens_novos += stats.novos;
         resultado.itens_atualizados += stats.atualizados;
+        resultado.itens_sem_alteracao = (resultado.itens_sem_alteracao || 0) + (stats.semAlteracao || 0);
       } catch (err) {
         logger.warn('portal-transparencia: erro ao coletar receitas', { ano, erro: err.message });
         upsertColetaLog({

@@ -597,7 +597,8 @@ CREATE TRIGGER IF NOT EXISTS despesas_fts_ad AFTER DELETE ON transparencia_despe
   VALUES ('delete', old.id, old.historico, old.credor_nome, old.empenho);
 END;
 
-CREATE TRIGGER IF NOT EXISTS despesas_fts_au AFTER UPDATE ON transparencia_despesas BEGIN
+CREATE TRIGGER IF NOT EXISTS despesas_fts_au AFTER UPDATE OF historico, credor_nome, empenho ON transparencia_despesas
+WHEN old.historico IS NOT new.historico OR old.credor_nome IS NOT new.credor_nome OR old.empenho IS NOT new.empenho BEGIN
   INSERT INTO despesas_fts(despesas_fts, rowid, historico, credor_nome, empenho)
   VALUES ('delete', old.id, old.historico, old.credor_nome, old.empenho);
   INSERT INTO despesas_fts(rowid, historico, credor_nome, empenho)
