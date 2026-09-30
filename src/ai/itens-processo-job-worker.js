@@ -67,6 +67,8 @@ async function runPendingItensEstruturacaoJobs() {
 }
 
 function scheduleItensProcessoJobWorker() {
+  const pipeline = require('../pipeline/coordinator');
+  if (pipeline.enabled()) { pipeline.enqueueLegacy('items'); return; }
   setTimeout(() => {
     runPendingItensEstruturacaoJobs().catch((error) => {
       logger.error('Worker de estruturacao de itens falhou', { erro: error.message });
@@ -74,4 +76,4 @@ function scheduleItensProcessoJobWorker() {
   }, 0);
 }
 
-module.exports = { runPendingItensEstruturacaoJobs, scheduleItensProcessoJobWorker };
+module.exports = { processJob, runPendingItensEstruturacaoJobs, scheduleItensProcessoJobWorker };

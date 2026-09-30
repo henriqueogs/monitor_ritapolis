@@ -22,6 +22,13 @@ const state = {
 };
 
 function snapshot() {
+  if (process.env.PIPELINE_ENABLED === 'true') {
+    const q = require('../pipeline/coordinator').getQueue();
+    const active = q.db.prepare("SELECT id, entity, status, started_at FROM pipeline_jobs WHERE kind = 'collection' AND status = 'running'").get();
+    const pending = q.db.prepare("SELECT COUNT(*) AS total FROM pipeline_jobs WHERE kind = 'collection' AND status = 'pending'").get().total;
+    return { running: Boolean(active), status: active ? 'processando' : pending ? 'enfileirado' : 'idle',
+      started_at: active?.started_at || null, fonte: active?.entity || null, pendentes: pending };
+  }
   return {
     running: state.running,
     started_at: state.startedAt,
@@ -69,6 +76,11 @@ async function runCollection(fonte) {
 }
 
 function startCollectionUpdate({ fonte = 'todas' } = {}) {
+  const pipeline = require('../pipeline/coordinator');
+  if (pipeline.enabled()) {
+    const jobs = pipeline.enqueueCollectionRequest(fonte);
+    return { started: true, status: { ...snapshot(), status: 'enfileirado', jobs } };
+  }
   if (state.running) {
     return {
       started: false,
@@ -127,6 +139,7 @@ function startCollectionUpdate({ fonte = 'todas' } = {}) {
 }
 
 module.exports = {
+  buildCollectors,
   getCollectionUpdateStatus: snapshot,
   startCollectionUpdate
 };

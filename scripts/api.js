@@ -1,7 +1,10 @@
 const { restoreDatabaseFromR2IfMissing, startBackupScheduler } = require('../src/storage/r2-database-backup');
 
 async function main() {
-  await restoreDatabaseFromR2IfMissing();
+  if (process.env.DAILY_SNAPSHOT_ENABLED === 'true') {
+    const config = require('../src/config');
+    await require('../src/storage/daily-snapshot').restoreDailySnapshot({ dbPath: config.dbPath });
+  } else { await restoreDatabaseFromR2IfMissing(); }
   // Importa módulos que abrem o SQLite somente depois da restauração.
   const { setupDatabase } = require('../src/db/setup');
   // setupDatabase() PRECISA rodar antes de qualquer require que toque em
@@ -50,16 +53,22 @@ async function main() {
     }
   });
 
-  collectionScheduler.start();
-  aiScheduler.start();
-  dailyScheduler.start();
-  descobertasScheduler.start();
-  startBackupScheduler();
+  const pipeline = require('../src/pipeline/coordinator');
+  if (pipeline.enabled()) { pipeline.start(); }
+  else {
+    collectionScheduler.start();
+    aiScheduler.start();
+    dailyScheduler.start();
+    descobertasScheduler.start();
+    startBackupScheduler();
+  }
 
   let shuttingDown = false;
   const shutdown = (signal) => {
     if (shuttingDown) { return; }
     shuttingDown = true;
+    pipeline.stop();
+    collectionScheduler.stop(); aiScheduler.stop(); dailyScheduler.stop(); descobertasScheduler.stop();
     console.info(`Encerramento gracioso iniciado (${signal})`);
 
     const forceExit = setTimeout(() => {

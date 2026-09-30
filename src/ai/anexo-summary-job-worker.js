@@ -67,6 +67,8 @@ async function runPendingAnexoResumoJobs() {
 }
 
 function scheduleAnexoResumoJobWorker() {
+  const pipeline = require('../pipeline/coordinator');
+  if (pipeline.enabled()) { pipeline.enqueueLegacy('anexo'); return; }
   setTimeout(() => {
     runPendingAnexoResumoJobs().catch((error) => {
       logger.error('Worker de resumo de anexo falhou', { erro: error.message });
@@ -74,4 +76,4 @@ function scheduleAnexoResumoJobWorker() {
   }, 0);
 }
 
-module.exports = { runPendingAnexoResumoJobs, scheduleAnexoResumoJobWorker };
+module.exports = { processJob, runPendingAnexoResumoJobs, scheduleAnexoResumoJobWorker };

@@ -414,7 +414,8 @@ function listDocumentosPendentesResumoAi({
       `SELECT d.*
        FROM documentos d
        WHERE ${filters.join(' AND ')}
-       ORDER BY COALESCE(d.data_publicacao, d.atualizado_em) DESC, d.id DESC
+       ORDER BY COALESCE(d.data_publicacao, CASE WHEN d.ano >= CAST(strftime('%Y','now') AS INTEGER)
+         THEN substr(d.coletado_em,1,10) END, '') DESC, d.id DESC
        LIMIT @limite`
     )
     .all(params)

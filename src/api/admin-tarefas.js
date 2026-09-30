@@ -101,6 +101,11 @@ function executarFerramenta(id) {
   if (!f) {
     return Promise.resolve({ ok: false, desconhecida: true, msg: `Ferramenta desconhecida: ${id}` });
   }
+  const pipeline = require('../pipeline/coordinator');
+  if (pipeline.enabled()) {
+    const job = pipeline.enqueueManual('maintenance', id, String(Math.floor(Date.now() / 3600000)), { tool: id });
+    return Promise.resolve({ ok: true, modo: 'fila', job, msg: `${f.label} enfileirado.` });
+  }
 
   if (f.modo === 'background') {
     if (tarefaEmExecucao(f.progresso)) {

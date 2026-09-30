@@ -86,6 +86,8 @@ async function runPendingResumoAiJobs() {
 }
 
 function scheduleResumoAiJobWorker() {
+  const pipeline = require('../pipeline/coordinator');
+  if (pipeline.enabled()) { pipeline.enqueueLegacy('summary'); return; }
   setTimeout(() => {
     runPendingResumoAiJobs().catch((error) => {
       logger.error('Worker de resumo IA falhou', { erro: error.message });
@@ -94,6 +96,7 @@ function scheduleResumoAiJobWorker() {
 }
 
 module.exports = {
+  processJob,
   runPendingResumoAiJobs,
   scheduleResumoAiJobWorker
 };

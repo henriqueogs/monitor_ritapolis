@@ -24,6 +24,8 @@ function getSaudePipeline({ agora = new Date() } = {}) {
   const ultimoErro = repo.getUltimoErroResumo();
   const recentes = repo.contarRecentesSemResumo({ desde });
   const scheduler = aiScheduler.getStatus();
+  const pipeline = require('../pipeline/coordinator');
+  if (pipeline.enabled()) { scheduler.enabled = true; }
 
   const avaliacao = avaliarSaudePipeline({
     agora,
@@ -34,6 +36,12 @@ function getSaudePipeline({ agora = new Date() } = {}) {
 
   return {
     ...avaliacao,
+    ...(pipeline.enabled() ? { pipeline: (() => {
+      const state = pipeline.status();
+      return { active: state.active, counts: state.counts, oldest_pending: state.oldest_pending,
+        safety: { paused: state.safety.paused, reason: state.safety.reason },
+        failures: state.failures.map(f => ({ id: f.id, kind: f.kind, categoria: classifyAiError(f.error) })) };
+    })() } : {}),
     gerado_em: agora.toISOString(),
     ia: {
       provider: config.aiProvider,

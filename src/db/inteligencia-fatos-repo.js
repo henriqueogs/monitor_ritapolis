@@ -77,7 +77,9 @@ function resumoJoinSql() {
       SELECT r2.id
         FROM documentos_anexos_resumos_ai r2
        WHERE r2.anexo_id = a.id
-       ORDER BY r2.atualizado_em DESC, r2.id DESC
+         AND r2.texto_hash = a.texto_hash
+       ORDER BY CASE WHEN r2.contrato_versao = 'anexo-2.0' AND r2.status = 'ok' THEN 0 ELSE 1 END,
+         r2.atualizado_em DESC, r2.id DESC
        LIMIT 1
     )
   `;
