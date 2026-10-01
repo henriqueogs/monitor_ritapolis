@@ -44,6 +44,9 @@ indexadas e 2.203 não indexadas. Desempenho Web, seletor de 3 meses, gráfico
 com dados de 01/09 a 28/09/2026: 33 cliques, 1,08 mil impressões, CTR 3,1%
 e posição média geral 9,2. Isso não representa a consulta alvo.
 
+Sitemap já enviado em 05/09/2026, última leitura 30/09/2026, status Success,
+615 páginas descobertas. Não é necessário duplicar o envio agora.
+
 Consulta exata `ritápolis`: 0 cliques, 3 impressões, CTR 0%, posição média
 36,3. A única página listada é `/sobre`. Sem filtro de país aplicado.
 Busca Google sem personalização, localização exibida Belo Horizonte:
