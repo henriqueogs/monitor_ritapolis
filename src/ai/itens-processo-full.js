@@ -3,6 +3,7 @@
 const { buildItensProcessoPrompt } = require('./prompts/itens-processo-prompt');
 const { validateItensProcessoStrict, MAX_LINHAS } = require('./contracts/itens-processo-contract');
 const { validateLeafEvidence, completeCoverage } = require('./itens-processo-evidence');
+const { generateWithProgress } = require('./progress-request');
 const {
   CONTRACT_VERSION,
   digest,
@@ -164,7 +165,7 @@ function mergeLeaves(leaves, fontes) {
 
 async function extractAllItems(documento, fontes, provider, progress) {
   const input = computeSourcesHash(fontes);
-  async function extract(group) {
+  async function extract(group, evidenceSplits = 0) {
     const intervals = group.map(({ chave, inicio, fim }) => ({ chave, inicio, fim }));
     const key = `itens:${CONTRACT_VERSION}:${input}:${digest(JSON.stringify(intervals))}`;
     const cached = progress?.load(key);
@@ -176,16 +177,22 @@ async function extractAllItems(documento, fontes, provider, progress) {
     progress?.checkTime();
     const split = splitGroup(group);
     if (cached?.split && split) {
-      return [...(await extract(split[0])), ...(await extract(split[1]))];
+      const next = evidenceSplits + Number(cached.evidenceSplit || false);
+      return [...(await extract(split[0], next)), ...(await extract(split[1], next))];
     }
     let data;
     try {
-      const raw = await provider.generateJson({
-        prompt: buildItensProcessoPrompt({ documento, trechos: group }),
-        temperature: 0.1,
-        timeoutMs: Math.min(120000, progress?.remainingMs() || 120000),
-        maxRetries: 0,
-      });
+      const raw = await generateWithProgress(
+        provider,
+        {
+          prompt: buildItensProcessoPrompt({ documento, trechos: group }),
+          temperature: 0.1,
+          timeoutMs: 120000,
+          maxRetries: 0,
+        },
+        progress,
+        120000
+      );
       data = validateItensProcessoStrict(parseJson(raw));
       if (
         data.itens_solicitados.length >= MAX_LINHAS ||
@@ -193,24 +200,35 @@ async function extractAllItems(documento, fontes, provider, progress) {
       ) {
         throw new SyntaxError('Itens: possivel limite de linhas atingido');
       }
+      data = validateLeafEvidence(data, group);
     } catch (error) {
       if (error.code === 'PIPELINE_YIELD') {
         throw error;
       }
+      // One smaller-context recovery per branch for unsupported citations or
+      // overlong strings. Never truncate fields, omit rejected rows, or relax
+      // evidence validation. A second violation stays blocked for review.
+      const evidenceFailure =
+        /^Itens: .*exige revisao$/.test(error.message) ||
+        (error.name === 'ZodError' &&
+          error.issues?.some(
+            i => i.code === 'too_big' && (i.type === 'string' || i.origin === 'string')
+          ));
       const recoverable =
         error instanceof SyntaxError ||
         (error.name === 'ZodError' &&
           error.issues?.some(
             i => i.code === 'too_big' && (i.type === 'array' || i.origin === 'array')
           )) ||
-        /timeout|timed out|context length|maximum context/i.test(error.message);
+        /timeout|timed out|context length|maximum context/i.test(error.message) ||
+        (evidenceFailure && evidenceSplits < 1);
       if (!split || !recoverable) {
         throw error;
       }
-      progress?.save(key, { split: true });
-      return [...(await extract(split[0])), ...(await extract(split[1]))];
+      progress?.save(key, { split: true, ...(evidenceFailure ? { evidenceSplit: true } : {}) });
+      const next = evidenceSplits + Number(evidenceFailure);
+      return [...(await extract(split[0], next)), ...(await extract(split[1], next))];
     }
-    data = validateLeafEvidence(data, group);
     progress?.save(key, { data });
     return [{ data, intervals }];
   }

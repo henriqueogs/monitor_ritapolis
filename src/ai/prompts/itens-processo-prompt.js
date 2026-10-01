@@ -28,6 +28,7 @@ Regras obrigatorias:
 - A citacao deve incluir todos os nomes, CNPJ, quantidades, numeros de item/lote, unidades e valores informados nessa linha.
 - Nao una citacoes, nao acrescente reticencias, nao use texto sentinela nem invente trecho_fonte. Sem citacao suficiente, omita a linha e registre a lacuna.
 - descricao/objeto: cite a descricao da propria linha em ate 400 caracteres, nunca substitua por nome de outra linha.
+- descricao/objeto e fornecedor_nome devem ser copiados literalmente de dentro de trecho_fonte, sem parafrase, abreviacao nova ou normalizacao de palavras.
 - Campos opcionais desconhecidos: null. Nunca calcule um valor total a partir de quantidade/preco nem atribua o teto do lote a um item.
 - itens_solicitados: demanda identificada no edital/planilha, com item_numero, lote_numero, descricao, quantidade, unidade e valor_estimado quando explicitos.
 - resultado_lotes: resultado explicitamente por lote, com lote_numero, objeto, fornecedor_nome, fornecedor_cnpj e teto_homologado quando explicitos.
