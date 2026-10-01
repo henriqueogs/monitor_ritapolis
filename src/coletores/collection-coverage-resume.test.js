@@ -105,3 +105,16 @@ test('checkpoint conserva retorno vazio e prazo expirado nao inicia HTTP', async
   await expect(c.buscarComRetry('https://ritapolis.mg.gov.br/')).rejects.toMatchObject({ code: 'PIPELINE_YIELD' });
   expect(c.http.request).not.toHaveBeenCalled();
 });
+
+test('retry keeps completed counters/checkpoints but does not carry obsolete errors; yield does carry current errors', async () => {
+  const c = new Base({ fonte: 'test' }); c.progress = createProgress(db, 'retry');
+  c.progress.save('collector-result', { ...result(), status: 'erro_parcial', itens_novos: 3,
+    itens_com_erro: 1, detalhes: [{ erro: 'erro anterior corrigido' }] });
+  c.progress.save('completed-item', true);
+  c.executar = async r => { r.itens_novos++; };
+  expect(await c.run()).toMatchObject({ status: 'ok', itens_novos: 4, itens_com_erro: 0 });
+  expect(c.progress.load('completed-item')).toBe(true);
+  c.progress.save('collector-result', { ...result(), status: 'continuacao', itens_com_erro: 1,
+    detalhes: [{ erro: 'erro atual ainda nao corrigido' }] });
+  expect(await c.run()).toMatchObject({ status: 'erro_parcial', itens_com_erro: 1 });
+});

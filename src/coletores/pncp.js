@@ -2,6 +2,7 @@
 
 const ColetorBase = require('./base');
 const logger = require('../logger');
+const { buildSourceUrl, resolvePncpIdentity } = require('./pncp-identity');
 
 const PNCP_API = 'https://pncp.gov.br/api/consulta/v1';
 
@@ -53,15 +54,9 @@ function inferTipoFromModalidade(codigoModalidade) {
   return 'edital';
 }
 
-function buildNumero(compra) {
-  const controle = String(compra.numeroControlePNCP || '').match(/^\d{14}-1-(\d+)\/(\d{4})$/);
-  const sequencial = compra.sequencialCompra || controle?.[1];
-  const ano = compra.anoCompra || controle?.[2];
-  if (!sequencial || !ano) {
-    throw new Error('PNCP: identificador oficial incompleto (compra)');
-  }
-  const seq = String(sequencial).padStart(6, '0');
-  return `${seq}/${ano}`;
+function buildNumero(compra, orgao) {
+  const { seq, year } = resolvePncpIdentity(compra, orgao, 'compra');
+  return `${String(seq).padStart(6, '0')}/${year}`;
 }
 
 function valorOficial(value) {
@@ -69,50 +64,6 @@ function valorOficial(value) {
     return null;
   }
   return Number.isFinite(Number(value)) ? Number(value) : null;
-}
-
-function buildSourceUrl(record, orgao, kind) {
-  const cnpj = String(orgao.cnpj);
-  const reported = record.orgaoEntidade?.cnpj;
-  if (reported && String(reported) !== cnpj) {
-    throw new Error('PNCP: orgao diverge da fonte consultada');
-  }
-  const controle = String(record.numeroControlePNCP || '').match(
-    /^(\d{14})-([12])-(\d+)\/(\d{4})$/
-  );
-  if (controle && controle[1] !== cnpj) {
-    throw new Error('PNCP: identificador pertence a outro orgao');
-  }
-  const positive = value => Number.isSafeInteger(Number(value)) && Number(value) > 0;
-  if (kind === 'compra') {
-    const ano = record.anoCompra || (controle?.[2] === '1' ? controle[4] : null);
-    const seq = record.sequencialCompra || (controle?.[2] === '1' ? controle[3] : null);
-    if (positive(ano) && positive(seq)) {
-      return `https://pncp.gov.br/app/editais/${cnpj}/${ano}/${Number(seq)}`;
-    }
-  }
-  if (kind === 'contrato') {
-    const ano = record.anoContrato || (controle?.[2] === '2' ? controle[4] : null);
-    const seq = record.sequencialContrato || (controle?.[2] === '2' ? controle[3] : null);
-    if (positive(ano) && positive(seq)) {
-      return `https://pncp.gov.br/api/pncp/v1/orgaos/${cnpj}/contratos/${ano}/${Number(seq)}`;
-    }
-  }
-  if (kind === 'ata') {
-    const compra = String(
-      record.numeroControlePNCPCompra || record.numeroControlePncpCompra || ''
-    ).match(/^(\d{14})-1-(\d+)\/(\d{4})$/);
-    if (compra && compra[1] !== cnpj) {
-      throw new Error('PNCP: contratacao da ata pertence a outro orgao');
-    }
-    const ano = record.anoCompra || compra?.[3];
-    const seq = record.sequencialCompra || compra?.[2];
-    if (positive(ano) && positive(seq) && positive(record.sequencialAta)) {
-      return `https://pncp.gov.br/api/pncp/v1/orgaos/${cnpj}/compras/${ano}/${Number(seq)}/atas/${Number(record.sequencialAta)}`;
-    }
-  }
-  // No guessed link, publication year or invented identifier.
-  throw new Error(`PNCP: identificador oficial incompleto (${kind})`);
 }
 
 class ColetorPncp extends ColetorBase {
@@ -304,7 +255,7 @@ class ColetorPncp extends ColetorBase {
       MODALIDADES[compra.modalidadeId] ||
       MODALIDADES[compra.codigoModalidadeContratacao] ||
       'Licitação';
-    const numero = buildNumero(compra);
+    const numero = buildNumero(compra, orgao);
     const ano = Number(numero.split('/')[1]);
     const dataPublicacao = toIsoDate(compra.dataPublicacaoPncp);
     const dataAbertura = toIsoDate(compra.dataAberturaProposta);
@@ -362,18 +313,21 @@ class ColetorPncp extends ColetorBase {
   }
 
   salvarAta(ata, orgao, resultado) {
+    const sourceUrl = buildSourceUrl(ata, orgao, 'ata');
+    const control = ata.numeroControlePNCPAta || ata.numeroControlePNCP || ata.numeroControle;
+    const objeto = ata.objetoContratacao || ata.objetoCompra || ata.objeto;
     const numero =
       ata.numeroAtaRegistroPreco ||
       ata.numeroAta ||
       ata.numeroControle ||
-      ata.numeroControlePNCP ||
+      control ||
       null;
     const dataPublicacao = toIsoDate(
       ata.dataPublicacaoPncp || ata.dataPublicacao || ata.dataAssinatura
     );
     const titulo = [
       numero ? `Ata ${numero}` : 'Ata de Registro de Preços',
-      ata.objetoCompra || ata.objeto,
+      objeto,
     ]
       .filter(Boolean)
       .join(' — ')
@@ -381,8 +335,8 @@ class ColetorPncp extends ColetorBase {
 
     const texto = [
       `Órgão: ${orgao.nome}`,
-      `Número de controle PNCP: ${ata.numeroControlePNCP || ''}`,
-      `Objeto: ${ata.objetoCompra || ata.objeto || ''}`,
+      `Número de controle PNCP: ${control || ''}`,
+      `Objeto: ${objeto || ''}`,
       `Fornecedor: ${ata.nomeRazaoSocialFornecedor || ''}`,
       `Valor: ${ata.valorTotal ?? ''}`,
       `Data de assinatura: ${toIsoDate(ata.dataAssinatura) || ''}`,
@@ -397,16 +351,16 @@ class ColetorPncp extends ColetorBase {
         numero,
         ano: Number(ata.anoAta) || null,
         titulo,
-        resumo: this.resumirTexto(ata.objetoCompra || ata.objeto || titulo),
+        resumo: this.resumirTexto(objeto || titulo),
         data_publicacao: dataPublicacao,
         data_abertura: null,
         valor_estimado: valorOficial(ata.valorTotal),
-        url_origem: buildSourceUrl(ata, orgao, 'ata'),
+        url_origem: sourceUrl,
         url_pdf: null,
         texto_completo: texto,
         dados_extras: { pncp: ata, orgao, tipo_pncp: 'ata' },
         hash_conteudo: this.calcularHash(
-          `pncp-ata-${ata.numeroControlePNCP || JSON.stringify(ata)}`
+          `pncp-ata-${control || sourceUrl}`
         ),
         status_coleta: 'sem_pdf',
         licitacao_detalhes: null,
