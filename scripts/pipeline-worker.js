@@ -13,7 +13,8 @@ async function main() {
   }
   const progress = require('../src/pipeline/progress').createProgress(db, job.identity);
   const result = await execute(job, { progress });
-  progress.clear();
+  // The coordinator clears checkpoints only in the transaction that confirms
+  // status=ok. Exiting before IPC acknowledgment must not discard resume state.
   if (process.send) {
     await new Promise(resolve => process.send({ pipelineResult: { result } }, resolve));
   }

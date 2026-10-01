@@ -10,6 +10,37 @@ beforeEach(() => {
 });
 afterEach(() => db.close());
 const task = { kind: 'summary', entity: 7, hash: 'abc', version: '1.1' };
+
+test('checkpoints survive interruption and are cleared only with committed queue success', () => {
+  const job = q.enqueue(task, now);
+  const progress = require('./progress').createProgress(db, job.identity);
+  progress.save('completed', true);
+  q.claim(now);
+  q.finish(job.id, { deferred: true }, now);
+  expect(progress.load('completed')).toBe(true);
+  const later = new Date(now.getTime() + 10000);
+  q.claim(later);
+  q.finish(job.id, { error: 'ECONNRESET', transient: true }, later);
+  expect(progress.load('completed')).toBe(true);
+  q.claim(new Date(later.getTime() + 30 * 60000));
+  q.finish(job.id, { result: { ok: true } }, new Date(later.getTime() + 30 * 60000));
+  expect(q.get(job.id).status).toBe('ok');
+  expect(progress.load('completed')).toBeNull();
+});
+
+test('failed coordinator confirmation cannot discard checkpoints or partially record a run', () => {
+  const job = q.enqueue(task, now);
+  const progress = require('./progress').createProgress(db, job.identity);
+  progress.save('completed', true);
+  q.claim(now);
+  db.exec(
+    "CREATE TRIGGER fail_confirmation BEFORE UPDATE ON pipeline_jobs WHEN NEW.status='ok' BEGIN SELECT RAISE(ABORT,'interrupted confirmation'); END"
+  );
+  expect(() => q.finish(job.id, {}, now)).toThrow('interrupted confirmation');
+  expect(q.get(job.id).status).toBe('running');
+  expect(progress.load('completed')).toBe(true);
+  expect(db.prepare('SELECT COUNT(*) AS n FROM pipeline_runs').get().n).toBe(0);
+});
 test('health distinguishes historical budget backlog from pending current work', () => {
   const yesterday = new Date(now.getTime() - 2 * 86400000);
   q.enqueue({ ...task, historical: true }, yesterday);

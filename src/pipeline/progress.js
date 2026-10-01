@@ -32,6 +32,19 @@ function createProgress(db, namespace, { deadline = Date.now() + 8 * 60000 } = {
         .get(namespace, step);
       return row ? JSON.parse(row.value) : null;
     },
+    commit(write) {
+      // Canonical row and its cursor advance share one SQLite commit. A killed
+      // worker can neither skip an uncommitted row nor replay a committed one.
+      db.exec('BEGIN IMMEDIATE');
+      try {
+        const result = write();
+        db.exec('COMMIT');
+        return result;
+      } catch (error) {
+        db.exec('ROLLBACK');
+        throw error;
+      }
+    },
     save(step, value) {
       db.prepare(
         `INSERT INTO pipeline_progress VALUES (?, ?, ?)

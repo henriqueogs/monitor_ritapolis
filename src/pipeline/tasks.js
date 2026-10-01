@@ -104,11 +104,9 @@ async function execute(job, { progress } = {}) {
     return { planned: true };
   }
   if (job.kind === 'expenses') {
-    const stats = await new (require('../coletores/portal-transparencia'))().coletarDespesasJanela(
-      payload.ano,
-      payload.ini,
-      payload.fim
-    );
+    const collector = new (require('../coletores/portal-transparencia'))();
+    collector.progress = progress;
+    const stats = await collector.coletarDespesasJanela(payload.ano, payload.ini, payload.fim);
     if (stats.novos || stats.atualizados) {
       const repo = require('../db/transparencia-repo');
       repo.crosswalkDespesasDocumentos();
@@ -117,7 +115,9 @@ async function execute(job, { progress } = {}) {
     return stats;
   }
   if (job.kind === 'revenue') {
-    return new (require('../coletores/portal-transparencia'))().coletarReceitas(payload.ano);
+    const collector = new (require('../coletores/portal-transparencia'))();
+    collector.progress = progress;
+    return collector.coletarReceitas(payload.ano);
   }
   if (job.kind === 'collection') {
     const { buildCollectors } = require('../coletas/update-runner');
@@ -232,8 +232,12 @@ async function execute(job, { progress } = {}) {
   }
   if (job.kind === 'anexo-summary') {
     const target = require('../db/inteligencia-fatos-repo').getAnexoById(payload.anexoId);
-    if (!target || require('../ai/summarize-document').buildTextoHash(target.texto_completo) !== job.input_hash
-        || require('../ai/summarize-anexo').getAnexoSummaryVersion(target.texto_completo) !== job.version) {
+    if (
+      !target ||
+      require('../ai/summarize-document').buildTextoHash(target.texto_completo) !==
+        job.input_hash ||
+      require('../ai/summarize-anexo').getAnexoSummaryVersion(target.texto_completo) !== job.version
+    ) {
       return { skipped: true, reason: 'input_changed' };
     }
     const result = await require('../ai/summarize-anexo').summarizeAnexo(target, {

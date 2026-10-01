@@ -5,6 +5,7 @@ jest.mock('../logger', () => ({ info: jest.fn(), debug: jest.fn(), warn: jest.fn
 jest.mock('./base', () => class {
   constructor() { this.http = { defaults: {} }; }
   registrarErroItem() {}
+  completeItem() {}
 });
 jest.mock('../db/transparencia-repo', () => ({ getColetaLog: jest.fn(), upsertColetaLog: jest.fn(),
   crosswalkDespesasDocumentos: jest.fn(() => 0), enriquecerDetalhesComEmpenhos: jest.fn(() => 0) }));

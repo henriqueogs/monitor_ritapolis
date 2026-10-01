@@ -21,6 +21,7 @@ const {
 } = require('../db/transparencia-repo');
 const { coletarDespesasJanelaViaThread } = require('./portal-transparencia-thread-http');
 const { planCollectionYears } = require('../coletas/collection-cadence');
+const { checkpointInput, processRows } = require('./financial-resume');
 
 const BASE_URL = 'https://pt.ritapolis.mg.gov.br';
 
@@ -76,19 +77,19 @@ class ColetorPortalTransparencia extends ColetorBase {
   gerarJanelas(dataInicio, dataFim) {
     const janelas = [];
     const cursor = new Date(dataInicio);
-    cursor.setHours(0, 0, 0, 0);
+    cursor.setUTCHours(0, 0, 0, 0);
     const fim = new Date(dataFim);
-    fim.setHours(23, 59, 59, 999);
+    fim.setUTCHours(23, 59, 59, 999);
 
     while (cursor <= fim) {
       const ini = cursor.toISOString().slice(0, 10);
       const fimSemana = new Date(cursor);
-      fimSemana.setDate(fimSemana.getDate() + 6);
+      fimSemana.setUTCDate(fimSemana.getUTCDate() + 6);
       if (fimSemana > fim) {
         fimSemana.setTime(fim.getTime());
       }
       janelas.push({ ini, fim: fimSemana.toISOString().slice(0, 10) });
-      cursor.setDate(cursor.getDate() + 7);
+      cursor.setUTCDate(cursor.getUTCDate() + 7);
     }
     return janelas;
   }
@@ -106,7 +107,9 @@ class ColetorPortalTransparencia extends ColetorBase {
    * @returns {{ novos, atualizados, registros }}
    */
   async coletarDespesasJanela(exercicio, dataInicial, dataFinal) {
-    return coletarDespesasJanelaViaThread(exercicio, dataInicial, dataFinal);
+    return coletarDespesasJanelaViaThread(exercicio, dataInicial, dataFinal, {
+      progress: this.progress,
+    });
   }
 
   /**
@@ -115,55 +118,50 @@ class ColetorPortalTransparencia extends ColetorBase {
    * @returns {{ novos, atualizados, registros }}
    */
   async coletarReceitas(exercicio) {
-    const resultado = await this.fetchJson('/api/relatorios/orcamento_anual_de_receita', {
-      exercicio,
+    const key = `revenue:${exercicio}`;
+    const itens = await checkpointInput(this.progress, key, async () => {
+      const resultado = await this.fetchJson('/api/relatorios/orcamento_anual_de_receita', {
+        exercicio,
+      });
+      return resultado?.orcamentoAnualDeReceita || [];
     });
-
-    if (!resultado) {
-      return { novos: 0, atualizados: 0, registros: 0 };
-    }
-
-    const itens = resultado.orcamentoAnualDeReceita || [];
-    let novos = 0;
-    let atualizados = 0;
-    let semAlteracao = 0;
-
-    for (const item of itens) {
-      try {
-        const action = upsertReceita(exercicio, item);
-        if (action === 'inserted') {
-          novos++;
-        } else if (action === 'updated') {
-          atualizados++;
-        } else if (action === 'unchanged') {
-          semAlteracao++;
-        }
-      } catch (err) {
-        logger.warn('portal-transparencia: erro ao salvar receita', {
-          exercicio,
-          codigo: item?.codigoDaReceita,
-          erro: err.message,
-        });
-      }
-    }
-
-    return { novos, atualizados, semAlteracao, registros: itens.length };
+    return processRows(
+      this.progress,
+      key,
+      itens,
+      async item => item,
+      item => upsertReceita(exercicio, item)
+    );
   }
 
   async executar(resultado, { force = false } = {}) {
     const hoje = new Date();
-    const anoAtual = hoje.getUTCFullYear();
 
     let totalNovos = 0;
     let totalAtualizados = 0;
     let totalRegistros = 0;
 
-    const anosDespesas = planCollectionYears({ anoInicio: ANO_INICIO, now: hoje, force,
-      getLog: (ano) => getColetaLog('despesas', ano, null) });
+    const planned = this.progress?.load('financial-years') || {
+      through: hoje.toISOString().slice(0, 10),
+      despesas: planCollectionYears({
+        anoInicio: ANO_INICIO,
+        now: hoje,
+        force,
+        getLog: ano => getColetaLog('despesas', ano, null),
+      }),
+      receitas: planCollectionYears({
+        anoInicio: ANO_INICIO,
+        now: hoje,
+        force,
+        getLog: ano => getColetaLog('receitas', ano, null),
+      }),
+    };
+    this.progress?.save('financial-years', planned);
+    const anosDespesas = planned.despesas;
     for (const ano of anosDespesas) {
-
       const dataInicio = `${ano}-01-01`;
-      const dataFim = ano === anoAtual ? hoje.toISOString().slice(0, 10) : `${ano}-12-31`;
+      const dataFim =
+        ano === Number(planned.through.slice(0, 4)) ? planned.through : `${ano}-12-31`;
 
       const janelas = this.gerarJanelas(dataInicio, dataFim);
       let anoNovos = 0;
@@ -175,12 +173,32 @@ class ColetorPortalTransparencia extends ColetorBase {
       for (const janela of janelas) {
         try {
           logger.info('portal-transparencia: coletando despesas', { ano, janela });
-          const stats = await this.coletarDespesasJanela(ano, janela.ini, janela.fim);
+          const step = `expense-window-accounted:${ano}:${janela.ini}:${janela.fim}`;
+          let stats = this.progress?.load(step);
+          if (!stats) {
+            stats = await this.coletarDespesasJanela(ano, janela.ini, janela.fim);
+            const complete = () => {
+              resultado.itens_novos += stats.novos;
+              resultado.itens_atualizados += stats.atualizados;
+              resultado.itens_sem_alteracao =
+                (resultado.itens_sem_alteracao || 0) + (stats.semAlteracao || 0);
+              this.progress?.save(step, stats);
+              this.progress?.save('collector-result', resultado);
+            };
+            if (this.progress) {
+              this.progress.commit(complete);
+            } else {
+              complete();
+            }
+          }
           anoNovos += stats.novos;
           anoAtualizados += stats.atualizados;
           anoSemAlteracao += stats.semAlteracao || 0;
           anoRegistros += stats.registros;
         } catch (err) {
+          if (err.code === 'PIPELINE_YIELD') {
+            throw err;
+          }
           if ([401, 403].includes(Number(err?.response?.status))) {
             throw new Error(
               `Portal da Transparencia bloqueou a coleta: HTTP ${err.response.status}`
@@ -200,54 +218,78 @@ class ColetorPortalTransparencia extends ColetorBase {
       totalAtualizados += anoAtualizados;
       totalRegistros += anoRegistros;
 
-      upsertColetaLog({
-        tipo: 'despesas',
-        exercicio: ano,
-        mes: null,
-        registros: anoRegistros,
-        novos: anoNovos,
-        atualizados: anoAtualizados,
-        status: anoErros > 0 ? 'erro_parcial' : 'ok',
-        erro: anoErros > 0 ? `${anoErros} janelas com erro` : null,
-      });
+      const logStep = `expense-year-logged:${ano}`;
+      if (!this.progress?.load(logStep)) {
+        upsertColetaLog({
+          tipo: 'despesas',
+          exercicio: ano,
+          mes: null,
+          registros: anoRegistros,
+          novos: anoNovos,
+          atualizados: anoAtualizados,
+          status: anoErros > 0 ? 'erro_parcial' : 'ok',
+          erro: anoErros > 0 ? `${anoErros} janelas com erro` : null,
+        });
 
-      resultado.itens_sem_alteracao = (resultado.itens_sem_alteracao || 0) + anoSemAlteracao;
-      resultado.detalhes.push({ tipo: 'despesas', ano, registros: anoRegistros, novos: anoNovos,
-        atualizados: anoAtualizados, sem_alteracao: anoSemAlteracao });
+        resultado.detalhes.push({
+          tipo: 'despesas',
+          ano,
+          registros: anoRegistros,
+          novos: anoNovos,
+          atualizados: anoAtualizados,
+          sem_alteracao: anoSemAlteracao,
+        });
+        if (!anoErros) {
+          this.completeItem(logStep, resultado);
+        }
+      }
     }
-
-    resultado.itens_novos += totalNovos;
-    resultado.itens_atualizados += totalAtualizados;
 
     // Receitas: orçamento anual previsto
     logger.info('portal-transparencia: coletando orçamento de receitas');
-    const anosReceitas = planCollectionYears({ anoInicio: ANO_INICIO, now: hoje, force,
-      getLog: (ano) => getColetaLog('receitas', ano, null) });
+    const anosReceitas = planned.receitas;
     for (const ano of anosReceitas) {
+      const step = `revenue-year-accounted:${ano}`;
+      if (this.progress?.load(step)) {
+        continue;
+      }
       try {
         const stats = await this.coletarReceitas(ano);
-        upsertColetaLog({
-          tipo: 'receitas',
-          exercicio: ano,
-          mes: null,
-          registros: stats.registros,
-          novos: stats.novos,
-          atualizados: stats.atualizados,
-          status: 'ok',
-          erro: null,
-        });
-        resultado.detalhes.push({
-          tipo: 'receitas',
-          ano,
-          registros: stats.registros,
-          novos: stats.novos,
-          atualizados: stats.atualizados,
-          sem_alteracao: stats.semAlteracao || 0,
-        });
-        resultado.itens_novos += stats.novos;
-        resultado.itens_atualizados += stats.atualizados;
-        resultado.itens_sem_alteracao = (resultado.itens_sem_alteracao || 0) + (stats.semAlteracao || 0);
+        const complete = () => {
+          upsertColetaLog({
+            tipo: 'receitas',
+            exercicio: ano,
+            mes: null,
+            registros: stats.registros,
+            novos: stats.novos,
+            atualizados: stats.atualizados,
+            status: 'ok',
+            erro: null,
+          });
+          resultado.detalhes.push({
+            tipo: 'receitas',
+            ano,
+            registros: stats.registros,
+            novos: stats.novos,
+            atualizados: stats.atualizados,
+            sem_alteracao: stats.semAlteracao || 0,
+          });
+          resultado.itens_novos += stats.novos;
+          resultado.itens_atualizados += stats.atualizados;
+          resultado.itens_sem_alteracao =
+            (resultado.itens_sem_alteracao || 0) + (stats.semAlteracao || 0);
+          this.completeItem(step, resultado);
+        };
+        if (this.progress) {
+          this.progress.commit(complete);
+        } else {
+          complete();
+        }
       } catch (err) {
+        if (err.code === 'PIPELINE_YIELD') {
+          throw err;
+        }
+        this.registrarErroItem(resultado, { tipo: 'receitas', ano }, err);
         logger.warn('portal-transparencia: erro ao coletar receitas', { ano, erro: err.message });
         upsertColetaLog({
           tipo: 'receitas',
