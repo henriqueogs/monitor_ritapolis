@@ -17,9 +17,9 @@ export default function ResultadoGlobal({ global, documento }) {
               Vencedor: <VencedorLink nome={global.fornecedor_nome} cnpj={global.fornecedor_cnpj} />
             </span>
           ) : null}
-          <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
-            <FonteLink anexoOrigemId={global.anexo_origem_id} urlPdf={documento?.url_pdf} urlOrigem={documento?.url_origem} />
-          </p>
+          <div style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
+            <FonteLink anexoOrigemId={global.anexo_origem_id} fonte={global.fonte} trechoFonte={global.trecho_fonte} urlPdf={documento?.url_pdf} urlOrigem={documento?.url_origem} />
+          </div>
         </div>
         <strong style={{ fontVariantNumeric: 'tabular-nums' }}>
           {global.valor != null ? formatMoney(global.valor) : '—'}

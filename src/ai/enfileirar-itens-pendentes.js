@@ -11,12 +11,12 @@ const {
   getUltimoItensEstruturadosPorDocumento,
   createItensEstruturacaoJob,
 } = require('../db/itens-estruturacao-jobs-repo');
-const { listarAtasDoDocumento, computeTextoHash, CONTRACT_VERSION } = require('./estruturar-itens-processo');
+const { listarAtasDoDocumento, computeInputHash, CONTRACT_VERSION, assessItemsResult } = require('./estruturar-itens-processo');
 const { createAiProvider } = require('./providers');
 
-function jaProcessadoComTextoAtual(documentoId, textoHash) {
-  const ultimo = getUltimoItensEstruturadosPorDocumento(documentoId);
-  return Boolean(ultimo && ultimo.texto_hash === textoHash);
+function jaProcessadoComTextoAtual(documento, atas) {
+  const ultimo = getUltimoItensEstruturadosPorDocumento(documento.id);
+  return assessItemsResult(ultimo, documento, atas).valid;
 }
 
 async function enfileirarItensPendentes({
@@ -37,9 +37,9 @@ async function enfileirarItensPendentes({
 
   for (const documento of candidatos) {
     const atas = listarAtasDoDocumento(documento.id);
-    const textoHash = computeTextoHash(documento, atas);
+    const textoHash = computeInputHash(documento, atas);
 
-    if (!force && jaProcessadoComTextoAtual(documento.id, textoHash)) {
+    if (!force && jaProcessadoComTextoAtual(documento, atas)) {
       jaProcessados.push({ documento_id: documento.id });
       continue;
     }

@@ -16,11 +16,13 @@ import ResultadoGlobal from './itens/ResultadoGlobal';
  * o detalhamento fica visível só em modo interno — o público vê apenas a
  * contagem, nunca dado incerto como se fosse fato (§11).
  */
-function PlaceholderPublico({ totalLinhas }) {
+function PlaceholderPublico({ totalLinhas, verificacaoPendente = false }) {
   return (
     <SectionBlock title="Itens deste processo">
       <p className="empty-state">
-        {totalLinhas > 0
+        {verificacaoPendente
+          ? 'O detalhamento dos itens aguarda leitura integral e verificação na fonte atual. Isso não significa ausência de itens ou de resultado na fonte oficial.'
+          : totalLinhas > 0
           ? `Este processo tem ${totalLinhas} linha${totalLinhas === 1 ? '' : 's'} de itens/resultado na fonte, mas o detalhamento ainda está em revisão de qualidade antes de ser publicado.`
           : 'Nenhum item estruturado para este documento.'}
       </p>
@@ -56,8 +58,8 @@ function DetalhamentoInterno({ estrutura, documento }) {
 
       {cobertura?.so_demanda ? (
         <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text-muted)' }}>
-          O resultado da licitação (vencedores e valores) ainda não foi publicado pela fonte — abaixo,
-          apenas o que foi solicitado no edital.
+          Não foi identificado resultado verificável na extração atual — abaixo,
+          apenas o que foi solicitado no edital. Confira os anexos oficiais.
         </p>
       ) : null}
 
@@ -98,8 +100,8 @@ function DetalhamentoPublicoIA({ estrutura, documento }) {
 
       {cobertura?.so_demanda ? (
         <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text-muted)' }}>
-          O resultado da licitação (vencedores e valores) ainda não foi publicado pela fonte — abaixo,
-          apenas o que foi solicitado no edital.
+          Não foi identificado resultado verificável na extração atual — abaixo,
+          apenas o que foi solicitado no edital. Confira os anexos oficiais.
         </p>
       ) : null}
 
@@ -128,6 +130,9 @@ function DetalhamentoPublicoIA({ estrutura, documento }) {
 export default function LicitationProducts({ produtos, documento }) {
   const estrutura = produtos?.estrutura;
   const totalLinhas = (produtos?.dados || []).length;
+  if (estrutura?.cobertura?.verificacao_pendente) {
+    return <PlaceholderPublico totalLinhas={0} verificacaoPendente />;
+  }
 
   // Extração via IA (Fase G) já passou pelo gate de confiança no read-model
   // (produtos-repo.js) — pode ser exibida direto ao público, sem admin-only.

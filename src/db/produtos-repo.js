@@ -11,6 +11,8 @@ const { likeParam } = require('./documentos-repo');
 const { normalizeText } = require('../utils/text');
 const { montarItensProcesso, montarItensProcessoDeIA } = require('../licitacoes/itens-processo-view');
 const { getUltimoItensEstruturadosPorDocumento } = require('./itens-estruturacao-jobs-repo');
+const { assessItemsResult } = require('../ai/itens-processo-evidence');
+const { listarAnexosDocumento } = require('./inteligencia-fatos-repo');
 
 // Abaixo disso, a reextração via IA fica tão incerta quanto a heurística que
 // substitui — melhor manter o fallback do que expor um resultado raso.
@@ -196,6 +198,8 @@ function getLicitacaoProdutosByDocumentoId(documentoId) {
   const valoresProcesso = { valorFinalProcesso: detalhes?.valor_final ?? null, valorFinalOrigem: detalhes?.origem ?? null };
 
   const itensIA = getUltimoItensEstruturadosPorDocumento(documentoId);
+  const documento = db.prepare('SELECT * FROM documentos WHERE id = ?').get(Number(documentoId));
+  const assessment = assessItemsResult(itensIA, documento, listarAnexosDocumento(documentoId));
   // Gate de confiança só vale quando a IA devolveu CONTEÚDO — um resultado
   // vazio ("não há tabela de itens") não expõe dado nenhum, então é sempre
   // preferível ao placeholder eterno / fallback heurístico (que pode ter lixo).
@@ -203,17 +207,23 @@ function getLicitacaoProdutosByDocumentoId(documentoId) {
     !itensIA.itens_json.itens_solicitados?.length &&
     !itensIA.itens_json.resultado_lotes?.length &&
     !itensIA.itens_json.resultado_global;
-  const usaIA = itensIA?.status === 'ok' &&
+  const usaIA = assessment.valid && itensIA?.status === 'ok' &&
     (iaVazia || Number(itensIA.confianca) >= CONFIANCA_MINIMA_IA);
 
+  // Never fall back to an unrelated heuristic after detecting a stale or
+  // incompletely read AI result. Preserve stored rows for audit, hide the
+  // unverified public projection (including the legacy flat payload).
+  const blocked = Boolean(itensIA && !usaIA);
   const estrutura = usaIA
-    ? montarItensProcessoDeIA(itensIA.itens_json, valoresProcesso)
-    : { ...montarItensProcesso(resultado.dados, valoresProcesso) };
+    ? montarItensProcessoDeIA(assessment.data, valoresProcesso)
+    : { ...montarItensProcesso(blocked ? [] : resultado.dados, valoresProcesso) };
   if (!usaIA) {
-    estrutura.cobertura = { ...estrutura.cobertura, origem_estrutura: 'heuristica' };
+    estrutura.cobertura = { ...estrutura.cobertura, origem_estrutura: blocked ? 'aguardando_verificacao' : 'heuristica',
+      ...(blocked ? { verificacao_pendente: true, motivo: assessment.reason,
+        lacunas: ['Itens aguardam leitura integral e verificacao na fonte atual.'] } : {}) };
   }
-
-  return { ...resultado, estrutura };
+  if (usaIA) { estrutura.cobertura.leitura_integral = true; }
+  return { ...resultado, ...(blocked ? { dados: [], total: 0 } : {}), estrutura };
 }
 
 function getLicitacaoProdutosResumo(documentoId) {

@@ -13,11 +13,11 @@ const {
   recoverStaleItensEstruturacaoJobs,
 } = require('../db/itens-estruturacao-jobs-repo');
 const { getDocumentoById } = require('../db/index');
-const { estruturarItensProcesso } = require('./estruturar-itens-processo');
+const { estruturarItensProcesso, computeInputHash, listarAtasDoDocumento, CONTRACT_VERSION } = require('./estruturar-itens-processo');
 
 let workerRunning = false;
 
-async function processJob(job) {
+async function processJob(job, { progress } = {}) {
   const lockedJob = markItensEstruturacaoJobProcessing(job.id);
   if (!lockedJob || lockedJob.status !== 'processando') {
     return;
@@ -30,16 +30,21 @@ async function processJob(job) {
     }
 
     logger.info('Processando job de estruturacao de itens', { jobId: lockedJob.id, documentoId: lockedJob.documento_id });
-    const resultado = await estruturarItensProcesso(documento);
+    if (lockedJob.contrato_versao !== CONTRACT_VERSION || lockedJob.texto_hash !== computeInputHash(documento, listarAtasDoDocumento(documento.id))) {
+      throw new Error('Itens: job desatualizado; selecionar somente a fonte atual');
+    }
+    const resultado = await estruturarItensProcesso(documento, { progress, force: Boolean(lockedJob.force) });
     finishItensEstruturacaoJobOk(lockedJob.id, resultado.id);
     logger.info('Job de estruturacao de itens concluido', { jobId: lockedJob.id, documentoId: lockedJob.documento_id });
   } catch (error) {
+    if (error.code === 'PIPELINE_YIELD') { throw error; }
     finishItensEstruturacaoJobError(lockedJob.id, error.message);
     logger.error('Job de estruturacao de itens falhou', {
       jobId: lockedJob.id,
       documentoId: lockedJob.documento_id,
       erro: error.message,
     });
+    if (progress) { throw error; }
   }
 }
 

@@ -30,6 +30,15 @@ describe('itens-estruturacao-jobs-repo', () => {
   });
 
   describe('salvarItensEstruturados (resultado)', () => {
+    it('does not write identical content or bump timestamp on a retry', () => {
+      const value = { documento_id: 5, provider: 'nvidia', modelo: 'test', contrato_versao: 'v-test',
+        texto_hash: 'stable', itens_json: { stable: true }, confianca: 0.8 };
+      const first = repo.salvarItensEstruturados(value);
+      mockConn.prepare('UPDATE documentos_itens_estruturados SET atualizado_em=? WHERE id=?').run('2026-01-01T00:00:00Z', first.id);
+      const updated = repo.salvarItensEstruturados(value);
+      expect(updated.atualizado_em).toBe('2026-01-01T00:00:00Z');
+      expect(mockConn.prepare('SELECT changes() AS n').get().n).toBe(0);
+    });
     it('grava e relê itens_json parseado', () => {
       const r = repo.salvarItensEstruturados({
         documento_id: 5,

@@ -24,7 +24,7 @@ export default function ItensSolicitados({ itens, documento }) {
         {itens.map((it, index) => (
           <div key={it.id ?? `${it.item_numero || ''}|${it.descricao}|${index}`} className="table-row" style={{ display: 'grid', gridTemplateColumns: '48px 1fr 120px 150px', gap: 12, alignItems: 'start', padding: '10px 0' }}>
             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{it.item_numero || '—'}</span>
-            <span style={{ minWidth: 0 }}>
+            <div style={{ minWidth: 0 }}>
               <span style={{ fontSize: 13, display: 'block' }}>{it.descricao}</span>
               {it.quantidade != null ? (
                 <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
@@ -36,7 +36,8 @@ export default function ItensSolicitados({ itens, documento }) {
                   evolução de preço deste item →
                 </a>
               ) : null}
-            </span>
+              {it.trecho_fonte ? <FonteLink fonte={it.fonte} trechoFonte={it.trecho_fonte} urlPdf={documento?.url_pdf} urlOrigem={documento?.url_origem} /> : null}
+            </div>
             <span style={{ fontSize: 13, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'var(--text-muted)' }}>
               {it.valor_estimado != null ? formatMoney(it.valor_estimado) : '—'}
             </span>

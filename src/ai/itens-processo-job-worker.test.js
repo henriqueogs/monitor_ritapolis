@@ -8,27 +8,32 @@ jest.mock('../db/itens-estruturacao-jobs-repo', () => ({
   recoverStaleItensEstruturacaoJobs: jest.fn().mockReturnValue({ recovered: 0 }),
 }));
 jest.mock('../db/index', () => ({ getDocumentoById: jest.fn() }));
-jest.mock('./estruturar-itens-processo', () => ({ estruturarItensProcesso: jest.fn() }));
+jest.mock('./estruturar-itens-processo', () => ({ estruturarItensProcesso: jest.fn(),
+  CONTRACT_VERSION: 'itens-processo-v1.1-full', computeInputHash: () => 'hash', listarAtasDoDocumento: () => [] }));
 
 const repo = require('../db/itens-estruturacao-jobs-repo');
 const { getDocumentoById } = require('../db/index');
 const { estruturarItensProcesso } = require('./estruturar-itens-processo');
-const { runPendingItensEstruturacaoJobs } = require('./itens-processo-job-worker');
+const { runPendingItensEstruturacaoJobs, processJob } = require('./itens-processo-job-worker');
 
 describe('itens-processo-job-worker', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    repo.markItensEstruturacaoJobProcessing.mockImplementation((id) => ({ id, documento_id: 5,
+      status: 'processando', contrato_versao: 'itens-processo-v1.1-full', texto_hash: 'hash' }));
+  });
 
   it('processa um job pendente até o fim (ok)', async () => {
     repo.getNextPendingItensEstruturacaoJob
       .mockReturnValueOnce({ id: 1, documento_id: 5, status: 'pendente' })
       .mockReturnValueOnce(null);
-    repo.markItensEstruturacaoJobProcessing.mockReturnValue({ id: 1, documento_id: 5, status: 'processando' });
+    repo.markItensEstruturacaoJobProcessing.mockReturnValue({ id: 1, documento_id: 5, status: 'processando', contrato_versao: 'itens-processo-v1.1-full', texto_hash: 'hash' });
     getDocumentoById.mockReturnValue({ id: 5, texto_completo: 'edital' });
     estruturarItensProcesso.mockResolvedValue({ id: 77 });
 
     await runPendingItensEstruturacaoJobs();
 
-    expect(estruturarItensProcesso).toHaveBeenCalledWith({ id: 5, texto_completo: 'edital' });
+    expect(estruturarItensProcesso).toHaveBeenCalledWith({ id: 5, texto_completo: 'edital' }, { progress: undefined, force: false });
     expect(repo.finishItensEstruturacaoJobOk).toHaveBeenCalledWith(1, 77);
     expect(repo.finishItensEstruturacaoJobError).not.toHaveBeenCalled();
   });
@@ -37,7 +42,7 @@ describe('itens-processo-job-worker', () => {
     repo.getNextPendingItensEstruturacaoJob
       .mockReturnValueOnce({ id: 2, documento_id: 605, status: 'pendente' })
       .mockReturnValueOnce(null);
-    repo.markItensEstruturacaoJobProcessing.mockReturnValue({ id: 2, documento_id: 605, status: 'processando' });
+    repo.markItensEstruturacaoJobProcessing.mockReturnValue({ id: 2, documento_id: 605, status: 'processando', contrato_versao: 'itens-processo-v1.1-full', texto_hash: 'hash' });
     getDocumentoById.mockReturnValue({ id: 605, texto_completo: 'cronograma' });
     estruturarItensProcesso.mockRejectedValue(new Error('fora do contrato'));
 
@@ -50,7 +55,7 @@ describe('itens-processo-job-worker', () => {
       .mockReturnValueOnce({ id: 1, documento_id: 5, status: 'pendente' })
       .mockReturnValueOnce({ id: 2, documento_id: 6, status: 'pendente' })
       .mockReturnValueOnce(null);
-    repo.markItensEstruturacaoJobProcessing.mockImplementation((id) => ({ id, status: 'processando' }));
+    repo.markItensEstruturacaoJobProcessing.mockImplementation((id) => ({ id, documento_id: 5, status: 'processando', contrato_versao: 'itens-processo-v1.1-full', texto_hash: 'hash' }));
     getDocumentoById.mockReturnValue({ id: 5, texto_completo: 't' });
     estruturarItensProcesso.mockResolvedValue({ id: 1 });
 
@@ -63,6 +68,15 @@ describe('itens-processo-job-worker', () => {
     repo.getNextPendingItensEstruturacaoJob.mockReturnValue(null);
     await runPendingItensEstruturacaoJobs();
     expect(estruturarItensProcesso).not.toHaveBeenCalled();
+  });
+  it('yield preserves the existing job and checkpoints without declaring a failure or success', async () => {
+    const progress = { load: jest.fn() };
+    getDocumentoById.mockReturnValue({ id: 5, texto_completo: 'Fonte' });
+    const error = new Error('continuar'); error.code = 'PIPELINE_YIELD';
+    estruturarItensProcesso.mockRejectedValue(error);
+    await expect(processJob({ id: 1 }, { progress })).rejects.toBe(error);
+    expect(repo.finishItensEstruturacaoJobError).not.toHaveBeenCalled();
+    expect(repo.finishItensEstruturacaoJobOk).not.toHaveBeenCalled();
   });
 
   it('job travado (markProcessing retorna status != processando) é ignorado', async () => {

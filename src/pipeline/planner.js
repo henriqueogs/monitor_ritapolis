@@ -161,14 +161,13 @@ function planDocument(queue, doc, now = new Date()) {
   }
   if (doc.tipo === 'edital') {
     const items = require('../ai/estruturar-itens-processo');
-    const itemHash = items.computeTextoHash(doc, items.listarAtasDoDocumento(doc.id));
+    const itemSources = items.listarAtasDoDocumento(doc.id);
+    const itemHash = items.computeInputHash(doc, itemSources);
     const cachedItems =
       require('../db/itens-estruturacao-jobs-repo').getUltimoItensEstruturadosPorDocumento(doc.id);
-    if (cachedItems?.texto_hash !== itemHash) {
+    if (!items.assessItemsResult(cachedItems, doc, itemSources).valid) {
       const job = task('items', itemHash, {}, 3, items.CONTRACT_VERSION);
-      if (job.status !== 'ok') {
-        return job;
-      }
+      return job;
     }
     const payload = api.buildLicitacaoLeituraIntegradaPayload(doc.id);
     if (api.getResumoAiByDocumentoHash(doc.id, payload.texto_hash, '2.0')?.status !== 'ok') {
