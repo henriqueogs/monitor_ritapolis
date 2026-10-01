@@ -10,6 +10,16 @@ beforeEach(() => {
 });
 afterEach(() => db.close());
 const task = { kind: 'summary', entity: 7, hash: 'abc', version: '1.1' };
+test('checkpoint continuation remains pending without consuming failure attempts or losing time budget', () => {
+  const a = q.enqueue({ ...task, historical: true }, now);
+  q.claim(now);
+  const end = new Date(now.getTime() + 8 * 60000);
+  q.finish(a.id, { deferred: true }, end);
+  expect(q.get(a.id)).toMatchObject({ status: 'pending', attempts: 0, error: null });
+  expect(q.claim(end)).toBeNull();
+  expect(q.claim(new Date(end.getTime() + 10000)).id).toBe(a.id);
+  expect(db.prepare('SELECT SUM(duration_ms) AS ms FROM pipeline_runs').get().ms).toBe(8 * 60000);
+});
 test('same entity/stage/content/contract queues exactly once, including after restart', () => {
   const a = q.enqueue(task, now);
   expect(createQueue(db).enqueue(task, now).id).toBe(a.id);

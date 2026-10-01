@@ -16,7 +16,11 @@ const LIMITE_MAX = 100;
 const EXERCICIO_NAO_APLICAVEL = -1;
 
 function hashProjeto(intPrjt, situacao, localizacao) {
-  return crypto.createHash('sha256').update(`${intPrjt}|${situacao}|${localizacao}`).digest('hex').slice(0, 16);
+  return crypto
+    .createHash('sha256')
+    .update(`${intPrjt}|${situacao}|${localizacao}`)
+    .digest('hex')
+    .slice(0, 16);
 }
 
 const upsertVereadorStmt = db.prepare(`
@@ -25,6 +29,7 @@ const upsertVereadorStmt = db.prepare(`
   ON CONFLICT (int_pes) DO UPDATE SET
     nome = excluded.nome,
     atualizado_em = CURRENT_TIMESTAMP
+  WHERE nome IS NOT excluded.nome
 `);
 
 /** @returns {'inserted'|'updated'|null} */
@@ -32,9 +37,11 @@ function upsertVereador({ intPes, nome }) {
   if (!intPes || !nome) {
     return null;
   }
-  const existing = db.prepare('SELECT int_pes FROM camara_vereadores WHERE int_pes = ?').get(Number(intPes));
-  upsertVereadorStmt.run({ int_pes: Number(intPes), nome: String(nome).trim() });
-  return existing ? 'updated' : 'inserted';
+  const existing = db
+    .prepare('SELECT int_pes FROM camara_vereadores WHERE int_pes = ?')
+    .get(Number(intPes));
+  const result = upsertVereadorStmt.run({ int_pes: Number(intPes), nome: String(nome).trim() });
+  return !existing ? 'inserted' : result.changes ? 'updated' : 'unchanged';
 }
 
 const upsertMandatoStmt = db.prepare(`
@@ -43,6 +50,7 @@ const upsertMandatoStmt = db.prepare(`
   ON CONFLICT (int_pes, periodo_inicio) DO UPDATE SET
     periodo_fim = excluded.periodo_fim,
     partido = excluded.partido
+  WHERE periodo_fim IS NOT excluded.periodo_fim OR partido IS NOT excluded.partido
 `);
 
 function upsertMandato({ intPes, periodoInicio, periodoFim, partido }) {
@@ -67,6 +75,7 @@ const upsertProjetoStmt = db.prepare(`
     @ementa, @situacao, @localizacao, @anexo_url, @anexo_nome, @hash_projeto
   )
   ON CONFLICT (int_prjt) DO UPDATE SET
+    c_org = excluded.c_org,
     tipo = excluded.tipo,
     numero = excluded.numero,
     exercicio = excluded.exercicio,
@@ -79,6 +88,12 @@ const upsertProjetoStmt = db.prepare(`
     anexo_nome = excluded.anexo_nome,
     hash_projeto = excluded.hash_projeto,
     atualizado_em = CURRENT_TIMESTAMP
+  WHERE c_org IS NOT excluded.c_org OR tipo IS NOT excluded.tipo
+    OR numero IS NOT excluded.numero OR exercicio IS NOT excluded.exercicio
+    OR autor_texto IS NOT excluded.autor_texto OR origem IS NOT excluded.origem
+    OR ementa IS NOT excluded.ementa OR situacao IS NOT excluded.situacao
+    OR localizacao IS NOT excluded.localizacao OR anexo_url IS NOT excluded.anexo_url
+    OR anexo_nome IS NOT excluded.anexo_nome OR hash_projeto IS NOT excluded.hash_projeto
 `);
 
 /** @returns {'inserted'|'updated'|null} */
@@ -88,9 +103,11 @@ function upsertProjeto(p) {
     return null;
   }
 
-  const existing = db.prepare('SELECT int_prjt FROM camara_projetos WHERE int_prjt = ?').get(intPrjt);
+  const existing = db
+    .prepare('SELECT int_prjt FROM camara_projetos WHERE int_prjt = ?')
+    .get(intPrjt);
 
-  upsertProjetoStmt.run({
+  const result = upsertProjetoStmt.run({
     int_prjt: intPrjt,
     c_org: p.cOrg || 'P',
     tipo: p.tipo || null,
@@ -106,62 +123,97 @@ function upsertProjeto(p) {
     hash_projeto: hashProjeto(intPrjt, p.situacao, p.localizacao),
   });
 
-  return existing ? 'updated' : 'inserted';
+  return !existing ? 'inserted' : result.changes ? 'updated' : 'unchanged';
 }
 
 function getProjetos({ exercicio, situacao, tipo, origem, pagina = 1, limite = 30 } = {}) {
   const filters = [];
   const params = [];
-  if (exercicio) { filters.push('exercicio = ?'); params.push(Number(exercicio)); }
-  if (situacao) { filters.push('situacao = ?'); params.push(situacao); }
-  if (tipo) { filters.push('tipo = ?'); params.push(tipo); }
-  if (origem) { filters.push('origem = ?'); params.push(origem); }
+  if (exercicio) {
+    filters.push('exercicio = ?');
+    params.push(Number(exercicio));
+  }
+  if (situacao) {
+    filters.push('situacao = ?');
+    params.push(situacao);
+  }
+  if (tipo) {
+    filters.push('tipo = ?');
+    params.push(tipo);
+  }
+  if (origem) {
+    filters.push('origem = ?');
+    params.push(origem);
+  }
   const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
 
   const limiteReal = Math.min(Math.max(1, Number(limite) || 30), LIMITE_MAX);
   const offset = (Math.max(1, Number(pagina) || 1) - 1) * limiteReal;
 
   const total = db.prepare(`SELECT COUNT(*) AS n FROM camara_projetos ${where}`).get(...params).n;
-  const dados = db.prepare(`
+  const dados = db
+    .prepare(
+      `
     SELECT int_prjt, c_org, tipo, numero, exercicio, autor_texto, origem,
            ementa, situacao, localizacao, anexo_url, anexo_nome, coletado_em
     FROM camara_projetos
     ${where}
     ORDER BY int_prjt DESC
     LIMIT ? OFFSET ?
-  `).all(...params, limiteReal, offset);
+  `
+    )
+    .all(...params, limiteReal, offset);
 
   return { total, pagina: Number(pagina) || 1, limite: limiteReal, dados };
 }
 
 function getProjetoDossie(intPrjt) {
-  return db.prepare('SELECT * FROM camara_projetos WHERE int_prjt = ?').get(Number(intPrjt)) || null;
+  return (
+    db.prepare('SELECT * FROM camara_projetos WHERE int_prjt = ?').get(Number(intPrjt)) || null
+  );
 }
 
 function getVereadores() {
-  return db.prepare(`
+  return db
+    .prepare(
+      `
     SELECT v.int_pes, v.nome,
            (SELECT partido FROM camara_mandatos m WHERE m.int_pes = v.int_pes ORDER BY periodo_inicio DESC LIMIT 1) AS partido_atual,
            (SELECT periodo_fim FROM camara_mandatos m WHERE m.int_pes = v.int_pes ORDER BY periodo_inicio DESC LIMIT 1) AS mandato_fim
     FROM camara_vereadores v
     ORDER BY v.nome ASC
-  `).all();
+  `
+    )
+    .all();
 }
 
 function getVereadorDossie(intPes) {
-  const vereador = db.prepare('SELECT * FROM camara_vereadores WHERE int_pes = ?').get(Number(intPes));
+  const vereador = db
+    .prepare('SELECT * FROM camara_vereadores WHERE int_pes = ?')
+    .get(Number(intPes));
   if (!vereador) {
     return null;
   }
-  const mandatos = db.prepare(
-    'SELECT periodo_inicio, periodo_fim, partido FROM camara_mandatos WHERE int_pes = ? ORDER BY periodo_inicio DESC'
-  ).all(Number(intPes));
+  const mandatos = db
+    .prepare(
+      'SELECT periodo_inicio, periodo_fim, partido FROM camara_mandatos WHERE int_pes = ? ORDER BY periodo_inicio DESC'
+    )
+    .all(Number(intPes));
   return { ...vereador, mandatos };
 }
 
-function upsertCamaraColetaLog({ tipo, exercicio = null, registros, novos, atualizados, status, erro = null }) {
+function upsertCamaraColetaLog({
+  tipo,
+  exercicio = null,
+  registros,
+  novos,
+  atualizados,
+  status,
+  erro = null,
+}) {
   const exercicioVal = exercicio ?? EXERCICIO_NAO_APLICAVEL;
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO camara_coletas_log (tipo, exercicio, registros, novos, atualizados, status, erro, coletado_em)
     VALUES (@tipo, @exercicio, @registros, @novos, @atualizados, @status, @erro, CURRENT_TIMESTAMP)
     ON CONFLICT (tipo, exercicio) DO UPDATE SET
@@ -171,12 +223,25 @@ function upsertCamaraColetaLog({ tipo, exercicio = null, registros, novos, atual
       status = excluded.status,
       erro = excluded.erro,
       coletado_em = CURRENT_TIMESTAMP
-  `).run({ tipo, exercicio: exercicioVal, registros: registros || 0, novos: novos || 0, atualizados: atualizados || 0, status, erro });
+  `
+  ).run({
+    tipo,
+    exercicio: exercicioVal,
+    registros: registros || 0,
+    novos: novos || 0,
+    atualizados: atualizados || 0,
+    status,
+    erro,
+  });
 }
 
 function getCamaraColetaLog(tipo, exercicio = null) {
   const exercicioVal = exercicio ?? EXERCICIO_NAO_APLICAVEL;
-  return db.prepare('SELECT * FROM camara_coletas_log WHERE tipo = ? AND exercicio = ?').get(tipo, exercicioVal) || null;
+  return (
+    db
+      .prepare('SELECT * FROM camara_coletas_log WHERE tipo = ? AND exercicio = ?')
+      .get(tipo, exercicioVal) || null
+  );
 }
 
 module.exports = {

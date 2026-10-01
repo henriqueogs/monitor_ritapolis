@@ -11,7 +11,9 @@ async function main() {
   if (!job || job.status !== 'running') {
     throw new Error('Job nao esta em execucao');
   }
-  const result = await execute(job);
+  const progress = require('../src/pipeline/progress').createProgress(db, job.identity);
+  const result = await execute(job, { progress });
+  progress.clear();
   if (process.send) {
     await new Promise(resolve => process.send({ pipelineResult: { result } }, resolve));
   }
@@ -22,7 +24,12 @@ main()
     if (process.send) {
       await new Promise(resolve =>
         process.send(
-          { pipelineResult: { error: error.message, transient: transientError(error.message) } },
+          {
+            pipelineResult:
+              error.code === 'PIPELINE_YIELD'
+                ? { deferred: true }
+                : { error: error.message, transient: transientError(error.message) },
+          },
           resolve
         )
       );

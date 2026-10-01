@@ -10,6 +10,7 @@ const logger = require('../logger');
 let queue;
 let timer;
 let child;
+let childJob;
 let planningAt = 0;
 let stopping = false;
 function killWorker(worker) {
@@ -103,6 +104,7 @@ function run(job) {
     }
   );
   child = worker;
+  childJob = job;
   const timeout = setTimeout(() => {
     outcome = { error: 'timeout: tarefa excedeu 10 minutos', transient: true };
     killWorker(worker);
@@ -118,9 +120,14 @@ function run(job) {
   worker.once('exit', code => {
     clearTimeout(timeout);
     child = null;
-    const result = outcome || { error: `worker_interrupted (exit ${code})`, transient: true };
+    childJob = null;
+    const result =
+      outcome ||
+      (stopping
+        ? { deferred: true }
+        : { error: `worker_interrupted (exit ${code})`, transient: true });
     getQueue().finish(job.id, result);
-    if (!result.error) {
+    if (!result.error && !result.deferred) {
       require('../services/cache-registry').invalidarTodos();
       if (job.kind === 'backup') {
         getQueue().setMeta('backup', result.result);
@@ -139,7 +146,7 @@ function run(job) {
         }
       }
       planningAt = 0;
-    } else {
+    } else if (result.error) {
       logger.warn('Pipeline: tarefa falhou', { id: job.id, kind: job.kind, error: result.error });
     }
     if (!stopping) {
@@ -183,6 +190,9 @@ function stop() {
   timer = null;
   if (child) {
     killWorker(child);
+    // Planned deploy shutdown is continuation, not a crash or an eleven-minute
+    // stale lease. Committed checkpoints stay in the same job namespace.
+    getQueue().finish(childJob.id, { deferred: true });
   }
 }
 module.exports = {

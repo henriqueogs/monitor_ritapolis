@@ -47,6 +47,15 @@ function proxyCollectorRequest({ method, url, data, options = {}, env = process.
 }
 
 function isRetryableCollectorError(error) {
+  // Retrying a 50 MB response cannot make it smaller; preserve the security
+  // cap and report the item for review instead of downloading it three times.
+  if (
+    /maxContentLength|maxBodyLength|excede o limite|ERR_RESPONSE_TOO_LARGE/i.test(
+      String(error?.message)
+    )
+  ) {
+    return false;
+  }
   const status = Number(error?.response?.status || 0);
   if (!status) {
     return true;

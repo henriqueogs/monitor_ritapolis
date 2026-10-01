@@ -6,6 +6,8 @@
  */
 
 const { db } = require('./connection');
+const crypto = require('crypto');
+const config = require('../config');
 
 function getUltimoResumoOk() {
   const row = db
@@ -42,27 +44,29 @@ function getUltimoErroResumo() {
  * resumível), quantos desses não têm nenhum resumo ok, e quantos não têm texto.
  */
 function contarRecentesSemResumo({ desde }) {
-  const row = db
+  const result = { total: 0, semResumo: 0, semTexto: 0, maisAntigoSemResumo: null };
+  const current = db.prepare(`SELECT 1 FROM documentos_resumos_ai WHERE documento_id = ?
+    AND texto_hash = ? AND contrato_versao = ? AND status = 'ok'`);
+  for (const doc of db
     .prepare(
-      `SELECT
-         SUM(CASE WHEN IFNULL(d.texto_completo, '') <> '' THEN 1 ELSE 0 END) AS total,
-         SUM(CASE WHEN IFNULL(d.texto_completo, '') <> '' AND r.documento_id IS NULL THEN 1 ELSE 0 END) AS sem_resumo,
-         SUM(CASE WHEN IFNULL(d.texto_completo, '') = '' THEN 1 ELSE 0 END) AS sem_texto,
-         MIN(CASE WHEN IFNULL(d.texto_completo, '') <> '' AND r.documento_id IS NULL
-                  THEN d.data_publicacao END) AS mais_antigo
-       FROM documentos d
-       LEFT JOIN (
-         SELECT DISTINCT documento_id FROM documentos_resumos_ai WHERE status = 'ok'
-       ) r ON r.documento_id = d.id
-       WHERE d.data_publicacao >= :desde`
+      `SELECT id,texto_completo,data_publicacao FROM documentos
+    WHERE data_publicacao >= ?`
     )
-    .get({ desde });
-  return {
-    total: row.total || 0,
-    semResumo: row.sem_resumo || 0,
-    semTexto: row.sem_texto || 0,
-    maisAntigoSemResumo: row.mais_antigo || null,
-  };
+    .all(desde)) {
+    if (!doc.texto_completo?.trim()) {
+      result.semTexto++;
+      continue;
+    }
+    result.total++;
+    const signature = crypto.createHash('sha256').update(doc.texto_completo).digest('hex');
+    if (!current.get(doc.id, signature, config.aiContractVersion)) {
+      result.semResumo++;
+      if (!result.maisAntigoSemResumo || doc.data_publicacao < result.maisAntigoSemResumo) {
+        result.maisAntigoSemResumo = doc.data_publicacao;
+      }
+    }
+  }
+  return result;
 }
 
 module.exports = { getUltimoResumoOk, getUltimoErroResumo, contarRecentesSemResumo };

@@ -25,6 +25,31 @@ function document(id, ano, date) {
     VALUES (?, 'site_prefeitura', 'lei', 'Lei municipal', ?, ?, ?, ?, '2026-09-30', '2026-09-30')`
   ).run(id, ano, date, `https://official.example/${id}`, text);
 }
+test('source checks wait thirty elapsed days across month rollover and reuse previous completed checks', () => {
+  document(1, 2026, '2026-09-29');
+  const url = 'https://official.example/file.pdf';
+  db.prepare('UPDATE documentos SET url_pdf = ? WHERE id=1').run(url);
+  const prior = q.enqueue({ kind: 'source-check', entity: 1, hash: `2026-09:${url}` }, now);
+  db.prepare("UPDATE pipeline_jobs SET status='ok', finished_at=? WHERE id=?").run(
+    now.toISOString(),
+    prior.id
+  );
+  plan(q, new Date('2026-10-01T19:00:00Z'));
+  expect(
+    db.prepare("SELECT count(*) AS n FROM pipeline_jobs WHERE kind='source-check'").get().n
+  ).toBe(1);
+  const due = new Date(now.getTime() + 30 * 86400000);
+  plan(q, due);
+  plan(q, due);
+  expect(
+    db.prepare("SELECT count(*) AS n FROM pipeline_jobs WHERE kind='source-check'").get().n
+  ).toBe(2);
+  db.prepare('UPDATE documentos SET url_pdf = ? WHERE id=1').run(`${url}?revision=2`);
+  plan(q, due);
+  expect(
+    db.prepare("SELECT count(*) AS n FROM pipeline_jobs WHERE kind='source-check'").get().n
+  ).toBe(3);
+});
 test('recent publications first, ten historical documents daily, unchanged rescans do not duplicate jobs', () => {
   for (let id = 1; id <= 20; id++) {
     document(id, 2025, null);

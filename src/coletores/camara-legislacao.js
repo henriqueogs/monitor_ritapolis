@@ -45,19 +45,25 @@ function extrairHtmlDaResposta(texto) {
 // "Lei Ordinária - 1 / 1963" -> { tipoLabel: 'Lei Ordinária', numero: '1', exercicio: 1963 }
 function parseTituloItem(texto) {
   const m = normalizeSpaces(texto).match(/^(.+?)\s*-\s*(\S+)\s*\/\s*(\d{4})$/);
-  if (!m) {return null;}
+  if (!m) {
+    return null;
+  }
   return { tipoLabel: m[1].trim(), numero: m[2], exercicio: Number(m[3]) };
 }
 
 function parseDataPublicacao(texto) {
   const m = String(texto || '').match(/(\d{2})\/(\d{2})\/(\d{4})/);
-  if (!m) {return null;}
+  if (!m) {
+    return null;
+  }
   return naoFutura(`${m[3]}-${m[2]}-${m[1]}`);
 }
 
 function autorOuNulo(texto) {
   const limpo = normalizeSpaces(texto);
-  if (!limpo || /^n[ãa]o informado$/i.test(limpo)) {return null;}
+  if (!limpo || /^n[ãa]o informado$/i.test(limpo)) {
+    return null;
+  }
   return limpo;
 }
 
@@ -82,7 +88,9 @@ function parseRegistrosLegislacao(html) {
   $('.item_busca').each((_, el) => {
     const item = $(el);
     const titulo = parseTituloItem(item.find('.titulo_item').first().text());
-    if (!titulo) {return;}
+    if (!titulo) {
+      return;
+    }
 
     const ementa = normalizeSpaces(item.find('.texto_item_descricao').first().text());
     const autor = autorOuNulo(item.find('.texto_item_autores').first().text());
@@ -114,8 +122,15 @@ class ColetorCamaraLegislacao extends ColetorBase {
   async buscarPagina(pagina) {
     const payload = new URLSearchParams({
       INT_PAG: String(pagina),
-      INT_TP_LEGS: '', INT_NUM_LEGS: '', INT_EXRC_LEGS: '', D_CAD: '',
-      NM_PES: '', DESC_LEGS: '', TXT_LEGS: '', INT_LEGS_NOV: '', INT_LEGS_ORIG: '',
+      INT_TP_LEGS: '',
+      INT_NUM_LEGS: '',
+      INT_EXRC_LEGS: '',
+      D_CAD: '',
+      NM_PES: '',
+      DESC_LEGS: '',
+      TXT_LEGS: '',
+      INT_LEGS_NOV: '',
+      INT_LEGS_ORIG: '',
       ORDER_BY: '',
     }).toString();
 
@@ -135,9 +150,17 @@ class ColetorCamaraLegislacao extends ColetorBase {
   async collectRecords({ maxPaginas = 2000, maxRegistros = Infinity } = {}) {
     let registros = [];
     for (let pagina = 1; pagina <= maxPaginas && registros.length < maxRegistros; pagina += 1) {
-      const html = await this.buscarPagina(pagina);
-      const daPagina = parseRegistrosLegislacao(html);
-      if (!daPagina.length) {break;}
+      const step = `camara-page:${pagina}`;
+      let daPagina = this.progress?.load(step);
+      if (!daPagina) {
+        this.progress?.checkTime();
+        const html = await this.buscarPagina(pagina);
+        daPagina = parseRegistrosLegislacao(html);
+        this.progress?.save(step, daPagina);
+      }
+      if (!daPagina.length) {
+        break;
+      }
       registros = registros.concat(daPagina);
     }
     return registros.slice(0, maxRegistros);
@@ -155,10 +178,21 @@ class ColetorCamaraLegislacao extends ColetorBase {
       textoBase = existing.texto_completo;
       hashSource = existing.hash_conteudo || hashSource;
     } else if (pdfUrl) {
-      const pdfBuffer = await this.baixarBuffer(pdfUrl);
-      hashSource = pdfBuffer;
-      arquivo = await extractOfficialFileText(pdfBuffer, { filename: item.anexoNome, url: pdfUrl });
-      textoBase = arquivo.text || '';
+      try {
+        const pdfBuffer = await this.baixarBuffer(pdfUrl);
+        hashSource = pdfBuffer;
+        arquivo = await extractOfficialFileText(pdfBuffer, {
+          filename: item.anexoNome,
+          url: pdfUrl,
+        });
+        textoBase = arquivo.text || '';
+      } catch (error) {
+        if (!require('../pipeline/file-policy').isOversized(error)) {
+          throw error;
+        }
+        arquivo.error = error.message;
+        this.registrarErroItem(resultado, { url: pdfUrl, motivo: 'arquivo_acima_limite' }, error);
+      }
     }
 
     const titulo = normalizeSpaces(
@@ -178,7 +212,8 @@ class ColetorCamaraLegislacao extends ColetorBase {
         valor_estimado: null,
         url_origem: `${BASE_URL}/m/Legislacao`,
         url_pdf: pdfUrl,
-        texto_completo: textoBase || (item.ementa?.length > 200 ? item.ementa : null),
+        texto_completo:
+          textoBase || (!arquivo.error && item.ementa?.length > 200 ? item.ementa : null),
         dados_extras: {
           modulo: 'legislacao_camara',
           tipo_label: item.tipoLabel,
@@ -189,14 +224,23 @@ class ColetorCamaraLegislacao extends ColetorBase {
             paginas: arquivo.pages,
             erro: arquivo.error || null,
             engine: arquivo.info?.parser || null,
-            tipo_arquivo: arquivo.info?.tipo_arquivo || inferFileExtension({ filename: item.anexoNome, url: pdfUrl }) || 'pdf',
+            tipo_arquivo:
+              arquivo.info?.tipo_arquivo ||
+              inferFileExtension({ filename: item.anexoNome, url: pdfUrl }) ||
+              'pdf',
           },
         },
         hash_conteudo:
           typeof hashSource === 'string' && existing?.hash_conteudo
             ? existing.hash_conteudo
             : this.calcularHash(hashSource),
-        status_coleta: pdfUrl ? (arquivo.error ? 'erro_pdf' : !textoBase && arquivo.pages > 0 ? 'imagem' : 'ok') : 'sem_pdf',
+        status_coleta: pdfUrl
+          ? arquivo.error
+            ? 'erro_pdf'
+            : !textoBase && arquivo.pages > 0
+              ? 'imagem'
+              : 'ok'
+          : 'sem_pdf',
         licitacao_detalhes: null,
       },
       resultado
@@ -206,10 +250,21 @@ class ColetorCamaraLegislacao extends ColetorBase {
   async executar(resultado) {
     const registros = await this.collectRecords();
     for (const item of registros) {
+      const step = `camara-item:${this.calcularHash(JSON.stringify(item))}`;
+      const saved = this.progress?.load(step);
+      if (saved?.done) {
+        continue;
+      }
       try {
+        this.progress?.checkTime();
         await this.processarRegistro(item, resultado);
+        this.progress?.save(step, { done: true });
       } catch (error) {
-        this.registrarErroItem(resultado, { tipo: item.tipoLabel, numero: item.numero, exercicio: item.exercicio }, error);
+        this.registrarErroItem(
+          resultado,
+          { tipo: item.tipoLabel, numero: item.numero, exercicio: item.exercicio },
+          error
+        );
       }
     }
   }

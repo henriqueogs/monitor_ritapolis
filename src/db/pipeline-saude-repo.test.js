@@ -29,12 +29,34 @@ function seedResumo(docId, { status = 'ok', em = '2026-09-20 10:00:00', erro = n
          (documento_id, provider, modelo, contrato_versao, resumo_json, texto_hash, status, erro, atualizado_em)
        VALUES (?, 'nvidia', 'm', '1.1', '{}', ?, ?, ?, ?)`
     )
-    .run(docId, `h${docId}-${status}-${em}`, status, erro, em);
+    .run(
+      docId,
+      require('crypto')
+        .createHash('sha256')
+        .update(
+          mockConn.prepare('SELECT texto_completo FROM documentos WHERE id=?').get(docId)
+            .texto_completo
+        )
+        .digest('hex'),
+      status,
+      erro,
+      em
+    );
 }
 
 describe('pipeline-saude-repo', () => {
+  it('resumo antigo nao cobre texto oficial alterado', () => {
+    const id = seedDoc();
+    seedResumo(id);
+    mockConn
+      .prepare('UPDATE documentos SET texto_completo=? WHERE id=?')
+      .run('Texto atualizado', id);
+    expect(repo.contarRecentesSemResumo({ desde: '2026-09-01' }).semResumo).toBe(1);
+  });
   beforeEach(() => {
-    mockConn.exec('DELETE FROM documentos_resumos_ai_jobs; DELETE FROM documentos_resumos_ai; DELETE FROM documentos;');
+    mockConn.exec(
+      'DELETE FROM documentos_resumos_ai_jobs; DELETE FROM documentos_resumos_ai; DELETE FROM documentos;'
+    );
   });
 
   it('getUltimoResumoOk retorna o mais recente com status ok', () => {
@@ -43,7 +65,11 @@ describe('pipeline-saude-repo', () => {
     seedResumo(a, { em: '2026-08-27 09:00:00' });
     seedResumo(b, { status: 'erro', em: '2026-09-20 09:00:00', erro: '410 end of life' });
 
-    expect(repo.getUltimoResumoOk()).toMatchObject({ em: '2026-08-27 09:00:00', provider: 'nvidia', modelo: 'm' });
+    expect(repo.getUltimoResumoOk()).toMatchObject({
+      em: '2026-08-27 09:00:00',
+      provider: 'nvidia',
+      modelo: 'm',
+    });
   });
 
   it('getUltimoResumoOk é null sem resumos', () => {
@@ -61,7 +87,10 @@ describe('pipeline-saude-repo', () => {
       )
       .run(a);
 
-    expect(repo.getUltimoErroResumo()).toEqual({ em: '2026-09-24 08:00:00', erro: '410 Gone: end of life' });
+    expect(repo.getUltimoErroResumo()).toEqual({
+      em: '2026-09-24 08:00:00',
+      erro: '410 Gone: end of life',
+    });
   });
 
   it('contarRecentesSemResumo conta docs com texto desde a data, sem resumo ok', () => {

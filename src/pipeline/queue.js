@@ -99,7 +99,11 @@ function createQueue(db) {
       throw error;
     }
   }
-  function finish(id, { result = null, error = null, transient = false } = {}, now = new Date()) {
+  function finish(
+    id,
+    { result = null, error = null, transient = false, deferred = false } = {},
+    now = new Date()
+  ) {
     const row = get(id);
     if (!row || row.status !== 'running') {
       return;
@@ -118,9 +122,9 @@ function createQueue(db) {
     );
     db.prepare(
       `UPDATE pipeline_jobs SET status = ?, result = ?, error = ?, finished_at = ?,
-      available_at = ?, lease_until = NULL WHERE id = ? AND status = 'running'`
+      available_at = ?, lease_until = NULL, attempts = attempts - ? WHERE id = ? AND status = 'running'`
     ).run(
-      error ? (retry ? 'pending' : 'failed') : 'ok',
+      deferred ? 'pending' : error ? (retry ? 'pending' : 'failed') : 'ok',
       JSON.stringify(result, (key, value) =>
         ['resumo_json', 'texto_completo', 'dados', 'itens', 'resultados', 'raw_response'].includes(
           key
@@ -130,7 +134,8 @@ function createQueue(db) {
       ),
       error,
       now.toISOString(),
-      new Date(now.getTime() + (retry ? delay : 0)).toISOString(),
+      new Date(now.getTime() + (deferred ? 10000 : retry ? delay : 0)).toISOString(),
+      Number(deferred),
       id
     );
   }
@@ -161,7 +166,11 @@ function createQueue(db) {
         .get().at,
       failures: db
         .prepare(
-          "SELECT id, kind, entity, attempts, error, finished_at FROM pipeline_jobs WHERE status = 'failed' ORDER BY id DESC LIMIT 10"
+          `SELECT id, kind, entity, attempts, error, finished_at FROM pipeline_jobs p
+          WHERE status = 'failed' AND NOT EXISTS (
+            SELECT 1 FROM pipeline_jobs newer WHERE newer.kind=p.kind AND newer.entity=p.entity
+              AND newer.id>p.id AND newer.status IN ('pending','running','ok','failed')
+          ) ORDER BY id DESC LIMIT 10`
         )
         .all(),
       backup: meta('backup'),

@@ -2,7 +2,7 @@
 const config = require('../config');
 const { factsSignature } = require('./policy');
 
-async function extract(payload, anexo = false) {
+async function extract(payload, anexo = false, progress) {
   const api = require('../db');
   const target = anexo
     ? require('../db/inteligencia-fatos-repo').getAnexoById(payload.anexoId)
@@ -10,12 +10,19 @@ async function extract(payload, anexo = false) {
   if (!target) {
     throw new Error('Fonte nao encontrada');
   }
+  if (target.texto_completo?.trim()) {
+    return { reused: true, chars: target.texto_completo.length };
+  }
   const url = anexo ? target.url : target.url_pdf;
   if (!url) {
     throw new Error('Texto insuficiente: documento sem arquivo oficial');
   }
   const Base = require('../coletores/base');
-  const buffer = await new Base({ fonte: 'pipeline_extracao' }).baixarBuffer(url);
+  const downloader = new Base({ fonte: 'pipeline_extracao' });
+  if (api.db) {
+    downloader.filePolicy = require('./file-policy').createFilePolicy(api.db);
+  }
+  const buffer = await downloader.baixarBuffer(url);
   let extraction = await require('../parsers/document-file').extractOfficialFileText(buffer, {
     url,
     filename: target.nome,
@@ -27,7 +34,10 @@ async function extract(payload, anexo = false) {
     const ocr = require('../parsers/ocr');
     let result;
     try {
-      result = await ocr.ocrPdfBuffer(buffer, { maxPaginas: extraction.pages || 12 });
+      result = await ocr.ocrPdfBuffer(buffer, {
+        maxPaginas: extraction.pages || 12,
+        ...(progress ? { progress } : {}),
+      });
     } finally {
       await ocr.encerrarWorker();
     }
@@ -58,7 +68,7 @@ async function extract(payload, anexo = false) {
   }
   return { chars: extraction.text.length, pages: extraction.pages };
 }
-async function execute(job) {
+async function execute(job, { progress } = {}) {
   const payload = JSON.parse(job.payload);
   const api = require('../db');
   if (job.kind === 'alerts') {
@@ -98,7 +108,10 @@ async function execute(job) {
   }
   if (job.kind === 'collection') {
     const { buildCollectors } = require('../coletas/update-runner');
-    const result = await buildCollectors(payload.fonte)[0].run();
+    const collector = buildCollectors(payload.fonte)[0];
+    collector.progress = progress;
+    collector.filePolicy = require('./file-policy').createFilePolicy(api.db);
+    const result = await collector.run();
     if (result.status === 'erro_total' || result.status === 'erro_parcial') {
       throw new Error(
         result.detalhes
@@ -162,11 +175,12 @@ async function execute(job) {
     return { unchanged: signature === doc.hash_conteudo };
   }
   if (job.kind === 'extract' || job.kind === 'extract-anexo') {
-    return extract(payload, job.kind === 'extract-anexo');
+    return extract(payload, job.kind === 'extract-anexo', progress);
   }
   if (job.kind === 'summary') {
     return require('../ai/summarize-document').summarizeDocument(payload.documentoId, {
       force: payload.force === true,
+      progress,
     });
   }
   if (job.kind === 'integrated') {
