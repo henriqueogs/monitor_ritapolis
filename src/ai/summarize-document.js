@@ -636,6 +636,29 @@ async function generateChunkedSummary({
 
 async function generateSummaryFromText({ provider, texto, contratoVersao, progress }) {
   const directLimit = getAiDirectCharLimit();
+  const modeStep = `summary-mode:${buildTextoHash(
+    JSON.stringify([
+      contratoVersao,
+      provider.provider,
+      provider.model,
+      texto,
+      directLimit,
+      config.aiChunkSizeChars,
+      config.aiChunkOverlapChars,
+      getMinChunkSizeChars(),
+    ])
+  )}`;
+  const savedMode = progress?.load(modeStep);
+  if (savedMode?.chunkSizeChars) {
+    return generateChunkedSummary({
+      provider,
+      texto,
+      contratoVersao,
+      progress,
+      chunkSizeChars: savedMode.chunkSizeChars,
+      chunkOverlapChars: savedMode.chunkOverlapChars,
+    });
+  }
 
   if (texto.length <= directLimit) {
     const prompt = buildDocumentSummaryPrompt({ texto, contratoVersao });
@@ -652,6 +675,10 @@ async function generateSummaryFromText({ provider, texto, contratoVersao, progre
         textLength: texto.length,
       });
       const fallbackOverlap = getFallbackOverlap(fallbackChunkSize);
+      progress?.save(modeStep, {
+        chunkSizeChars: fallbackChunkSize,
+        chunkOverlapChars: fallbackOverlap,
+      });
 
       logger.warn('Resumo direto falhou; alternando para chunking adaptativo', {
         caracteres: texto.length,

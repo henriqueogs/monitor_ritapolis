@@ -60,13 +60,26 @@ async function extract(payload, anexo = false, progress) {
     api.saveDocumento({
       ...target,
       texto_completo: extraction.text,
+      status_coleta: 'ok',
       dados_extras: {
         ...(target.dados_extras || {}),
         texto_origem: extraction.info?.parser === 'ocr' ? 'ocr' : 'arquivo_oficial',
+        parser_pdf: {
+          ...(target.dados_extras?.parser_pdf || {}),
+          paginas: extraction.pages,
+          engine: extraction.info?.parser || 'pipeline',
+          erro: null,
+        },
       },
     });
   }
-  return { chars: extraction.text.length, pages: extraction.pages };
+  return {
+    chars: extraction.text.length,
+    pages: extraction.pages,
+    source_url: url,
+    file_hash: require('crypto').createHash('sha256').update(buffer).digest('hex'),
+    text_hash: require('../ai/summarize-document').buildTextoHash(extraction.text),
+  };
 }
 async function execute(job, { progress } = {}) {
   const payload = JSON.parse(job.payload);
@@ -126,6 +139,23 @@ async function execute(job, { progress } = {}) {
     const doc = api.db.prepare('SELECT * FROM documentos WHERE id = ?').get(payload.documentoId);
     if (!doc?.url_pdf) {
       return { skipped: true };
+    }
+    // A completed extraction already read the entire original. Reuse that
+    // evidence only for the same URL and current text, not a timestamp alone.
+    const verified = api.db
+      .prepare(
+        `SELECT result FROM pipeline_jobs
+      WHERE kind='extract' AND entity=? AND status='ok'
+        AND finished_at>=? AND json_extract(result,'$.source_url')=?
+      ORDER BY finished_at DESC LIMIT 1`
+      )
+      .get(String(doc.id), new Date(Date.now() - 30 * 86400000).toISOString(), doc.url_pdf);
+    const evidence = verified ? JSON.parse(verified.result) : null;
+    if (
+      evidence?.file_hash &&
+      evidence.text_hash === require('../ai/summarize-document').buildTextoHash(doc.texto_completo)
+    ) {
+      return { unchanged: true, reusedExtraction: true };
     }
     api.db.exec(
       'CREATE TABLE IF NOT EXISTS pipeline_http_cache (url TEXT PRIMARY KEY, etag TEXT, modified TEXT)'

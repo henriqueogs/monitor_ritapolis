@@ -15,6 +15,7 @@ function createQueue(db) {
   CREATE UNIQUE INDEX IF NOT EXISTS pipeline_single_running
     ON pipeline_jobs((1)) WHERE status = 'running';
   CREATE INDEX IF NOT EXISTS pipeline_pending ON pipeline_jobs(status, priority, available_at);
+  CREATE INDEX IF NOT EXISTS pipeline_entity_stage ON pipeline_jobs(entity,kind,status,finished_at);
   CREATE TABLE IF NOT EXISTS pipeline_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
   CREATE TABLE IF NOT EXISTS pipeline_runs (id INTEGER PRIMARY KEY, job_id INTEGER NOT NULL, kind TEXT NOT NULL,
     entity TEXT NOT NULL, historical INTEGER NOT NULL, finished_at TEXT NOT NULL, duration_ms INTEGER NOT NULL);`);
@@ -163,6 +164,11 @@ function createQueue(db) {
           .get() || null,
       oldest_pending: db
         .prepare("SELECT MIN(created_at) AS at FROM pipeline_jobs WHERE status = 'pending'")
+        .get().at,
+      oldest_pending_recent: db
+        .prepare(
+          "SELECT MIN(created_at) AS at FROM pipeline_jobs WHERE status='pending' AND historical=0"
+        )
         .get().at,
       failures: db
         .prepare(

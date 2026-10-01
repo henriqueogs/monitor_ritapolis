@@ -42,7 +42,10 @@ function getSaudePipeline({ agora = new Date() } = {}) {
   if (state?.failures.length) {
     avaliacao.motivos.push('tarefas_atuais_com_falha');
   }
-  if (state?.oldest_pending && agora.getTime() - Date.parse(state.oldest_pending) > DIA_MS) {
+  if (
+    state?.oldest_pending_recent &&
+    agora.getTime() - Date.parse(state.oldest_pending_recent) > DIA_MS
+  ) {
     avaliacao.motivos.push('fila_pendente_24h');
   }
   avaliacao.status = avaliacao.motivos.length ? 'alerta' : 'ok';
@@ -56,6 +59,7 @@ function getSaudePipeline({ agora = new Date() } = {}) {
               active: state.active,
               counts: state.counts,
               oldest_pending: state.oldest_pending,
+              oldest_pending_recent: state.oldest_pending_recent,
               safety: { paused: state.safety.paused, reason: state.safety.reason },
               failures: state.failures.map(f => ({
                 id: f.id,

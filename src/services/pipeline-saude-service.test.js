@@ -62,6 +62,24 @@ describe('pipeline-saude-service', () => {
   it('nunca expõe o texto cru do erro', () => {
     expect(JSON.stringify(getSaudePipeline({ agora: AGORA }))).not.toContain('key=abc');
   });
+  it('historical backlog alone is not an overdue recent queue, but fresh work stalled 24h is', () => {
+    const pipeline = require('../pipeline/coordinator');
+    pipeline.enabled.mockReturnValue(true);
+    const state = {
+      counts: [],
+      active: null,
+      failures: [],
+      safety: { paused: false },
+      oldest_pending: '2026-09-01T00:00:00Z',
+      oldest_pending_recent: null,
+    };
+    pipeline.status.mockReturnValue(state);
+    repo.getUltimoResumoOk.mockReturnValue({ em: AGORA.toISOString() });
+    repo.contarRecentesSemResumo.mockReturnValue({ total: 9, semResumo: 0, semTexto: 0 });
+    expect(getSaudePipeline({ agora: AGORA }).motivos).not.toContain('fila_pendente_24h');
+    state.oldest_pending_recent = '2026-09-01T00:00:00Z';
+    expect(getSaudePipeline({ agora: AGORA }).motivos).toContain('fila_pendente_24h');
+  });
   it('falhas atuais e pausa de seguranca impedem falso ok sem expor erro cru', () => {
     const pipeline = require('../pipeline/coordinator');
     pipeline.enabled.mockReturnValue(true);

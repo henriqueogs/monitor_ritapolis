@@ -14,6 +14,7 @@ jest.mock('../db', () => ({
   saveResumoAi: jest.fn(),
 }));
 const api = require('../db');
+const config = require('../config');
 const { summarizeDocument } = require('./summarize-document');
 const { createProgress, PipelineYield } = require('../pipeline/progress');
 let db, provider;
@@ -46,6 +47,43 @@ beforeEach(() => {
   };
 });
 afterEach(() => db.close());
+test('adaptive direct fallback resumes chunks without repeating the failed direct request', async () => {
+  const previous = {
+    aiMaxCharsDirect: config.aiMaxCharsDirect,
+    aiChunkSizeChars: config.aiChunkSizeChars,
+    aiRetryMax: config.aiRetryMax,
+  };
+  Object.assign(config, { aiMaxCharsDirect: 5000, aiChunkSizeChars: 5000, aiRetryMax: 0 });
+  try {
+    const progress = createProgress(db, 'adaptive');
+    let stopped = false;
+    progress.checkTime = () => {
+      if (stopped) {
+        throw new PipelineYield();
+      }
+    };
+    provider.generateJson
+      .mockRejectedValueOnce(new Error('Request timed out'))
+      .mockImplementationOnce(async () => {
+        stopped = true;
+        return JSON.stringify(summary);
+      });
+    await expect(summarizeDocument(7, { provider, progress })).rejects.toMatchObject({
+      code: 'PIPELINE_YIELD',
+    });
+    expect(api.saveResumoAi).not.toHaveBeenCalled();
+    const failedDirectPrompt = provider.generateJson.mock.calls[0][0].prompt;
+    provider.generateJson.mockClear();
+    await summarizeDocument(7, { provider, progress: createProgress(db, 'adaptive') });
+    expect(
+      provider.generateJson.mock.calls.every(([request]) => request.prompt !== failedDirectPrompt)
+    ).toBe(true);
+    expect(provider.generateJson).toHaveBeenCalledTimes(2); // unfinished chunk and consolidation
+    expect(api.saveResumoAi).toHaveBeenCalledTimes(1);
+  } finally {
+    Object.assign(config, previous);
+  }
+});
 test('restart resumes validated chunks and publishes only after full coverage and consolidation', async () => {
   const progress = createProgress(db, 'job');
   let stop = false;

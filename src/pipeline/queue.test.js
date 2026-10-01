@@ -10,6 +10,14 @@ beforeEach(() => {
 });
 afterEach(() => db.close());
 const task = { kind: 'summary', entity: 7, hash: 'abc', version: '1.1' };
+test('health distinguishes historical budget backlog from pending current work', () => {
+  const yesterday = new Date(now.getTime() - 2 * 86400000);
+  q.enqueue({ ...task, historical: true }, yesterday);
+  expect(q.status().oldest_pending).toBe(yesterday.toISOString());
+  expect(q.status().oldest_pending_recent).toBeNull();
+  q.enqueue({ ...task, entity: 8, historical: false }, now);
+  expect(q.status().oldest_pending_recent).toBe(now.toISOString());
+});
 test('checkpoint continuation remains pending without consuming failure attempts or losing time budget', () => {
   const a = q.enqueue({ ...task, historical: true }, now);
   q.claim(now);
