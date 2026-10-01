@@ -4,6 +4,14 @@ const { db } = require('../src/db');
 const { createQueue } = require('../src/pipeline/queue');
 const queue = createQueue(db);
 const apply = process.argv.includes('--apply');
+const deployStart = process.argv.find(a => a.startsWith('--deploy-from='))?.split('=').slice(1).join('=');
+const deployEnd = process.argv.find(a => a.startsWith('--deploy-to='))?.split('=').slice(1).join('=');
+if (deployStart || deployEnd) {
+  const span = Date.parse(deployEnd) - Date.parse(deployStart);
+  if (!Number.isFinite(span) || span <= 0 || span > 15 * 60000) {
+    throw new Error('Janela de deploy invalida: informe inicio/fim ISO, ate 15 minutos');
+  }
+}
 if (apply) {
   const guard = require('../src/storage/daily-snapshot').guardReport({
     ...process.env,
@@ -23,18 +31,22 @@ if (apply) {
 }
 const failures = db
   .prepare(
-    `SELECT * FROM pipeline_jobs p WHERE status='failed'
+    `SELECT * FROM pipeline_jobs p WHERE status IN ('failed','pending')
   AND NOT EXISTS (SELECT 1 FROM pipeline_jobs newer WHERE newer.kind=p.kind AND newer.entity=p.entity
     AND newer.id>p.id AND newer.status IN ('pending','running','ok','failed'))
   AND (
+    (status='failed' AND (
     (kind IN ('extract','extract-anexo') AND version='2' AND error LIKE 'worker_interrupted%')
     OR (kind='summary' AND version NOT LIKE '%resume-1' AND (error LIKE '%404%' OR error LIKE '%timeout%'))
     OR (kind='summary' AND version LIKE '%resume-1' AND attempts<3 AND error LIKE '%timed out%')
     OR (kind='collection' AND entity IN ('pncp','camara_legislacao','legislacao_prefeitura')
       AND (error LIKE '%url_origem%' OR error LIKE '%maxContentLength%' OR error LIKE '%timeout%'))
+    ))
+    OR (@deployStart IS NOT NULL AND attempts<3 AND finished_at BETWEEN @deployStart AND @deployEnd
+      AND (error LIKE 'Cannot find module%' OR error LIKE 'worker_interrupted (exit %'))
   ) ORDER BY id DESC`
   )
-  .all();
+  .all({ deployStart: deployStart || null, deployEnd: deployEnd || null });
 const seen = new Set();
 const changes = [];
 for (const old of failures) {
@@ -48,26 +60,29 @@ for (const old of failures) {
     db
       .prepare(
         `SELECT 1 FROM pipeline_jobs WHERE kind='collection'
-    AND entity=? AND status IN ('pending','running')`
+    AND entity=? AND id<>? AND status IN ('pending','running')`
       )
-      .get(old.entity)
+      .get(old.entity, old.id)
   ) {
     continue;
   }
-  const version =
+  const deployAffected = Boolean(deployStart && old.finished_at >= deployStart && old.finished_at <= deployEnd
+    && /^(Cannot find module|worker_interrupted \(exit )/.test(old.error || ''));
+  const version = deployAffected ? old.version :
     old.kind === 'summary'
       ? `${require('../src/config').aiContractVersion}:resume-1`
       : old.kind === 'collection'
         ? 'source-fix-1'
         : '3';
   let replacement;
-  const resumeExisting = old.kind === 'summary' && old.version.endsWith('resume-1');
+  const resumeExisting = deployAffected || (old.kind === 'summary' && old.version.endsWith('resume-1'));
   if (apply) {
     if (resumeExisting) {
       // Keep the original identity: completed validated chunks belong to it.
-      // This was misclassified as permanent; it still has attempts remaining.
+      // Misclassified SDK timeout or a proven deploy interruption, still
+      // within the same three attempts. Never duplicate its queue identity.
       db.prepare(
-        "UPDATE pipeline_jobs SET status='pending',error=NULL,available_at=? WHERE id=? AND status='failed' AND attempts<3"
+        "UPDATE pipeline_jobs SET status='pending',error=NULL,available_at=? WHERE id=? AND status IN ('failed','pending') AND attempts<3"
       ).run(new Date().toISOString(), old.id);
       replacement = queue.get(old.id);
     } else {
