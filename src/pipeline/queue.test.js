@@ -89,6 +89,8 @@ test('technical dates do not change signatures or turn old publications into rec
   expect(isRecent({ ano: 2026, data_publicacao: '2026-09-29' }, now)).toBe(true);
   expect(localTime(new Date('2026-10-01T01:00:00Z')).day).toBe('2026-09-30');
   expect(transientError('maxContentLength size exceeded')).toBe(false);
+  expect(transientError('Request timed out.')).toBe(true);
+  expect(transientError('404 status code')).toBe(false);
 });
 test('ten historical documents per local day includes backlog created yesterday', () => {
   for (let i = 0; i < 11; i++) {

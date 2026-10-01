@@ -29,6 +29,7 @@ const failures = db
   AND (
     (kind IN ('extract','extract-anexo') AND version='2' AND error LIKE 'worker_interrupted%')
     OR (kind='summary' AND version NOT LIKE '%resume-1' AND (error LIKE '%404%' OR error LIKE '%timeout%'))
+    OR (kind='summary' AND version LIKE '%resume-1' AND attempts<3 AND error LIKE '%timed out%')
     OR (kind='collection' AND entity IN ('pncp','camara_legislacao','legislacao_prefeitura')
       AND (error LIKE '%url_origem%' OR error LIKE '%maxContentLength%' OR error LIKE '%timeout%'))
   ) ORDER BY id DESC`
@@ -60,16 +61,26 @@ for (const old of failures) {
         ? 'source-fix-1'
         : '3';
   let replacement;
+  const resumeExisting = old.kind === 'summary' && old.version.endsWith('resume-1');
   if (apply) {
-    replacement = queue.enqueue({
-      kind: old.kind,
-      entity: old.entity,
-      hash: old.input_hash,
-      version,
-      payload: JSON.parse(old.payload),
-      priority: old.priority,
-      historical: Boolean(old.historical),
-    });
+    if (resumeExisting) {
+      // Keep the original identity: completed validated chunks belong to it.
+      // This was misclassified as permanent; it still has attempts remaining.
+      db.prepare(
+        "UPDATE pipeline_jobs SET status='pending',error=NULL,available_at=? WHERE id=? AND status='failed' AND attempts<3"
+      ).run(new Date().toISOString(), old.id);
+      replacement = queue.get(old.id);
+    } else {
+      replacement = queue.enqueue({
+        kind: old.kind,
+        entity: old.entity,
+        hash: old.input_hash,
+        version,
+        payload: JSON.parse(old.payload),
+        priority: old.priority,
+        historical: Boolean(old.historical),
+      });
+    }
   }
   changes.push({
     previousJobId: old.id,
@@ -78,6 +89,7 @@ for (const old of failures) {
     version,
     newJobId: replacement?.id || null,
     apply,
+    resumeExisting,
   });
 }
 process.stdout.write(JSON.stringify({ affected: changes.length, changes }) + '\n');

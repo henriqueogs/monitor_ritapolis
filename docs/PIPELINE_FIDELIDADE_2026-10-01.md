@@ -15,11 +15,15 @@ retencao de backup ou registros financeiros. Nao cria outra fila nem copias de P
   considera tarefas nao historicas. Historico aguardando o limite diario nao e,
   por si so, falha operacional; falhas atuais e pausa de seguranca continuam alertas.
 - Indice tecnico por entidade/etapa/status evita varreduras da fila para cada URL.
+- A mensagem `Request timed out` do SDK passa a ser transitoria, com o mesmo
+  limite de tres tentativas. O reparo seletivo retoma a identidade existente
+  somente quando restam tentativas, preservando checkpoints do resumo.
 
 Em producao antes deste complemento, OCRs 2442, 2440 e 2439 concluiram e a IA do
-documento 2433 salvou seu primeiro trecho. Isso comprova progresso, nao fechamento
+documento 2433 salvou seu primeiro trecho, mas encerrou por `Request timed out`
+mal classificado como permanente. Isso comprova progresso, nao fechamento
 da cobertura dos 21 trabalhos afetados. Validacao de 24/48h continua pendente.
 
-Testes locais: 132 suites / 1172 testes aprovados, incluindo fallback adaptativo
+Testes locais: 133 suites / 1173 testes aprovados, incluindo fallback adaptativo
 interrompido, URL alterada, texto alterado, nenhuma requisicao/gravação canonica na
 verificacao reaproveitada e distincao entre atraso recente e backlog historico.
