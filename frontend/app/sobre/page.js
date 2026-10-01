@@ -1,3 +1,8 @@
+import { buildPageMetadata } from '../../lib/page-metadata';
+import { BRAND, SITE_URL } from '../lib/brand';
+
+export const metadata = buildPageMetadata('/sobre', { siteUrl: SITE_URL, brand: BRAND });
+
 import SobrePage from './index';
 
 // Busca dado no server sem searchParams -- sem isso o build tenta SSG contra
