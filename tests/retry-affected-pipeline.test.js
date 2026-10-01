@@ -17,6 +17,47 @@ beforeEach(() => {
   realClose = mockDb.close.bind(mockDb);
   jest.spyOn(mockDb, 'close').mockImplementation(() => {});
 });
+
+test('janela de deploy retoma somente modulos ausentes/interrupcoes daquela janela, mantendo limites e identidades', () => {
+  const q = createQueue(mockDb);
+  q.setMeta('backup', { confirmedAt: new Date().toISOString() });
+  const from = '2026-10-01T15:13:22.000Z';
+  const to = '2026-10-01T15:14:42.000Z';
+  const rows = [
+    { entity: 'camara_legislacao', error: "Cannot find module 'cheerio'", time: '2026-10-01T15:13:55.180Z', status: 'failed', attempts: 1 },
+    { entity: 'legislacao_prefeitura', error: 'worker_interrupted (exit 2)', time: '2026-10-01T15:14:00.000Z', status: 'pending', attempts: 1 },
+    { entity: 'site_prefeitura', error: "Cannot find module 'cheerio'", time: '2026-10-01T14:14:00.000Z', status: 'failed', attempts: 1 },
+    { entity: 'pncp', error: "Cannot find module 'cheerio'", time: '2026-10-01T15:14:00.000Z', status: 'failed', attempts: 3 },
+    { entity: 'unknown', error: 'Erro genuino de validacao', time: '2026-10-01T15:14:00.000Z', status: 'failed', attempts: 1 },
+  ];
+  for (const row of rows) {
+    const j = q.enqueue({ kind: 'collection', entity: row.entity, hash: 'known-input', version: 'source-fix-1' });
+    mockDb.prepare('UPDATE pipeline_jobs SET status=?,error=?,finished_at=?,attempts=? WHERE id=?')
+      .run(row.status, row.error, row.time, row.attempts, j.id);
+    createProgress(mockDb, j.identity).save('completed', true);
+  }
+  const args = process.argv;
+  const output = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+  try {
+    process.argv = ['node', 'repair', '--apply', `--deploy-from=${from}`, `--deploy-to=${to}`];
+    jest.isolateModules(() => require('../scripts/retry-affected-pipeline'));
+    const report = JSON.parse(output.mock.calls[0][0]);
+    expect(report.affected).toBe(2);
+    expect(mockDb.prepare('SELECT COUNT(*) AS n FROM pipeline_jobs').get().n).toBe(5);
+    for (const change of report.changes) {
+      expect(change.previousJobId).toBe(change.newJobId);
+      const j = q.get(change.newJobId);
+      expect(j.status).toBe('pending');
+      expect(j.attempts).toBe(1);
+      expect(createProgress(mockDb, j.identity).load('completed')).toBe(true);
+    }
+    expect(q.get(3).status).toBe('failed');
+    expect(q.get(4).status).toBe('failed');
+    expect(q.get(5).status).toBe('failed');
+    process.argv = ['node', 'repair', '--deploy-from=2026-10-01T00:00:00Z', '--deploy-to=2026-10-01T15:00:00Z'];
+    expect(() => jest.isolateModules(() => require('../scripts/retry-affected-pipeline'))).toThrow(/Janela de deploy invalida/);
+  } finally { process.argv = args; }
+});
 afterEach(() => {
   realClose();
   jest.restoreAllMocks();
