@@ -43,6 +43,9 @@ Em 01/10/2026, sem alterar documentos de producao:
 
 Os quatro arquivos tinham zero caracteres na extracao nativa; a verificacao usou
 os PDFs reais que falharam, o Node 24 e o mesmo modelo portugues da VM.
+As 14:11:59 UTC, o documento 2442 tambem passou por encerramento real do worker
+apos a primeira pagina: o novo worker reconheceu somente a segunda pagina e
+produziu o mesmo SHA-256 do texto integral da execucao completa.
 Os testes unitarios verificam retomada apos interrupcao, invalidacao por bytes/modelo,
 ausencia de resumo final incompleto, deduplicacao sem UPDATE, virada do mes,
 referencias PNCP e classificacao de erro por tamanho.

@@ -5,9 +5,19 @@ const { createQueue } = require('../src/pipeline/queue');
 const queue = createQueue(db);
 const apply = process.argv.includes('--apply');
 if (apply) {
-  const guard = require('../src/storage/daily-snapshot').guardReport(process.env);
+  const guard = require('../src/storage/daily-snapshot').guardReport({
+    ...process.env,
+    R2_USAGE_GUARD_REQUIRED: 'true',
+    R2_GUARD_REPORT_PATH:
+      process.env.R2_GUARD_REPORT_PATH ||
+      require('node:path').resolve(
+        require('node:path').dirname(require('../src/config').dbPath),
+        'r2-guard.json'
+      ),
+  });
   const backup = queue.meta('backup');
-  if (guard.paused || !backup || Date.now() - Date.parse(backup.confirmedAt) > 24 * 3600000) {
+  const backupAge = Date.now() - Date.parse(backup?.confirmedAt || '');
+  if (guard.paused || !Number.isFinite(backupAge) || backupAge > 24 * 3600000) {
     throw new Error('Seguranca: guard ou backup nao permitem reprocessamento');
   }
 }
