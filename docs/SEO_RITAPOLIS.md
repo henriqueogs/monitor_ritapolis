@@ -86,7 +86,8 @@ Criar uma regra anterior às duas regras de desafio:
 - User-Agent: casa `Googlebot|Google-InspectionTool`.
 - Método: GET ou HEAD.
 - Caminho: não casa `^/(admin|login|api)(/|$)`.
-- Ação: Bypass das regras customizadas seguintes.
+- Ação: Bypass das regras WAF customizadas seguintes e rulesets gerenciados.
+  As mitigações de sistema não são desativadas.
 
 Todos os critérios são combinados com E. A origem por IP é obrigatória;
 User-Agent sozinho pode ser falsificado. A proposta amplia a exceção de
@@ -95,9 +96,18 @@ Autenticação do app permanece necessária nas rotas protegidas; essas rotas
 também estão fora da proposta. Não habilitar bypass das mitigações de sistema.
 
 Snapshot de faixas para revisão: `SEO_GOOGLE_EXCEPTION_2026-10-01.json`.
+As 819 faixas oficiais foram compactadas em 148 CIDRs equivalentes usando
+`ipaddress.collapse_addresses`, sem incluir endereços adicionais. O campo
+`vercelRule` contém o formato de condições e ação para a Vercel. A regra ainda
+não foi importada nem salva como rascunho no serviço.
 Atualizar a lista oficial antes de aplicar e periodicamente depois; não
 liberar toda a rede Google Cloud. Aplicação requer confirmação explícita
 por alterar o alcance de uma proteção de segurança na interface.
+
+A skill `vercel:vercel-firewall` orienta preparar e revisar o rascunho e
+deixar a publicação para o usuário. O conector Vercel consultado nesta etapa
+retornou necessidade de reautenticação; não houve mudança na conta ou nas
+regras. O painel no navegador foi acessível na auditoria anterior.
 
 Validação após aplicar: teste ao vivo da home pelo Search Console, conferir
 acesso do Google nos eventos, solicitar indexação apenas se o teste passar,
