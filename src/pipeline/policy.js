@@ -46,7 +46,7 @@ function isRecent(doc, now = new Date()) {
         (doc.coletado_em || '').slice(0, 10) >= since;
 }
 function transientError(error) {
-  return /ECONNRESET|ETIMEDOUT|EAI_AGAIN|ECONNREFUSED|SQLITE_BUSY|timeout|worker_interrupted|HTTP (429|5\d\d)|\b429\b|\b50[0234]\b/i.test(
+  return /ECONNRESET|ETIMEDOUT|EAI_AGAIN|ECONNREFUSED|SQLITE_BUSY|timeout|timed out|worker_interrupted|HTTP (429|5\d\d)|\b429\b|\b50[0234]\b/i.test(
     String(error)
   );
 }

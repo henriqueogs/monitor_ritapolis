@@ -259,8 +259,13 @@ function plan(queue, now = new Date()) {
       .prepare(
         `SELECT d.id, d.url_pdf,
           (SELECT MAX(p.finished_at) FROM pipeline_jobs p
-            WHERE p.kind = 'source-check' AND p.entity = CAST(d.id AS TEXT)
-            AND p.status IN ('ok','failed') AND substr(p.input_hash, -length(d.url_pdf)) = d.url_pdf) AS last_checked,
+            WHERE p.entity = CAST(d.id AS TEXT) AND (
+              (p.kind = 'source-check' AND p.status IN ('ok','failed')
+                AND substr(p.input_hash, -length(d.url_pdf)) = d.url_pdf)
+              OR (p.kind='extract' AND p.status='ok'
+                AND json_extract(p.result,'$.source_url')=d.url_pdf
+                AND json_extract(p.result,'$.file_hash') IS NOT NULL)
+            )) AS last_checked,
           (SELECT COUNT(*) FROM pipeline_jobs p WHERE p.kind = 'source-check'
             AND p.entity = CAST(d.id AS TEXT) AND p.status IN ('pending','running')
             AND substr(p.input_hash, -length(d.url_pdf)) = d.url_pdf) AS in_flight

@@ -50,6 +50,23 @@ test('source checks wait thirty elapsed days across month rollover and reuse pre
     db.prepare("SELECT count(*) AS n FROM pipeline_jobs WHERE kind='source-check'").get().n
   ).toBe(3);
 });
+test('fresh complete extraction delays source verification without losing a changed URL', () => {
+  document(1, 2026, '2026-09-29');
+  const url = 'https://official.example/fresh.pdf';
+  db.prepare('UPDATE documentos SET url_pdf=? WHERE id=1').run(url);
+  const extraction = q.enqueue({ kind: 'extract', entity: 1, hash: 'bytes', version: '3' }, now);
+  q.claim(now);
+  q.finish(extraction.id, { result: { source_url: url, file_hash: 'verified-bytes' } }, now);
+  plan(q, new Date('2026-10-01T19:00:00Z'));
+  expect(
+    db.prepare("SELECT COUNT(*) AS n FROM pipeline_jobs WHERE kind='source-check'").get().n
+  ).toBe(0);
+  db.prepare('UPDATE documentos SET url_pdf=? WHERE id=1').run(`${url}?new=true`);
+  plan(q, new Date('2026-10-01T19:00:00Z'));
+  expect(
+    db.prepare("SELECT COUNT(*) AS n FROM pipeline_jobs WHERE kind='source-check'").get().n
+  ).toBe(1);
+});
 test('recent publications first, ten historical documents daily, unchanged rescans do not duplicate jobs', () => {
   for (let id = 1; id <= 20; id++) {
     document(id, 2025, null);
