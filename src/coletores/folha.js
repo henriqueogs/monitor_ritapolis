@@ -25,50 +25,82 @@ class ColetorFolha extends ColetorBase {
   async executar(resultado, { force = false } = {}) {
     const hoje = new Date();
 
-    let totalNovos = 0;
-    let totalAtualizados = 0;
-
-    const anos = planCollectionYears({ anoInicio: ANO_INICIO, now: hoje, force,
-      getLog: (ano) => getColetaLog('folha', ano, null) });
+    const anos =
+      this.progress?.load('payroll-years') ||
+      planCollectionYears({
+        anoInicio: ANO_INICIO,
+        now: hoje,
+        force,
+        getLog: ano => getColetaLog('folha', ano, null),
+      });
+    this.progress?.save('payroll-years', anos);
     for (const ano of anos) {
-
+      const step = `payroll-year-complete:${ano}`;
+      if (this.progress?.load(step)) {
+        continue;
+      }
       try {
         logger.info('folha: coletando exercício', { ano });
-        const stats = await coletarFolhaExercicioViaThread(ano);
-        totalNovos += stats.novos;
-        totalAtualizados += stats.atualizados;
-        resultado.itens_sem_alteracao = (resultado.itens_sem_alteracao || 0) + (stats.semAlteracao || 0);
+        const stats = await coletarFolhaExercicioViaThread(ano, { progress: this.progress });
+        const complete = () => {
+          resultado.itens_novos += stats.novos;
+          resultado.itens_atualizados += stats.atualizados;
+          resultado.itens_sem_alteracao =
+            (resultado.itens_sem_alteracao || 0) + (stats.semAlteracao || 0);
 
+          upsertColetaLog({
+            tipo: 'folha',
+            exercicio: ano,
+            mes: null,
+            registros: stats.registros,
+            novos: stats.novos,
+            atualizados: stats.atualizados,
+            status: 'ok',
+            erro: null,
+          });
+          resultado.detalhes.push({
+            tipo: 'folha',
+            ano,
+            registros: stats.registros,
+            novos: stats.novos,
+            atualizados: stats.atualizados,
+            sem_alteracao: stats.semAlteracao || 0,
+          });
+          this.completeItem(step, resultado);
+        };
+        if (this.progress) {
+          this.progress.commit(complete);
+        } else {
+          complete();
+        }
+      } catch (err) {
+        if (err.code === 'PIPELINE_YIELD') {
+          throw err;
+        }
+        if ([401, 403].includes(Number(err?.response?.status))) {
+          throw new Error(
+            `Portal da Transparencia (folha) bloqueou a coleta: HTTP ${err.response.status}`
+          );
+        }
+        logger.warn('folha: erro ao coletar exercício', { ano, erro: err.message });
         upsertColetaLog({
           tipo: 'folha',
           exercicio: ano,
           mes: null,
-          registros: stats.registros,
-          novos: stats.novos,
-          atualizados: stats.atualizados,
-          status: 'ok',
-          erro: null,
-        });
-        resultado.detalhes.push({ tipo: 'folha', ano, registros: stats.registros, novos: stats.novos,
-          atualizados: stats.atualizados, sem_alteracao: stats.semAlteracao || 0 });
-      } catch (err) {
-        if ([401, 403].includes(Number(err?.response?.status))) {
-          throw new Error(`Portal da Transparencia (folha) bloqueou a coleta: HTTP ${err.response.status}`);
-        }
-        logger.warn('folha: erro ao coletar exercício', { ano, erro: err.message });
-        upsertColetaLog({
-          tipo: 'folha', exercicio: ano, mes: null,
-          registros: 0, novos: 0, atualizados: 0,
-          status: 'erro', erro: err.message,
+          registros: 0,
+          novos: 0,
+          atualizados: 0,
+          status: 'erro',
+          erro: err.message,
         });
         this.registrarErroItem(resultado, { tipo: 'folha', ano }, err);
       }
     }
 
-    resultado.itens_novos += totalNovos;
-    resultado.itens_atualizados += totalAtualizados;
-
-    logger.info('folha: coleta concluída', { totalNovos, totalAtualizados });
+    logger.info('folha: coleta concluída', {
+      totalNovos: resultado.itens_novos,
+      totalAtualizados: resultado.itens_atualizados,
+    });
   }
 }
 

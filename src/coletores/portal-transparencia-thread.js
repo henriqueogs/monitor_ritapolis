@@ -87,12 +87,26 @@ function nomeCredorDoCsv(campo) {
 const EMPENHO_VALIDO = /^\d{5}-\d{3}\s*\/\s*\d{4}$/;
 
 function parseCsvDespesas(csvText) {
-  const linhas = String(csvText || '').split(/\r?\n/).filter(Boolean);
+  const linhas = String(csvText || '')
+    .split(/\r?\n/)
+    .filter(Boolean);
   const despesas = [];
 
   for (let i = 1; i < linhas.length; i += 1) {
     const campos = parseLinhaCsv(linhas[i]);
-    const [empenhoRaw, credor, tipo, , , dataEmpenho, dataLiquidacao, dataPagamento, valorEmpenhado, , valorPago] = campos;
+    const [
+      empenhoRaw,
+      credor,
+      tipo,
+      ,
+      ,
+      dataEmpenho,
+      dataLiquidacao,
+      dataPagamento,
+      valorEmpenhado,
+      ,
+      valorPago,
+    ] = campos;
 
     if (!empenhoRaw || !EMPENHO_VALIDO.test(empenhoRaw)) {
       continue;
@@ -104,6 +118,7 @@ function parseCsvDespesas(csvText) {
     const empenho = empenhoRaw.split('/')[0].trim();
     despesas.push({
       empenho,
+      exercicio: Number(empenhoRaw.split('/')[1].trim()),
       credorNomeParcial: nomeCredorDoCsv(credor),
       tipo: tipo || null,
       dataEmpenho: dataEmpenho || null,
@@ -127,9 +142,11 @@ function parseDetalhamentoDespesa(html) {
   // Entre o rótulo e o valor há mistura de tags (</b>, <B>) e &nbsp; —
   // ex: "Número:</b>&nbsp;<B>00001-000</B>". Pula tudo isso, captura
   // só o texto até a próxima tag.
-  const campo = (rotulo) => {
+  const campo = rotulo => {
     const escapado = rotulo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const match = texto.match(new RegExp(`${escapado}:(?:\\s|&nbsp;|</?[a-zA-Z][^>]*>)*([^<]+)`, 'i'));
+    const match = texto.match(
+      new RegExp(`${escapado}:(?:\\s|&nbsp;|</?[a-zA-Z][^>]*>)*([^<]+)`, 'i')
+    );
     return match ? match[1].replace(/&nbsp;/g, ' ').trim() : null;
   };
 
@@ -142,6 +159,7 @@ function parseDetalhamentoDespesa(html) {
   const credor = beneficiario ? `${beneficiario}${cnpj ? ` - CPF/CNPJ: ${cnpj}` : ''}` : null;
 
   return {
+    empenho: campo('Número'),
     unidade: campo('Unidade'),
     funcao: campo('Função'),
     subfuncao: campo('Subfunção'),

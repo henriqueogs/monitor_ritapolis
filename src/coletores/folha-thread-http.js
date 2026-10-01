@@ -16,6 +16,8 @@
  */
 
 const axios = require('axios');
+const config = require('../config');
+const { checkpointInput, processRows } = require('./financial-resume');
 const { createSafeHttpsAgent, assertSafeUrl } = require('../http/safe-network');
 const { collectorProxyConfigured, proxyCollectorRequest } = require('../http/collector-proxy');
 const { BASE_URL, extrairTokens } = require('./portal-transparencia-thread');
@@ -36,44 +38,55 @@ const DELAY_MS = Number(process.env.PORTAL_THREAD_DELAY_MS || 1200);
 const FORMAS_ADMISSAO = ['0', '1', '2', '3', '4', '5', '7', '9'];
 
 function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 // Mesmo cliente/roteamento de proxy que portal-transparencia-thread-http.js
 // (Oracle Cloud é bloqueada pelo Cloudflare do portal, HTTP 403, sem passar
 // pelo Worker configurado em COLLECTOR_PROXY_URL/TOKEN).
-function criarCliente() {
+function criarCliente(progress) {
   const cliente = axios.create({
     baseURL: BASE_URL,
     timeout: 20000,
     responseEncoding: 'latin1',
     httpsAgent: createSafeHttpsAgent(),
-    validateStatus: (status) => status >= 200 && status < 400,
+    validateStatus: status => status >= 200 && status < 400,
+    maxContentLength: config.collectorMaxResponseBytes,
+    maxBodyLength: config.collectorMaxResponseBytes,
+    maxRedirects: config.collectorMaxRedirects,
+    beforeRedirect: options =>
+      assertSafeUrl(`${options.protocol}//${options.hostname}${options.path || '/'}`),
   });
 
-  if (collectorProxyConfigured()) {
-    cliente.interceptors.request.use((requestConfig) => {
-      const alvo = axios.getUri(requestConfig);
-      const roteado = proxyCollectorRequest({
-        method: requestConfig.method,
-        url: alvo,
-        options: { headers: requestConfig.headers },
-      });
-      requestConfig.baseURL = '';
-      requestConfig.url = roteado.url;
-      requestConfig.params = undefined;
-      requestConfig.headers = { ...requestConfig.headers, ...roteado.options.headers };
-      requestConfig.maxRedirects = 0;
+  cliente.interceptors.request.use(requestConfig => {
+    const alvo = axios.getUri(requestConfig);
+    assertSafeUrl(alvo);
+    progress?.checkTime();
+    if (progress) {
+      requestConfig.timeout = Math.min(requestConfig.timeout || 20000, progress.remainingMs());
+    }
+    if (!collectorProxyConfigured()) {
       return requestConfig;
+    }
+    const roteado = proxyCollectorRequest({
+      method: requestConfig.method,
+      url: alvo,
+      options: { headers: requestConfig.headers },
     });
-  }
+    requestConfig.baseURL = '';
+    requestConfig.url = roteado.url;
+    requestConfig.params = undefined;
+    requestConfig.headers = { ...requestConfig.headers, ...roteado.options.headers };
+    requestConfig.maxRedirects = 0;
+    return requestConfig;
+  });
 
   return cliente;
 }
 
 function extrairCookie(response) {
   const setCookie = response.headers['set-cookie'] || [];
-  return setCookie.map((c) => c.split(';')[0]).join('; ');
+  return setCookie.map(c => c.split(';')[0]).join('; ');
 }
 
 async function iniciarSessaoFolha(cliente) {
@@ -92,10 +105,22 @@ async function iniciarSessaoFolha(cliente) {
 // explicitamente -- ver FORMAS_ADMISSAO acima.
 function montarCorpoBuscaFolha({ exercicio, formaAdmissao }) {
   const campos = {
-    INT_PAG: '1', Mes: '%', INT_EXR: String(exercicio),
-    ID7_FUNC: '', INT_PSSOA: '', NM_FUNC: '', STR_TFA_FUNC: formaAdmissao, NM_TST_FUNC: '%',
-    ID5_CGO: '', INT_SGLA_CGO: '', ID5_FCAO: '', NM_SEC: '', STR_LOT: '', LG_PENS_FUNC: '',
-    LG_ALT_PAG: 'N', URL: 'Folha',
+    INT_PAG: '1',
+    Mes: '%',
+    INT_EXR: String(exercicio),
+    ID7_FUNC: '',
+    INT_PSSOA: '',
+    NM_FUNC: '',
+    STR_TFA_FUNC: formaAdmissao,
+    NM_TST_FUNC: '%',
+    ID5_CGO: '',
+    INT_SGLA_CGO: '',
+    ID5_FCAO: '',
+    NM_SEC: '',
+    STR_LOT: '',
+    LG_PENS_FUNC: '',
+    LG_ALT_PAG: 'N',
+    URL: 'Folha',
   };
   return new URLSearchParams(campos).toString();
 }
@@ -169,31 +194,42 @@ async function baixarCsvFolha(cliente, sessao, pathResultadoHtml) {
  * "Comissionado" quando o campo vem em branco.
  * @returns {{novos, atualizados, registros}}
  */
-async function coletarFolhaExercicioViaThread(exercicio) {
-  const cliente = criarCliente();
+async function coletarFolhaExercicioViaThread(exercicio, { progress } = {}) {
+  const cliente = criarCliente(progress);
   let novos = 0;
   let atualizados = 0;
   let semAlteracao = 0;
   let totalRegistros = 0;
 
   for (const formaAdmissao of FORMAS_ADMISSAO) {
-    // eslint-disable-next-line no-await-in-loop
-    const sessao = await iniciarSessaoFolha(cliente);
-    // eslint-disable-next-line no-await-in-loop
-    const threadId = await iniciarThreadFolha(cliente, sessao, { exercicio, formaAdmissao });
-    // eslint-disable-next-line no-await-in-loop
-    const pathResultado = await aguardarResultadoFolha(cliente, sessao, threadId);
-    // eslint-disable-next-line no-await-in-loop
-    const csv = await baixarCsvFolha(cliente, sessao, pathResultado);
-    const registros = parseCsvFolha(csv);
-    totalRegistros += registros.length;
-
-    for (const registro of registros) {
-      const action = upsertFolhaRegistro(registro);
-      if (action === 'inserted') { novos += 1; }
-      else if (action === 'updated') { atualizados += 1; }
-      else if (action === 'unchanged') { semAlteracao += 1; }
-    }
+    const key = `payroll:${exercicio}:${formaAdmissao}`;
+    const registros = await checkpointInput(progress, key, async () => {
+      // eslint-disable-next-line no-await-in-loop
+      const sessao = await iniciarSessaoFolha(cliente);
+      // eslint-disable-next-line no-await-in-loop
+      const threadId = await iniciarThreadFolha(cliente, sessao, { exercicio, formaAdmissao });
+      // eslint-disable-next-line no-await-in-loop
+      const pathResultado = await aguardarResultadoFolha(cliente, sessao, threadId);
+      // eslint-disable-next-line no-await-in-loop
+      const csv = await baixarCsvFolha(cliente, sessao, pathResultado);
+      return parseCsvFolha(csv);
+    });
+    const stats = await processRows(
+      progress,
+      key,
+      registros,
+      async registro => {
+        if (Number(registro.competenciaAno) !== Number(exercicio)) {
+          throw new Error('Competencia da folha diverge do exercicio consultado');
+        }
+        return registro;
+      },
+      upsertFolhaRegistro
+    );
+    novos += stats.novos;
+    atualizados += stats.atualizados;
+    semAlteracao += stats.semAlteracao;
+    totalRegistros += stats.registros;
   }
 
   return { novos, atualizados, semAlteracao, registros: totalRegistros };

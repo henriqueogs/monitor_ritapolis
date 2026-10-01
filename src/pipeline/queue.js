@@ -111,34 +111,55 @@ function createQueue(db) {
     }
     const retry = error && transient && row.attempts < 3;
     const delay = row.attempts === 1 ? 30 * 60000 : 2 * 3600000;
-    db.prepare(
-      'INSERT INTO pipeline_runs(job_id,kind,entity,historical,finished_at,duration_ms) VALUES (?,?,?,?,?,?)'
-    ).run(
-      row.id,
-      row.kind,
-      row.entity,
-      row.historical,
-      now.toISOString(),
-      Math.max(0, now.getTime() - Date.parse(row.started_at))
-    );
-    db.prepare(
-      `UPDATE pipeline_jobs SET status = ?, result = ?, error = ?, finished_at = ?,
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      db.prepare(
+        'INSERT INTO pipeline_runs(job_id,kind,entity,historical,finished_at,duration_ms) VALUES (?,?,?,?,?,?)'
+      ).run(
+        row.id,
+        row.kind,
+        row.entity,
+        row.historical,
+        now.toISOString(),
+        Math.max(0, now.getTime() - Date.parse(row.started_at))
+      );
+      db.prepare(
+        `UPDATE pipeline_jobs SET status = ?, result = ?, error = ?, finished_at = ?,
       available_at = ?, lease_until = NULL, attempts = attempts - ? WHERE id = ? AND status = 'running'`
-    ).run(
-      deferred ? 'pending' : error ? (retry ? 'pending' : 'failed') : 'ok',
-      JSON.stringify(result, (key, value) =>
-        ['resumo_json', 'texto_completo', 'dados', 'itens', 'resultados', 'raw_response'].includes(
-          key
-        )
-          ? undefined
-          : value
-      ),
-      error,
-      now.toISOString(),
-      new Date(now.getTime() + (deferred ? 10000 : retry ? delay : 0)).toISOString(),
-      Number(deferred),
-      id
-    );
+      ).run(
+        deferred ? 'pending' : error ? (retry ? 'pending' : 'failed') : 'ok',
+        JSON.stringify(result, (key, value) =>
+          [
+            'resumo_json',
+            'texto_completo',
+            'dados',
+            'itens',
+            'resultados',
+            'raw_response',
+          ].includes(key)
+            ? undefined
+            : value
+        ),
+        error,
+        now.toISOString(),
+        new Date(now.getTime() + (deferred ? 10000 : retry ? delay : 0)).toISOString(),
+        Number(deferred),
+        id
+      );
+      if (
+        !error &&
+        !deferred &&
+        db
+          .prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='pipeline_progress'")
+          .get()
+      ) {
+        db.prepare('DELETE FROM pipeline_progress WHERE namespace=?').run(row.identity);
+      }
+      db.exec('COMMIT');
+    } catch (failure) {
+      db.exec('ROLLBACK');
+      throw failure;
+    }
   }
   function setMeta(key, value) {
     const serialized = JSON.stringify(value);
