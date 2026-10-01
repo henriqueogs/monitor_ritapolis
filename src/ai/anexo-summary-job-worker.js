@@ -17,7 +17,7 @@ const { summarizeAnexo } = require('./summarize-anexo');
 
 let workerRunning = false;
 
-async function processJob(job) {
+async function processJob(job, { progress } = {}) {
   const lockedJob = markAnexoResumoJobProcessing(job.id);
   if (!lockedJob || lockedJob.status !== 'processando') {
     return;
@@ -30,7 +30,8 @@ async function processJob(job) {
     }
 
     logger.info('Processando job de resumo de anexo', { jobId: lockedJob.id, anexoId: lockedJob.anexo_id });
-    const resultado = await summarizeAnexo(anexo, { documento: anexo.documento_pai });
+    const resultado = await summarizeAnexo(anexo, { documento: anexo.documento_pai,
+      force: Boolean(lockedJob.force), progress });
     finishAnexoResumoJobOk(lockedJob.id, resultado.id);
     logger.info('Job de resumo de anexo concluido', {
       jobId: lockedJob.id,
@@ -38,8 +39,14 @@ async function processJob(job) {
       contrato_versao: resultado.contrato_versao,
     });
   } catch (error) {
+    if (error.code === 'PIPELINE_YIELD') {
+      throw error;
+    }
     finishAnexoResumoJobError(lockedJob.id, error.message);
     logger.error('Job de resumo de anexo falhou', { jobId: lockedJob.id, anexoId: lockedJob.anexo_id, erro: error.message });
+    if (progress) {
+      throw error;
+    }
   }
 }
 

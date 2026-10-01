@@ -145,13 +145,14 @@ function planDocument(queue, doc, now = new Date()) {
     }
     if (anexo.texto_completo) {
       const h = ai.buildTextoHash(anexo.texto_completo);
+      const version = require('../ai/summarize-anexo').getAnexoSummaryVersion(anexo.texto_completo);
       const cached = queue.db
         .prepare(
-          "SELECT 1 FROM documentos_anexos_resumos_ai WHERE anexo_id = ? AND texto_hash = ? AND contrato_versao = 'anexo-2.0' AND status = 'ok'"
+          "SELECT 1 FROM documentos_anexos_resumos_ai WHERE anexo_id = ? AND texto_hash = ? AND contrato_versao = ? AND status = 'ok' AND erro IS NULL"
         )
-        .get(anexo.id, h);
+        .get(anexo.id, h, version);
       if (!cached) {
-        const job = task('anexo-summary', h, { anexoId: anexo.id }, 2, 'anexo-2.0');
+        const job = task('anexo-summary', h, { anexoId: anexo.id }, 2, version);
         if (job.status !== 'ok' && job.status !== 'failed') {
           return job;
         }

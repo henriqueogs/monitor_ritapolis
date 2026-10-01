@@ -90,7 +90,7 @@ const {
   recoverStaleAnexoResumoJobs,
 } = require('../db/anexo-resumo-jobs-repo');
 const { scheduleAnexoResumoJobWorker } = require('../ai/anexo-summary-job-worker');
-const { CONTRACT_VERSION_IA: CONTRATO_ANEXO_IA } = require('../ai/summarize-anexo');
+const { getAnexoSummaryVersion } = require('../ai/summarize-anexo');
 const { enfileirarItensPendentes } = require('../ai/enfileirar-itens-pendentes');
 const { scheduleItensProcessoJobWorker } = require('../ai/itens-processo-job-worker');
 const {
@@ -1309,7 +1309,9 @@ function createServer() {
       }
 
       const textoHash = buildTextoHash(anexo.texto_completo);
-      if (anexo.resumo_ai?.contrato_versao === CONTRATO_ANEXO_IA && anexo.resumo_ai?.texto_hash === textoHash && !force) {
+      const contratoAnexo = getAnexoSummaryVersion(anexo.texto_completo);
+      if (anexo.resumo_ai?.contrato_versao === contratoAnexo && anexo.resumo_ai?.texto_hash === textoHash
+          && anexo.resumo_ai?.status === 'ok' && !anexo.resumo_ai?.erro && !force) {
         return res.json({ status: 'ok', resumo_ai: anexo.resumo_ai, mensagem: 'Resumo ja atualizado.' });
       }
 
@@ -1318,7 +1320,7 @@ function createServer() {
         anexo_id: id,
         provider: provider.provider,
         modelo: provider.model,
-        contrato_versao: CONTRATO_ANEXO_IA,
+        contrato_versao: contratoAnexo,
         texto_hash: textoHash,
         force,
       });

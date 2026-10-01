@@ -341,26 +341,28 @@ class ColetorSitePrefeitura extends ColetorBase {
     const maxRecords = Number.isFinite(Number(options.maxRecords))
       ? Number(options.maxRecords)
       : Infinity;
-    const shell = await this.fetchPageShell(target);
-    const cadastroIds = this.extractCadastroGenericoIds(shell.html);
+    const cadastroIds = await this.checkpoint(`prefeitura:${target.pageId}:cadastros`, async () =>
+      this.extractCadastroGenericoIds((await this.fetchPageShell(target)).html));
     const allRecords = [];
 
     for (const cadastroId of cadastroIds) {
-      const meta = await this.fetchCadastroMeta(cadastroId);
-      const firstPageHtml = await this.fetchCadastroPage(cadastroId, 0);
-      const totalPages = this.getTotalPages(firstPageHtml);
-      allRecords.push(
-        ...this.parseRecords(target.publicUrl, meta.title || target.fallbackTitle, firstPageHtml)
-      );
+      const prefix = `prefeitura:${target.pageId}:${cadastroId}`;
+      const meta = await this.checkpoint(`${prefix}:meta`, () => this.fetchCadastroMeta(cadastroId));
+      const firstPage = await this.checkpoint(`${prefix}:page:0`, async () => {
+        const html = await this.fetchCadastroPage(cadastroId, 0);
+        return { totalPages: this.getTotalPages(html),
+          records: this.parseRecords(target.publicUrl, meta.title || target.fallbackTitle, html) };
+      });
+      const totalPages = firstPage.totalPages;
+      allRecords.push(...firstPage.records);
       if (allRecords.length >= maxRecords) {
         return allRecords.slice(0, maxRecords);
       }
 
       for (let pageIndex = 1; pageIndex < totalPages; pageIndex += 1) {
-        const pageHtml = await this.fetchCadastroPage(cadastroId, pageIndex);
-        allRecords.push(
-          ...this.parseRecords(target.publicUrl, meta.title || target.fallbackTitle, pageHtml)
-        );
+        allRecords.push(...await this.checkpoint(`${prefix}:page:${pageIndex}`, async () =>
+          this.parseRecords(target.publicUrl, meta.title || target.fallbackTitle,
+            await this.fetchCadastroPage(cadastroId, pageIndex))));
         if (allRecords.length >= maxRecords) {
           return allRecords.slice(0, maxRecords);
         }
@@ -488,8 +490,14 @@ class ColetorSitePrefeitura extends ColetorBase {
       const records = await this.collectRecordsForPage(target);
 
       for (const record of records) {
+        const step = `prefeitura:item:${this.calcularHash(JSON.stringify(record))}`;
+        if (this.progress?.load(step)) {
+          continue;
+        }
+        this.progress?.checkTime();
         try {
           await this.processarRegistro(record, resultado);
+          this.completeItem(step, resultado);
         } catch (error) {
           this.registrarErroItem(resultado, { pageId: target.pageId, titulo: record.titulo }, error);
         }

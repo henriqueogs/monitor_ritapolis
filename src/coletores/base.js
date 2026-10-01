@@ -55,6 +55,22 @@ class ColetorBase {
     return crypto.createHash('sha256').update(content).digest('hex');
   }
 
+  async checkpoint(step, read) {
+    const saved = this.progress?.load(step);
+    if (saved && Object.hasOwn(saved, 'value')) {
+      return saved.value;
+    }
+    this.progress?.checkTime();
+    const value = await read();
+    this.progress?.save(step, { value });
+    return value;
+  }
+
+  completeItem(step, resultado) {
+    this.progress?.save(step, true);
+    this.progress?.save('collector-result', resultado);
+  }
+
   async requisitarComRetry(method, url, data, options = {}) {
     assertSafeUrl(url);
     const routed = proxyCollectorRequest({ method, url, data, options });
@@ -62,12 +78,16 @@ class ColetorBase {
 
     for (let tentativa = 1; tentativa <= this.retryMax; tentativa += 1) {
       try {
+        this.progress?.checkTime();
         await this.respeitarDelay(url);
+        this.progress?.checkTime();
         const response = await this.http.request({
           method: routed.method,
           url: routed.url,
           data: routed.data,
           ...routed.options,
+          ...(this.progress ? { timeout: Math.min(routed.options.timeout || this.http.defaults.timeout,
+            this.progress.remainingMs()) } : {}),
         });
         const contentLength = Number(response.headers?.['content-length'] || 0);
         if (contentLength > config.collectorMaxResponseBytes) {
@@ -75,6 +95,9 @@ class ColetorBase {
         }
         return response;
       } catch (error) {
+        if (error.code === 'PIPELINE_YIELD') {
+          throw error;
+        }
         lastError = error;
         logger.warn('Falha em requisicao, tentando novamente', {
           fonte: this.fonte,

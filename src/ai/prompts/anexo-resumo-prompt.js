@@ -4,7 +4,10 @@ const MAX_TEXTO_CHARS = 8000;
 
 // Prompt para resumo de anexo via IA. Mesma regra de POSTURA usada em
 // document-summary/integrated-reading/alert-narrative (CLAUDE.md §11).
-function buildAnexoResumoPrompt({ anexo, documento, texto }) {
+function buildAnexoResumoPrompt({ anexo, documento, texto, trecho = null, parciais = null }) {
+  if (!parciais && String(texto || '').length > MAX_TEXTO_CHARS) {
+    throw new Error('Texto de anexo precisa de divisao completa; truncamento nao permitido');
+  }
   const payload = {
     anexo: {
       nome: anexo.nome || null,
@@ -15,7 +18,7 @@ function buildAnexoResumoPrompt({ anexo, documento, texto }) {
       tipo: documento?.tipo || null,
       ano: documento?.ano || null,
     },
-    texto: String(texto || '').slice(0, MAX_TEXTO_CHARS),
+    ...(parciais ? { resumos_parciais: parciais } : { texto: String(texto || ''), trecho }),
   };
 
   return `
@@ -26,6 +29,12 @@ Use somente o texto fornecido. Nao invente numeros, nomes, datas ou valores
 que nao estejam no texto.
 
 Regras obrigatorias:
+${parciais ? `- Consolide TODOS os resumos parciais fornecidos, sem adicionar fatos externos.
+  Elimine repeticoes entre trechos sobrepostos. Nao some valores repetidos nem
+  associe pessoas/valores de trechos diferentes sem uma relacao explicita.
+  Uma lacuna de um trecho nao e uma ausencia no anexo inteiro: outros trechos
+  podem conter a informacao. Nao transforme lacunas parciais em afirmacoes globais.` : trecho ? `- Esta entrada e apenas um trecho do anexo. Resuma o que esta neste trecho;
+  nao afirme que uma informacao ausente aqui esta ausente no anexo inteiro.` : ''}
 - POSTURA (obrigatoria): o texto e informativo e organizacional, NUNCA
   afirmacao de verdade absoluta nem recomendacao. Atribua a fonte ("segundo o
   documento", "conforme consta no texto"). Nao oriente acoes, nao de

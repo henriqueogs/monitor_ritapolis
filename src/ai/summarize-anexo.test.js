@@ -11,6 +11,10 @@ jest.mock('../db/inteligencia-fatos-repo', () => ({
 }));
 
 const config = require('../config');
+const crypto = require('crypto');
+const { DatabaseSync } = require('node:sqlite');
+const { createProgress } = require('../pipeline/progress');
+const { buildAnexoResumoPrompt } = require('./prompts/anexo-resumo-prompt');
 const { salvarResumoAnexo } = require('../db/inteligencia-fatos-repo');
 const { summarizeAnexo, CONTRACT_VERSION_IA, CONTRACT_VERSION_HEURISTICO } = require('./summarize-anexo');
 
@@ -109,5 +113,113 @@ describe('summarizeAnexo', () => {
 
     expect(provider.generateJson).not.toHaveBeenCalled();
     expect(resultado.contrato_versao).toBe(CONTRACT_VERSION_HEURISTICO);
+  });
+});
+
+describe('anexo completo com retomada', () => {
+  let db;
+  let original;
+  const summary = (label = 'Conforme o anexo, consta o registro oficial.') => ({
+    resumo_curto: label, pontos_relevantes: [], lacunas: [], confianca: 0.8,
+  });
+  const longAnexo = () => anexoBase({
+    texto_completo: anexoBase().texto_completo.repeat(24) + '\nMARCADOR_FINAL_DO_ANEXO',
+    texto_hash: 'hash-antigo-nao-utilizar',
+  });
+  beforeEach(() => {
+    jest.clearAllMocks();
+    db = new DatabaseSync(':memory:');
+    original = { enabled: config.aiSummaryEnabled, size: config.aiChunkSizeChars,
+      overlap: config.aiChunkOverlapChars, max: config.aiMaxChunksPerDocument };
+    config.aiSummaryEnabled = true;
+    config.aiChunkSizeChars = 6000;
+    config.aiChunkOverlapChars = 600;
+    config.aiMaxChunksPerDocument = 40;
+  });
+  afterEach(() => {
+    db.close();
+    config.aiSummaryEnabled = original.enabled;
+    config.aiChunkSizeChars = original.size;
+    config.aiChunkOverlapChars = original.overlap;
+    config.aiMaxChunksPerDocument = original.max;
+  });
+  test('nao aceita truncamento silencioso no construtor de prompt', () => {
+    expect(() => buildAnexoResumoPrompt({ anexo: {}, texto: 'x'.repeat(8001) })).toThrow(/truncamento/);
+  });
+  test('retoma primeiro trecho validado e cobre o fim antes de publicar', async () => {
+    const anexo = longAnexo();
+    const provider = { provider: 'nvidia', model: 'mesmo-modelo', generateJson: jest.fn()
+      .mockResolvedValueOnce(JSON.stringify(summary('Conforme o primeiro trecho, consta a ata.')))
+      .mockRejectedValueOnce(new Error('Request timed out.')) };
+    await expect(summarizeAnexo(anexo, { provider, progress: createProgress(db, 'job') }))
+      .rejects.toThrow('Request timed out');
+    expect(salvarResumoAnexo).not.toHaveBeenCalled();
+    const resumed = { ...provider, generateJson: jest.fn(async ({ prompt, timeoutMs, maxRetries }) => {
+      expect(timeoutMs).toBeGreaterThan(0);
+      expect(maxRetries).toBe(0);
+      return JSON.stringify(summary(prompt.includes('MARCADOR_FINAL_DO_ANEXO')
+        ? 'Conforme o trecho final, consta MARCADOR_FINAL_DO_ANEXO.' : 'Conforme o anexo, consta o registro.'));
+    }) };
+    const result = await summarizeAnexo(anexo, { provider: resumed, progress: createProgress(db, 'job') });
+    const prompts = resumed.generateJson.mock.calls.map(([request]) => request.prompt);
+    expect(prompts).toHaveLength(2); // remaining leaf + consolidation; first leaf is reused
+    expect(prompts[0]).toContain('MARCADOR_FINAL_DO_ANEXO');
+    expect(prompts[1]).toContain('Conforme o primeiro trecho');
+    expect(prompts[1]).toContain('MARCADOR_FINAL_DO_ANEXO');
+    expect(result.contrato_versao).toBe('anexo-2.1-full');
+    expect(result.texto_hash).toBe(crypto.createHash('sha256').update(anexo.texto_completo).digest('hex'));
+    expect(result.resumo_json.cobertura).toMatchObject({ completa: true, trechos: 2,
+      caracteres: anexo.texto_completo.length });
+    expect(salvarResumoAnexo).toHaveBeenCalledTimes(1);
+  });
+  test.each(['texto', 'modelo'])('invalida checkpoints se mudar %s', async change => {
+    const anexo = longAnexo();
+    const provider = { provider: 'nvidia', model: 'modelo-1', generateJson: jest.fn()
+      .mockResolvedValueOnce(JSON.stringify(summary()))
+      .mockRejectedValueOnce(new Error('timeout')) };
+    await expect(summarizeAnexo(anexo, { provider, progress: createProgress(db, 'job') }))
+      .rejects.toThrow('timeout');
+    if (change === 'texto') {
+      anexo.texto_completo += '\nNova versao oficial.';
+    }
+    const resumed = { ...provider, model: change === 'modelo' ? 'modelo-2' : 'modelo-1',
+      generateJson: jest.fn(async () => JSON.stringify(summary())) };
+    await summarizeAnexo(anexo, { provider: resumed, progress: createProgress(db, 'job') });
+    expect(resumed.generateJson).toHaveBeenCalledTimes(3);
+  });
+  test('falha na consolidacao nao publica e reutiliza todos os trechos na retomada', async () => {
+    const provider = { provider: 'nvidia', model: 'modelo', generateJson: jest.fn()
+      .mockResolvedValueOnce(JSON.stringify(summary()))
+      .mockResolvedValueOnce(JSON.stringify(summary()))
+      .mockRejectedValueOnce(new Error('timeout')) };
+    await expect(summarizeAnexo(longAnexo(), { provider, progress: createProgress(db, 'job') }))
+      .rejects.toThrow('timeout');
+    expect(salvarResumoAnexo).not.toHaveBeenCalled();
+    provider.generateJson = jest.fn(async () => JSON.stringify(summary()));
+    await summarizeAnexo(longAnexo(), { provider, progress: createProgress(db, 'job') });
+    expect(provider.generateJson).toHaveBeenCalledTimes(1);
+  });
+  test('limite de cobertura e baixo OCR falham sem salvar resumo parcial na fila', async () => {
+    const provider = { provider: 'nvidia', model: 'modelo', generateJson: jest.fn() };
+    config.aiMaxChunksPerDocument = 1;
+    await expect(summarizeAnexo(longAnexo(), { provider, progress: createProgress(db, 'job') }))
+      .rejects.toThrow(/limite/);
+    await expect(summarizeAnexo(anexoBase({ texto_completo: 'a 3 !@#' }),
+      { provider, progress: createProgress(db, 'job2') })).rejects.toThrow('texto_baixa_qualidade_ocr');
+    expect(provider.generateJson).not.toHaveBeenCalled();
+    expect(salvarResumoAnexo).not.toHaveBeenCalled();
+  });
+  test('versao curta valida e reaproveitada sem gravar; force continua sendo explicito', async () => {
+    const anexo = anexoBase();
+    const hash = crypto.createHash('sha256').update(anexo.texto_completo).digest('hex');
+    anexo.resumo_ai = { id: 5, texto_hash: hash, contrato_versao: 'anexo-2.0',
+      status: 'ok', dados: summary(), provider: 'nvidia', modelo: 'modelo', confianca: 0.8 };
+    const provider = { provider: 'nvidia', model: 'modelo', generateJson: jest.fn(async () => JSON.stringify(summary())) };
+    expect(await summarizeAnexo(anexo, { provider })).toMatchObject({ id: 5, cached: true });
+    expect(provider.generateJson).not.toHaveBeenCalled();
+    expect(salvarResumoAnexo).not.toHaveBeenCalled();
+    await summarizeAnexo(anexo, { provider, force: true });
+    expect(provider.generateJson).toHaveBeenCalledTimes(1);
+    expect(salvarResumoAnexo).toHaveBeenCalledTimes(1);
   });
 });

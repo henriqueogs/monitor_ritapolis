@@ -15,7 +15,7 @@ const now = new Date('2026-09-30T19:00:00Z');
 const text = 'Documento oficial da municipalidade. '.repeat(40);
 let q;
 beforeEach(() => {
-  db.exec('DELETE FROM documentos_resumos_ai; DELETE FROM documentos;');
+  db.exec('DELETE FROM documentos_anexos_resumos_ai; DELETE FROM documentos_anexos; DELETE FROM documentos_resumos_ai; DELETE FROM documentos;');
   q = createQueue(db);
   db.exec('DELETE FROM pipeline_jobs; DELETE FROM pipeline_meta;');
 });
@@ -92,6 +92,29 @@ test('valid current summaries are reused; only dependent factual work is queued'
   planAi(q, now);
   planAi(q, now);
   expect(db.prepare('SELECT kind FROM pipeline_jobs').all()).toEqual([{ kind: 'facts' }]);
+});
+
+test('anexo longo com resumo truncado antigo e replanejado; curto valido nao e regenerado', () => {
+  document(1, 2026, '2026-09-29');
+  const signature = crypto.createHash('sha256').update(text).digest('hex');
+  db.prepare(`INSERT INTO documentos_resumos_ai(documento_id,provider,modelo,contrato_versao,resumo_json,texto_hash,status)
+    VALUES(1,'nvidia','test','1.1','{}',?,'ok')`).run(signature);
+  for (const [id, source] of [[1, text], [2, text.repeat(10)]]) {
+    const h = crypto.createHash('sha256').update(source).digest('hex');
+    db.prepare(`INSERT INTO documentos_anexos(id,documento_id,url,texto_completo,texto_hash,status_extracao)
+      VALUES(?,1,?,?,?,'ok')`).run(id, `https://official.example/anexo${id}.pdf`, source, h);
+    db.prepare(`INSERT INTO documentos_anexos_resumos_ai(anexo_id,provider,modelo,contrato_versao,resumo_json,texto_hash,status)
+      VALUES(?,'nvidia','test','anexo-2.0','{}',?,'ok')`).run(id, h);
+  }
+  const anexos = require('../db/inteligencia-fatos-repo').listarAnexosDocumento(1);
+  expect(anexos[0].resumo_ai).not.toBeNull();
+  expect(anexos[1].resumo_ai).toBeNull(); // don't serve known truncated legacy as current
+  planAi(q, now);
+  planAi(q, now);
+  const jobs = db.prepare('SELECT kind,version,payload FROM pipeline_jobs').all();
+  expect(jobs).toHaveLength(1);
+  expect(jobs[0]).toMatchObject({ kind: 'anexo-summary', version: 'anexo-2.1-full' });
+  expect(JSON.parse(jobs[0].payload).anexoId).toBe(2);
 });
 test('morning collection queues only four official sources, no duplicate financial or PNCP scans', () => {
   plan(q, now);
