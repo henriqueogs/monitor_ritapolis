@@ -33,6 +33,7 @@ async function getWorker() {
       const worker = await createWorker('por', OEM_LSTM, {
         langPath: TESSDATA_BEST,
         gzip: true,
+        workerPath: require.resolve('./ocr-worker'),
       });
       await worker.setParameters({
         preserve_interword_spaces: '1',
@@ -46,9 +47,10 @@ async function getWorker() {
 
 async function encerrarWorker() {
   if (workerPromise) {
-    const w = await workerPromise;
-    await w.terminate();
+    const pending = workerPromise;
     workerPromise = null;
+    const w = await pending;
+    await w.terminate();
   }
 }
 
@@ -63,16 +65,14 @@ function rasterizarPdf(buffer, dir, { dpi = DPI_PADRAO, maxPaginas = MAX_PAGINAS
   const pdfPath = path.join(dir, 'in.pdf');
   fs.writeFileSync(pdfPath, buffer);
   const prefix = path.join(dir, 'pg');
-  execFileSync(
-    'pdftoppm',
-    ['-png', '-r', String(dpi), '-l', String(maxPaginas), pdfPath, prefix],
-    { stdio: 'ignore' }
-  );
+  execFileSync('pdftoppm', ['-png', '-r', String(dpi), '-l', String(maxPaginas), pdfPath, prefix], {
+    stdio: 'ignore',
+  });
   return fs
     .readdirSync(dir)
-    .filter((f) => f.startsWith('pg') && f.endsWith('.png'))
+    .filter(f => f.startsWith('pg') && f.endsWith('.png'))
     .sort()
-    .map((f) => path.join(dir, f));
+    .map(f => path.join(dir, f));
 }
 
 async function ocrImagens(caminhos) {
@@ -94,12 +94,54 @@ async function ocrImagens(caminhos) {
 async function ocrPdfBuffer(buffer, opcoes = {}) {
   const dir = tmpDir();
   try {
-    const pngs = rasterizarPdf(buffer, dir, opcoes);
-    if (pngs.length === 0) {
-      return { texto: '', paginas: 0 };
+    if (!opcoes.progress) {
+      const pngs = rasterizarPdf(buffer, dir, opcoes);
+      if (pngs.length === 0) {
+        return { texto: '', paginas: 0 };
+      }
+      const texto = await ocrImagens(pngs);
+      return { texto, paginas: pngs.length };
     }
-    const texto = await ocrImagens(pngs);
-    return { texto, paginas: pngs.length };
+    // Rasterize just the next page, rather than every page again on resume.
+    // Include actual downloaded bytes in the key: a changed official file
+    // must never inherit OCR from a different revision of the same URL.
+    const signature = crypto.createHash('sha256').update(buffer).digest('hex');
+    const pdfPath = path.join(dir, 'in.pdf');
+    fs.writeFileSync(pdfPath, buffer);
+    const partes = [];
+    const maxPaginas = opcoes.maxPaginas || MAX_PAGINAS_PADRAO;
+    for (let pagina = 1; pagina <= maxPaginas; pagina++) {
+      const key = `ocr:${signature}:${opcoes.dpi || DPI_PADRAO}:${pagina}`;
+      let saved = opcoes.progress.load(key);
+      if (!saved) {
+        opcoes.progress.checkTime();
+        const prefix = path.join(dir, 'pg');
+        execFileSync(
+          'pdftoppm',
+          [
+            '-png',
+            '-singlefile',
+            '-r',
+            String(opcoes.dpi || DPI_PADRAO),
+            '-f',
+            String(pagina),
+            '-l',
+            String(pagina),
+            pdfPath,
+            prefix,
+          ],
+          { stdio: 'ignore' }
+        );
+        const image = `${prefix}.png`;
+        saved = { texto: await ocrImagens([image]) };
+        opcoes.progress.save(key, saved);
+        fs.unlinkSync(image);
+      }
+      if (saved.texto) {
+        partes.push(saved.texto);
+      }
+    }
+    return { texto: partes.join('\n\n'), paginas: maxPaginas };
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

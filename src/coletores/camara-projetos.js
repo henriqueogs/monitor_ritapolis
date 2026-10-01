@@ -21,7 +21,12 @@ const {
   upsertProjeto,
   upsertCamaraColetaLog,
 } = require('../db/camara-repo');
-const { extrairHtmlDaResposta, parseProjetos, parseVereadores, parseMandatos } = require('./camara-sgc');
+const {
+  extrairHtmlDaResposta,
+  parseProjetos,
+  parseVereadores,
+  parseMandatos,
+} = require('./camara-sgc');
 
 const BASE_URL = 'https://ritapolis.mg.leg.br';
 const PROJETOS_URL = `${BASE_URL}/ws_consulta/sgc/buscarProjetos.php`;
@@ -39,8 +44,15 @@ class ColetorCamaraProjetos extends ColetorBase {
   async buscarProjetosPagina(pagina) {
     const payload = new URLSearchParams({
       INT_PAG: String(pagina),
-      INT_TP_PRJT: '', INT_NUM_PRJT: '', INT_EXRC_PRJT: '', NM_PES: '',
-      DESC_PRJT: '', TXT_PRJT: '', INT_ORIG_PRJT: '', INT_LOC_PRJT: '', ORDER_BY: '',
+      INT_TP_PRJT: '',
+      INT_NUM_PRJT: '',
+      INT_EXRC_PRJT: '',
+      NM_PES: '',
+      DESC_PRJT: '',
+      TXT_PRJT: '',
+      INT_ORIG_PRJT: '',
+      INT_LOC_PRJT: '',
+      ORDER_BY: '',
     }).toString();
     const response = await this.postComRetry(`${PROJETOS_URL}?DataHora=${Date.now()}`, payload, {
       responseType: 'text',
@@ -85,7 +97,13 @@ class ColetorCamaraProjetos extends ColetorBase {
         try {
           const acao = upsertProjeto(item);
           registros += 1;
-          if (acao === 'inserted') { novos += 1; } else if (acao === 'updated') { atualizados += 1; }
+          if (acao === 'inserted') {
+            novos += 1;
+          } else if (acao === 'updated') {
+            atualizados += 1;
+          } else if (acao === 'unchanged') {
+            resultado.itens_sem_alteracao = (resultado.itens_sem_alteracao || 0) + 1;
+          }
         } catch (err) {
           this.registrarErroItem(resultado, { tipo: 'projeto', intPrjt: item.intPrjt }, err);
         }
@@ -107,7 +125,13 @@ class ColetorCamaraProjetos extends ColetorBase {
     for (const v of vereadores) {
       try {
         const acao = upsertVereador(v);
-        if (acao === 'inserted') { novos += 1; } else if (acao === 'updated') { atualizados += 1; }
+        if (acao === 'inserted') {
+          novos += 1;
+        } else if (acao === 'updated') {
+          atualizados += 1;
+        } else if (acao === 'unchanged') {
+          resultado.itens_sem_alteracao = (resultado.itens_sem_alteracao || 0) + 1;
+        }
 
         const mandatos = await this.buscarMandatos(v.intPes);
         for (const mandato of mandatos) {

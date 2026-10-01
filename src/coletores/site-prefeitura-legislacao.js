@@ -25,9 +25,19 @@ const SEARCH_URL = `${BASE_URL}/ws_consulta/wsBuscarLeis.php`;
 const REGISTROS_POR_PAGINA = 50;
 
 const MESES = {
-  janeiro: '01', fevereiro: '02', março: '03', marco: '03', abril: '04',
-  maio: '05', junho: '06', julho: '07', agosto: '08', setembro: '09',
-  outubro: '10', novembro: '11', dezembro: '12',
+  janeiro: '01',
+  fevereiro: '02',
+  março: '03',
+  marco: '03',
+  abril: '04',
+  maio: '05',
+  junho: '06',
+  julho: '07',
+  agosto: '08',
+  setembro: '09',
+  outubro: '10',
+  novembro: '11',
+  dezembro: '12',
 };
 
 // "PORTARIA 432 DE 05 DE JANEIRO DE 2026.pdf" -> "2026-01-05". A listagem de
@@ -39,17 +49,25 @@ function extrairDataDoNomeArquivo(nome) {
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .match(/(\d{1,2})\s+de\s+([a-z]+)\s+de\s+(\d{4})/i);
-  if (!m) {return null;}
+  if (!m) {
+    return null;
+  }
   const mes = MESES[m[2]];
-  if (!mes) {return null;}
+  if (!mes) {
+    return null;
+  }
   return `${m[3]}-${mes}-${String(m[1]).padStart(2, '0')}`;
 }
 
 // "Portaria nº 432   2025" -> { tipoLabel: 'Portaria', numero: '432', exercicio: 2025 }
 function parseLinhaMetadados(tds) {
-  if (!tds[0]) {return null;}
+  if (!tds[0]) {
+    return null;
+  }
   const m = String(tds[0]).match(/^(.+?)\s+n[ºo°]\s*(\d+)\s+(\d{4})$/i);
-  if (!m) {return null;}
+  if (!m) {
+    return null;
+  }
   return {
     tipoLabel: normalizeSpaces(m[1]),
     numero: m[2],
@@ -74,7 +92,9 @@ function parseRegistrosLeis(html) {
       .map((_, td) => normalizeSpaces($(td).text()))
       .get();
     const meta = parseLinhaMetadados(tds);
-    if (!meta) {continue;}
+    if (!meta) {
+      continue;
+    }
 
     const proxima = linhas[i + 1];
     const link = proxima ? $(proxima).find('a.cliqueaqui').first() : null;
@@ -134,14 +154,26 @@ class ColetorLegislacaoPrefeitura extends ColetorBase {
   // do mandato atual). `maxRegistros` é defensivo (testes/uso pontual).
   async collectRecords({ exercicioInicial, maxRegistros = Infinity } = {}) {
     const anoInicio = exercicioInicial || mandatoInicio(new Date().getFullYear());
-    const primeiraHtml = await this.buscarPagina(anoInicio, 0);
-    const total = getTotalItens(primeiraHtml);
-    const totalPaginas = Math.ceil(total / REGISTROS_POR_PAGINA) || 1;
+    let first = this.progress?.load(`prefeitura-leis:${anoInicio}:0`);
+    if (!first) {
+      this.progress?.checkTime();
+      const primeiraHtml = await this.buscarPagina(anoInicio, 0);
+      first = { total: getTotalItens(primeiraHtml), items: parseRegistrosLeis(primeiraHtml) };
+      this.progress?.save(`prefeitura-leis:${anoInicio}:0`, first);
+    }
+    const totalPaginas = Math.ceil(first.total / REGISTROS_POR_PAGINA) || 1;
 
-    let registros = parseRegistrosLeis(primeiraHtml);
+    let registros = first.items;
     for (let pagina = 1; pagina < totalPaginas && registros.length < maxRegistros; pagina += 1) {
-      const html = await this.buscarPagina(anoInicio, pagina);
-      registros = registros.concat(parseRegistrosLeis(html));
+      const step = `prefeitura-leis:${anoInicio}:${pagina}`;
+      let items = this.progress?.load(step);
+      if (!items) {
+        this.progress?.checkTime();
+        const html = await this.buscarPagina(anoInicio, pagina);
+        items = parseRegistrosLeis(html);
+        this.progress?.save(step, items);
+      }
+      registros = registros.concat(items);
     }
 
     return registros.slice(0, maxRegistros);
@@ -159,10 +191,21 @@ class ColetorLegislacaoPrefeitura extends ColetorBase {
       textoBase = existing.texto_completo;
       hashSource = existing.hash_conteudo || hashSource;
     } else if (pdfUrl) {
-      const pdfBuffer = await this.baixarBuffer(pdfUrl);
-      hashSource = pdfBuffer;
-      arquivo = await extractOfficialFileText(pdfBuffer, { filename: item.anexoNome, url: pdfUrl });
-      textoBase = arquivo.text || '';
+      try {
+        const pdfBuffer = await this.baixarBuffer(pdfUrl);
+        hashSource = pdfBuffer;
+        arquivo = await extractOfficialFileText(pdfBuffer, {
+          filename: item.anexoNome,
+          url: pdfUrl,
+        });
+        textoBase = arquivo.text || '';
+      } catch (error) {
+        if (!require('../pipeline/file-policy').isOversized(error)) {
+          throw error;
+        }
+        arquivo.error = error.message;
+        this.registrarErroItem(resultado, { url: pdfUrl, motivo: 'arquivo_acima_limite' }, error);
+      }
     }
 
     const titulo = normalizeSpaces(
@@ -182,7 +225,8 @@ class ColetorLegislacaoPrefeitura extends ColetorBase {
         valor_estimado: null,
         url_origem: `${BASE_URL}/?Meio=Leis`,
         url_pdf: pdfUrl,
-        texto_completo: textoBase || (item.ementa?.length > 200 ? item.ementa : null),
+        texto_completo:
+          textoBase || (!arquivo.error && item.ementa?.length > 200 ? item.ementa : null),
         dados_extras: {
           modulo: 'legislacao_municipal',
           tipo_label: item.tipoLabel,
@@ -193,14 +237,23 @@ class ColetorLegislacaoPrefeitura extends ColetorBase {
             paginas: arquivo.pages,
             erro: arquivo.error || null,
             engine: arquivo.info?.parser || null,
-            tipo_arquivo: arquivo.info?.tipo_arquivo || inferFileExtension({ filename: item.anexoNome, url: pdfUrl }) || 'pdf',
+            tipo_arquivo:
+              arquivo.info?.tipo_arquivo ||
+              inferFileExtension({ filename: item.anexoNome, url: pdfUrl }) ||
+              'pdf',
           },
         },
         hash_conteudo:
           typeof hashSource === 'string' && existing?.hash_conteudo
             ? existing.hash_conteudo
             : this.calcularHash(hashSource),
-        status_coleta: pdfUrl ? (arquivo.error ? 'erro_pdf' : !textoBase && arquivo.pages > 0 ? 'imagem' : 'ok') : 'sem_pdf',
+        status_coleta: pdfUrl
+          ? arquivo.error
+            ? 'erro_pdf'
+            : !textoBase && arquivo.pages > 0
+              ? 'imagem'
+              : 'ok'
+          : 'sem_pdf',
         licitacao_detalhes: null,
       },
       resultado
@@ -210,10 +263,20 @@ class ColetorLegislacaoPrefeitura extends ColetorBase {
   async executar(resultado) {
     const registros = await this.collectRecords();
     for (const item of registros) {
+      const step = `prefeitura-item:${this.calcularHash(JSON.stringify(item))}`;
+      if (this.progress?.load(step)?.done) {
+        continue;
+      }
       try {
+        this.progress?.checkTime();
         await this.processarRegistro(item, resultado);
+        this.progress?.save(step, { done: true });
       } catch (error) {
-        this.registrarErroItem(resultado, { tipo: item.tipoLabel, numero: item.numero, exercicio: item.exercicio }, error);
+        this.registrarErroItem(
+          resultado,
+          { tipo: item.tipoLabel, numero: item.numero, exercicio: item.exercicio },
+          error
+        );
       }
     }
   }

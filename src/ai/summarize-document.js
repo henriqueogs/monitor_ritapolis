@@ -1,23 +1,22 @@
 const crypto = require('crypto');
 const config = require('../config');
 const logger = require('../logger');
-const {
-  getDocumentoById,
-  getResumoAiByDocumentoHash,
-  saveResumoAi
-} = require('../db');
+const { getDocumentoById, getResumoAiByDocumentoHash, saveResumoAi } = require('../db');
 const { estimateTokensFromText } = require('./estimate-tokens');
 const { createAiProvider } = require('./providers');
 const {
   buildDocumentSummaryPrompt,
-  buildConsolidationPrompt
+  buildConsolidationPrompt,
 } = require('./prompts/document-summary-prompt');
 const { splitTextIntoChunks } = require('./chunk-text');
 const { getAiDirectCharLimit } = require('./operation-policy');
 const { parseSummaryResponse, validateSummary } = require('./validate-summary');
 
 function buildTextoHash(textoCompleto) {
-  return crypto.createHash('sha256').update(String(textoCompleto || ''), 'utf8').digest('hex');
+  return crypto
+    .createHash('sha256')
+    .update(String(textoCompleto || ''), 'utf8')
+    .digest('hex');
 }
 
 function ensureAiEnabled() {
@@ -59,7 +58,7 @@ function getFallbackOverlap(chunkSizeChars) {
 }
 
 function wait(ms) {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     setTimeout(resolve, ms);
   });
 }
@@ -78,8 +77,12 @@ function truncateText(value, maxChars = 500) {
     .replace(/\s+/g, ' ')
     .trim();
 
-  if (!text) {return null;}
-  if (text.length <= maxChars) {return text;}
+  if (!text) {
+    return null;
+  }
+  if (text.length <= maxChars) {
+    return text;
+  }
 
   return `${text.slice(0, Math.max(1, maxChars - 3)).trim()}...`;
 }
@@ -90,81 +93,83 @@ function uniqueBy(items, keyFn, maxItems) {
 
   for (const item of items || []) {
     const key = normalizeKey(keyFn(item));
-    if (!key || seen.has(key)) {continue;}
+    if (!key || seen.has(key)) {
+      continue;
+    }
 
     seen.add(key);
     output.push(item);
 
-    if (output.length >= maxItems) {break;}
+    if (output.length >= maxItems) {
+      break;
+    }
   }
 
   return output;
 }
 
 function compactTextArray(items, maxItems = 8, maxChars = 220) {
-  const compacted = (items || [])
-    .map((item) => truncateText(item, maxChars))
-    .filter(Boolean);
+  const compacted = (items || []).map(item => truncateText(item, maxChars)).filter(Boolean);
 
-  return uniqueBy(compacted, (item) => item, maxItems);
+  return uniqueBy(compacted, item => item, maxItems);
 }
 
 function compactDateItems(items, maxItems = 8) {
   const compacted = (items || [])
-    .filter((item) => item?.descricao && item?.trecho_fonte)
-    .map((item) => ({
+    .filter(item => item?.descricao && item?.trecho_fonte)
+    .map(item => ({
       tipo: item.tipo || 'outro',
       data: item.data || null,
       descricao: truncateText(item.descricao, 180),
-      trecho_fonte: truncateText(item.trecho_fonte, 240)
+      trecho_fonte: truncateText(item.trecho_fonte, 240),
     }));
 
   return uniqueBy(
     compacted,
-    (item) => `${item.tipo}|${item.data || ''}|${item.descricao}|${item.trecho_fonte}`,
+    item => `${item.tipo}|${item.data || ''}|${item.descricao}|${item.trecho_fonte}`,
     maxItems
   );
 }
 
 function compactValueItems(items, maxItems = 8) {
   const compacted = (items || [])
-    .filter((item) => Number.isFinite(Number(item?.valor)) && item?.descricao && item?.trecho_fonte)
-    .map((item) => ({
+    .filter(item => Number.isFinite(Number(item?.valor)) && item?.descricao && item?.trecho_fonte)
+    .map(item => ({
       tipo: item.tipo || 'outro',
       valor: Number(item.valor),
       moeda: item.moeda || 'BRL',
       descricao: truncateText(item.descricao, 180),
-      trecho_fonte: truncateText(item.trecho_fonte, 240)
+      trecho_fonte: truncateText(item.trecho_fonte, 240),
     }));
 
   return uniqueBy(
     compacted,
-    (item) => `${item.tipo}|${item.valor}|${item.descricao}|${item.trecho_fonte}`,
+    item => `${item.tipo}|${item.valor}|${item.descricao}|${item.trecho_fonte}`,
     maxItems
   );
 }
 
 function compactPartyItems(items, maxItems = 8) {
   const compacted = (items || [])
-    .filter((item) => item?.nome && item?.trecho_fonte)
-    .map((item) => ({
+    .filter(item => item?.nome && item?.trecho_fonte)
+    .map(item => ({
       nome: truncateText(item.nome, 140),
       papel: item.papel || 'outro',
       documento: truncateText(item.documento, 80),
-      trecho_fonte: truncateText(item.trecho_fonte, 240)
+      trecho_fonte: truncateText(item.trecho_fonte, 240),
     }));
 
   return uniqueBy(
     compacted,
-    (item) => `${item.nome}|${item.papel}|${item.documento || ''}|${item.trecho_fonte}`,
+    item => `${item.nome}|${item.papel}|${item.documento || ''}|${item.trecho_fonte}`,
     maxItems
   );
 }
 
 function compactBidItems(items, maxItems = 30) {
   const compacted = (items || [])
-    .filter((item) => item?.descricao && item?.trecho_fonte)
-    .map((item) => ({
+    .filter(item => item?.descricao && item?.trecho_fonte)
+    .map(item => ({
       item_numero: truncateText(item.item_numero, 40),
       lote_numero: truncateText(item.lote_numero, 40),
       descricao: truncateText(item.descricao, 260),
@@ -191,26 +196,27 @@ function compactBidItems(items, maxItems = 30) {
         : null,
       fornecedor_nome: truncateText(item.fornecedor_nome, 160),
       fornecedor_cnpj: truncateText(item.fornecedor_cnpj, 32),
-      trecho_fonte: truncateText(item.trecho_fonte, 260)
+      trecho_fonte: truncateText(item.trecho_fonte, 260),
     }));
 
   return uniqueBy(
     compacted,
-    (item) => `${item.lote_numero || ''}|${item.item_numero || ''}|${item.descricao}|${item.trecho_fonte}`,
+    item =>
+      `${item.lote_numero || ''}|${item.item_numero || ''}|${item.descricao}|${item.trecho_fonte}`,
     maxItems
   );
 }
 
 function compactRiskItems(items, maxItems = 6) {
   const compacted = (items || [])
-    .filter((item) => item?.descricao && item?.motivo)
-    .map((item) => ({
+    .filter(item => item?.descricao && item?.motivo)
+    .map(item => ({
       nivel: item.nivel || 'baixo',
       descricao: truncateText(item.descricao, 220),
-      motivo: truncateText(item.motivo, 220)
+      motivo: truncateText(item.motivo, 220),
     }));
 
-  return uniqueBy(compacted, (item) => `${item.nivel}|${item.descricao}|${item.motivo}`, maxItems);
+  return uniqueBy(compacted, item => `${item.nivel}|${item.descricao}|${item.motivo}`, maxItems);
 }
 
 function compactSummaryForConsolidation(partial) {
@@ -231,12 +237,12 @@ function compactSummaryForConsolidation(partial) {
       resumo.objeto && (resumo.objeto.descricao || resumo.objeto.trecho_fonte)
         ? {
             descricao: truncateText(resumo.objeto.descricao, 280),
-            trecho_fonte: truncateText(resumo.objeto.trecho_fonte, 240)
+            trecho_fonte: truncateText(resumo.objeto.trecho_fonte, 240),
           }
         : null,
     riscos_ou_alertas: compactRiskItems(resumo.riscos_ou_alertas, 4),
     campos_nao_encontrados: compactTextArray(resumo.campos_nao_encontrados, 8, 160),
-    confianca: Number.isFinite(Number(resumo.confianca)) ? Number(resumo.confianca) : null
+    confianca: Number.isFinite(Number(resumo.confianca)) ? Number(resumo.confianca) : null,
   };
 }
 
@@ -245,7 +251,9 @@ function chooseMostFrequent(values, fallback = 'outro') {
 
   for (const value of values || []) {
     const key = normalizeKey(value);
-    if (!key || key === 'outro') {continue;}
+    if (!key || key === 'outro') {
+      continue;
+    }
     counts.set(value, (counts.get(value) || 0) + 1);
   }
 
@@ -263,51 +271,51 @@ function chooseMostFrequent(values, fallback = 'outro') {
 
 function averageConfidence(summaries) {
   const values = (summaries || [])
-    .map((summary) => Number(summary?.confianca))
-    .filter((value) => Number.isFinite(value));
+    .map(summary => Number(summary?.confianca))
+    .filter(value => Number.isFinite(value));
 
-  if (!values.length) {return 0.55;}
+  if (!values.length) {
+    return 0.55;
+  }
 
   const average = values.reduce((sum, value) => sum + value, 0) / values.length;
   return Number(Math.min(0.72, Math.max(0.35, average - 0.08)).toFixed(2));
 }
 
 function mergePartialSummaries(partialSummaries) {
-  const summaries = (partialSummaries || []).map((partial) => partial.resumo).filter(Boolean);
-  const title = truncateText(
-    summaries.map((summary) => summary.titulo_curto).find(Boolean),
-    140
-  );
+  const summaries = (partialSummaries || []).map(partial => partial.resumo).filter(Boolean);
+  const title = truncateText(summaries.map(summary => summary.titulo_curto).find(Boolean), 140);
   const citizenSummaries = compactTextArray(
-    summaries.map((summary) => summary.resumo_cidadao),
+    summaries.map(summary => summary.resumo_cidadao),
     3,
     420
   );
   const technicalSummaries = compactTextArray(
-    summaries.map((summary) => summary.resumo_tecnico),
+    summaries.map(summary => summary.resumo_tecnico),
     5,
     420
   );
   const mainPoints = compactTextArray(
-    summaries.flatMap((summary) => summary.pontos_principais || []),
+    summaries.flatMap(summary => summary.pontos_principais || []),
     10,
     220
   );
 
   const fallbackCitizenSummary = [
     title ? `Documento analisado: ${title}.` : 'Documento publico analisado em partes.',
-    mainPoints.length ? `Pontos identificados: ${mainPoints.slice(0, 3).join('; ')}.` : ''
+    mainPoints.length ? `Pontos identificados: ${mainPoints.slice(0, 3).join('; ')}.` : '',
   ]
     .filter(Boolean)
     .join(' ');
 
   const selectedObject =
-    summaries.map((summary) => summary.objeto).find((objeto) => objeto?.descricao || objeto?.trecho_fonte) ||
-    {};
+    summaries
+      .map(summary => summary.objeto)
+      .find(objeto => objeto?.descricao || objeto?.trecho_fonte) || {};
 
   return validateSummary({
     tipo_documento: chooseMostFrequent(
-      summaries.map((summary) => summary.tipo_documento),
+      summaries.map(summary => summary.tipo_documento),
       summaries[0]?.tipo_documento || 'outro'
     ),
     titulo_curto: title || 'Documento publico municipal',
@@ -315,35 +323,35 @@ function mergePartialSummaries(partialSummaries) {
     resumo_tecnico: truncateText(technicalSummaries.join(' ') || fallbackCitizenSummary, 1600),
     pontos_principais: mainPoints,
     datas_relevantes: compactDateItems(
-      summaries.flatMap((summary) => summary.datas_relevantes || []),
+      summaries.flatMap(summary => summary.datas_relevantes || []),
       12
     ),
     valores: compactValueItems(
-      summaries.flatMap((summary) => summary.valores || []),
+      summaries.flatMap(summary => summary.valores || []),
       12
     ),
     partes_envolvidas: compactPartyItems(
-      summaries.flatMap((summary) => summary.partes_envolvidas || []),
+      summaries.flatMap(summary => summary.partes_envolvidas || []),
       12
     ),
     itens_licitados: compactBidItems(
-      summaries.flatMap((summary) => summary.itens_licitados || []),
+      summaries.flatMap(summary => summary.itens_licitados || []),
       60
     ),
     objeto: {
       descricao: truncateText(selectedObject.descricao, 500),
-      trecho_fonte: truncateText(selectedObject.trecho_fonte, 300)
+      trecho_fonte: truncateText(selectedObject.trecho_fonte, 300),
     },
     riscos_ou_alertas: compactRiskItems(
-      summaries.flatMap((summary) => summary.riscos_ou_alertas || []),
+      summaries.flatMap(summary => summary.riscos_ou_alertas || []),
       8
     ),
     campos_nao_encontrados: compactTextArray(
-      summaries.flatMap((summary) => summary.campos_nao_encontrados || []),
+      summaries.flatMap(summary => summary.campos_nao_encontrados || []),
       12,
       160
     ),
-    confianca: averageConfidence(summaries)
+    confianca: averageConfidence(summaries),
   });
 }
 
@@ -352,20 +360,31 @@ async function generateValidatedSummary({
   prompt,
   temperature = 0,
   maxAttempts = getRetryMaxAttempts(),
-  logContext = {}
+  logContext = {},
+  progress,
 }) {
   const attempts = Math.max(1, Number(maxAttempts || 1));
   let lastError = null;
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    progress?.checkTime();
     try {
-      const rawResponse = await provider.generateJson({ prompt, temperature });
+      const rawResponse = await provider.generateJson({
+        prompt,
+        temperature,
+        ...(progress
+          ? {
+              timeoutMs: Math.min(config.aiRequestTimeoutMs, progress.remainingMs()),
+              maxRetries: 0,
+            }
+          : {}),
+      });
       const parsed = parseSummaryResponse(rawResponse);
       const validated = validateSummary(parsed);
 
       return {
         validated,
-        rawResponse
+        rawResponse,
       };
     } catch (error) {
       lastError = error;
@@ -380,7 +399,7 @@ async function generateValidatedSummary({
         maxTentativas: attempts,
         esperaMs: waitMs,
         erro: getErrorMessage(error),
-        ...logContext
+        ...logContext,
       });
       await wait(waitMs);
     }
@@ -394,61 +413,97 @@ async function summarizeChunkWithFallback({
   texto,
   contratoVersao,
   chunkLabel,
-  chunkSizeChars
+  chunkSizeChars,
+  progress,
 }) {
   const minChunkSizeChars = getMinChunkSizeChars();
   const prompt = buildDocumentSummaryPrompt({ texto, contratoVersao });
+  const step = `summary:${buildTextoHash(
+    JSON.stringify([
+      contratoVersao,
+      provider.provider,
+      provider.model,
+      texto,
+      chunkLabel,
+      chunkSizeChars,
+    ])
+  )}`;
+  const saved = progress?.load(step);
+  if (saved?.partials) {
+    for (const item of saved.partials) {
+      validateSummary(item.resumo);
+    }
+    return saved.partials;
+  }
+  progress?.checkTime();
+  if (saved?.split) {
+    return resumeChildren();
+  }
 
   try {
     const summary = await generateValidatedSummary({
       provider,
       prompt,
       maxAttempts: 1,
+      progress,
       logContext: {
         chunk: chunkLabel,
-        caracteresChunk: texto.length
-      }
+        caracteresChunk: texto.length,
+      },
     });
 
-    return [
+    const partials = [
       {
         chunk_indice: chunkLabel,
-        resumo: summary.validated
-      }
+        resumo: summary.validated,
+      },
     ];
+    progress?.save(step, { partials });
+    return partials;
   } catch (error) {
+    return resumeChildren(error);
+  }
+  // A saved split resumes its children without another failed parent request
+  // or a fabricated timeout message in operational logs.
+  async function resumeChildren(error) {
     const fallbackChunkSize = getFallbackChunkSize({
       currentSize: chunkSizeChars,
-      textLength: texto.length
+      textLength: texto.length,
     });
 
     if (
-      !isRetriableAiError(error) ||
+      (error && !isRetriableAiError(error)) ||
       texto.length <= minChunkSizeChars ||
       fallbackChunkSize >= texto.length
     ) {
-      throw error;
+      throw error || new Error('Subdivisao salva excede os limites atuais');
     }
 
     const fallbackOverlap = getFallbackOverlap(fallbackChunkSize);
     const subchunks = splitTextIntoChunks(texto, {
       chunkSizeChars: fallbackChunkSize,
       chunkOverlapChars: fallbackOverlap,
-      maxChunksPerDocument: config.aiMaxChunksPerDocument
+      maxChunksPerDocument: config.aiMaxChunksPerDocument,
     });
 
     if (subchunks.length <= 1) {
       throw error;
     }
+    progress?.save(step, { split: true });
 
-    logger.warn('Chunk de resumo IA falhou; reprocessando em subchunks menores', {
-      chunk: chunkLabel,
-      erro: getErrorMessage(error),
-      caracteresChunk: texto.length,
-      subchunks: subchunks.length,
-      fallbackChunkSizeChars: fallbackChunkSize,
-      fallbackChunkOverlapChars: fallbackOverlap
-    });
+    logger[error ? 'warn' : 'info'](
+      error
+        ? 'Chunk de resumo IA falhou; reprocessando em subchunks menores'
+        : 'Retomando subchunks de resumo salvos',
+      {
+        chunk: chunkLabel,
+        erro: getErrorMessage(error),
+        caracteresChunk: texto.length,
+        subchunks: subchunks.length,
+        fallbackChunkSizeChars: fallbackChunkSize,
+        fallbackChunkOverlapChars: fallbackOverlap,
+      }
+    );
 
     const summaries = [];
     for (let index = 0; index < subchunks.length; index += 1) {
@@ -458,7 +513,7 @@ async function summarizeChunkWithFallback({
         subchunk: subchunkLabel,
         subchunkAtual: index + 1,
         subchunksTotal: subchunks.length,
-        caracteresSubchunk: subchunks[index].length
+        caracteresSubchunk: subchunks[index].length,
       });
 
       const subSummaries = await summarizeChunkWithFallback({
@@ -466,12 +521,14 @@ async function summarizeChunkWithFallback({
         texto: subchunks[index],
         contratoVersao,
         chunkLabel: subchunkLabel,
-        chunkSizeChars: fallbackChunkSize
+        chunkSizeChars: fallbackChunkSize,
+        progress,
       });
 
       summaries.push(...subSummaries);
     }
 
+    progress?.save(step, { partials: summaries });
     return summaries;
   }
 }
@@ -489,12 +546,13 @@ async function generateChunkedSummary({
   texto,
   contratoVersao,
   chunkSizeChars = config.aiChunkSizeChars,
-  chunkOverlapChars = config.aiChunkOverlapChars
+  chunkOverlapChars = config.aiChunkOverlapChars,
+  progress,
 }) {
   const chunks = splitTextIntoChunks(texto, {
     chunkSizeChars,
     chunkOverlapChars,
-    maxChunksPerDocument: config.aiMaxChunksPerDocument
+    maxChunksPerDocument: config.aiMaxChunksPerDocument,
   });
 
   logger.info('Documento sera resumido em chunks', {
@@ -502,7 +560,7 @@ async function generateChunkedSummary({
     chunks: chunks.length,
     chunkSizeChars,
     chunkOverlapChars,
-    minChunkSizeChars: getMinChunkSizeChars()
+    minChunkSizeChars: getMinChunkSizeChars(),
   });
 
   const partialSummaries = [];
@@ -510,7 +568,7 @@ async function generateChunkedSummary({
     logger.info('Gerando resumo parcial de chunk', {
       chunkAtual: index + 1,
       chunksTotal: chunks.length,
-      caracteresChunk: chunks[index].length
+      caracteresChunk: chunks[index].length,
     });
 
     const partials = await summarizeChunkWithFallback({
@@ -518,7 +576,8 @@ async function generateChunkedSummary({
       texto: chunks[index],
       contratoVersao,
       chunkLabel: String(index + 1),
-      chunkSizeChars
+      chunkSizeChars,
+      progress,
     });
 
     partialSummaries.push(...partials);
@@ -526,20 +585,21 @@ async function generateChunkedSummary({
   }
 
   logger.info('Consolidando resumos parciais de documento grande', {
-    chunks: partialSummaries.length
+    chunks: partialSummaries.length,
   });
 
   const compactedPartialSummaries = partialSummaries.map(compactSummaryForConsolidation);
   const chunkSummariesJson = JSON.stringify(compactedPartialSummaries);
+  progress?.checkTime();
 
   const consolidationPrompt = buildConsolidationPrompt({
     contratoVersao,
-    chunkSummariesJson
+    chunkSummariesJson,
   });
 
   logger.info('Payload de consolidacao preparado', {
     chunks: compactedPartialSummaries.length,
-    caracteresPayload: chunkSummariesJson.length
+    caracteresPayload: chunkSummariesJson.length,
   });
 
   try {
@@ -547,37 +607,41 @@ async function generateChunkedSummary({
       provider,
       prompt: consolidationPrompt,
       maxAttempts: 1,
+      progress,
       logContext: {
         etapa: 'consolidacao',
         chunks: compactedPartialSummaries.length,
-        caracteresPayload: chunkSummariesJson.length
-      }
+        caracteresPayload: chunkSummariesJson.length,
+      },
     });
   } catch (error) {
     if (!isRetriableAiError(error)) {
       throw error;
     }
 
-    logger.warn('Consolidacao final com IA falhou; usando merge deterministico dos resumos parciais', {
-      erro: getErrorMessage(error),
-      chunks: partialSummaries.length
-    });
+    logger.warn(
+      'Consolidacao final com IA falhou; usando merge deterministico dos resumos parciais',
+      {
+        erro: getErrorMessage(error),
+        chunks: partialSummaries.length,
+      }
+    );
 
     return {
       validated: mergePartialSummaries(partialSummaries),
-      rawResponse: null
+      rawResponse: null,
     };
   }
 }
 
-async function generateSummaryFromText({ provider, texto, contratoVersao }) {
+async function generateSummaryFromText({ provider, texto, contratoVersao, progress }) {
   const directLimit = getAiDirectCharLimit();
 
   if (texto.length <= directLimit) {
     const prompt = buildDocumentSummaryPrompt({ texto, contratoVersao });
 
     try {
-      return await generateValidatedSummary({ provider, prompt });
+      return await generateValidatedSummary({ provider, prompt, progress });
     } catch (error) {
       if (!isRetriableAiError(error) || texto.length <= getMinChunkSizeChars()) {
         throw error;
@@ -585,7 +649,7 @@ async function generateSummaryFromText({ provider, texto, contratoVersao }) {
 
       const fallbackChunkSize = getFallbackChunkSize({
         currentSize: directLimit,
-        textLength: texto.length
+        textLength: texto.length,
       });
       const fallbackOverlap = getFallbackOverlap(fallbackChunkSize);
 
@@ -593,7 +657,7 @@ async function generateSummaryFromText({ provider, texto, contratoVersao }) {
         caracteres: texto.length,
         erro: getErrorMessage(error),
         fallbackChunkSizeChars: fallbackChunkSize,
-        fallbackChunkOverlapChars: fallbackOverlap
+        fallbackChunkOverlapChars: fallbackOverlap,
       });
 
       return generateChunkedSummary({
@@ -601,7 +665,8 @@ async function generateSummaryFromText({ provider, texto, contratoVersao }) {
         texto,
         contratoVersao,
         chunkSizeChars: fallbackChunkSize,
-        chunkOverlapChars: fallbackOverlap
+        chunkOverlapChars: fallbackOverlap,
+        progress,
       });
     }
   }
@@ -609,7 +674,8 @@ async function generateSummaryFromText({ provider, texto, contratoVersao }) {
   return generateChunkedSummary({
     provider,
     texto,
-    contratoVersao
+    contratoVersao,
+    progress,
   });
 }
 
@@ -626,7 +692,7 @@ function buildResultPayload({ documento, registro, textoHash, reused }) {
     criado_em: registro.criado_em,
     atualizado_em: registro.atualizado_em,
     reutilizado: reused,
-    status: registro.status
+    status: registro.status,
   };
 }
 
@@ -652,7 +718,7 @@ async function summarizeDocument(documentoId, options = {}) {
       documento,
       registro: cached,
       textoHash,
-      reused: true
+      reused: true,
     });
   }
 
@@ -660,7 +726,8 @@ async function summarizeDocument(documentoId, options = {}) {
     const summaryResult = await generateSummaryFromText({
       provider,
       texto: documento.texto_completo,
-      contratoVersao
+      contratoVersao,
+      progress: options.progress,
     });
 
     const registro = saveResumoAi({
@@ -672,19 +739,23 @@ async function summarizeDocument(documentoId, options = {}) {
       texto_hash: textoHash,
       tokens_estimados: estimateTokensFromText(documento.texto_completo),
       status: 'ok',
-      erro: null
+      erro: null,
     });
 
     return buildResultPayload({
       documento,
       registro,
       textoHash,
-      reused: false
+      reused: false,
     });
   } catch (error) {
+    // Yield is a normal continuation, not a failed summary. Do not publish
+    // error rows or partially completed text as a final document summary.
+    if (error.code === 'PIPELINE_YIELD') {
+      throw error;
+    }
     const shouldPersistError =
-      /excede o limite de .* chunks/i.test(error.message) ||
-      isRetriableAiError(error);
+      /excede o limite de .* chunks/i.test(error.message) || isRetriableAiError(error);
 
     if (shouldPersistError) {
       saveResumoAi({
@@ -696,7 +767,7 @@ async function summarizeDocument(documentoId, options = {}) {
         texto_hash: textoHash,
         tokens_estimados: estimateTokensFromText(documento.texto_completo),
         status: 'erro',
-        erro: error.message
+        erro: error.message,
       });
     }
 
@@ -704,7 +775,7 @@ async function summarizeDocument(documentoId, options = {}) {
       documentoId: documento.id,
       provider: provider.provider,
       modelo: provider.model,
-      erro: error.message
+      erro: error.message,
     });
 
     throw error;
@@ -713,5 +784,5 @@ async function summarizeDocument(documentoId, options = {}) {
 
 module.exports = {
   summarizeDocument,
-  buildTextoHash
+  buildTextoHash,
 };

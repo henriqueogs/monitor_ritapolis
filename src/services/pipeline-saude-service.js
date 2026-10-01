@@ -25,7 +25,10 @@ function getSaudePipeline({ agora = new Date() } = {}) {
   const recentes = repo.contarRecentesSemResumo({ desde });
   const scheduler = aiScheduler.getStatus();
   const pipeline = require('../pipeline/coordinator');
-  if (pipeline.enabled()) { scheduler.enabled = true; }
+  if (pipeline.enabled()) {
+    scheduler.enabled = true;
+  }
+  const state = pipeline.enabled() ? pipeline.status() : null;
 
   const avaliacao = avaliarSaudePipeline({
     agora,
@@ -33,21 +36,44 @@ function getSaudePipeline({ agora = new Date() } = {}) {
     ultimoResumoOkEm: ultimoOk?.em || null,
     recentes,
   });
+  if (state?.safety.paused) {
+    avaliacao.motivos.push(`escritas_pausadas:${state.safety.reason}`);
+  }
+  if (state?.failures.length) {
+    avaliacao.motivos.push('tarefas_atuais_com_falha');
+  }
+  if (state?.oldest_pending && agora.getTime() - Date.parse(state.oldest_pending) > DIA_MS) {
+    avaliacao.motivos.push('fila_pendente_24h');
+  }
+  avaliacao.status = avaliacao.motivos.length ? 'alerta' : 'ok';
 
   return {
     ...avaliacao,
-    ...(pipeline.enabled() ? { pipeline: (() => {
-      const state = pipeline.status();
-      return { active: state.active, counts: state.counts, oldest_pending: state.oldest_pending,
-        safety: { paused: state.safety.paused, reason: state.safety.reason },
-        failures: state.failures.map(f => ({ id: f.id, kind: f.kind, categoria: classifyAiError(f.error) })) };
-    })() } : {}),
+    ...(pipeline.enabled()
+      ? {
+          pipeline: (() => {
+            return {
+              active: state.active,
+              counts: state.counts,
+              oldest_pending: state.oldest_pending,
+              safety: { paused: state.safety.paused, reason: state.safety.reason },
+              failures: state.failures.map(f => ({
+                id: f.id,
+                kind: f.kind,
+                categoria: classifyAiError(f.error),
+              })),
+            };
+          })(),
+        }
+      : {}),
     gerado_em: agora.toISOString(),
     ia: {
       provider: config.aiProvider,
       resumo_habilitado: config.aiSummaryEnabled,
       ultimo_resumo_ok: ultimoOk,
-      ultimo_erro: ultimoErro ? { em: ultimoErro.em, categoria: classifyAiError(ultimoErro.erro) } : null,
+      ultimo_erro: ultimoErro
+        ? { em: ultimoErro.em, categoria: classifyAiError(ultimoErro.erro) }
+        : null,
       scheduler: {
         habilitado: Boolean(scheduler.enabled),
         ultimo_ciclo: scheduler.ultimo_ciclo || null,

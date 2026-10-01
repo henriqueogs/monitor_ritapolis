@@ -8,9 +8,13 @@ function readMessageContent(content) {
 
   if (Array.isArray(content)) {
     return content
-      .map((item) => {
-        if (typeof item === 'string') {return item;}
-        if (item && typeof item.text === 'string') {return item.text;}
+      .map(item => {
+        if (typeof item === 'string') {
+          return item;
+        }
+        if (item && typeof item.text === 'string') {
+          return item.text;
+        }
         return '';
       })
       .join('\n');
@@ -33,7 +37,7 @@ class NvidiaProvider extends BaseProvider {
       // sem retry aqui o 429 cru vazava pra tela do admin ("429 status code
       // (no body)"). O SDK da openai so retenta 429/5xx com backoff — erro
       // permanente (410 modelo morto, 404 sem entitlement) nao e retentado.
-      maxRetries: 2
+      maxRetries: 2,
     });
   }
 
@@ -46,33 +50,37 @@ class NvidiaProvider extends BaseProvider {
   async embed(textos) {
     const response = await this.client.embeddings.create({
       model: this.embedModel,
-      input: textos
+      input: textos,
     });
-    return response.data
-      .sort((a, b) => a.index - b.index)
-      .map((item) => item.embedding);
+    return response.data.sort((a, b) => a.index - b.index).map(item => item.embedding);
   }
 
-  async generateJson({ prompt, temperature = 0.1 }) {
-    const response = await this.client.chat.completions.create({
-      model: this.model,
-      temperature,
-      messages: [
-        {
-          role: 'system',
-          content: 'Voce retorna somente JSON valido, sem markdown e sem texto adicional.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ]
-    });
+  async generateJson({ prompt, temperature = 0.1, timeoutMs, maxRetries }) {
+    const response = await this.client.chat.completions.create(
+      {
+        model: this.model,
+        temperature,
+        messages: [
+          {
+            role: 'system',
+            content: 'Voce retorna somente JSON valido, sem markdown e sem texto adicional.',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+      },
+      {
+        ...(timeoutMs ? { timeout: timeoutMs } : {}),
+        ...(Number.isInteger(maxRetries) ? { maxRetries } : {}),
+      }
+    );
 
     return readMessageContent(response.choices?.[0]?.message?.content);
   }
 }
 
 module.exports = {
-  NvidiaProvider
+  NvidiaProvider,
 };

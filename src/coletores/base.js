@@ -103,8 +103,15 @@ class ColetorBase {
   }
 
   async baixarBuffer(url) {
-    const response = await this.buscarComRetry(url, { responseType: 'arraybuffer' });
-    return Buffer.from(response.data);
+    this.filePolicy?.check(url);
+    try {
+      const response = await this.buscarComRetry(url, { responseType: 'arraybuffer' });
+      this.filePolicy?.clear(url);
+      return Buffer.from(response.data);
+    } catch (error) {
+      this.filePolicy?.record(url, error);
+      throw error;
+    }
   }
 
   resumirTexto(text) {
@@ -129,12 +136,17 @@ class ColetorBase {
       itens_sem_alteracao: 0,
       itens_com_erro: 0,
       detalhes: [],
+      ...(this.progress?.load('collector-result') || {}),
     };
 
     try {
       await this.executar(resultado);
       resultado.status = resultado.itens_com_erro > 0 ? 'erro_parcial' : 'ok';
     } catch (error) {
+      if (error.code === 'PIPELINE_YIELD') {
+        resultado.status = 'continuacao';
+        throw error;
+      }
       resultado.status = 'erro_total';
       resultado.detalhes.push({ etapa: 'execucao', erro: error.message });
       logger.error('Coleta falhou', {
@@ -143,9 +155,14 @@ class ColetorBase {
         stack: error.stack,
       });
     } finally {
+      this.progress?.save('collector-result', resultado);
       resultado.fim = new Date().toISOString();
-      resultado.detalhes.push({ etapa: 'persistencia', novos: resultado.itens_novos,
-        alterados: resultado.itens_atualizados, sem_alteracao: resultado.itens_sem_alteracao || 0 });
+      resultado.detalhes.push({
+        etapa: 'persistencia',
+        novos: resultado.itens_novos,
+        alterados: resultado.itens_atualizados,
+        sem_alteracao: resultado.itens_sem_alteracao || 0,
+      });
       finishColetaLog(logId, resultado);
     }
 
@@ -153,6 +170,9 @@ class ColetorBase {
   }
 
   registrarErroItem(resultado, contexto, error) {
+    if (error.code === 'PIPELINE_YIELD') {
+      throw error;
+    }
     resultado.itens_com_erro += 1;
     resultado.detalhes.push({
       ...contexto,
@@ -172,7 +192,8 @@ class ColetorBase {
       if (
         documento.texto_completo &&
         documento.texto_completo.length > 500 &&
-        config.aiSchedulerEnabled && process.env.PIPELINE_ENABLED !== 'true'
+        config.aiSchedulerEnabled &&
+        process.env.PIPELINE_ENABLED !== 'true'
       ) {
         try {
           createResumoAiJob({

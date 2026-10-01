@@ -1,5 +1,16 @@
 'use strict';
 
+test('oversized responses are permanent even without an HTTP status; real network resets can retry', () => {
+  const { isRetryableCollectorError } = require('./collector-proxy');
+  expect(isRetryableCollectorError(new Error('maxContentLength size of 52428800 exceeded'))).toBe(
+    false
+  );
+  expect(isRetryableCollectorError(new Error('Resposta excede o limite de 52428800 bytes'))).toBe(
+    false
+  );
+  expect(isRetryableCollectorError(new Error('ECONNRESET'))).toBe(true);
+});
+
 jest.mock('./safe-network', () => ({ assertSafeUrl: jest.fn() }));
 
 const {

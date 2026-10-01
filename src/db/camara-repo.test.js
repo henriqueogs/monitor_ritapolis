@@ -45,10 +45,28 @@ function projetoBase(overrides = {}) {
 
 describe('camara-repo', () => {
   beforeEach(() => {
-    mockConn.exec('DELETE FROM camara_votos; DELETE FROM camara_projetos; DELETE FROM camara_mandatos; DELETE FROM camara_vereadores; DELETE FROM camara_coletas_log;');
+    mockConn.exec(
+      'DELETE FROM camara_votos; DELETE FROM camara_projetos; DELETE FROM camara_mandatos; DELETE FROM camara_vereadores; DELETE FROM camara_coletas_log;'
+    );
   });
 
   describe('upsertProjeto / getProjetos / getProjetoDossie', () => {
+    it('ignora dados iguais sem mudar timestamp ou emitir UPDATE', () => {
+      upsertProjeto(projetoBase());
+      mockConn
+        .prepare("UPDATE camara_projetos SET atualizado_em='2000-01-01' WHERE int_prjt=6968")
+        .run();
+      const changes = mockConn.prepare('SELECT total_changes() AS n').get().n;
+      expect(upsertProjeto(projetoBase())).toBe('unchanged');
+      expect(mockConn.prepare('SELECT total_changes() AS n').get().n).toBe(changes);
+      expect(
+        mockConn.prepare('SELECT atualizado_em FROM camara_projetos').get().atualizado_em
+      ).toBe('2000-01-01');
+      expect(upsertProjeto(projetoBase({ ementa: 'Ementa realmente alterada', cOrg: 'C' }))).toBe(
+        'updated'
+      );
+      expect(getProjetoDossie(6968).c_org).toBe('C');
+    });
     it('insere um projeto novo e retorna "inserted"', () => {
       expect(upsertProjeto(projetoBase())).toBe('inserted');
       const dossie = getProjetoDossie(6968);
@@ -58,7 +76,9 @@ describe('camara-repo', () => {
 
     it('atualiza (upsert) o mesmo int_prjt e retorna "updated"', () => {
       upsertProjeto(projetoBase());
-      const resultado = upsertProjeto(projetoBase({ situacao: 'Aprovado', localizacao: 'Finalizado' }));
+      const resultado = upsertProjeto(
+        projetoBase({ situacao: 'Aprovado', localizacao: 'Finalizado' })
+      );
       expect(resultado).toBe('updated');
       expect(getProjetoDossie(6968).situacao).toBe('Aprovado');
     });
@@ -86,6 +106,17 @@ describe('camara-repo', () => {
   });
 
   describe('upsertVereador / upsertMandato / getVereadores / getVereadorDossie', () => {
+    it('nao grava vereador e mandato identicos novamente', () => {
+      const person = { intPes: 487, nome: ' Nome oficial ' };
+      const mandate = { intPes: 487, periodoInicio: 2025, periodoFim: 2028, partido: null };
+      upsertVereador(person);
+      upsertMandato(mandate);
+      const changes = mockConn.prepare('SELECT total_changes() AS n').get().n;
+      expect(upsertVereador(person)).toBe('unchanged');
+      upsertMandato(mandate);
+      expect(mockConn.prepare('SELECT total_changes() AS n').get().n).toBe(changes);
+      expect(upsertVereador({ ...person, nome: 'Nome alterado' })).toBe('updated');
+    });
     it('insere vereador e mandato, e o dossie traz ambos', () => {
       upsertVereador({ intPes: 487, nome: 'Totó do Sabiá' });
       upsertMandato({ intPes: 487, periodoInicio: 2021, periodoFim: 2024, partido: 'PSDB' });
@@ -94,7 +125,11 @@ describe('camara-repo', () => {
       const dossie = getVereadorDossie(487);
       expect(dossie.nome).toBe('Totó do Sabiá');
       expect(dossie.mandatos).toHaveLength(2);
-      expect(dossie.mandatos[0]).toEqual({ periodo_inicio: 2025, periodo_fim: 2028, partido: 'PSB' });
+      expect(dossie.mandatos[0]).toEqual({
+        periodo_inicio: 2025,
+        periodo_fim: 2028,
+        partido: 'PSB',
+      });
     });
 
     it('getVereadores traz o partido do mandato mais recente', () => {
@@ -119,15 +154,33 @@ describe('camara-repo', () => {
 
   describe('upsertCamaraColetaLog / getCamaraColetaLog', () => {
     it('grava e le o log por tipo (sem exercicio)', () => {
-      upsertCamaraColetaLog({ tipo: 'projetos', registros: 108, novos: 108, atualizados: 0, status: 'ok' });
+      upsertCamaraColetaLog({
+        tipo: 'projetos',
+        registros: 108,
+        novos: 108,
+        atualizados: 0,
+        status: 'ok',
+      });
       const log = getCamaraColetaLog('projetos', null);
       expect(log.registros).toBe(108);
       expect(log.status).toBe('ok');
     });
 
     it('upsert por (tipo, exercicio) atualiza o mesmo registro', () => {
-      upsertCamaraColetaLog({ tipo: 'vereadores', registros: 5, novos: 5, atualizados: 0, status: 'ok' });
-      upsertCamaraColetaLog({ tipo: 'vereadores', registros: 5, novos: 0, atualizados: 5, status: 'ok' });
+      upsertCamaraColetaLog({
+        tipo: 'vereadores',
+        registros: 5,
+        novos: 5,
+        atualizados: 0,
+        status: 'ok',
+      });
+      upsertCamaraColetaLog({
+        tipo: 'vereadores',
+        registros: 5,
+        novos: 0,
+        atualizados: 5,
+        status: 'ok',
+      });
       const log = getCamaraColetaLog('vereadores', null);
       expect(log.atualizados).toBe(5);
     });

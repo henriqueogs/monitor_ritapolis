@@ -114,17 +114,17 @@ function planDocument(queue, doc, now = new Date()) {
       now
     );
   if (!doc.texto_completo?.trim()) {
-    return task('extract', hash([doc.url_pdf, doc.url_origem, doc.hash_conteudo]), {}, 0, '2');
+    return task('extract', hash([doc.url_pdf, doc.url_origem, doc.hash_conteudo]), {}, 0, '3');
   }
   const signature = ai.buildTextoHash(doc.texto_completo);
   if (!api.getResumoAiByDocumentoHash(doc.id, signature, config.aiContractVersion)) {
-    return task('summary', signature, {}, 0, config.aiContractVersion);
+    return task('summary', signature, {}, 0, `${config.aiContractVersion}:resume-1`);
   }
   // Failed summaries are not treated as completed dependencies.
   if (
     api.getResumoAiByDocumentoHash(doc.id, signature, config.aiContractVersion)?.status !== 'ok'
   ) {
-    return task('summary', signature, {}, 0, config.aiContractVersion);
+    return task('summary', signature, {}, 0, `${config.aiContractVersion}:resume-1`);
   }
   const anexos = require('../db/inteligencia-fatos-repo').listarAnexosDocumento(doc.id);
   for (const anexo of anexos) {
@@ -137,7 +137,7 @@ function planDocument(queue, doc, now = new Date()) {
         hash([anexo.url, anexo.datahora]),
         { anexoId: anexo.id },
         1,
-        '2'
+        '3'
       );
       if (job.status !== 'ok' && job.status !== 'failed') {
         return job;
@@ -252,17 +252,32 @@ function plan(queue, now = new Date()) {
   if (hour >= 3 || !queue.meta('backup')) {
     queue.enqueue({ kind: 'backup', entity: 'database', hash: day, priority: 0 });
   }
-  if (queue.meta('source_checks_planned') !== day.slice(0, 7)) {
+  // Due by elapsed time per actual URL, not by calendar month. Existing
+  // completed checks seed this schedule, so migration is not another crawl.
+  {
     for (const doc of queue.db
       .prepare(
-        'SELECT id, url_pdf FROM documentos WHERE url_pdf IS NOT NULL AND texto_completo IS NOT NULL'
+        `SELECT d.id, d.url_pdf,
+          (SELECT MAX(p.finished_at) FROM pipeline_jobs p
+            WHERE p.kind = 'source-check' AND p.entity = CAST(d.id AS TEXT)
+            AND p.status IN ('ok','failed') AND substr(p.input_hash, -length(d.url_pdf)) = d.url_pdf) AS last_checked,
+          (SELECT COUNT(*) FROM pipeline_jobs p WHERE p.kind = 'source-check'
+            AND p.entity = CAST(d.id AS TEXT) AND p.status IN ('pending','running')
+            AND substr(p.input_hash, -length(d.url_pdf)) = d.url_pdf) AS in_flight
+        FROM documentos d WHERE d.url_pdf IS NOT NULL AND d.texto_completo IS NOT NULL`
       )
       .all()) {
+      if (
+        doc.in_flight ||
+        (doc.last_checked && now.getTime() - Date.parse(doc.last_checked) < 30 * 86400000)
+      ) {
+        continue;
+      }
       queue.enqueue(
         {
           kind: 'source-check',
           entity: doc.id,
-          hash: `${day.slice(0, 7)}:${doc.url_pdf}`,
+          hash: `${doc.last_checked || 'initial'}:${doc.url_pdf}`,
           payload: { documentoId: doc.id },
           priority: 210,
           historical: true,
@@ -270,7 +285,6 @@ function plan(queue, now = new Date()) {
         now
       );
     }
-    queue.setMeta('source_checks_planned', day.slice(0, 7));
   }
   planAi(queue, now);
 }
