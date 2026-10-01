@@ -137,3 +137,70 @@ test('changed source bytes do not reuse checkpoints and valid current summary is
   expect(result.reutilizado).toBe(true);
   expect(provider.generateJson).not.toHaveBeenCalled();
 });
+
+test('deadline-clipped timeout resumes the same chunk, without error rows or needless splits', async () => {
+  jest.useFakeTimers();
+  try {
+    const progress = createProgress(db, 'deadline', { deadline: Date.now() + 60000 });
+    provider.generateJson.mockImplementationOnce(async ({ timeoutMs }) => {
+      jest.advanceTimersByTime(timeoutMs);
+      throw new Error('Request timed out.');
+    });
+    await expect(summarizeDocument(7, { provider, progress })).rejects.toMatchObject({
+      code: 'PIPELINE_YIELD',
+    });
+    expect(api.saveResumoAi).not.toHaveBeenCalled();
+    expect(db.prepare('SELECT COUNT(*) AS n FROM pipeline_progress').get().n).toBe(0);
+    const unfinishedPrompt = provider.generateJson.mock.calls[0][0].prompt;
+    await summarizeDocument(7, { provider, progress: createProgress(db, 'deadline') });
+    expect(provider.generateJson.mock.calls[1][0].prompt).toBe(unfinishedPrompt);
+    expect(api.saveResumoAi).toHaveBeenCalledTimes(1);
+    expect(api.saveResumoAi.mock.calls[0][0].status).toBe('ok');
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+test('consolidation and deterministic fallback preserve null instead of inventing zero prices', async () => {
+  const partial = {
+    ...summary,
+    itens_licitados: [
+      {
+        descricao: 'Arroz',
+        trecho_fonte: 'Arroz',
+        quantidade: null,
+        valor_unitario_estimado: null,
+        valor_total_final: 2,
+      },
+    ],
+  };
+  provider.generateJson.mockImplementation(async ({ prompt }) => {
+    if (prompt.includes('Resumos parciais:')) {
+      const payload = JSON.parse(prompt.split('Resumos parciais:\n"""\n')[1].split('\n"""')[0]);
+      expect(payload[0].itens_licitados[0]).toMatchObject({
+        quantidade: null,
+        valor_unitario_estimado: null,
+        valor_total_final: 2,
+      });
+      throw new Error('Request timed out.');
+    }
+    return JSON.stringify(partial);
+  });
+  const result = await summarizeDocument(7, { provider, progress: createProgress(db, 'nulls') });
+  expect(result.resumo.itens_licitados[0]).toMatchObject({
+    quantidade: null,
+    valor_unitario_estimado: null,
+    valor_total_final: 2,
+  });
+});
+
+test('source changed during generation is never published with the previous hash', async () => {
+  provider.generateJson.mockImplementation(async () => {
+    api.getDocumentoById.mockReturnValue({ id: 7, texto_completo: 'Texto modificado' });
+    return JSON.stringify(summary);
+  });
+  await expect(
+    summarizeDocument(7, { provider, progress: createProgress(db, 'changed') })
+  ).rejects.toThrow('fonte mudou');
+  expect(api.saveResumoAi).not.toHaveBeenCalled();
+});

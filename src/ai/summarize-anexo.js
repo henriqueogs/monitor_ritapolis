@@ -11,6 +11,7 @@ const { createAiProvider } = require('./providers');
 const { buildAnexoResumoPrompt, MAX_TEXTO_CHARS } = require('./prompts/anexo-resumo-prompt');
 const { splitTextIntoChunks } = require('./chunk-text');
 const { validateAnexoResumo } = require('./contracts/anexo-resumo-contract');
+const { generateWithProgress } = require('./progress-request');
 const { isImageBasedPdf } = require('../parsers/pdf');
 const { resumirAnexoLocal } = require('../inteligencia/fatos-extractor');
 const { salvarResumoAnexo } = require('../db/inteligencia-fatos-repo');
@@ -88,9 +89,7 @@ async function gerarViaIa(anexo, documento, provider, progress) {
       return summary;
     }
     progress?.checkTime();
-    const raw = await provider.generateJson({ prompt, temperature: 0.15,
-      ...(progress ? { timeoutMs: Math.min(config.aiRequestTimeoutMs, progress.remainingMs()), maxRetries: 0 } : {}),
-    });
+    const raw = await generateWithProgress(provider, { prompt, temperature: 0.15 }, progress, config.aiRequestTimeoutMs);
     const summary = validateAnexoResumo(extractJsonObject(raw));
     progress?.save(step, { summary });
     return summary;

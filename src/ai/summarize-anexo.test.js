@@ -37,6 +37,21 @@ function anexoBase(overrides = {}) {
   };
 }
 
+test('deadline-clipped attachment timeout does not save a heuristic result as successful', async () => {
+  config.aiSummaryEnabled = true;
+  jest.useFakeTimers();
+  const db = new DatabaseSync(':memory:');
+  try {
+    salvarResumoAnexo.mockClear();
+    const provider = {provider:'test',model:'x',generateJson:async({timeoutMs})=>{
+      jest.advanceTimersByTime(timeoutMs);
+      throw new Error('Request timed out.');
+    }};
+    await expect(summarizeAnexo(anexoBase(),{provider,progress:createProgress(db,'deadline',{deadline:Date.now()+60000})})).rejects.toMatchObject({code:'PIPELINE_YIELD'});
+    expect(salvarResumoAnexo).not.toHaveBeenCalled();
+  } finally {db.close();jest.useRealTimers();}
+});
+
 describe('summarizeAnexo', () => {
   beforeEach(() => {
     jest.clearAllMocks();

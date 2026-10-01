@@ -290,3 +290,52 @@ test('legacy long input, new URL, missing source and tampered provenance cannot 
     )
   ).rejects.toThrow(/sem texto/);
 });
+
+test.each(['evidence', 'length'])(
+  'one smaller-context recovery for %s retains strict evidence and survives resume',
+  async mode => {
+    const db = new DatabaseSync(':memory:');
+    const doc = document('x'.repeat(4200) + '\nItem 1 Arroz\n' + 'y'.repeat(4200));
+    const mock = provider(({ fontes }) => {
+      const data = empty();
+      const source = fontes[0];
+      if (source.texto.length > 6000) {
+        data.itens_solicitados = [
+          rowFrom(source, mode === 'length' ? 'x'.repeat(701) : 'Item 1 Arroz', {
+            descricao: 'Descricao inventada',
+          }),
+        ];
+      } else if (source.texto.includes('Item 1 Arroz')) {
+        data.itens_solicitados = [
+          rowFrom(source, 'Item 1 Arroz', { descricao: 'Arroz', item_numero: '1' }),
+        ];
+      }
+      data.tem_tabela_itens = Boolean(data.itens_solicitados.length);
+      return data;
+    });
+    const result = await extractAllItems(
+      doc,
+      fontesDoProcesso(doc),
+      mock,
+      createProgress(db, 'repair')
+    );
+    expect(result.itens_solicitados).toHaveLength(1);
+    expect(result.itens_solicitados[0].descricao).toBe('Arroz');
+    expect(mock.generateJson).toHaveBeenCalledTimes(3);
+    await extractAllItems(doc, fontesDoProcesso(doc), mock, createProgress(db, 'repair'));
+    expect(mock.generateJson).toHaveBeenCalledTimes(3);
+    expect(assessItemsResult(record(doc, [], result), doc).valid).toBe(true);
+    db.close();
+  }
+);
+
+test('repeated unsupported evidence blocks instead of an unlimited split loop or partial output', async () => {
+  const doc = document('x'.repeat(8500) + '\nItem 1 Arroz');
+  const mock = provider(({ fontes }) => ({
+    ...empty(),
+    tem_tabela_itens: true,
+    itens_solicitados: [rowFrom(fontes[0], 'Item 1 Arroz', { descricao: 'Pessoa inventada' })],
+  }));
+  await expect(extractAllItems(doc, fontesDoProcesso(doc), mock)).rejects.toThrow('exige revisao');
+  expect(mock.generateJson).toHaveBeenCalledTimes(2);
+});

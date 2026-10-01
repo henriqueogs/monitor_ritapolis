@@ -11,6 +11,7 @@ const {
 const { splitTextIntoChunks } = require('./chunk-text');
 const { getAiDirectCharLimit } = require('./operation-policy');
 const { parseSummaryResponse, validateSummary } = require('./validate-summary');
+const { generateWithProgress } = require('./progress-request');
 
 function buildTextoHash(textoCompleto) {
   return crypto
@@ -133,7 +134,7 @@ function compactDateItems(items, maxItems = 8) {
 
 function compactValueItems(items, maxItems = 8) {
   const compacted = (items || [])
-    .filter(item => Number.isFinite(Number(item?.valor)) && item?.descricao && item?.trecho_fonte)
+    .filter(item => optionalNumber(item?.valor) !== null && item?.descricao && item?.trecho_fonte)
     .map(item => ({
       tipo: item.tipo || 'outro',
       valor: Number(item.valor),
@@ -147,6 +148,13 @@ function compactValueItems(items, maxItems = 8) {
     item => `${item.tipo}|${item.valor}|${item.descricao}|${item.trecho_fonte}`,
     maxItems
   );
+}
+
+function optionalNumber(value) {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  return Number.isFinite(Number(value)) ? Number(value) : null;
 }
 
 function compactPartyItems(items, maxItems = 8) {
@@ -174,26 +182,14 @@ function compactBidItems(items, maxItems = 30) {
       lote_numero: truncateText(item.lote_numero, 40),
       descricao: truncateText(item.descricao, 260),
       unidade: truncateText(item.unidade, 40),
-      quantidade: Number.isFinite(Number(item.quantidade)) ? Number(item.quantidade) : null,
-      valor_unitario_estimado: Number.isFinite(Number(item.valor_unitario_estimado))
-        ? Number(item.valor_unitario_estimado)
-        : null,
-      valor_total_estimado: Number.isFinite(Number(item.valor_total_estimado))
-        ? Number(item.valor_total_estimado)
-        : null,
-      valor_unitario_final: Number.isFinite(Number(item.valor_unitario_final))
-        ? Number(item.valor_unitario_final)
-        : null,
-      valor_total_final: Number.isFinite(Number(item.valor_total_final))
-        ? Number(item.valor_total_final)
-        : null,
+      quantidade: optionalNumber(item.quantidade),
+      valor_unitario_estimado: optionalNumber(item.valor_unitario_estimado),
+      valor_total_estimado: optionalNumber(item.valor_total_estimado),
+      valor_unitario_final: optionalNumber(item.valor_unitario_final),
+      valor_total_final: optionalNumber(item.valor_total_final),
       valor_final_tipo: item.valor_final_tipo || null,
-      valor_lote_final: Number.isFinite(Number(item.valor_lote_final))
-        ? Number(item.valor_lote_final)
-        : null,
-      valor_global_final: Number.isFinite(Number(item.valor_global_final))
-        ? Number(item.valor_global_final)
-        : null,
+      valor_lote_final: optionalNumber(item.valor_lote_final),
+      valor_global_final: optionalNumber(item.valor_global_final),
       fornecedor_nome: truncateText(item.fornecedor_nome, 160),
       fornecedor_cnpj: truncateText(item.fornecedor_cnpj, 32),
       trecho_fonte: truncateText(item.trecho_fonte, 260),
@@ -369,16 +365,12 @@ async function generateValidatedSummary({
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     progress?.checkTime();
     try {
-      const rawResponse = await provider.generateJson({
-        prompt,
-        temperature,
-        ...(progress
-          ? {
-              timeoutMs: Math.min(config.aiRequestTimeoutMs, progress.remainingMs()),
-              maxRetries: 0,
-            }
-          : {}),
-      });
+      const rawResponse = await generateWithProgress(
+        provider,
+        { prompt, temperature },
+        progress,
+        config.aiRequestTimeoutMs
+      );
       const parsed = parseSummaryResponse(rawResponse);
       const validated = validateSummary(parsed);
 
@@ -433,7 +425,10 @@ async function summarizeChunkWithFallback({
     for (const item of saved.partials) {
       validateSummary(item.resumo);
     }
-    logger.info('Reutilizando resumo parcial validado', { chunk: chunkLabel, parciais: saved.partials.length });
+    logger.info('Reutilizando resumo parcial validado', {
+      chunk: chunkLabel,
+      parciais: saved.partials.length,
+    });
     return saved.partials;
   }
   progress?.checkTime();
@@ -757,6 +752,11 @@ async function summarizeDocument(documentoId, options = {}) {
       contratoVersao,
       progress: options.progress,
     });
+
+    const current = getDocumentoById(documento.id);
+    if (!current?.texto_completo || buildTextoHash(current.texto_completo) !== textoHash) {
+      throw new Error('Resumo: fonte mudou durante a leitura; resultado nao publicado');
+    }
 
     const registro = saveResumoAi({
       documento_id: documento.id,
