@@ -82,71 +82,91 @@ class ColetorCamaraProjetos extends ColetorBase {
   }
 
   async coletarProjetos(resultado) {
-    let registros = 0;
-    let novos = 0;
-    let atualizados = 0;
+    if (this.progress?.load('projetos:complete')) {
+      return;
+    }
+    const stats = this.progress?.load('projetos:stats') || { registros: 0, novos: 0, atualizados: 0 };
 
     for (let pagina = 1; pagina <= MAX_PAGINAS; pagina += 1) {
-      const html = await this.buscarProjetosPagina(pagina);
-      const itens = parseProjetos(html);
+      const itens = await this.checkpoint(`projetos:page:${pagina}`, async () =>
+        parseProjetos(await this.buscarProjetosPagina(pagina)));
       if (!itens.length) {
         break;
       }
 
       for (const item of itens) {
+        const step = `projetos:item:${this.calcularHash(JSON.stringify(item))}`;
+        if (this.progress?.load(step)) {
+          continue;
+        }
+        this.progress?.checkTime();
         try {
           const acao = upsertProjeto(item);
-          registros += 1;
+          stats.registros += 1;
           if (acao === 'inserted') {
-            novos += 1;
+            stats.novos += 1;
+            resultado.itens_novos += 1;
           } else if (acao === 'updated') {
-            atualizados += 1;
+            stats.atualizados += 1;
+            resultado.itens_atualizados += 1;
           } else if (acao === 'unchanged') {
             resultado.itens_sem_alteracao = (resultado.itens_sem_alteracao || 0) + 1;
           }
+          this.progress?.save('projetos:stats', stats);
+          this.completeItem(step, resultado);
         } catch (err) {
           this.registrarErroItem(resultado, { tipo: 'projeto', intPrjt: item.intPrjt }, err);
         }
       }
     }
 
-    resultado.itens_novos += novos;
-    resultado.itens_atualizados += atualizados;
-    upsertCamaraColetaLog({ tipo: 'projetos', registros, novos, atualizados, status: 'ok' });
-    logger.info('camara-projetos: projetos coletados', { registros, novos, atualizados });
+    upsertCamaraColetaLog({ tipo: 'projetos', ...stats, status: 'ok' });
+    this.progress?.save('projetos:complete', true);
+    logger.info('camara-projetos: projetos coletados', stats);
   }
 
   async coletarVereadores(resultado) {
-    let registros = 0;
-    let novos = 0;
-    let atualizados = 0;
+    if (this.progress?.load('vereadores:complete')) {
+      return;
+    }
+    const stats = this.progress?.load('vereadores:stats') || { registros: 0, novos: 0, atualizados: 0 };
 
-    const vereadores = await this.buscarVereadores();
+    const vereadores = await this.checkpoint('vereadores:list', () => this.buscarVereadores());
     for (const v of vereadores) {
+      const step = `vereadores:item:${this.calcularHash(JSON.stringify(v))}`;
+      if (this.progress?.load(step)) {
+        continue;
+      }
+      this.progress?.checkTime();
       try {
+        // Finish the network stage before canonical writes. A voluntary yield
+        // while downloading mandates must not import/count the person twice.
+        const mandatos = await this.checkpoint(`vereadores:mandatos:${v.intPes}`, () => this.buscarMandatos(v.intPes));
         const acao = upsertVereador(v);
         if (acao === 'inserted') {
-          novos += 1;
+          stats.novos += 1;
+          resultado.itens_novos += 1;
         } else if (acao === 'updated') {
-          atualizados += 1;
+          stats.atualizados += 1;
+          resultado.itens_atualizados += 1;
         } else if (acao === 'unchanged') {
           resultado.itens_sem_alteracao = (resultado.itens_sem_alteracao || 0) + 1;
         }
 
-        const mandatos = await this.buscarMandatos(v.intPes);
         for (const mandato of mandatos) {
           upsertMandato({ intPes: v.intPes, ...mandato });
         }
-        registros += 1;
+        stats.registros += 1;
+        this.progress?.save('vereadores:stats', stats);
+        this.completeItem(step, resultado);
       } catch (err) {
         this.registrarErroItem(resultado, { tipo: 'vereador', intPes: v.intPes }, err);
       }
     }
 
-    resultado.itens_novos += novos;
-    resultado.itens_atualizados += atualizados;
-    upsertCamaraColetaLog({ tipo: 'vereadores', registros, novos, atualizados, status: 'ok' });
-    logger.info('camara-projetos: vereadores coletados', { registros, novos, atualizados });
+    upsertCamaraColetaLog({ tipo: 'vereadores', ...stats, status: 'ok' });
+    this.progress?.save('vereadores:complete', true);
+    logger.info('camara-projetos: vereadores coletados', stats);
   }
 
   async executar(resultado) {

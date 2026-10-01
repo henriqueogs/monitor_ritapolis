@@ -232,8 +232,13 @@ async function execute(job, { progress } = {}) {
   }
   if (job.kind === 'anexo-summary') {
     const target = require('../db/inteligencia-fatos-repo').getAnexoById(payload.anexoId);
+    if (!target || require('../ai/summarize-document').buildTextoHash(target.texto_completo) !== job.input_hash
+        || require('../ai/summarize-anexo').getAnexoSummaryVersion(target.texto_completo) !== job.version) {
+      return { skipped: true, reason: 'input_changed' };
+    }
     const result = await require('../ai/summarize-anexo').summarizeAnexo(target, {
       documento: api.getDocumentoById(payload.documentoId),
+      progress,
     });
     if (result.erro) {
       throw new Error(result.erro);
@@ -291,7 +296,7 @@ async function execute(job, { progress } = {}) {
       return { reused: true };
     }
     api.db.prepare(`UPDATE ${table} SET status = 'pendente' WHERE id = ?`).run(old.id);
-    await require(modulePath).processJob({ ...old, status: 'pendente' });
+    await require(modulePath).processJob({ ...old, status: 'pendente' }, { progress });
     const finished = api.db.prepare(`SELECT * FROM ${table} WHERE id = ?`).get(old.id);
     if (finished.status !== 'ok') {
       throw new Error(finished.erro || 'Job legado nao concluido');

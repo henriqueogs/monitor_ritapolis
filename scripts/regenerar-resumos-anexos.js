@@ -7,7 +7,7 @@
  * texto tem qualidade suficiente.
  *
  * Reentrante: só regenera anexos que ainda não têm resumo no contrato
- * "anexo-2.0" para o texto_hash atual (a UNIQUE constraint da tabela evita
+ * completo aplicavel ao tamanho do texto atual (a UNIQUE constraint da tabela evita
  * duplicar). Use --force para regenerar mesmo os que já têm.
  *
  * Dry-run por padrão. Uso:
@@ -22,7 +22,7 @@ process.loadEnvFile?.() || require('dotenv').config();
 const { setupDatabase } = require('../src/db/setup');
 const { db } = require('../src/db');
 const { getAnexoById } = require('../src/db/inteligencia-fatos-repo');
-const { summarizeAnexo, CONTRACT_VERSION_IA } = require('../src/ai/summarize-anexo');
+const { summarizeAnexo, CONTRACT_VERSION_IA, CONTRACT_VERSION_FULL_IA } = require('../src/ai/summarize-anexo');
 const { criarProgresso } = require('../src/utils/progress');
 
 const DELAY_ENTRE_CHAMADAS_IA_MS = 1500; // respeita o orçamento de ~40 req/min da NVIDIA
@@ -46,8 +46,10 @@ function listarAlvos(opts) {
     : `AND NOT EXISTS (
          SELECT 1 FROM documentos_anexos_resumos_ai r
           WHERE r.anexo_id = a.id
-            AND r.contrato_versao = '${CONTRACT_VERSION_IA}'
+            AND r.contrato_versao = CASE WHEN LENGTH(a.texto_completo) > 8000
+              THEN '${CONTRACT_VERSION_FULL_IA}' ELSE '${CONTRACT_VERSION_IA}' END
             AND r.texto_hash = a.texto_hash
+            AND r.status = 'ok' AND r.erro IS NULL
        )`;
   return db
     .prepare(
@@ -93,8 +95,8 @@ async function main() {
         continue;
       }
 
-      const resultado = await summarizeAnexo(anexo, { documento: anexo.documento_pai });
-      const categoria = resultado.contrato_versao === CONTRACT_VERSION_IA ? 'ia' : 'heuristico';
+      const resultado = await summarizeAnexo(anexo, { documento: anexo.documento_pai, force: opts.force });
+      const categoria = [CONTRACT_VERSION_IA, CONTRACT_VERSION_FULL_IA].includes(resultado.contrato_versao) ? 'ia' : 'heuristico';
       cont[categoria] += 1;
       console.warn(`${tag} OK — ${categoria}${resultado.erro ? ` (${resultado.erro})` : ''}`);
       prog.tick(`${tag} ${categoria}`, categoria);

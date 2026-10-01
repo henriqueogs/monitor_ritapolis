@@ -433,6 +433,7 @@ async function summarizeChunkWithFallback({
     for (const item of saved.partials) {
       validateSummary(item.resumo);
     }
+    logger.info('Reutilizando resumo parcial validado', { chunk: chunkLabel, parciais: saved.partials.length });
     return saved.partials;
   }
   progress?.checkTime();

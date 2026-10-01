@@ -78,7 +78,9 @@ function resumoJoinSql() {
         FROM documentos_anexos_resumos_ai r2
        WHERE r2.anexo_id = a.id
          AND r2.texto_hash = a.texto_hash
-       ORDER BY CASE WHEN r2.contrato_versao = 'anexo-2.0' AND r2.status = 'ok' THEN 0 ELSE 1 END,
+         AND (LENGTH(a.texto_completo) <= 8000 OR r2.contrato_versao <> 'anexo-2.0')
+       ORDER BY CASE WHEN r2.contrato_versao IN ('anexo-2.0','anexo-2.1-full')
+         AND r2.status = 'ok' AND r2.erro IS NULL THEN 0 ELSE 1 END,
          r2.atualizado_em DESC, r2.id DESC
        LIMIT 1
     )
