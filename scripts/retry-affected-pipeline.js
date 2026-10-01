@@ -4,6 +4,7 @@ const { db } = require('../src/db');
 const { createQueue } = require('../src/pipeline/queue');
 const queue = createQueue(db);
 const apply = process.argv.includes('--apply');
+const retryPncpAta = process.argv.includes('--pncp-ata');
 const deployStart = process.argv.find(a => a.startsWith('--deploy-from='))?.split('=').slice(1).join('=');
 const deployEnd = process.argv.find(a => a.startsWith('--deploy-to='))?.split('=').slice(1).join('=');
 if (deployStart || deployEnd) {
@@ -44,9 +45,11 @@ const failures = db
     ))
     OR (@deployStart IS NOT NULL AND attempts<3 AND finished_at BETWEEN @deployStart AND @deployEnd
       AND (error LIKE 'Cannot find module%' OR error LIKE 'worker_interrupted (exit %'))
+    OR (@retryPncpAta=1 AND status='failed' AND kind='collection' AND entity='pncp' AND attempts<3
+      AND error='PNCP: identificador oficial incompleto (ata)')
   ) ORDER BY id DESC`
   )
-  .all({ deployStart: deployStart || null, deployEnd: deployEnd || null });
+  .all({ deployStart: deployStart || null, deployEnd: deployEnd || null, retryPncpAta: retryPncpAta ? 1 : 0 });
 const seen = new Set();
 const changes = [];
 for (const old of failures) {
@@ -68,14 +71,16 @@ for (const old of failures) {
   }
   const deployAffected = Boolean(deployStart && old.finished_at >= deployStart && old.finished_at <= deployEnd
     && /^(Cannot find module|worker_interrupted \(exit )/.test(old.error || ''));
-  const version = deployAffected ? old.version :
+  const pncpAtaAffected = retryPncpAta && old.kind === 'collection' && old.entity === 'pncp'
+    && old.error === 'PNCP: identificador oficial incompleto (ata)';
+  const version = deployAffected || pncpAtaAffected ? old.version :
     old.kind === 'summary'
       ? `${require('../src/config').aiContractVersion}:resume-1`
       : old.kind === 'collection'
         ? 'source-fix-1'
         : '3';
   let replacement;
-  const resumeExisting = deployAffected || (old.kind === 'summary' && old.version.endsWith('resume-1'));
+  const resumeExisting = deployAffected || pncpAtaAffected || (old.kind === 'summary' && old.version.endsWith('resume-1'));
   if (apply) {
     if (resumeExisting) {
       // Keep the original identity: completed validated chunks belong to it.

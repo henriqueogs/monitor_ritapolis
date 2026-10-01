@@ -161,6 +161,12 @@ class ColetorBase {
       detalhes: [],
       ...(this.progress?.load('collector-result') || {}),
     };
+    if (['erro_total', 'erro_parcial'].includes(resultado.status)) {
+      // Prior attempts remain in coleta_logs. Completed item counts/checkpoints
+      // survive, but their obsolete errors must not poison a corrected retry.
+      resultado.itens_com_erro = 0;
+      resultado.detalhes = resultado.detalhes.filter(detail => !detail.erro);
+    }
 
     try {
       await this.executar(resultado);

@@ -62,6 +62,41 @@ afterEach(() => {
   realClose();
   jest.restoreAllMocks();
 });
+test('PNCP ata repair is opt-in, keeps completed checkpoints and never resets attempt limits', () => {
+  const queue = createQueue(mockDb);
+  queue.setMeta('backup', { confirmedAt: new Date().toISOString() });
+  const job = queue.enqueue({ kind: 'collection', entity: 'pncp', hash: '2960', version: 'source-fix-1' });
+  const markFailed = (error, attempts = 1) => mockDb.prepare(
+    "UPDATE pipeline_jobs SET status='failed',error=?,attempts=? WHERE id=?"
+  ).run(error, attempts, job.id);
+  markFailed('PNCP: identificador oficial incompleto (ata)');
+  createProgress(mockDb, job.identity).save('completed-page', { count: 5 });
+  const originalArgs = process.argv;
+  const output = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+  const run = args => {
+    output.mockClear();
+    process.argv = ['node', 'repair', ...args];
+    jest.isolateModules(() => require('../scripts/retry-affected-pipeline'));
+    return JSON.parse(output.mock.calls[0][0]);
+  };
+  try {
+    expect(run([]).affected).toBe(0);
+    expect(run(['--pncp-ata']).affected).toBe(1);
+    expect(queue.get(job.id).status).toBe('failed');
+    expect(run(['--pncp-ata', '--apply']).changes[0]).toMatchObject({
+      previousJobId: job.id, newJobId: job.id, version: 'source-fix-1', resumeExisting: true,
+    });
+    expect(queue.get(job.id)).toMatchObject({ identity: job.identity, status: 'pending', attempts: 1 });
+    expect(createProgress(mockDb, job.identity).load('completed-page')).toEqual({ count: 5 });
+    expect(mockDb.prepare('SELECT COUNT(*) AS n FROM pipeline_jobs').get().n).toBe(1);
+    markFailed('PNCP: identificador oficial incompleto (ata)', 3);
+    expect(run(['--pncp-ata', '--apply']).affected).toBe(0);
+    markFailed('PNCP: identificadores oficiais divergentes (sequencialAta)');
+    expect(run(['--pncp-ata', '--apply']).affected).toBe(0);
+  } finally {
+    process.argv = originalArgs;
+  }
+});
 test('selective repair resumes SDK timeout with the same job and validated checkpoints, bounded attempts', () => {
   const queue = createQueue(mockDb);
   queue.setMeta('backup', { confirmedAt: new Date().toISOString() });
