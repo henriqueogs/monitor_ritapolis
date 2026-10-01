@@ -226,9 +226,13 @@ async function execute(job, { progress } = {}) {
     });
   }
   if (job.kind === 'items') {
-    return require('../ai/estruturar-itens-processo').estruturarItensProcesso(
-      api.getDocumentoById(payload.documentoId)
-    );
+    const items = require('../ai/estruturar-itens-processo');
+    const document = api.getDocumentoById(payload.documentoId);
+    if (!document || items.computeInputHash(document, items.listarAtasDoDocumento(document.id)) !== job.input_hash ||
+        job.version !== items.CONTRACT_VERSION) {
+      return { skipped: true, reason: 'input_changed' };
+    }
+    return items.estruturarItensProcesso(document, { progress });
   }
   if (job.kind === 'anexo-summary') {
     const target = require('../db/inteligencia-fatos-repo').getAnexoById(payload.anexoId);

@@ -43,13 +43,19 @@ const MAX_TRECHO_FONTE = 700;
 // resultado inteiro por isso jogaria fora itens/lotes corretos — truncamos
 // com marcador em vez de inventar ou de descartar o dado inteiro.
 function truncarComMarca(max) {
-  return (valor) => {
+  return valor => {
     // item_numero/lote_numero às vezes vêm como number puro ("1" virou 1) —
     // coage pra string antes de truncar, senão a validação de string falha.
-    if (typeof valor === 'number') {return String(valor);}
-    if (typeof valor !== 'string') {return valor;}
+    if (typeof valor === 'number') {
+      return String(valor);
+    }
+    if (typeof valor !== 'string') {
+      return valor;
+    }
     const t = valor.trim();
-    if (t.length <= max) {return t;}
+    if (t.length <= max) {
+      return t;
+    }
     return `${t.slice(0, max - 1)}…`;
   };
 }
@@ -90,7 +96,7 @@ const ResultadoGlobalSchema = z.object({
 
 // .default([]) do zod só entra quando a chave está ausente (undefined) — a
 // IA às vezes manda null explícito, que passaria direto sem o preprocess.
-const arrayOuNull = (schema) => z.preprocess((v) => v ?? [], z.array(schema).max(MAX_LINHAS));
+const arrayOuNull = schema => z.preprocess(v => v ?? [], z.array(schema).max(MAX_LINHAS));
 
 const ItensProcessoContract = z.object({
   tem_tabela_itens: z.boolean(),
@@ -105,11 +111,78 @@ function validateItensProcesso(value) {
   const parsed = ItensProcessoContract.safeParse(value);
   if (!parsed.success) {
     const issues = parsed.error.issues
-      .map((issue) => `${issue.path.join('.') || 'raiz'}: ${issue.message}`)
+      .map(issue => `${issue.path.join('.') || 'raiz'}: ${issue.message}`)
       .join('; ');
     throw new Error(`Itens do processo fora do contrato: ${issues}`);
   }
   return parsed.data;
 }
 
-module.exports = { ItensProcessoContract, validateItensProcesso, MAX_LINHAS };
+// The new extraction never truncates identifiers, names or quotes, nor turns
+// malformed numbers into unknown values. Reject and review instead.
+const exactText = max =>
+  z.preprocess(v => (typeof v === 'number' ? String(v) : v), z.string().trim().min(1).max(max));
+const exactNumber = z.preprocess(v => {
+  if (v === null || v === undefined || v === '') {
+    return null;
+  }
+  return coagirNumero(v) ?? v;
+}, z.number().nonnegative().nullable());
+const provenance = z.object({
+  chave: z.string(),
+  id: z.number().nullable(),
+  url: z.string().nullable(),
+  inicio: z.number().int().nonnegative(),
+  fim: z.number().int().positive(),
+});
+const common = {
+  trecho_fonte: exactText(MAX_TRECHO_FONTE),
+  fonte_chave: z.string().optional(),
+  fonte: provenance.optional(),
+};
+const supplier = {
+  fornecedor_nome: exactText(200).nullable().optional(),
+  fornecedor_cnpj: exactText(20).nullable().optional(),
+};
+const strictItem = z.object({
+  ...common,
+  item_numero: exactText(20).nullable().optional(),
+  lote_numero: exactText(20).nullable().optional(),
+  descricao: exactText(MAX_DESCRICAO),
+  quantidade: exactNumber.optional(),
+  unidade: exactText(40).nullable().optional(),
+  valor_estimado: exactNumber.optional(),
+});
+const strictLot = z.object({
+  ...common,
+  ...supplier,
+  lote_numero: exactText(20).nullable().optional(),
+  objeto: exactText(MAX_DESCRICAO),
+  teto_homologado: exactNumber.optional(),
+});
+const strictGlobal = z.object({
+  ...common,
+  ...supplier,
+  descricao: exactText(MAX_DESCRICAO),
+  valor: exactNumber.optional(),
+});
+function validateItensProcessoStrict(value, { full = false } = {}) {
+  const limit = full ? 20000 : MAX_LINHAS;
+  return z
+    .object({
+      tem_tabela_itens: z.boolean(),
+      itens_solicitados: z.array(strictItem).max(limit).default([]),
+      resultado_lotes: z.array(strictLot).max(limit).default([]),
+      resultado_global: strictGlobal.nullable().default(null),
+      lacunas: z.array(exactText(400)).max(limit).default([]),
+      confianca: z.number().min(0).max(1),
+    })
+    .parse(value);
+}
+
+module.exports = {
+  ItensProcessoContract,
+  validateItensProcesso,
+  validateItensProcessoStrict,
+  MAX_LINHAS,
+};

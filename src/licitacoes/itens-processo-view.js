@@ -157,6 +157,8 @@ function montarItemSolicitadoIA(item) {
     valor_estimado: item.valor_estimado ?? null,
     resultado_item: null,
     trecho_fonte: item.trecho_fonte,
+    fonte: item.fonte ?? null,
+    lote_numero: item.lote_numero ?? null,
   };
 }
 
@@ -168,6 +170,7 @@ function montarResultadoLoteIA(lote) {
     fornecedor_cnpj: lote.fornecedor_cnpj ?? null,
     teto_homologado: lote.teto_homologado ?? null,
     trecho_fonte: lote.trecho_fonte,
+    fonte: lote.fonte ?? null,
   };
 }
 
@@ -179,6 +182,7 @@ function montarResultadoGlobalIA(global) {
     fornecedor_nome: global.fornecedor_nome ?? null,
     fornecedor_cnpj: global.fornecedor_cnpj ?? null,
     trecho_fonte: global.trecho_fonte,
+    fonte: global.fonte ?? null,
   };
 }
 

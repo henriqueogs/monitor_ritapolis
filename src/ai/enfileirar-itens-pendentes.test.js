@@ -9,7 +9,9 @@ jest.mock('../db/itens-estruturacao-jobs-repo', () => ({
 jest.mock('./estruturar-itens-processo', () => ({
   listarAtasDoDocumento: jest.fn().mockReturnValue([]),
   computeTextoHash: jest.fn(() => 'hash-atual'),
+  computeInputHash: (doc) => require('./estruturar-itens-processo').computeTextoHash(doc),
   CONTRACT_VERSION: 'itens-processo-v1.0',
+  assessItemsResult: (record, doc) => ({ valid: record?.texto_hash === require('./estruturar-itens-processo').computeTextoHash(doc, []) }),
 }));
 jest.mock('./providers', () => ({
   createAiProvider: jest.fn(() => ({ provider: 'nvidia', model: 'nvidia/nemotron-3-nano-30b-a3b' })),

@@ -5,7 +5,9 @@ jest.mock('../db/inteligencia-fatos-repo', () => ({
 }));
 jest.mock('../db/itens-estruturacao-jobs-repo', () => ({
   salvarItensEstruturados: jest.fn((args) => ({ id: 99, ...args })),
+  getUltimoItensEstruturadosPorDocumento: jest.fn(() => null),
 }));
+jest.mock('../db', () => ({ getDocumentoById: jest.fn() }));
 
 const { listarAnexosDocumento } = require('../db/inteligencia-fatos-repo');
 const { salvarItensEstruturados } = require('../db/itens-estruturacao-jobs-repo');
@@ -31,6 +33,7 @@ describe('estruturarItensProcesso', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     listarAnexosDocumento.mockReturnValue([]);
+    require('../db').getDocumentoById.mockReturnValue(documentoEdital);
   });
 
   it('reextrai itens com sucesso e persiste', async () => {
@@ -69,7 +72,7 @@ describe('estruturarItensProcesso', () => {
       confianca: 0.9,
     });
 
-    const r = await estruturarItensProcesso({ ...documentoEdital, id: 605 }, { provider });
+    const r = await estruturarItensProcesso({ ...documentoEdital, id: 605 }, { provider, atas: [] });
 
     expect(r.itens_json.tem_tabela_itens).toBe(false);
     expect(r.itens_json.lacunas[0]).toMatch(/cronograma/);
@@ -86,13 +89,13 @@ describe('estruturarItensProcesso', () => {
 
     const promptEnviado = provider.generateJson.mock.calls[0][0].prompt;
     expect(promptEnviado).toContain('ATA: Item 1 LOTE 1');
-    expect(promptEnviado).not.toContain('irrelevante');
+    expect(promptEnviado).toContain('irrelevante'); // all attached sources, not just result-type files
   });
 
   it('resposta fora do contrato lança erro (não persiste)', async () => {
     const provider = providerMock({ tem_tabela_itens: 'sim', confianca: 2 }); // inválido
 
-    await expect(estruturarItensProcesso(documentoEdital, { provider })).rejects.toThrow(/contrato/);
+    await expect(estruturarItensProcesso(documentoEdital, { provider })).rejects.toThrow();
     expect(salvarItensEstruturados).not.toHaveBeenCalled();
   });
 
@@ -100,5 +103,11 @@ describe('estruturarItensProcesso', () => {
     await expect(
       estruturarItensProcesso({ ...documentoEdital, texto_completo: '' }, { provider: providerMock({}) })
     ).rejects.toThrow(/texto/);
+  });
+  it('source change during generation cannot publish a stale result', async () => {
+    require('../db').getDocumentoById.mockReturnValue({ ...documentoEdital, url_origem: 'https://different.example' });
+    const provider = providerMock({ tem_tabela_itens: false, itens_solicitados: [], resultado_lotes: [], resultado_global: null, lacunas: [], confianca: 0.8 });
+    await expect(estruturarItensProcesso(documentoEdital, { provider })).rejects.toThrow(/mudou/);
+    expect(salvarItensEstruturados).not.toHaveBeenCalled();
   });
 });

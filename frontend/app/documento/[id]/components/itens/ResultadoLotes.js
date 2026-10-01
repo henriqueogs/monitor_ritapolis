@@ -49,8 +49,8 @@ export default function ResultadoLotes({ lotes, documento }) {
                   : lote.empenhado
                     ? `Não é gasto realizado; o processo tem ${formatMoney(lote.empenhado)} empenhados até agora. `
                     : 'Teto homologado na ata, não é gasto realizado. '}
-                <FonteLink anexoOrigemId={lote.anexo_origem_id} urlPdf={documento?.url_pdf} urlOrigem={documento?.url_origem} />
               </p>
+              <FonteLink anexoOrigemId={lote.anexo_origem_id} fonte={lote.fonte} trechoFonte={lote.trecho_fonte} urlPdf={documento?.url_pdf} urlOrigem={documento?.url_origem} />
             </div>
           );
         })}

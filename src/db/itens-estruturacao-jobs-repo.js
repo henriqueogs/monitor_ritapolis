@@ -45,7 +45,10 @@ function salvarItensEstruturados({
        confianca = excluded.confianca,
        status = excluded.status,
        erro = excluded.erro,
-       atualizado_em = excluded.atualizado_em`
+       atualizado_em = excluded.atualizado_em
+     WHERE provider IS NOT excluded.provider OR modelo IS NOT excluded.modelo
+       OR itens_json IS NOT excluded.itens_json OR confianca IS NOT excluded.confianca
+       OR status IS NOT excluded.status OR erro IS NOT excluded.erro`
   ).run({
     documento_id,
     provider,

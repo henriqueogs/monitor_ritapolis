@@ -186,20 +186,23 @@ describe('produtos-repo', () => {
   });
 
   function inserirItensEstruturadosIA(documentoId, itensJson, { confianca = 0.85, status = 'ok' } = {}) {
+    const source = 'Lote 1 EQUIPE DE APOIO HYAGO R$ 195.000,00\nfonte';
+    mockConn.prepare('UPDATE documentos SET texto_completo = ? WHERE id = ?').run(source, documentoId);
+    const hash = require('../ai/itens-processo-input').computeTextoHash({ texto_completo: source }, []);
     mockConn
       .prepare(
         `INSERT INTO documentos_itens_estruturados
            (documento_id, provider, modelo, contrato_versao, itens_json, texto_hash, confianca, status)
-         VALUES (?, 'nvidia', 'nvidia/nemotron-3-nano-30b-a3b', 'itens-processo-v1.0', ?, 'hash-teste', ?, ?)`
+         VALUES (?, 'nvidia', 'nvidia/nemotron-3-nano-30b-a3b', 'itens-processo-v1.0', ?, ?, ?, ?)`
       )
-      .run(documentoId, JSON.stringify(itensJson), confianca, status);
+      .run(documentoId, JSON.stringify(itensJson), hash, confianca, status);
   }
 
   it('usa estrutura da IA quando existe resultado ok com confiança aceitável', () => {
     inserirItensEstruturadosIA(1, {
       tem_tabela_itens: true,
       itens_solicitados: [],
-      resultado_lotes: [{ lote_numero: '1', objeto: 'EQUIPE DE APOIO', fornecedor_nome: 'HYAGO', teto_homologado: 195000, trecho_fonte: 'fonte' }],
+      resultado_lotes: [{ lote_numero: '1', objeto: 'EQUIPE DE APOIO', fornecedor_nome: 'HYAGO', teto_homologado: 195000, trecho_fonte: 'Lote 1 EQUIPE DE APOIO HYAGO R$ 195.000,00' }],
       resultado_global: null,
       lacunas: [],
       confianca: 0.85,
@@ -222,7 +225,7 @@ describe('produtos-repo', () => {
     }, { confianca: 0.2 });
 
     const result = getLicitacaoProdutosByDocumentoId(1);
-    expect(result.estrutura.cobertura.origem_estrutura).toBe('heuristica');
+    expect(result.estrutura.cobertura.origem_estrutura).toBe('aguardando_verificacao');
   });
 
   it('IA vazia (tem_tabela_itens=false, sem conteúdo) é usada mesmo com confiança baixa', () => {
@@ -256,6 +259,16 @@ describe('produtos-repo', () => {
     expect(resumo.com_preco_final).toBe(2);
     expect(resumo.com_fornecedor).toBe(1);
     expect(resumo.valor_final_total_identificado).toBe(80);
+  });
+  it('never publishes an old complete-looking AI output after a text update or oversized legacy input', () => {
+    inserirItensEstruturadosIA(1, { tem_tabela_itens: false, itens_solicitados: [], resultado_lotes: [], resultado_global: null, lacunas: [], confianca: 0.9 });
+    mockConn.prepare('UPDATE documentos SET texto_completo=? WHERE id=1').run('Fonte alterada '.repeat(6000));
+    const result = getLicitacaoProdutosByDocumentoId(1);
+    expect(result.estrutura.cobertura.verificacao_pendente).toBe(true);
+    expect(result.estrutura.cobertura.origem_estrutura).toBe('aguardando_verificacao');
+    expect(result.dados).toEqual([]);
+    expect(result.estrutura.resultado_lotes).toEqual([]);
+    expect(result.estrutura.resultado_global).toBeNull();
   });
 
   it('lista grupos comparaveis e evolucao de preco', () => {
