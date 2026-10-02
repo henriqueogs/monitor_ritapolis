@@ -1,5 +1,6 @@
 import { SITE_URL } from './lib/brand';
 import { fetchDocumentos, fetchCredores, fetchAlertas } from './lib/api';
+import { fetchSitemapDocuments } from '../lib/sitemap-documents';
 
 // Rota de metadata (nao page.js) -- revalidate funciona direto aqui, sem
 // precisar de generateStaticParams (essa exigencia so vale pra segmentos
@@ -43,7 +44,7 @@ export default async function sitemap() {
   }));
 
   const [docs, credores, descobertas] = await Promise.all([
-    fetchDocumentos({ limite: MAX_DOCUMENTOS }).catch(() => ({ dados: [] })),
+    fetchSitemapDocuments(fetchDocumentos, MAX_DOCUMENTOS),
     fetchCredores({ limite: MAX_CREDORES }).catch(() => ({ dados: [] })),
     fetchAlertas({ limite: MAX_DESCOBERTAS }).catch(() => ({ dados: [] })),
   ]);
