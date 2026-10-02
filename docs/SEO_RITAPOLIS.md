@@ -139,3 +139,31 @@ Se falhar, investigar outros motivos; não presumir que a exceção resolveu.
 Referências:
 - https://developers.google.com/crawling/docs/crawlers-fetchers/verify-google-requests
 - https://vercel.com/docs/vercel-firewall/vercel-waf/rule-configuration
+
+## Análises e documentos: revisão de 02/10/2026
+
+Amostra pública: /analises, /na-lupa, /na-lupa/57 e documentos 2440, 691 e
+692 responderam HTTP 200. Os resumos e links internos já estão no HTML
+renderizado no servidor, com canonical próprio. Não foi necessário criar
+um segundo acervo nem mover os textos para o cliente.
+
+/analises herdava o título genérico da marca. Os documentos usavam títulos
+oficiais muito longos e algumas descrições terminavam no meio de palavras.
+A revisão dá título e descrição específicos ao catálogo de análises e
+padroniza os metadados de documentos e descobertas: título legível com
+número do documento e referência ao município, descrição baseada no resumo
+visível, canonical e metadados de compartilhamento próprios. Valores que
+sejam objetos não viram texto "[object Object]". Não altera os dados nem
+as regras de validação dos resumos.
+
+Validação local: build de produção Next.js aprovado; nove testes SEO/robots
+aprovados; servidor de produção local com a API pública confirmou HTTP 200,
+títulos, descrições, canonical, conteúdo e links em /analises,
+/documento/691, /documento/692 e /na-lupa/57. Isso verifica a implementação,
+não comprova que o Google já processou a mudança.
+
+Agendamento ativo nesta conversa: "Validar indexação e busca do Ritápolis",
+diariamente às 10h de São Paulo. Usa leitura, diferencia erros históricos
+de novos rastreamentos, não repete solicitações de indexação e comunica
+mudanças relevantes ou acesso necessário. O cadastro de palavras-chave
+e negativas pertence ao Google Ads; não foi criada campanha paga.
