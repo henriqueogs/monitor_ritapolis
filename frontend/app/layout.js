@@ -10,11 +10,14 @@ import './globals.css';
 // (usam searchParams) ou nao buscam nada (redirects). /admin/* tem seu
 // proprio layout com force-dynamic proprio, nao depende deste.
 import Link from 'next/link';
+import { Inter } from 'next/font/google';
 import TopNav from './components/TopNav';
 import RequestToaster from './components/RequestToaster';
 import { DISCLAIMER_RODAPE } from './lib/disclaimer';
 import { BRAND, BRAND_TAGLINE, SITE_URL } from './lib/brand';
 import { serializarJsonLd } from '../lib/json-ld';
+
+const inter = Inter({ subsets: ['latin'], display: 'swap', variable: '--font-inter' });
 
 export const metadata = {
   metadataBase: new URL(SITE_URL),
@@ -34,6 +37,7 @@ export const metadata = {
       'Licitações, gastos, empenhos e documentos oficiais de Ritápolis/MG, com fonte em cada dado.',
   },
   twitter: { card: 'summary_large_image' },
+  authors: [{ name: 'Henrique', url: 'https://github.com/henriqueogs' }],
 };
 
 // Dados estruturados: WebSite + SearchAction (caixa de busca de sitelinks)
@@ -45,6 +49,7 @@ const jsonLdWebSite = {
   url: SITE_URL,
   description: 'A cidade de Ritápolis/MG em dados abertos.',
   inLanguage: 'pt-BR',
+  creator: { '@type': 'Person', name: 'Henrique', url: 'https://github.com/henriqueogs' },
   potentialAction: {
     '@type': 'SearchAction',
     target: { '@type': 'EntryPoint', urlTemplate: `${SITE_URL}/busca?q={search_term_string}` },
@@ -54,7 +59,7 @@ const jsonLdWebSite = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" className={inter.variable}>
       <body>
         <script
           type="application/ld+json"
@@ -74,6 +79,8 @@ export default function RootLayout({ children }) {
                 <span>Dados coletados da fonte oficial da Prefeitura</span>
                 <span className="footer-dot">·</span>
                 <Link href="/sobre">Sobre o projeto</Link>
+                <span className="footer-dot" aria-hidden="true">·</span>
+                <a href="https://github.com/henriqueogs" rel="author">Desenvolvido por Henrique</a>
               </div>
             </div>
             <p className="site-footer-disclaimer">{DISCLAIMER_RODAPE}</p>
