@@ -22,14 +22,21 @@ async function extract(payload, anexo = false, progress) {
   if (api.db) {
     downloader.filePolicy = require('./file-policy').createFilePolicy(api.db);
   }
-  const buffer = await downloader.baixarBuffer(url);
-  let extraction = await require('../parsers/document-file').extractOfficialFileText(buffer, {
+  let buffer, large;
+  const fileReview = api.db?.prepare('SELECT reason FROM pipeline_file_limits WHERE url=?').get(url);
+  if (payload.largePdf === true) {
+    if (!fileReview || !require('./file-policy').isOversized({message:fileReview.reason})) {
+      throw new Error('PDF: tarefa grande exige limite anterior registrado');
+    }
+    large = await require('./large-file-task').extractLarge(target,url,progress,{downloader,anexo});
+  } else { buffer = await downloader.baixarBuffer(url); }
+  let extraction = large?.extraction || await require('../parsers/document-file').extractOfficialFileText(buffer, {
     url,
     filename: target.nome,
   });
   // Official download endpoints often have no extension (e.g. ?Download=79714).
   // Inspect the file signature rather than trusting the URL or content type.
-  const isPdf = buffer.subarray(0, 1024).includes(Buffer.from('%PDF-'));
+  const isPdf = buffer?.subarray(0, 1024).includes(Buffer.from('%PDF-'));
   if (!extraction.text?.trim() && isPdf && !extraction.error) {
     const ocr = require('../parsers/ocr');
     let result;
@@ -46,6 +53,8 @@ async function extract(payload, anexo = false, progress) {
   if (!extraction.text?.trim()) {
     throw new Error('Texto insuficiente: extracao/OCR exige revisao');
   }
+  const current = anexo ? require('../db/inteligencia-fatos-repo').getAnexoById(target.id) : api.getDocumentoById(target.id);
+  if ((anexo ? current?.url : current?.url_pdf) !== url) {throw new Error('PDF: fonte mudou durante extracao; resultado nao publicado');}
   if (anexo) {
     api.saveDocumentoAnexoTexto({
       id: target.id,
@@ -69,15 +78,17 @@ async function extract(payload, anexo = false, progress) {
           paginas: extraction.pages,
           engine: extraction.info?.parser || 'pipeline',
           erro: null,
+          ...(large ? {cobertura:extraction.info.cobertura,arquivo_bytes:large.downloadBytes} : {}),
         },
       },
     });
   }
+  if(large){downloader.filePolicy.clear(url);large.cleanup();}
   return {
     chars: extraction.text.length,
     pages: extraction.pages,
     source_url: url,
-    file_hash: require('crypto').createHash('sha256').update(buffer).digest('hex'),
+    file_hash: large?.fileHash || require('crypto').createHash('sha256').update(buffer).digest('hex'),
     text_hash: require('../ai/summarize-document').buildTextoHash(extraction.text),
   };
 }

@@ -339,3 +339,38 @@ test('repeated unsupported evidence blocks instead of an unlimited split loop or
   await expect(extractAllItems(doc, fontesDoProcesso(doc), mock)).rejects.toThrow('exige revisao');
   expect(mock.generateJson).toHaveBeenCalledTimes(2);
 });
+
+test('row evidence is checked before the table flag so the real defect is reported and recovered', async () => {
+  const doc = document('Contrato com Empresa X. '.repeat(400) + ' Valor total R$ 34.200,00');
+  const source = { ...fontesDoProcesso(doc)[0], inicio: 0 };
+  const fabricated = rowFrom(source, 'Empresa X junto com Valor total R$ 34.200,00', {
+    valor: 34200,
+  });
+  expect(() =>
+    require('./itens-processo-evidence').validateLeafEvidence(
+      { ...empty(), resultado_global: fabricated },
+      [source]
+    )
+  ).toThrow(/citacao nao encontrada/);
+  const real = rowFrom(source, 'Valor total R$ 34.200,00', { valor: 34200 });
+  expect(() =>
+    require('./itens-processo-evidence').validateLeafEvidence(
+      { ...empty(), resultado_global: real },
+      [source]
+    )
+  ).toThrow(/ausencia de tabela/);
+  const mock = provider(({ fontes }) =>
+    fontes[0].texto.length > 6000
+      ? { ...empty(), resultado_global: fabricated }
+      : !fontes[0].texto.includes('Valor total')
+        ? empty()
+        : {
+            ...empty(),
+            tem_tabela_itens: true,
+            resultado_global: rowFrom(fontes[0], 'Valor total R$ 34.200,00', { valor: 34200 }),
+          }
+  );
+  const result = await extractAllItems(doc, fontesDoProcesso(doc), mock);
+  expect(result.resultado_global.valor).toBe(34200);
+  expect(mock.generateJson.mock.calls.length).toBeGreaterThan(1);
+});

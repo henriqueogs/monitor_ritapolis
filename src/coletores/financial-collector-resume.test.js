@@ -6,7 +6,7 @@ jest.mock('../db', () => ({
   finishColetaLog: jest.fn(),
   saveDocumento: jest.fn(),
 }));
-jest.mock('../db/transparencia-repo', () => ({
+jest.mock('../db/transparencia-repo', () => ({ getDespesaPorEmpenho: jest.fn(() => null),
   getColetaLog: jest.fn(),
   upsertColetaLog: jest.fn(),
   crosswalkDespesasDocumentos: jest.fn(() => 0),

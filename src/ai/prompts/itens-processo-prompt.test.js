@@ -29,3 +29,10 @@ test('literal source evidence, source identity, null unknowns and no chronology-
   }
   expect(prompt).not.toContain('Não especificado no trecho fornecido');
 });
+
+test('lot headings and split passages have explicit citation rules instead of inferred values', () => {
+  const prompt = buildItensProcessoPrompt({ documento: { texto_completo: 'Fonte oficial' } });
+  expect(prompt).toContain('cabecalho do lote');
+  expect(prompt).toContain('mesma citacao');
+  expect(prompt).toContain('exatamente como escritos');
+});

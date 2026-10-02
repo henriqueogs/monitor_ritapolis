@@ -114,13 +114,9 @@ function validateRowEvidence(row, slices) {
 }
 
 function validateLeafEvidence(value, slices) {
-  if (
-    !value.tem_tabela_itens &&
-    (value.itens_solicitados.length || value.resultado_lotes.length || value.resultado_global)
-  ) {
-    throw new Error('Itens: ausencia de tabela contradiz as linhas extraidas');
-  }
-  return {
+  // Rows first: an unsupported citation is the real defect and is the only
+  // failure the recovery path may retry; the table flag alone would hide it.
+  const validated = {
     ...value,
     itens_solicitados: value.itens_solicitados.map(row => validateRowEvidence(row, slices)),
     resultado_lotes: value.resultado_lotes.map(row => validateRowEvidence(row, slices)),
@@ -128,6 +124,13 @@ function validateLeafEvidence(value, slices) {
       ? validateRowEvidence(value.resultado_global, slices)
       : null,
   };
+  if (
+    !value.tem_tabela_itens &&
+    (value.itens_solicitados.length || value.resultado_lotes.length || value.resultado_global)
+  ) {
+    throw new Error('Itens: ausencia de tabela contradiz as linhas extraidas');
+  }
+  return validated;
 }
 
 function completeCoverage(coverage, fontes) {

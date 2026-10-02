@@ -25,6 +25,7 @@ jest.mock('../parsers/document-file', () => ({
     error: null,
   })),
 }));
+jest.mock('./large-file-task', () => ({ extractLarge: jest.fn() }));
 jest.mock('../parsers/ocr', () => ({
   ocrPdfBuffer: jest.fn(async () => ({
     texto: 'Texto reconhecido do arquivo oficial',
@@ -105,4 +106,42 @@ test('failed PDF parsing is not published as complete OCR input', async () => {
   });
   await expect(execute(job)).rejects.toThrow('Texto insuficiente');
   expect(api.saveDocumento).not.toHaveBeenCalled();
+});
+
+const largeJob = { kind: 'extract', payload: JSON.stringify({ documentoId: 1, largePdf: true }) };
+test('large PDF task is refused unless an oversized-file review was recorded', async () => {
+  await expect(execute(largeJob)).rejects.toThrow('exige limite anterior');
+  expect(require('./large-file-task').extractLarge).not.toHaveBeenCalled();
+});
+test('large PDF result keeps page coverage, clears the review and removes disk work', async () => {
+  const url = 'https://official.example/?Download=79714';
+  require('./file-policy')
+    .createFilePolicy(api.db)
+    .record(url, new Error('maxContentLength size of 52428800 exceeded'));
+  const cleanup = jest.fn();
+  require('./large-file-task').extractLarge.mockResolvedValue({
+    extraction: {
+      text: 'Texto integral por paginas',
+      pages: 3,
+      info: { parser: 'disk-pdf-v1', cobertura: { complete: true, pages: 3, processed_pages: 3 } },
+    },
+    fileHash: 'a'.repeat(64),
+    downloadBytes: 60000000,
+    cleanup,
+  });
+  const result = await execute(largeJob);
+  expect(result).toMatchObject({ pages: 3, file_hash: 'a'.repeat(64) });
+  expect(api.saveDocumento).toHaveBeenCalledWith(
+    expect.objectContaining({
+      texto_completo: 'Texto integral por paginas',
+      dados_extras: expect.objectContaining({
+        parser_pdf: expect.objectContaining({
+          cobertura: expect.objectContaining({ complete: true }),
+          arquivo_bytes: 60000000,
+        }),
+      }),
+    })
+  );
+  expect(cleanup).toHaveBeenCalled();
+  expect(api.db.prepare('SELECT count(*) AS n FROM pipeline_file_limits').get().n).toBe(0);
 });

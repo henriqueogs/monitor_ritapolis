@@ -15,6 +15,7 @@ function createProgress(db, namespace, { deadline = Date.now() + 8 * 60000 } = {
     PRIMARY KEY(namespace, step)
   )`);
   return {
+    namespace,
     remainingMs() {
       return Math.max(1, deadline - Date.now());
     },

@@ -14,6 +14,7 @@ function main(raw) {
   const d = saude.documentos_recentes || {};
   const ia = saude.ia || {};
   console.log(`status=${saude.status} motivos=${(saude.motivos || []).join(',') || '-'}`);
+  console.log(`avisos=${(saude.avisos || []).join(',') || '-'} fila=${JSON.stringify(saude.pipeline?.waiting || null)}`);
   console.log(`ultimo_resumo_ok=${ia.ultimo_resumo_ok?.em || 'nunca'} modelo=${ia.ultimo_resumo_ok?.modelo || '-'}`);
   console.log(`ultimo_erro=${ia.ultimo_erro?.em || '-'} categoria=${ia.ultimo_erro?.categoria || '-'}`);
   console.log(`ultimo_ciclo=${ia.scheduler?.ultimo_ciclo || '-'} resultado=${JSON.stringify(ia.scheduler?.ultimo_resultado || null)}`);

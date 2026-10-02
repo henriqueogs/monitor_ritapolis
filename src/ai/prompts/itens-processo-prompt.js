@@ -27,6 +27,9 @@ Regras obrigatorias:
 - Cada linha DEVE conter fonte_chave igual a chave da fonte e trecho_fonte LITERAL, continuo, de ate 700 caracteres.
 - A citacao deve incluir todos os nomes, CNPJ, quantidades, numeros de item/lote, unidades e valores informados nessa linha.
 - Nao una citacoes, nao acrescente reticencias, nao use texto sentinela nem invente trecho_fonte. Sem citacao suficiente, omita a linha e registre a lacuna.
+- lote_numero so e valido quando consta na citacao da propria linha. Se o numero do lote esta num cabecalho do lote (ex.: "LOTE I - PNEUS"), a citacao continua deve comecar nesse cabecalho e incluir TODAS as linhas intermediarias ate a linha atual, sem pular nenhuma (ate 700 caracteres); se isso nao couber em 700 caracteres, use lote_numero null e registre a lacuna. Na duvida, lote_numero null.
+- item_numero e lote_numero devem ser copiados exatamente como escritos na citacao ("01" permanece "01", nunca "1").
+- Nome, CNPJ e valor de uma mesma linha ou resultado global devem constar na mesma citacao continua. Se estiverem em passagens distantes, nao una passagens: preencha apenas os campos presentes numa unica citacao (os demais null) e registre a lacuna.
 - descricao/objeto: cite a descricao da propria linha em ate 400 caracteres, nunca substitua por nome de outra linha.
 - descricao/objeto e fornecedor_nome devem ser copiados literalmente de dentro de trecho_fonte, sem parafrase, abreviacao nova ou normalizacao de palavras.
 - Campos opcionais desconhecidos: null. Nunca calcule um valor total a partir de quantidade/preco nem atribua o teto do lote a um item.

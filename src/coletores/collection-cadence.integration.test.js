@@ -7,7 +7,7 @@ jest.mock('./base', () => class {
   registrarErroItem() {}
   completeItem() {}
 });
-jest.mock('../db/transparencia-repo', () => ({ getColetaLog: jest.fn(), upsertColetaLog: jest.fn(),
+jest.mock('../db/transparencia-repo', () => ({ getDespesaPorEmpenho: jest.fn(() => null), getColetaLog: jest.fn(), upsertColetaLog: jest.fn(),
   crosswalkDespesasDocumentos: jest.fn(() => 0), enriquecerDetalhesComEmpenhos: jest.fn(() => 0) }));
 jest.mock('./portal-transparencia-thread-http', () => ({ coletarDespesasJanelaViaThread: jest.fn() }));
 jest.mock('./folha-thread-http', () => ({ coletarFolhaExercicioViaThread: jest.fn(async () =>

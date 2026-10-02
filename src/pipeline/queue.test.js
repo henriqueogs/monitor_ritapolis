@@ -147,3 +147,19 @@ test('retries consume the historical time budget instead of resetting it', () =>
   q.enqueue({ ...task, entity: 8, historical: true }, later);
   expect(q.claim(new Date(later.getTime() + 3 * 3600000))).toBeNull();
 });
+
+test('status separates retry backoff and historical budget waits from stalled current work', () => {
+  const old = new Date(now.getTime() - 3 * 86400000);
+  const backoff = q.enqueue({ ...task, entity: 21, historical: false }, old);
+  db.prepare('UPDATE pipeline_jobs SET available_at=? WHERE id=?').run(
+    new Date(now.getTime() + 3600000).toISOString(),
+    backoff.id
+  );
+  q.enqueue({ ...task, entity: 22, historical: true }, old);
+  const status = q.status(now);
+  expect(status.waiting).toEqual({ retry: 1, historical_budget: 1, ready_recent: 0 });
+  expect(status.oldest_pending_recent).toBeNull();
+  q.enqueue({ ...task, entity: 23, historical: false }, old);
+  expect(q.status(now).waiting.ready_recent).toBe(1);
+  expect(q.status(now).oldest_pending_recent).toBe(old.toISOString());
+});

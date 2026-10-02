@@ -885,8 +885,17 @@ function getDespesas({
   return executar(filters, params);
 }
 
+function getDespesaPorEmpenho(exercicio, empenho) {
+  return (
+    db
+      .prepare('SELECT * FROM transparencia_despesas WHERE exercicio_orcamento = ? AND empenho = ?')
+      .get(Number(exercicio), String(empenho || '').trim()) || null
+  );
+}
+
 module.exports = {
   upsertDespesa,
+  getDespesaPorEmpenho,
   upsertReceita,
   crosswalkDespesasDocumentos,
   enriquecerDetalhesComEmpenhos,
