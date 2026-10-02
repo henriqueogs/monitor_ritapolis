@@ -6,6 +6,7 @@ const mockGet = jest.fn();
 const mockPost = jest.fn();
 const mockInterceptor = jest.fn();
 const mockUpsert = jest.fn();
+const mockExisting = jest.fn();
 const mockPayrollUpsert = jest.fn();
 const mockExpenseRows = jest.fn();
 const mockPayrollRows = jest.fn();
@@ -16,7 +17,10 @@ jest.mock('axios', () => ({
     interceptors: { request: { use: mockInterceptor } },
   }),
 }));
-jest.mock('../db/transparencia-repo', () => ({ upsertDespesa: mockUpsert }));
+jest.mock('../db/transparencia-repo', () => ({
+  upsertDespesa: mockUpsert,
+  getDespesaPorEmpenho: mockExisting,
+}));
 jest.mock('../db/folha-repo', () => ({ upsertFolhaRegistro: mockPayrollUpsert }));
 jest.mock('./portal-transparencia-thread', () => ({
   ...jest.requireActual('./portal-transparencia-thread'),
@@ -42,6 +46,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   db = new DatabaseSync(':memory:');
   db.exec('CREATE TABLE imported(id TEXT PRIMARY KEY, value INTEGER)');
+  mockExisting.mockReturnValue(null);
   stopAfter = Infinity;
   writes = 0;
   detailIdentity = null;
@@ -124,6 +129,29 @@ test('expenses resume after row 1 with no repeated CSV/thread or completed detai
     '00003-000',
   ]);
   expect(mockGet.mock.calls.filter(([url]) => url.includes('ID8_DESP=00001000'))).toHaveLength(1);
+});
+
+test('window verification fetches detail only for new or changed empenhos', async () => {
+  const identical = {
+    tipo: 'EO', data_empenho: '2026-10-01', data_liquidacao: null, data_pagamento: null,
+    valor: 1, credor_nome: 'Nome oficial de teste LTDA', unidade: 'Secretaria', historico: 'Compra',
+  };
+  mockExisting.mockImplementation((_ano, empenho) =>
+    empenho === '00001-000'
+      ? identical
+      : empenho === '00002-000'
+        ? { ...identical, valor: 2, data_pagamento: null, unidade: 'Secretaria' }
+        : null
+  );
+  mockExpenseRows.mockReturnValue(
+    expenses().map(row => (row.empenho === '00002-000' ? { ...row, dataPagamento: '05/10/2026' } : row))
+  );
+  await expect(
+    coletarDespesasJanelaViaThread(2026, '2026-10-01', '2026-10-07', { progress: progress() })
+  ).resolves.toEqual({ novos: 2, atualizados: 0, semAlteracao: 1, registros: 3 });
+  expect(mockUpsert.mock.calls.map(([row]) => row.empenho)).toEqual(['00002-000', '00003-000']);
+  expect(mockGet.mock.calls.filter(([url]) => url.includes('ID8_DESP=00001000'))).toHaveLength(0);
+  expect(mockGet.mock.calls.filter(([url]) => url.includes('ID8_DESP=00002000'))).toHaveLength(1);
 });
 
 test('expense detail mismatch or network error preserves canonical data and leaves row pending', async () => {

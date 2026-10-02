@@ -17,7 +17,8 @@ const {
   parseCsvDespesas,
   parseDetalhamentoDespesa,
 } = require('./portal-transparencia-thread');
-const { upsertDespesa } = require('../db/transparencia-repo');
+const { upsertDespesa, getDespesaPorEmpenho } = require('../db/transparencia-repo');
+const { csvConfereComRegistro } = require('./despesa-csv');
 
 // ponytail: delay fixo entre requisições — o fluxo faz várias por despesa
 // (uma pra cada detalhamento). Ajustar se o portal reclamar de volume.
@@ -243,6 +244,17 @@ async function coletarDespesasJanelaViaThread(
       if (Number(item.exercicio) !== Number(exercicio)) {
         throw new Error('Exercicio do empenho diverge da janela consultada');
       }
+      const volateis = {
+        tipo: item.tipo,
+        dataEmpenho: paraFormatoIso(item.dataEmpenho),
+        dataLiquidacao: paraFormatoIso(item.dataLiquidacao),
+        dataPagamento: paraFormatoIso(item.dataPagamento),
+        valor: item.valor,
+        credorNomeParcial: item.credorNomeParcial,
+      };
+      if (csvConfereComRegistro(volateis, getDespesaPorEmpenho(exercicio, item.empenho))) {
+        return { jaConfere: true };
+      }
       const detalhe = await buscarDetalhe(cliente, await session(), {
         empenho: item.empenho,
         exercicio,
@@ -268,7 +280,7 @@ async function coletarDespesasJanelaViaThread(
         historico: detalhe?.historico,
       };
     },
-    upsertDespesa
+    row => (row.jaConfere ? 'unchanged' : upsertDespesa(row))
   );
 }
 
