@@ -6,7 +6,6 @@ import HomeQuickLinks from './components/HomeQuickLinks';
 import CityContext from './components/CityContext';
 import LimitsAndSourcesData from './components/LimitsAndSourcesData';
 import LimitsAndSourcesSkeleton from './components/LimitsAndSourcesSkeleton';
-import PrefeituraAutoSync from './components/PrefeituraAutoSync';
 
 // Home fica so' com porta de entrada (hero) + selecao de area (hubs) +
 // acesso direto -- "analise em destaque" e "Na Lupa" agora moram dentro de
@@ -20,7 +19,6 @@ import PrefeituraAutoSync from './components/PrefeituraAutoSync';
 export default function HomePage() {
   return (
     <main className="page-container page-observatory">
-      <PrefeituraAutoSync />
       <HomeHero />
       <Suspense fallback={<HomeHubsSkeleton />}>
         <HomeHubsData />

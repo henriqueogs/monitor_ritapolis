@@ -142,6 +142,33 @@ Referências:
 
 ## Análises e documentos: revisão de 02/10/2026
 
+### Lighthouse e autoria: 02/10/2026
+
+PageSpeed Insights da home em produção às 11h23 BRT: celular 90/96/96/100
+e computador 99/96/96/100 (desempenho/acessibilidade/boas práticas/SEO).
+LCP 2,7 s e 0,7 s; TBT 0 ms nos dois. Não havia dados CrUX disponíveis.
+Relatório: https://pagespeed.web.dev/analysis/https-ritapolis-com/ylcr3fnpjp
+
+Correções: contraste do rodapé com texto #526277 sobre branco; retirada
+da chamada administrativa de sincronização ao abrir a home, que retornava
+401 para visitantes; fonte Inter hospedada pelo Next.js em vez do @import
+externo. A coleta continua sendo responsabilidade dos agendamentos e do
+painel administrativo, sem disparo por visitantes.
+
+Autoria: Henrique, com https://github.com/henriqueogs no rodapé, na página
+Sobre, nos metadados e no creator do WebSite. A atribuição descreve o
+desenvolvedor do projeto; não atribui a ele a autoria dos documentos oficiais.
+
+Build e 14 testes de SEO/robots/sitemap/títulos aprovados. Verificação local
+confirmou fonte Inter, cor do rodapé, metadado author e console sem o 401.
+Esses resultados não substituem uma nova medição Lighthouse de produção.
+
+Outras melhorias já publicadas nesta data: sitemap com paginação (1.500
+documentos e 2.015 URLs na verificação), título de documento preservando o
+assunto antes da instituição e filtro de deploy do backend para alterações
+exclusivas de frontend/documentação/testes do frontend. Home confirmada
+indexada no Search Console; primeira página para Ritápolis ainda não confirmada.
+
 Amostra pública: /analises, /na-lupa, /na-lupa/57 e documentos 2440, 691 e
 692 responderam HTTP 200. Os resumos e links internos já estão no HTML
 renderizado no servidor, com canonical próprio. Não foi necessário criar

@@ -30,6 +30,14 @@ export default async function SobrePage() {
         <DataAvailabilityBadge status="real" />
       </div>
 
+      <SectionBlock title="Autoria do projeto">
+        <p>
+          O Ritápolis.com é um projeto independente desenvolvido por{' '}
+          <a href="https://github.com/henriqueogs" rel="author">Henrique (henriqueogs no GitHub)</a>.
+          Não é um site oficial da Prefeitura ou da Câmara Municipal.
+        </p>
+      </SectionBlock>
+
       {/* Fontes monitoradas */}
       <SectionBlock title="O que é monitorado">
         <div className={styles.statusList}>
