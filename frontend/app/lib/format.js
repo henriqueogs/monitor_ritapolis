@@ -1,3 +1,5 @@
+import { splitTitle } from '../../lib/document-title';
+
 export const fonteLabels = {
   site_prefeitura: 'Prefeitura',
   camara: 'C\u00e2mara'
@@ -185,12 +187,7 @@ export function splitDocumentTitle(documento) {
   const fonte = (
     documento.resumo_ai?.dados?.titulo_curto || documento.titulo_curto || documento.titulo || ''
   ).trim();
-  const partes = fonte.split(/\s+[-–—]\s+/).map((p) => p.trim()).filter(Boolean);
-
-  if (partes.length > 1) {
-    return { titulo: partes[partes.length - 1], subtitulo: partes.slice(0, -1).join(' – ') };
-  }
-  return { titulo: fonte, subtitulo: null };
+  return splitTitle(fonte);
 }
 
 export function cleanDocumentSummary(documento, maxLength = 180) {
