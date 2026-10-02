@@ -4,6 +4,8 @@ import { formatMoney, formatDate, labelTipo } from '../../lib/format';
 import { nivelLabel } from '../../lib/descobertas';
 import { DISCLAIMER_DESCOBERTAS } from '../../lib/disclaimer';
 import styles from '../styles.module.css';
+import { BRAND, SITE_URL } from '../../lib/brand';
+import { buildContentMetadata } from '../../../lib/page-metadata';
 
 const BADGE_NIVEL = {
   critico: styles.badgeCritico,
@@ -45,10 +47,11 @@ export async function generateMetadata(props) {
     return { title: 'Item em análise nos dados públicos de Ritápolis' };
   }
   const discovery = alerta.metadados?.discovery_v3 || alerta.metadados?.discovery_v2 || null;
-  return {
+  return buildContentMetadata({
+    path: `/na-lupa/${params.id}`,
     title: tituloCidadao(alerta, discovery),
-    description: `${String(respostaCidada(alerta, discovery) || alerta.objeto || alerta.titulo).slice(0, 155)} — dado público de Ritápolis/MG, com fonte oficial.`,
-  };
+    description: respostaCidada(alerta, discovery) || alerta.objeto || alerta.titulo,
+  }, { siteUrl: SITE_URL, brand: BRAND });
 }
 
 function humanizarChaveMetrica(chave) {
