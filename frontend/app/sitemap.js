@@ -1,6 +1,8 @@
 import { SITE_URL } from './lib/brand';
 import { fetchDocumentos, fetchCredores, fetchAlertas } from './lib/api';
 import { fetchSitemapDocuments } from '../lib/sitemap-documents';
+import { connection } from 'next/server';
+import { unstable_cache } from 'next/cache';
 
 // Rota de metadata (nao page.js) -- revalidate funciona direto aqui, sem
 // precisar de generateStaticParams (essa exigencia so vale pra segmentos
@@ -33,7 +35,7 @@ const PAGINAS_ESTATICAS = [
   '/sobre',
 ];
 
-export default async function sitemap() {
+async function generateSitemap() {
   const agora = new Date();
 
   const estaticas = PAGINAS_ESTATICAS.map((path) => ({
@@ -75,4 +77,12 @@ export default async function sitemap() {
     }));
 
   return [...estaticas, ...urlsDocumentos, ...urlsCredores, ...urlsDescobertas];
+}
+
+const cachedSitemap = unstable_cache(generateSitemap, ['public-sitemap-v2'], { revalidate: 3600 });
+
+export default async function sitemap() {
+  // A API não existe no build de CI; gere em runtime e cacheie a lista inteira.
+  await connection();
+  return cachedSitemap();
 }
