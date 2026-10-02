@@ -36,6 +36,12 @@ module.exports = (phase) => ({
   async redirects() {
     return [
       {
+        source: '/:path*',
+        has: [{ type: 'host', value: 'www.ritapolis.com' }],
+        destination: 'https://ritapolis.com/:path*',
+        permanent: true,
+      },
+      {
         source: '/finalidade',
         destination: '/transparencia/finalidades',
         permanent: true,
