@@ -114,7 +114,12 @@ function planDocument(queue, doc, now = new Date()) {
       now
     );
   if (!doc.texto_completo?.trim()) {
-    return task('extract', hash([doc.url_pdf, doc.url_origem, doc.hash_conteudo]), {}, 0, '3');
+    const signature = hash([doc.url_pdf, doc.url_origem, doc.hash_conteudo]);
+    const limited =
+      doc.url_pdf && require('./file-policy').createFilePolicy(api.db).isOversizedReview(doc.url_pdf);
+    return limited
+      ? task('extract', signature, { largePdf: true }, 0, '3:large-1')
+      : task('extract', signature, {}, 0, '3');
   }
   const signature = ai.buildTextoHash(doc.texto_completo);
   if (!api.getResumoAiByDocumentoHash(doc.id, signature, config.aiContractVersion)) {

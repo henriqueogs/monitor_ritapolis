@@ -160,3 +160,20 @@ test('January windows never mix exercises', () => {
   );
 });
 afterAll(() => db.close());
+
+test('textless document with a recorded size limit is planned on the bounded disk path', () => {
+  document(1, 2026, '2026-09-29');
+  document(2, 2026, '2026-09-29');
+  db.prepare("UPDATE documentos SET texto_completo=NULL, url_pdf='https://official.example/big.pdf' WHERE id=1").run();
+  db.prepare("UPDATE documentos SET texto_completo=NULL, url_pdf='https://official.example/small.pdf' WHERE id=2").run();
+  require('./file-policy')
+    .createFilePolicy(db)
+    .record('https://official.example/big.pdf', new Error('maxContentLength size of 52428800 exceeded'), now);
+  planAi(q, now);
+  const rows = db.prepare("SELECT entity,version,payload FROM pipeline_jobs WHERE kind='extract' ORDER BY entity").all();
+  expect(rows).toHaveLength(2);
+  expect(JSON.parse(rows[0].payload).largePdf).toBe(true);
+  expect(rows[0].version).toBe('3:large-1');
+  expect(JSON.parse(rows[1].payload).largePdf).toBeUndefined();
+  expect(rows[1].version).toBe('3');
+});

@@ -14,3 +14,15 @@ test('oversized official file is not downloaded every collection and becomes due
   expect(() => policy.check('https://official.example/network.pdf', date)).not.toThrow();
   db.close();
 });
+
+test('oversized review is detectable while the thirty-day wait is still open', () => {
+  const db = new DatabaseSync(':memory:');
+  const policy = createFilePolicy(db);
+  const url = 'https://official.example/big.pdf';
+  expect(policy.isOversizedReview(url)).toBe(false);
+  policy.record(url, new Error('maxContentLength size of 52428800 exceeded'));
+  expect(policy.isOversizedReview(url)).toBe(true);
+  policy.clear(url);
+  expect(policy.isOversizedReview(url)).toBe(false);
+  db.close();
+});

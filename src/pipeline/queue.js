@@ -172,8 +172,19 @@ function createQueue(db) {
     const row = db.prepare('SELECT value FROM pipeline_meta WHERE key = ?').get(key);
     return row ? JSON.parse(row.value) : null;
   }
-  function status() {
+  function status(now = new Date()) {
+    const iso = now.toISOString();
+    const waiting = db
+      .prepare(
+        `SELECT
+          COALESCE(SUM(available_at > @iso), 0) AS retry,
+          COALESCE(SUM(available_at <= @iso AND historical = 1), 0) AS historical_budget,
+          COALESCE(SUM(available_at <= @iso AND historical = 0), 0) AS ready_recent
+        FROM pipeline_jobs WHERE status = 'pending'`
+      )
+      .get({ iso });
     return {
+      waiting: { ...waiting },
       counts: db
         .prepare('SELECT status, kind, COUNT(*) AS total FROM pipeline_jobs GROUP BY status, kind')
         .all(),
@@ -188,9 +199,9 @@ function createQueue(db) {
         .get().at,
       oldest_pending_recent: db
         .prepare(
-          "SELECT MIN(created_at) AS at FROM pipeline_jobs WHERE status='pending' AND historical=0"
+          "SELECT MIN(created_at) AS at FROM pipeline_jobs WHERE status='pending' AND historical=0 AND available_at <= ?"
         )
-        .get().at,
+        .get(iso).at,
       failures: db
         .prepare(
           `SELECT id, kind, entity, attempts, error, finished_at FROM pipeline_jobs p
