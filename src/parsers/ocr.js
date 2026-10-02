@@ -160,8 +160,24 @@ async function ocrImagemBuffer(buffer) {
   }
 }
 
+// Large files stay on disk. Only the next page is rasterized; native parsing
+// has memory/CPU/time caps, while the existing Portuguese worker is reused.
+async function ocrPdfFilePage(pdfPath, pagina, { progress } = {}) {
+  if (!Number.isSafeInteger(pagina) || pagina < 1) {throw new Error('PDF: pagina OCR invalida');}
+  const dir = tmpDir();
+  try {
+    const prefix = path.join(dir, 'pg');
+    await require('./pdf-native-command').runPdfCommand('pdftoppm', [
+      '-png','-singlefile','-r',String(DPI_PADRAO),'-f',String(pagina),'-l',String(pagina),pdfPath,prefix,
+    ], { progress });
+    progress?.checkTime();
+    return await ocrImagens([`${prefix}.png`]);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+}
+
 module.exports = {
   ocrPdfBuffer,
   ocrImagemBuffer,
   encerrarWorker,
+  ocrPdfFilePage,
 };

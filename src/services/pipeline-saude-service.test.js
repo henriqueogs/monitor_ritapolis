@@ -98,4 +98,33 @@ describe('pipeline-saude-service', () => {
     );
     expect(JSON.stringify(result)).not.toContain('secret=abc');
   });
+  it('file-limit and source-review failures await review; genuine failures still alert', () => {
+    const pipeline = require('../pipeline/coordinator');
+    pipeline.enabled.mockReturnValue(true);
+    const state = {
+      active: null,
+      counts: [],
+      oldest_pending: null,
+      oldest_pending_recent: null,
+      safety: { paused: false },
+      failures: [
+        { id: 1, kind: 'extract', error: 'maxContentLength size of 52428800 exceeded' },
+        { id: 2, kind: 'extract', error: 'Texto insuficiente: extracao/OCR exige revisao' },
+      ],
+    };
+    pipeline.status.mockReturnValue(state);
+    repo.getUltimoResumoOk.mockReturnValue({ em: AGORA.toISOString() });
+    repo.contarRecentesSemResumo.mockReturnValue({ total: 9, semResumo: 0, semTexto: 0 });
+    let result = getSaudePipeline({ agora: AGORA });
+    expect(result.motivos).not.toContain('tarefas_atuais_com_falha');
+    expect(result.avisos).toContain('documentos_aguardando_revisao');
+    expect(result.status).toBe('ok');
+    expect(result.pipeline.aguardando_revisao).toBe(2);
+    expect(result.pipeline.falhas_reais).toBe(0);
+    state.failures.push({ id: 3, kind: 'items', error: 'too_big trecho_fonte invalid' });
+    result = getSaudePipeline({ agora: AGORA });
+    expect(result.status).toBe('alerta');
+    expect(result.motivos).toContain('tarefas_atuais_com_falha');
+    expect(result.pipeline.falhas_reais).toBe(1);
+  });
 });

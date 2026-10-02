@@ -11,6 +11,10 @@ const aiScheduler = require('../ai/ai-daily-scheduler');
 const { avaliarSaudePipeline } = require('../ai/pipeline-saude');
 const { classifyAiError } = require('../ai/operation-policy');
 
+// Failures that need a human or a dedicated path (oversized file, source
+// changed/unreadable) are not provider or code faults.
+const CATEGORIAS_REVISAO = new Set(['limite_tamanho', 'revisao_fonte']);
+
 const JANELA_RECENTES_DIAS = 30;
 const DIA_MS = 24 * 60 * 60 * 1000;
 
@@ -39,9 +43,12 @@ function getSaudePipeline({ agora = new Date() } = {}) {
   if (state?.safety.paused) {
     avaliacao.motivos.push(`escritas_pausadas:${state.safety.reason}`);
   }
-  if (state?.failures.length) {
+  const revisao = state?.failures.filter(f => CATEGORIAS_REVISAO.has(classifyAiError(f.error))) || [];
+  const falhasReais = (state?.failures.length || 0) - revisao.length;
+  if (falhasReais > 0) {
     avaliacao.motivos.push('tarefas_atuais_com_falha');
   }
+  const avisos = revisao.length ? ['documentos_aguardando_revisao'] : [];
   if (
     state?.oldest_pending_recent &&
     agora.getTime() - Date.parse(state.oldest_pending_recent) > DIA_MS
@@ -52,6 +59,7 @@ function getSaudePipeline({ agora = new Date() } = {}) {
 
   return {
     ...avaliacao,
+    avisos,
     ...(pipeline.enabled()
       ? {
           pipeline: (() => {
@@ -60,6 +68,9 @@ function getSaudePipeline({ agora = new Date() } = {}) {
               counts: state.counts,
               oldest_pending: state.oldest_pending,
               oldest_pending_recent: state.oldest_pending_recent,
+              waiting: state.waiting,
+              falhas_reais: falhasReais,
+              aguardando_revisao: revisao.length,
               safety: { paused: state.safety.paused, reason: state.safety.reason },
               failures: state.failures.map(f => ({
                 id: f.id,

@@ -81,4 +81,16 @@ describe('PipelineSaude', () => {
       expect(classifyAiError('request timed out')).toBe('timeout');
     });
   });
+
+  describe('classifyAiError (revisão em vez de falha)', () => {
+    it('arquivo acima do limite é limite_tamanho', () => {
+      expect(classifyAiError('maxContentLength size of 52428800 exceeded')).toBe('limite_tamanho');
+    });
+    it('fonte ilegível ou alterada aguarda revisão', () => {
+      expect(classifyAiError('Texto insuficiente: extracao/OCR exige revisao')).toBe('revisao_fonte');
+    });
+    it('erro de contrato continua sendo falha real', () => {
+      expect(classifyAiError('Too big: expected string to have <=700 characters')).toBe('contrato_invalido');
+    });
+  });
 });

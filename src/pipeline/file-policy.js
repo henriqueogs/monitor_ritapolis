@@ -22,6 +22,10 @@ function createFilePolicy(db) {
         ON CONFLICT(url) DO UPDATE SET reason=excluded.reason, next_check_at=excluded.next_check_at`
       ).run(url, error.message, new Date(now.getTime() + 30 * 86400000).toISOString());
     },
+    isOversizedReview(url) {
+      const row = db.prepare('SELECT reason FROM pipeline_file_limits WHERE url = ?').get(url);
+      return Boolean(row) && isOversized({ message: row.reason });
+    },
     clear(url) {
       db.prepare('DELETE FROM pipeline_file_limits WHERE url=?').run(url);
     },
