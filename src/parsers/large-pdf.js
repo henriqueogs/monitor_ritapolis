@@ -5,6 +5,9 @@ const { runPdfCommand } = require('./pdf-native-command');
 const MAX_PAGES = 1000;
 const MAX_TEXT_CHARS = 2000000;
 const VERSION = 'disk-pdf-v1';
+// A whole-text gate lets one run of table borders reject a 150-page scan.
+// Judge pages individually; a few weak pages are recorded, many block.
+const MAX_WEAK_PAGES_RATIO = 0.1;
 async function extractLargePdfFile(
   file,
   { fileHash, progress, run = runPdfCommand, ocrPage } = {}
@@ -23,6 +26,7 @@ async function extractLargePdfFile(
   if (!Number.isSafeInteger(info.pages) || info.pages < 1 || info.pages > MAX_PAGES)
     {throw new Error('PDF: checkpoint de paginas invalido');}
   const texts = [];
+  const weakPages = [];
   let chars = 0,
     ocrPages = 0;
   for (let page = 1; page <= info.pages; page++) {
@@ -49,10 +53,11 @@ async function extractLargePdfFile(
     if (chars > MAX_TEXT_CHARS)
       {throw new Error(`PDF: texto excede limite de ${MAX_TEXT_CHARS} caracteres`);}
     texts.push(saved.text);
+    if (isImageBasedPdf(saved.text, 1)) {weakPages.push(page);}
     ocrPages += Number(saved.ocr);
   }
   const text = normalizeText(texts.join('\n\n'));
-  if (isImageBasedPdf(text, info.pages))
+  if (weakPages.length / info.pages > MAX_WEAK_PAGES_RATIO)
     {throw new Error('PDF: texto insuficiente apos OCR; exige revisao');}
   return {
     text,
@@ -65,6 +70,7 @@ async function extractLargePdfFile(
         pages: info.pages,
         processed_pages: info.pages,
         complete: true,
+        paginas_baixa_qualidade: weakPages,
       },
     },
   };
