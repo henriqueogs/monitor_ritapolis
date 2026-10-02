@@ -1,4 +1,5 @@
 import SectionBlock from '../components/SectionBlock';
+import Link from 'next/link';
 import DataAvailabilityBadge from '../components/DataAvailabilityBadge';
 import { fetchEstatisticas } from '../lib/api';
 import { formatMoney, formatDate } from '../lib/format';
@@ -44,30 +45,30 @@ export default async function SobrePage() {
           <div className={styles.statusRow}>
             <div>
               <strong>Prefeitura Municipal de Ritápolis</strong>
-              <p>Editais, licitações, dispensas, contratos, atas e demais publicações do portal oficial. Coleta automática a cada 12 horas. 532 registros processados.</p>
+              <p>Editais, licitações, dispensas, contratos, atas e outras publicações disponíveis no <Link href="/acervo">acervo de documentos</Link>. A cobertura depende das publicações acessíveis e dos registros já coletados.</p>
             </div>
             <DataAvailabilityBadge status="real" />
           </div>
           <div className={styles.statusRow}>
             <div>
               <strong>Câmara Municipal de Ritápolis</strong>
-              <p>Leis, decretos, portarias, resoluções e atos legislativos. Site da Câmara parou de publicar novidades — coleta automática pausada desde 05/2026, 3 registros antigos na base.</p>
+              <p>Leis, decretos, portarias, resoluções e atos legislativos disponíveis na área de <Link href="/legislacao">atos oficiais de Ritápolis</Link>. A ausência de um documento no projeto não comprova ausência de publicação no órgão de origem.</p>
             </div>
             <DataAvailabilityBadge status="pendente" />
           </div>
           <div className={styles.statusRow}>
             <div>
               <strong>Portal Nacional de Contratações Públicas (PNCP)</strong>
-              <p>Ritápolis ainda não publica licitações no portal nacional (confirmado em junho 2026 — API retorna 204 para todas as modalidades). A integração está pronta e será ativada automaticamente quando o município começar a publicar.</p>
+              <p>Fonte complementar para consulta de contratações públicas. A disponibilidade dos registros e do cruzamento varia por processo; confira o documento e a fonte indicada em cada <Link href="/licitacoes">licitação</Link>.</p>
             </div>
             <DataAvailabilityBadge status="pendente" />
           </div>
           <div className={styles.statusRow}>
             <div>
               <strong>Portal de Transparência financeira</strong>
-              <p>Despesas, empenhos e pagamentos do município. Integração planejada para fechar o ciclo contratação → pagamento.</p>
+              <p>Consulte <Link href="/transparencia">gastos públicos de Ritápolis</Link> e <Link href="/transparencia/empenhos">empenhos</Link>. Valor estimado, empenho e pagamento representam etapas diferentes: um valor empenhado não comprova pagamento.</p>
             </div>
-            <DataAvailabilityBadge status="pendente" />
+            <DataAvailabilityBadge status="parcial" />
           </div>
         </div>
       </SectionBlock>
@@ -98,22 +99,22 @@ export default async function SobrePage() {
           </div>
           <div className={styles.statusRow}>
             <div>
-              <strong>25 fornecedores com perfil consolidado</strong>
-              <p>CNPJs agregados de produtos licitados e contratos homologados, com total contratado, vitórias e anos de atividade.</p>
+              <strong>Perfis de fornecedores</strong>
+              <p>Consulte os <Link href="/credores">credores</Link> e os registros disponíveis associados a cada fornecedor, com referências para conferir os dados.</p>
             </div>
             <DataAvailabilityBadge status="real" />
           </div>
           <div className={styles.statusRow}>
             <div>
-              <strong>57 documentos com resumo IA — 430 pendentes</strong>
-              <p>Resumos gerados via NVIDIA (modelo llama-3.1-70b). Cobertura completa nos editais de 2026. Scheduler automático processa 10 documentos por dia priorizando anos mais recentes.</p>
+              <strong>Resumos de documentos com apoio de IA</strong>
+              <p>O catálogo de <Link href="/analises">análises de documentos</Link> reúne os resumos disponíveis. A cobertura é parcial, e as leituras devem ser conferidas nas fontes originais.</p>
             </div>
             <DataAvailabilityBadge status="parcial" />
           </div>
           <div className={styles.statusRow}>
             <div>
-              <strong>Score médio de prontidão: 48,9 / 100</strong>
-              <p>Calculado por documento considerando texto extraído, resumo IA, data, arquivo, produtos e vencedor. 2026 lidera com 75,6. Detalhes em /admin/qualidade.</p>
+              <strong>Qualidade dos registros</strong>
+              <p>A disponibilidade de texto, data, arquivo, resumo, produtos e resultado varia por documento. Campos ausentes devem ser tratados como lacunas da base, não como prova de irregularidade.</p>
             </div>
             <DataAvailabilityBadge status="parcial" />
           </div>
@@ -121,7 +122,7 @@ export default async function SobrePage() {
       </SectionBlock>
 
       {/* Camada de inteligência */}
-      <SectionBlock title="Camada de inteligência pública (v0.6)">
+      <SectionBlock title="Como explorar as informações">
         <div className={styles.statusList}>
           <div className={styles.statusRow}>
             <div>
@@ -140,7 +141,7 @@ export default async function SobrePage() {
           <div className={styles.statusRow}>
             <div>
               <strong>Automação de coletas e IA</strong>
-              <p>Coleta automática a cada 12 horas. Resumos IA gerados em lotes diários sem intervenção manual.</p>
+              <p>Documentos e resumos são atualizados pelo processamento do projeto. A atualização depende da disponibilidade das fontes e do andamento das tarefas; a base pode apresentar lacunas e atrasos.</p>
             </div>
             <DataAvailabilityBadge status="real" />
           </div>
@@ -183,31 +184,31 @@ export default async function SobrePage() {
           <div className={styles.statusRow}>
             <div>
               <strong>Cobertura IA histórica parcial</strong>
-              <p>430 documentos ainda aguardam resumo. O scheduler processa 10 por dia — cobertura completa estimada em 43 dias ao ritmo atual.</p>
+              <p>Nem todos os documentos possuem resumo ou texto extraído. Consulte o <Link href="/acervo">acervo</Link> e os arquivos originais; a existência de um resumo não comprova cobertura integral de um período.</p>
             </div>
           </div>
           <div className={styles.statusRow}>
             <div>
-              <strong>97% das licitações sem vencedor registrado</strong>
-              <p>A leitura integrada (que identifica vencedor, CNPJ e valor final) foi feita para editais de 2026. Anos anteriores estão sendo priorizados pelo scheduler.</p>
+              <strong>Resultados de licitações podem estar incompletos</strong>
+              <p>Vencedor, CNPJ e valor final podem não estar identificados nos registros consultados. Confira os atos de homologação e os documentos oficiais antes de concluir quem venceu ou quanto foi contratado.</p>
             </div>
           </div>
           <div className={styles.statusRow}>
             <div>
               <strong>PNCP com instabilidade</strong>
-              <p>A API do Portal Nacional de Contratações Públicas retorna timeout e erro 503 com frequência. Dados de cruzamento ficam indisponíveis nesses períodos.</p>
+              <p>Falhas temporárias de acesso às fontes podem impedir consultas e cruzamentos. Uma consulta sem resultado não comprova que um processo deixou de ser publicado.</p>
             </div>
           </div>
           <div className={styles.statusRow}>
             <div>
               <strong>Administração protegida</strong>
-              <p>A área /admin usa Basic Auth quando as credenciais administrativas estão configuradas no ambiente.</p>
+              <p>A área administrativa é separada da consulta pública e exige autenticação.</p>
             </div>
           </div>
           <div className={styles.statusRow}>
             <div>
-              <strong>Banco local SQLite</strong>
-              <p>Dados em banco local. Não há sincronização com servidor externo nesta fase.</p>
+              <strong>Acervo do projeto</strong>
+              <p>Os números apresentados descrevem os registros disponíveis no Ritápolis.com. Não representam necessariamente a totalidade das publicações nem o orçamento completo do município.</p>
             </div>
           </div>
         </div>

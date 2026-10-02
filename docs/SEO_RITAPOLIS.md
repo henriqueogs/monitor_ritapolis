@@ -163,6 +163,15 @@ Build e 14 testes de SEO/robots/sitemap/títulos aprovados. Verificação local
 confirmou fonte Inter, cor do rodapé, metadado author e console sem o 401.
 Esses resultados não substituem uma nova medição Lighthouse de produção.
 
+Após o PR #108, PageSpeed às 15h41 BRT confirmou celular 99/100/100/100
+e computador 100/100/100/100. LCP 2,1 s e 0,4 s; contraste e console
+deixaram de reprovar as auditorias. Relatório:
+https://pagespeed.web.dev/analysis/https-ritapolis-com/s3fdvkv5t2
+
+Sobre revisado para retirar números fixos e alegações antigas de cobertura,
+cadência, fornecedor de IA e infraestrutura. Inclui links para áreas públicas
+reais e explica a diferença entre empenho e pagamento.
+
 Outras melhorias já publicadas nesta data: sitemap com paginação (1.500
 documentos e 2.015 URLs na verificação), título de documento preservando o
 assunto antes da instituição e filtro de deploy do backend para alterações
