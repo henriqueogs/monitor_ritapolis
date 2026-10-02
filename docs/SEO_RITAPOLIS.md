@@ -98,16 +98,27 @@ também estão fora da proposta. Não habilitar bypass das mitigações de siste
 Snapshot de faixas para revisão: `SEO_GOOGLE_EXCEPTION_2026-10-01.json`.
 As 819 faixas oficiais foram compactadas em 148 CIDRs equivalentes usando
 `ipaddress.collapse_addresses`, sem incluir endereços adicionais. O campo
-`vercelRule` contém o formato de condições e ação para a Vercel. A regra ainda
-não foi importada nem salva como rascunho no serviço.
+`vercelRule` contém o formato da proposta completa de condições e ação.
+A aplicação efetiva descrita abaixo usa apenas os 75 CIDRs IPv4.
 Atualizar a lista oficial antes de aplicar e periodicamente depois; não
 liberar toda a rede Google Cloud. Aplicação requer confirmação explícita
 por alterar o alcance de uma proteção de segurança na interface.
 
-A skill `vercel:vercel-firewall` orienta preparar e revisar o rascunho e
-deixar a publicação para o usuário. O conector Vercel consultado nesta etapa
-retornou necessidade de reautenticação; não houve mudança na conta ou nas
-regras. O painel no navegador foi acessível na auditoria anterior.
+A autorização explícita do usuário foi recebida e o acesso autenticado ao
+painel foi restaurado. A exceção foi criada, publicada e reordenada para a
+primeira posição em 01/10/2026. ID: `rule_google_search_em_paginas_publicas_wL0SCP`.
+Todos os quatro critérios permanecem combinados com E. O formulário recusou
+os 73 CIDRs IPv6 como Invalid Option; somente os 75 IPv4 oficiais foram
+aplicados. O domínio não publica AAAA, e os Googlebots bloqueados confirmados
+usavam IPv4. Nenhuma regra de desafio foi desativada, e as mitigações de
+sistema permanecem ativas.
+
+O teste ao vivo da home pelo Search Console, exibido como 01/10/2026 às
+23:31 no painel, passou: URL is available to Google e Page can be indexed.
+A solicitação de indexação foi aceita: Indexing requested, URL adicionada
+à fila prioritária de rastreamento. Isso confirma a remoção do impedimento
+de acesso nesse teste; ainda não comprova indexação nem primeira página
+para a consulta Ritápolis.
 
 Validação após aplicar: teste ao vivo da home pelo Search Console, conferir
 acesso do Google nos eventos, solicitar indexação apenas se o teste passar,
