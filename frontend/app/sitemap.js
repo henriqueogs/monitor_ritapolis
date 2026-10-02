@@ -53,7 +53,8 @@ async function generateSitemap() {
 
   const urlsDocumentos = (docs?.dados || []).map((doc) => ({
     url: `${SITE_URL}/documento/${doc.id}`,
-    lastModified: doc.data_publicacao ? new Date(doc.data_publicacao) : agora,
+    lastModified: doc.data_publicacao && Number.isFinite(new Date(doc.data_publicacao).getTime())
+      ? new Date(doc.data_publicacao) : undefined,
     changeFrequency: 'monthly',
     priority: 0.6,
   }));
