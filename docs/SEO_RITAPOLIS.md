@@ -12,8 +12,19 @@ do Google para `Ritápolis`. Ainda não há evidência de que esse objetivo foi 
 - Home, Sobre e Licitações repetiam o título da marca em produção.
 - Busca web `site:ritapolis.com` sem resultados nesta ferramenta. Isso não
   substitui a inspeção de URL do Google Search Console nem comprova desindexação.
-- Títulos e descrições específicos preparados para home, Sobre, Licitações e
-  Transparência. Publicação e confirmação em produção ainda pendentes.
+- Títulos e descrições específicos publicados para home, Sobre, Licitações e
+  Transparência pelo PR #101. Deploy de produção confirmado no commit
+  `644300c7b4393493213369de9ba6ea3750b1673a`, com os quatro títulos conferidos
+  no HTML público.
+
+## Contexto da cidade na home
+
+Uma seção estática apresenta Ritápolis como município de Minas Gerais, com
+4.994 habitantes no Censo 2022, gentílico ritapolitano e código IBGE 3156106.
+A fonte está visível no conteúdo: https://www.ibge.gov.br/cidades-e-estados/mg/ritapolis.html.
+A referência temporal do censo fica explícita; não confundir com população
+estimada atual. Links internos levam a gastos, licitações e legislação.
+O conteúdo não depende da disponibilidade da API para renderizar.
 
 ## Medição e próximos passos
 

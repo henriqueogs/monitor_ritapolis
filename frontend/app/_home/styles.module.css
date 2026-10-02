@@ -1,3 +1,32 @@
+.cityContext {
+  margin: 32px 0;
+  padding: 24px 0;
+  border-top: 1px solid var(--border);
+  max-width: 760px;
+}
+
+.cityContext h2 {
+  margin: 0 0 16px;
+  font-size: 1.5rem;
+}
+
+.cityContext p {
+  margin: 0 0 16px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+
+.cityContext a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.cityContext .citySource {
+  font-size: 0.875rem;
+  margin-bottom: 0;
+}
+
 .hero {
   position: relative;
   overflow: hidden;

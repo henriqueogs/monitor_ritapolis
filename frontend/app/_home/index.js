@@ -3,6 +3,7 @@ import HomeHero from './components/HomeHero';
 import HomeHubsData from './components/HomeHubsData';
 import HomeHubsSkeleton from './components/HomeHubsSkeleton';
 import HomeQuickLinks from './components/HomeQuickLinks';
+import CityContext from './components/CityContext';
 import LimitsAndSourcesData from './components/LimitsAndSourcesData';
 import LimitsAndSourcesSkeleton from './components/LimitsAndSourcesSkeleton';
 import PrefeituraAutoSync from './components/PrefeituraAutoSync';
@@ -25,6 +26,7 @@ export default function HomePage() {
         <HomeHubsData />
       </Suspense>
       <HomeQuickLinks />
+      <CityContext />
       <Suspense fallback={<LimitsAndSourcesSkeleton />}>
         <LimitsAndSourcesData />
       </Suspense>
