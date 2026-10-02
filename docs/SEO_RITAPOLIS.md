@@ -1,5 +1,14 @@
 # Busca por Ritápolis
 
+## Datas confiáveis no sitemap: 02/10/2026
+
+O sitemap omite `lastmod` enquanto não houver uma data confiável de alteração
+da página. A hora da geração e a data de publicação do documento oficial não
+comprovam a última mudança do resumo, dos links ou dos dados exibidos.
+A lista de URLs e sua paginação permanecem iguais; a chave de cache passa
+para v3 para evitar reaproveitar a versão com datas artificiais.
+Referência: https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap.
+
 Objetivo: conquistar uma posição entre os dez primeiros resultados orgânicos
 do Google para `Ritápolis`. Ainda não há evidência de que esse objetivo foi atingido.
 

@@ -36,11 +36,12 @@ const PAGINAS_ESTATICAS = [
 ];
 
 async function generateSitemap() {
-  const agora = new Date();
+  // A API não fornece a última alteração destas páginas. Data de publicação
+  // do documento e hora de geração não representam atualização do conteúdo.
+  // Omitimos lastModified até existir uma origem confiável para esse sinal.
 
   const estaticas = PAGINAS_ESTATICAS.map((path) => ({
     url: `${SITE_URL}${path}`,
-    lastModified: agora,
     changeFrequency: path === '' ? 'daily' : 'weekly',
     priority: path === '' ? 1 : 0.8,
   }));
@@ -53,8 +54,6 @@ async function generateSitemap() {
 
   const urlsDocumentos = (docs?.dados || []).map((doc) => ({
     url: `${SITE_URL}/documento/${doc.id}`,
-    lastModified: doc.data_publicacao && Number.isFinite(new Date(doc.data_publicacao).getTime())
-      ? new Date(doc.data_publicacao) : undefined,
     changeFrequency: 'monthly',
     priority: 0.6,
   }));
@@ -63,7 +62,6 @@ async function generateSitemap() {
     .filter((c) => c.credor_chave || c.credor_cnpj)
     .map((c) => ({
       url: `${SITE_URL}/credores/${c.credor_chave || c.credor_cnpj}`,
-      lastModified: agora,
       changeFrequency: 'weekly',
       priority: 0.5,
     }));
@@ -72,7 +70,6 @@ async function generateSitemap() {
     .filter((a) => a.id)
     .map((a) => ({
       url: `${SITE_URL}/na-lupa/${a.id}`,
-      lastModified: agora,
       changeFrequency: 'monthly',
       priority: 0.5,
     }));
@@ -80,7 +77,7 @@ async function generateSitemap() {
   return [...estaticas, ...urlsDocumentos, ...urlsCredores, ...urlsDescobertas];
 }
 
-const cachedSitemap = unstable_cache(generateSitemap, ['public-sitemap-v2'], { revalidate: 3600 });
+const cachedSitemap = unstable_cache(generateSitemap, ['public-sitemap-v3'], { revalidate: 3600 });
 
 export default async function sitemap() {
   // A API não existe no build de CI; gere em runtime e cacheie a lista inteira.
