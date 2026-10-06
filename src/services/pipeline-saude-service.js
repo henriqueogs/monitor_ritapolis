@@ -8,18 +8,47 @@
 const config = require('../config');
 const repo = require('../db/pipeline-saude-repo');
 const aiScheduler = require('../ai/ai-daily-scheduler');
-const { avaliarSaudePipeline } = require('../ai/pipeline-saude');
+const { avaliarSaudePipeline, avaliarCampanhaHistorica } = require('../ai/pipeline-saude');
 const { classifyAiError } = require('../ai/operation-policy');
 
 // Failures that need a human or a dedicated path (oversized file, source
 // changed/unreadable) are not provider or code faults.
 const CATEGORIAS_REVISAO = new Set(['limite_tamanho', 'revisao_fonte']);
 
+const LIMITE_HISTORICO_PADRAO = 10; // docs/dia; acima disso há força-tarefa ligada
 const JANELA_RECENTES_DIAS = 30;
 const DIA_MS = 24 * 60 * 60 * 1000;
 
 function dataIso(date) {
   return date.toISOString().slice(0, 10);
+}
+
+function montarCampanha(agora) {
+  const limite = config.pipelineHistoricalDocsPerDay;
+  if (!(limite > LIMITE_HISTORICO_PADRAO)) { return null; }
+  const dados = repo.getCampanhaHistorica({ desde: new Date(agora.getTime() - DIA_MS).toISOString() });
+  const errosLimiteProvider = dados.errosRecentes.filter(
+    (e) => classifyAiError(e) === 'limite_provider'
+  ).length;
+  return {
+    motivos: avaliarCampanhaHistorica({
+      agora,
+      ativa: true,
+      pendentes: dados.pendentes,
+      ultimaExecucaoEm: dados.ultimaExecucaoEm,
+      errosLimiteProvider,
+    }),
+    resumo: {
+      ativa: true,
+      limite_docs_dia: limite,
+      orcamento_min: Math.round(config.pipelineHistoricalBudgetMs / 60000),
+      docs_24h: dados.docsUltimas24h,
+      pendentes: dados.pendentes,
+      sem_resumo_com_texto: dados.semResumoComTexto,
+      ultima_execucao: dados.ultimaExecucaoEm,
+      erros_limite_provider_24h: errosLimiteProvider,
+    },
+  };
 }
 
 function getSaudePipeline({ agora = new Date() } = {}) {
@@ -48,6 +77,10 @@ function getSaudePipeline({ agora = new Date() } = {}) {
   if (falhasReais > 0) {
     avaliacao.motivos.push('tarefas_atuais_com_falha');
   }
+  const campanha = montarCampanha(agora);
+  if (campanha) {
+    avaliacao.motivos.push(...campanha.motivos);
+  }
   const avisos = revisao.length ? ['documentos_aguardando_revisao'] : [];
   if (
     state?.oldest_pending_recent &&
@@ -60,6 +93,7 @@ function getSaudePipeline({ agora = new Date() } = {}) {
   return {
     ...avaliacao,
     avisos,
+    ...(campanha ? { campanha: campanha.resumo } : {}),
     ...(pipeline.enabled()
       ? {
           pipeline: (() => {
