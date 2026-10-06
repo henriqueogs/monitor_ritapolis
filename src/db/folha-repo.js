@@ -164,10 +164,27 @@ function getFolhaServidorDossie({ vinculo, matricula }) {
   `).all(vinculo, matricula);
 }
 
-/** Ranking por secretaria numa competência (default: mais recente presente). */
+/** Competência mensal mais recente (ignora o 13º, mês 13). */
+function getCompetenciaMaisRecente() {
+  return db.prepare(`
+    SELECT competencia_ano AS ano, competencia_mes AS mes
+    FROM transparencia_folha
+    WHERE competencia_mes BETWEEN 1 AND 12
+    ORDER BY competencia_ano DESC, competencia_mes DESC
+    LIMIT 1
+  `).get();
+}
+
+/** Ranking por secretaria numa competência (default: a mais recente presente). */
 function getFolhaResumoSecretarias({ competenciaAno, competenciaMes } = {}) {
   const filters = [];
   const params = [];
+  if (!competenciaAno && !competenciaMes) {
+    const atual = getCompetenciaMaisRecente();
+    if (!atual) { return []; }
+    competenciaAno = atual.ano;
+    competenciaMes = atual.mes;
+  }
   if (competenciaAno) { filters.push('competencia_ano = ?'); params.push(Number(competenciaAno)); }
   if (competenciaMes) { filters.push('competencia_mes = ?'); params.push(Number(competenciaMes)); }
   const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
