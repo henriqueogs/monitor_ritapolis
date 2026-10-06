@@ -69,4 +69,48 @@ function contarRecentesSemResumo({ desde }) {
   return result;
 }
 
-module.exports = { getUltimoResumoOk, getUltimoErroResumo, contarRecentesSemResumo };
+const KINDS_IA = "'extract','summary','items','integrated','facts','extract-anexo','anexo-summary'";
+
+/**
+ * Progresso da força-tarefa histórica. Erros voltam crus (só para o serviço
+ * classificar; nunca expor). `desde` = ISO do início da janela de 24h.
+ */
+function getCampanhaHistorica({ desde }) {
+  const um = (sql, ...p) => db.prepare(sql).get(...p);
+  return {
+    docsUltimas24h: um(
+      `SELECT COUNT(DISTINCT entity) AS n FROM pipeline_runs
+       WHERE historical = 1 AND kind IN (${KINDS_IA}) AND finished_at >= ?`,
+      desde
+    ).n,
+    ultimaExecucaoEm: um(
+      `SELECT MAX(finished_at) AS em FROM pipeline_runs
+       WHERE historical = 1 AND kind IN (${KINDS_IA})`
+    ).em,
+    pendentes: um(
+      `SELECT COUNT(*) AS n FROM pipeline_jobs
+       WHERE historical = 1 AND status = 'pending' AND kind IN (${KINDS_IA})`
+    ).n,
+    semResumoComTexto: um(
+      `SELECT COUNT(*) AS n FROM documentos d
+       WHERE LENGTH(COALESCE(d.texto_completo, '')) >= 50
+         AND NOT EXISTS (SELECT 1 FROM documentos_resumos_ai r
+                         WHERE r.documento_id = d.id AND r.status = 'ok')`
+    ).n,
+    errosRecentes: db
+      .prepare(
+        `SELECT error FROM pipeline_jobs
+         WHERE historical = 1 AND error IS NOT NULL AND finished_at >= ?
+           AND kind IN (${KINDS_IA})`
+      )
+      .all(desde)
+      .map((r) => r.error),
+  };
+}
+
+module.exports = {
+  getUltimoResumoOk,
+  getUltimoErroResumo,
+  contarRecentesSemResumo,
+  getCampanhaHistorica,
+};
