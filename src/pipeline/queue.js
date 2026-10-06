@@ -2,7 +2,15 @@
 
 // Durable, single-flight queue. Only technical tables are added; public IDs
 // and source records are never renumbered or rebuilt.
-function createQueue(db) {
+// Historical (non-recent) AI work is throttled so it never starves fresh
+// publications; both caps are overridable for a temporary catch-up.
+const HISTORICAL_DOCS_PER_DAY = 10;
+const HISTORICAL_BUDGET_MS = 3000000;
+
+function createQueue(
+  db,
+  { historicalDocsPerDay = HISTORICAL_DOCS_PER_DAY, historicalBudgetMs = HISTORICAL_BUDGET_MS } = {}
+) {
   db.exec(`CREATE TABLE IF NOT EXISTS pipeline_jobs (
     id INTEGER PRIMARY KEY, identity TEXT NOT NULL UNIQUE, kind TEXT NOT NULL,
     entity TEXT NOT NULL, input_hash TEXT NOT NULL, version TEXT NOT NULL,
@@ -79,14 +87,19 @@ function createQueue(db) {
       const row = db
         .prepare(
           `SELECT * FROM pipeline_jobs WHERE status = 'pending' AND available_at <= ?
-        AND (? = 0 OR kind = 'backup') AND (? < 3000000 OR historical = 0)
+        AND (? = 0 OR kind = 'backup') AND (? < @budgetMs OR historical = 0)
         AND (historical = 0 OR kind NOT IN (${aiKinds})
           OR entity IN (SELECT entity FROM pipeline_runs WHERE historical = 1 AND kind IN (${aiKinds}) AND finished_at >= @dayStart)
-          OR (SELECT COUNT(DISTINCT entity) FROM pipeline_runs WHERE historical = 1 AND kind IN (${aiKinds}) AND finished_at >= @dayStart) < 10)
+          OR (SELECT COUNT(DISTINCT entity) FROM pipeline_runs WHERE historical = 1 AND kind IN (${aiKinds}) AND finished_at >= @dayStart) < @docsPerDay)
         AND NOT EXISTS (SELECT 1 FROM pipeline_jobs WHERE status = 'running')
         ORDER BY priority, created_at, id LIMIT 1`
         )
-        .get({ dayStart }, iso, Number(paused), spent);
+        .get(
+          { dayStart, budgetMs: historicalBudgetMs, docsPerDay: historicalDocsPerDay },
+          iso,
+          Number(paused),
+          spent
+        );
       if (row) {
         db.prepare(
           `UPDATE pipeline_jobs SET status = 'running', attempts = attempts + 1,

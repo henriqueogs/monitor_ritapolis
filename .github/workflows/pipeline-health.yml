@@ -2,10 +2,12 @@ name: Pipeline health (IA)
 
 # Falha (e o GitHub avisa por e-mail) quando a IA para de resumir: o único
 # check antes era de capacidade da VM, que ficou verde enquanto documentos
-# de 28/08 em diante ficavam sem leitura simples.
+# de 28/08 em diante ficavam sem leitura simples. A cada 6h: durante a campanha
+# de resumos históricos (docs/CAMPANHA_RESUMOS_HISTORICOS.md) 429 e fila parada
+# precisam aparecer no mesmo dia.
 on:
   schedule:
-    - cron: '30 10 * * *'
+    - cron: '30 */6 * * *'
   workflow_dispatch:
 
 permissions:

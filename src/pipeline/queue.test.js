@@ -133,6 +133,23 @@ test('ten historical documents per local day includes backlog created yesterday'
   }
   expect(q.claim(now)).toBeNull();
 });
+test('historical documents per day is configurable for a catch-up task force', () => {
+  const big = createQueue(new DatabaseSync(':memory:'), { historicalDocsPerDay: 3 });
+  for (let i = 0; i < 5; i++) {
+    big.enqueue({ ...task, entity: i, historical: true }, now);
+  }
+  for (let i = 0; i < 3; i++) {
+    big.finish(big.claim(now).id, {}, now);
+  }
+  expect(big.claim(now)).toBeNull();
+});
+test('historical daily time budget is configurable', () => {
+  const tiny = createQueue(new DatabaseSync(':memory:'), { historicalBudgetMs: 1 });
+  tiny.enqueue({ ...task, entity: 1, historical: true }, now);
+  tiny.enqueue({ ...task, entity: 2, historical: true }, now);
+  tiny.finish(tiny.claim(now).id, {}, new Date(now.getTime() + 5000));
+  expect(tiny.claim(new Date(now.getTime() + 6000))).toBeNull();
+});
 test('retries consume the historical time budget instead of resetting it', () => {
   const job = q.enqueue({ ...task, historical: true }, now);
   q.claim(now);

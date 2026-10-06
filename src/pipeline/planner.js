@@ -216,7 +216,7 @@ function planAi(queue, now = new Date()) {
   );
   for (const doc of docs) {
     const recent = isRecent(doc, now);
-    if (!recent && !historicalIds.has(doc.id) && historicalIds.size >= 10) {
+    if (!recent && !historicalIds.has(doc.id) && historicalIds.size >= config.pipelineHistoricalDocsPerDay) {
       continue;
     }
     const job = planDocument(queue, doc, now);

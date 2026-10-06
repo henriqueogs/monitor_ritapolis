@@ -19,6 +19,10 @@ function main(raw) {
   console.log(`ultimo_erro=${ia.ultimo_erro?.em || '-'} categoria=${ia.ultimo_erro?.categoria || '-'}`);
   console.log(`ultimo_ciclo=${ia.scheduler?.ultimo_ciclo || '-'} resultado=${JSON.stringify(ia.scheduler?.ultimo_resultado || null)}`);
   console.log(`recentes(${d.janela_dias}d desde ${d.desde}): com_texto=${d.total_com_texto} sem_resumo=${d.sem_resumo} sem_texto=${d.sem_texto} mais_antigo_sem_resumo=${d.mais_antigo_sem_resumo || '-'}`);
+  if (saude.campanha) {
+    const c = saude.campanha;
+    console.log(`campanha: docs_24h=${c.docs_24h}/${c.limite_docs_dia} pendentes=${c.pendentes} sem_resumo_com_texto=${c.sem_resumo_com_texto} ultima_execucao=${c.ultima_execucao || '-'} 429_24h=${c.erros_limite_provider_24h}`);
+  }
   if (saude.status !== 'ok') {
     console.error('::error::Pipeline de IA em alerta — ver motivos acima.');
     process.exit(1);

@@ -6,6 +6,7 @@ const { plan, enqueueCollection } = require('./planner');
 const { transientError, localTime } = require('./policy');
 const { guardReport } = require('../storage/daily-snapshot');
 const logger = require('../logger');
+const config = require('../config');
 
 let queue;
 let timer;
@@ -29,7 +30,10 @@ function enabled() {
 }
 function getQueue() {
   if (!queue) {
-    queue = createQueue(require('../db/connection').db);
+    queue = createQueue(require('../db/connection').db, {
+      historicalDocsPerDay: config.pipelineHistoricalDocsPerDay,
+      historicalBudgetMs: config.pipelineHistoricalBudgetMs,
+    });
   }
   return queue;
 }
