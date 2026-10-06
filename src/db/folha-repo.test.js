@@ -149,5 +149,18 @@ describe('folha-repo', () => {
       expect(fazenda.total_servidores).toBe(2);
       expect(fazenda.total_remuneracao).toBe(10000);
     });
+
+    it('sem competencia informada usa so a mais recente, nunca soma varios meses', () => {
+      upsertFolhaRegistro(registroBase({ competenciaMes: 1, remuneracaoBruta: 1000 }));
+      upsertFolhaRegistro(registroBase({ competenciaMes: 2, remuneracaoBruta: 2000 }));
+
+      const resumo = getFolhaResumoSecretarias();
+      const fazenda = resumo.find((r) => r.secretaria === 'FAZENDA');
+      expect(fazenda.total_remuneracao).toBe(2000);
+    });
+
+    it('retorna vazio quando nao ha folha', () => {
+      expect(getFolhaResumoSecretarias()).toEqual([]);
+    });
   });
 });
