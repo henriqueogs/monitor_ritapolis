@@ -82,6 +82,20 @@ test('recent publications first, ten historical documents daily, unchanged resca
   expect(db.prepare('SELECT COUNT(*) AS n FROM pipeline_jobs').get().n).toBe(22);
   expect(Number(q.claim(now).entity)).toBeGreaterThan(20);
 });
+test('catch-up task force: historical documents per day follows config', () => {
+  const config = require('../config');
+  const original = config.pipelineHistoricalDocsPerDay;
+  config.pipelineHistoricalDocsPerDay = 15;
+  try {
+    for (let id = 1; id <= 20; id++) {
+      document(id, 2025, null);
+    }
+    planAi(q, now);
+    expect(db.prepare('SELECT COUNT(*) AS n FROM pipeline_jobs WHERE historical = 1').get().n).toBe(15);
+  } finally {
+    config.pipelineHistoricalDocsPerDay = original;
+  }
+});
 test('valid current summaries are reused; only dependent factual work is queued', () => {
   document(1, 2026, '2026-09-29');
   const signature = crypto.createHash('sha256').update(text).digest('hex');
