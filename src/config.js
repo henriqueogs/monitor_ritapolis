@@ -15,6 +15,9 @@ module.exports = {
   logDir: resolveFromRoot(process.env.LOG_DIR, './logs'),
   apiPort: Number(process.env.PORT || process.env.API_PORT || 3001),
   apiHost: process.env.API_HOST || '0.0.0.0',
+  // Teto do trabalho de IA em documentos históricos (força-tarefa temporária).
+  pipelineHistoricalDocsPerDay: Number(process.env.PIPELINE_HISTORICAL_DOCS_PER_DAY || 10),
+  pipelineHistoricalBudgetMs: Number(process.env.PIPELINE_HISTORICAL_BUDGET_MS || 3000000),
   frontendApiUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api',
   collectorDelayMs: Number(process.env.COLETOR_DELAY_MS || 1000),
   collectorTimeoutMs: Number(process.env.COLETOR_TIMEOUT_MS || 15000),
