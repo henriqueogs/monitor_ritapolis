@@ -3,8 +3,8 @@
 /**
  * Aplica o texto OCR exportado por `ocr-documentos-imagem.js --exportar=...`
  * (feito numa máquina com recursos) no banco deste ambiente — pensado para
- * rodar na VM. Cada linha é revalidada: mesmo id E mesma url_pdf, ainda
- * 'imagem' e sem texto. Nada é sobrescrito. Mesmo caminho de gravação do
+ * rodar na VM. Casa por url_pdf (os ids do snapshot de origem NÃO valem aqui);
+ * cada linha é revalidada: ainda 'imagem' e sem texto. Nada é sobrescrito. Mesmo caminho de gravação do
  * pipeline (saveDocumento), procedência dados_extras.texto_origem='ocr'.
  *
  *   node scripts/aplicar-ocr-exportado.js ocr.json          # dry-run
@@ -15,8 +15,8 @@ process.loadEnvFile?.() || require('dotenv').config();
 
 const fs = require('fs');
 const { setupDatabase } = require('../src/db/setup');
-const { getDocumentoById, saveDocumento } = require('../src/db');
-const { motivoRecusaImportacao } = require('../src/utils/ocr-lote');
+const { db, getDocumentoById, saveDocumento } = require('../src/db');
+const { motivoRecusaImportacao, escolherPorUrl } = require('../src/utils/ocr-lote');
 const { resumirTextoLimpo } = require('../src/utils/text');
 
 function aplicar(item, doc) {
@@ -47,8 +47,11 @@ function main() {
 
   const contagem = {};
   for (const item of itens) {
-    const doc = getDocumentoById(item.id);
-    const motivo = motivoRecusaImportacao(item, doc) || 'aplicavel';
+    const alvo = escolherPorUrl(
+      db.prepare('SELECT id FROM documentos WHERE url_pdf = ?').all(item.url_pdf)
+    );
+    const doc = alvo.id ? getDocumentoById(alvo.id) : null;
+    const motivo = alvo.motivo || motivoRecusaImportacao(item, doc) || 'aplicavel';
     contagem[motivo] = (contagem[motivo] || 0) + 1;
     if (motivo === 'aplicavel' && apply) { aplicar(item, doc); }
   }

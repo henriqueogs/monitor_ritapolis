@@ -33,4 +33,14 @@ function motivoRecusaImportacao(item, doc) {
   return null;
 }
 
-module.exports = { MIN_CHARS_OCR, montarListagemImagem, motivoRecusaImportacao };
+/**
+ * O OCR roda sobre um snapshot cujos ids diferem dos do ambiente de destino:
+ * a identidade estável é a url_pdf. Recebe as linhas {id} com essa URL.
+ */
+function escolherPorUrl(candidatos) {
+  if (candidatos.length === 0) { return { motivo: 'documento_inexistente' }; }
+  if (candidatos.length > 1) { return { motivo: 'url_ambigua' }; }
+  return candidatos[0];
+}
+
+module.exports = { MIN_CHARS_OCR, montarListagemImagem, motivoRecusaImportacao, escolherPorUrl };
