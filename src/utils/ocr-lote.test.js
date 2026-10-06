@@ -1,6 +1,6 @@
 'use strict';
 
-const { montarListagemImagem, motivoRecusaImportacao } = require('./ocr-lote');
+const { montarListagemImagem, motivoRecusaImportacao, escolherPorUrl } = require('./ocr-lote');
 
 describe('ocr-lote', () => {
   describe('montarListagemImagem', () => {
@@ -49,6 +49,18 @@ describe('ocr-lote', () => {
 
     it('recusa texto curto demais', () => {
       expect(motivoRecusaImportacao({ ...item, texto: 'curto' }, doc)).toBe('texto_curto');
+    });
+  });
+
+  describe('escolherPorUrl (ids do snapshot local nao valem na producao)', () => {
+    it('um unico documento com a URL: usa ele', () => {
+      expect(escolherPorUrl([{ id: 9 }])).toEqual({ id: 9 });
+    });
+    it('nenhum documento: documento_inexistente', () => {
+      expect(escolherPorUrl([])).toEqual({ motivo: 'documento_inexistente' });
+    });
+    it('varios documentos com a mesma URL: ambiguo, nao aplica', () => {
+      expect(escolherPorUrl([{ id: 1 }, { id: 2 }])).toEqual({ motivo: 'url_ambigua' });
     });
   });
 });
