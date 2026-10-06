@@ -1,6 +1,6 @@
 'use strict';
 
-const { avaliarSaudePipeline, cicloDevido } = require('./pipeline-saude');
+const { avaliarSaudePipeline, avaliarCampanhaHistorica, cicloDevido } = require('./pipeline-saude');
 const { classifyAiError } = require('./operation-policy');
 
 const AGORA = new Date('2026-09-25T12:00:00Z');
@@ -96,5 +96,26 @@ describe('PipelineSaude', () => {
     it('erro de contrato continua sendo falha real', () => {
       expect(classifyAiError('Too big: expected string to have <=700 characters')).toBe('contrato_invalido');
     });
+  });
+});
+
+describe('avaliarCampanhaHistorica (força-tarefa de resumos históricos)', () => {
+  const base = { agora: AGORA, ativa: true, pendentes: 40, ultimaExecucaoEm: horasAtras(3), errosLimiteProvider: 0 };
+
+  it('campanha desligada nunca alerta', () => {
+    expect(avaliarCampanhaHistorica({ ...base, ativa: false, ultimaExecucaoEm: null, errosLimiteProvider: 9 })).toEqual([]);
+  });
+  it('andando normalmente: sem motivos', () => {
+    expect(avaliarCampanhaHistorica(base)).toEqual([]);
+  });
+  it('429 do provedor nas ultimas 24h alerta', () => {
+    expect(avaliarCampanhaHistorica({ ...base, errosLimiteProvider: 1 })).toEqual(['campanha_limite_provider']);
+  });
+  it('fila pendente e nada executado ha mais de 36h = sem progresso', () => {
+    expect(avaliarCampanhaHistorica({ ...base, ultimaExecucaoEm: horasAtras(37) })).toEqual(['campanha_sem_progresso']);
+    expect(avaliarCampanhaHistorica({ ...base, ultimaExecucaoEm: null })).toEqual(['campanha_sem_progresso']);
+  });
+  it('sem pendencias e parada nao e problema (campanha concluida)', () => {
+    expect(avaliarCampanhaHistorica({ ...base, pendentes: 0, ultimaExecucaoEm: horasAtras(100) })).toEqual([]);
   });
 });

@@ -43,6 +43,7 @@
     "licitacoes:validar-produtos-ia": "node scripts/validar-produtos-ia.js",
     "ocr:anexos": "node scripts/ocr-anexos.js",
     "ocr:documentos": "node scripts/ocr-documentos-imagem.js",
+    "ocr:aplicar-exportado": "node scripts/aplicar-ocr-exportado.js",
     "ocr:detectar": "node scripts/detectar-pdfs-imagem.js",
     "ocr:processar-resultado": "node scripts/processar-resultado-ocr.js",
     "licitacoes:extrair-anexos": "node scripts/extrair-texto-anexos.js",

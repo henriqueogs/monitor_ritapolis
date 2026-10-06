@@ -107,3 +107,34 @@ describe('pipeline-saude-repo', () => {
     expect(r).toEqual({ total: 3, semResumo: 2, semTexto: 1, maisAntigoSemResumo: '2026-09-01' });
   });
 });
+
+describe('getCampanhaHistorica', () => {
+  const { createQueue } = require('../pipeline/queue');
+
+  it('conta so trabalho historico de IA, na janela, e devolve erros crus', () => {
+    const q = createQueue(mockConn);
+    const agora = new Date('2026-10-06T12:00:00Z');
+    const antes = new Date('2026-10-04T12:00:00Z');
+    const mk = (entity, historical, kind = 'summary', quando = agora) => {
+      q.enqueue({ kind, entity, hash: `h${entity}${kind}`, historical }, quando);
+      const job = q.claim(quando);
+      q.finish(job.id, { result: {} }, quando);
+    };
+    mk(1, true);
+    mk(2, true, 'facts');
+    mk(3, false); // recente: nao conta
+    mk(4, true, 'summary', antes); // fora da janela de 24h
+    q.enqueue({ kind: 'summary', entity: 5, hash: 'p5', historical: true }, agora); // pendente
+    const docId = seedDoc({ texto: 'x'.repeat(80) });
+    seedResumo(docId, { status: 'ok' });
+    seedDoc({ texto: 'y'.repeat(80) }); // com texto e sem resumo
+
+    const r = repo.getCampanhaHistorica({ desde: '2026-10-05T12:00:00.000Z' });
+
+    expect(r.docsUltimas24h).toBe(2);
+    expect(r.pendentes).toBe(1);
+    expect(r.semResumoComTexto).toBeGreaterThanOrEqual(1);
+    expect(r.ultimaExecucaoEm).toBe(agora.toISOString());
+    expect(r.errosRecentes).toEqual([]);
+  });
+});

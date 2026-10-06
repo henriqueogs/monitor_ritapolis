@@ -4,6 +4,7 @@ jest.mock('../db/pipeline-saude-repo', () => ({
   getUltimoResumoOk: jest.fn(),
   getUltimoErroResumo: jest.fn(),
   contarRecentesSemResumo: jest.fn(),
+  getCampanhaHistorica: jest.fn(),
 }));
 jest.mock('../ai/ai-daily-scheduler', () => ({ getStatus: jest.fn() }));
 jest.mock('../pipeline/coordinator', () => ({ enabled: jest.fn(() => false), status: jest.fn() }));
@@ -126,5 +127,39 @@ describe('pipeline-saude-service', () => {
     expect(result.status).toBe('alerta');
     expect(result.motivos).toContain('tarefas_atuais_com_falha');
     expect(result.pipeline.falhas_reais).toBe(1);
+  });
+});
+
+describe('pipeline-saude-service: campanha historica', () => {
+  const config = require('../config');
+  const original = config.pipelineHistoricalDocsPerDay;
+  beforeEach(() => {
+    repo.getUltimoResumoOk.mockReturnValue({ em: AGORA.toISOString() });
+    repo.getUltimoErroResumo.mockReturnValue(null);
+    repo.contarRecentesSemResumo.mockReturnValue({ total: 9, semResumo: 0, semTexto: 0 });
+    scheduler.getStatus.mockReturnValue({ enabled: true });
+    require('../pipeline/coordinator').enabled.mockReturnValue(false);
+  });
+  afterEach(() => { config.pipelineHistoricalDocsPerDay = original; });
+
+  it('com limite padrao nao consulta nem expoe campanha', () => {
+    const s = getSaudePipeline({ agora: AGORA });
+    expect(s.campanha).toBeUndefined();
+    expect(repo.getCampanhaHistorica).not.toHaveBeenCalled();
+  });
+  it('limite elevado expoe progresso e alerta em 429 sem expor o erro cru', () => {
+    config.pipelineHistoricalDocsPerDay = 50;
+    repo.getCampanhaHistorica.mockReturnValue({
+      docsUltimas24h: 12, pendentes: 30, semResumoComTexto: 200,
+      ultimaExecucaoEm: '2026-09-25T10:00:00Z', errosRecentes: ['429 rate limit key=abc', 'timeout'],
+    });
+    const s = getSaudePipeline({ agora: AGORA });
+    expect(s.campanha).toMatchObject({
+      ativa: true, limite_docs_dia: 50, docs_24h: 12, pendentes: 30,
+      sem_resumo_com_texto: 200, erros_limite_provider_24h: 1,
+    });
+    expect(s.motivos).toContain('campanha_limite_provider');
+    expect(s.status).toBe('alerta');
+    expect(JSON.stringify(s)).not.toContain('key=abc');
   });
 });
