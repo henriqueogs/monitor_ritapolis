@@ -12,6 +12,7 @@ const crypto = require('crypto');
 const { db } = require('./connection');
 const { sanitizeFtsQuery } = require('./fts-repo');
 const { hasContentChanges } = require('../utils/persisted-content');
+const { ALIAS_PARA_CANONICA, nomesOriginais } = require('../transparencia/secretarias-folha');
 
 const LIMITE_MAX = 200;
 
@@ -115,7 +116,11 @@ function getFolhaServidores({
   const filters = [];
   const params = [];
 
-  if (secretaria) { filters.push('tf.secretaria = ?'); params.push(secretaria); }
+  if (secretaria) {
+    const nomes = nomesOriginais(secretaria);
+    filters.push(`tf.secretaria IN (${nomes.map(() => '?').join(',')})`);
+    params.push(...nomes);
+  }
   if (cargo) { filters.push('tf.cargo = ?'); params.push(cargo); }
   if (situacao) { filters.push('tf.situacao = ?'); params.push(situacao); }
   if (competenciaAno) { filters.push('tf.competencia_ano = ?'); params.push(Number(competenciaAno)); }
@@ -164,6 +169,16 @@ function getFolhaServidorDossie({ vinculo, matricula }) {
   `).all(vinculo, matricula);
 }
 
+/** CASE SQL que mapeia nomes antigos da secretaria para o canônico (parametrizado). */
+function montarCaseSecretaria() {
+  const pares = Object.entries(ALIAS_PARA_CANONICA);
+  const whens = pares.map(() => 'WHEN ? THEN ?').join(' ');
+  return {
+    sql: `CASE secretaria ${whens} ELSE secretaria END`,
+    params: pares.flat(),
+  };
+}
+
 /** Competência mensal mais recente (ignora o 13º, mês 13). */
 function getCompetenciaMaisRecente() {
   return db.prepare(`
@@ -188,17 +203,18 @@ function getFolhaResumoSecretarias({ competenciaAno, competenciaMes } = {}) {
   if (competenciaAno) { filters.push('competencia_ano = ?'); params.push(Number(competenciaAno)); }
   if (competenciaMes) { filters.push('competencia_mes = ?'); params.push(Number(competenciaMes)); }
   const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+  const { sql: secretariaCanonicaSql, params: caseParams } = montarCaseSecretaria();
 
   return db.prepare(`
     SELECT
-      secretaria,
+      ${secretariaCanonicaSql}  AS secretaria,
       COUNT(DISTINCT vinculo || '|' || matricula) AS total_servidores,
       ROUND(SUM(remuneracao_bruta), 2) AS total_remuneracao
     FROM transparencia_folha
     ${where}
-    GROUP BY secretaria
+    GROUP BY 1
     ORDER BY total_remuneracao DESC
-  `).all(...params);
+  `).all(...caseParams, ...params);
 }
 
 module.exports = {
