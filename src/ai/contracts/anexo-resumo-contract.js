@@ -25,15 +25,24 @@ function coagirQuantidade(valor) {
   return Number.isFinite(numero) ? numero : null;
 }
 
+const MAX_PONTOS_RELEVANTES = 10;
+
+// O modelo às vezes devolve mais pontos que o limite; perder o resumo inteiro
+// (job failed, alerta de saúde) é pior que manter os primeiros — o prompt pede
+// os mais relevantes primeiro.
+function limitarPontos(valor) {
+  return Array.isArray(valor) ? valor.slice(0, MAX_PONTOS_RELEVANTES) : valor;
+}
+
 const AnexoResumoContract = z.object({
   resumo_curto: z.string().trim().min(10).max(600),
-  pontos_relevantes: z.array(z.object({
+  pontos_relevantes: z.preprocess(limitarPontos, z.array(z.object({
     tipo: z.string().trim().min(1).max(60),
     subtipo: z.string().trim().max(60).optional(),
     descricao: z.string().trim().max(300).optional(),
     quantidade: z.preprocess(coagirQuantidade, z.number().nullable()).optional(),
     unidade: z.string().trim().max(40).nullable().optional(),
-  })).max(10).default([]),
+  })).max(MAX_PONTOS_RELEVANTES).default([])),
   lacunas: z.array(z.string().trim().min(1).max(300)).default([]),
   confianca: z.number().min(0).max(1),
 });

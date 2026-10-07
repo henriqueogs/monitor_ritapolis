@@ -41,8 +41,9 @@ ${parciais ? `- Consolide TODOS os resumos parciais fornecidos, sem adicionar fa
   conselhos, nao garanta nada, nao use tom de denuncia/alarme.
 - resumo_curto: 1-3 frases resumindo o conteudo do anexo (o que ele e, o que
   registra) — nunca vazio, nunca generico ("este e um anexo").
-- pontos_relevantes: destaque valores, datas, fornecedores, quantidades ou
-  decisoes explicitas no texto (tipo curto + descricao). Vazio se nao houver
+- pontos_relevantes: no maximo 10, os mais relevantes primeiro. Destaque
+  valores, datas, fornecedores, quantidades ou decisoes explicitas no texto
+  (tipo curto + descricao). Vazio se nao houver
   nada relevante alem do resumo. "quantidade" deve ser numero puro (ex: 12400,
   sem separador de milhar, ponto como decimal) — nunca texto formatado.
 - lacunas: aponte, em frases curtas, informacoes que um leitor esperaria
