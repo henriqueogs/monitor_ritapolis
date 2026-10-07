@@ -1,11 +1,11 @@
 name: Portal links (deep-links)
 
-# Semanal: confere se os links "Abrir no portal" (Detalhamento_Despesa.php) ainda
-# abrem o empenho certo. Falha (e o GitHub avisa por e-mail) se o portal mudar o
-# contrato de URL. Roda no GitHub, não na VM: o portal bloqueia o IP da Oracle (403).
+# Confere se os links "Abrir no portal" (Detalhamento_Despesa.php) ainda abrem o
+# empenho certo. SOMENTE MANUAL: o portal responde 403 a IPs de datacenter (a VM
+# Oracle e os runners do GitHub, confirmado em 07/10/2026), entao um agendamento
+# aqui geraria falso alarme toda semana. De uma rede residencial passa 12/12:
+#   node scripts/check-portal-links.js
 on:
-  schedule:
-    - cron: '17 12 * * 1'
   workflow_dispatch:
 
 permissions:
