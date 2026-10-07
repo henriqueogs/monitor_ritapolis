@@ -89,6 +89,10 @@ describe('PipelineSaude', () => {
     it('fonte ilegível ou alterada aguarda revisão', () => {
       expect(classifyAiError('Texto insuficiente: extracao/OCR exige revisao')).toBe('revisao_fonte');
     });
+    it('gates de qualidade do conteudo (OCR ruim, tabela contraditoria) aguardam revisao', () => {
+      expect(classifyAiError('texto_baixa_qualidade_ocr')).toBe('revisao_fonte');
+      expect(classifyAiError('Itens: ausencia de tabela contradiz as linhas extraidas')).toBe('revisao_fonte');
+    });
     it('erro de contrato continua sendo falha real', () => {
       expect(classifyAiError('Too big: expected string to have <=700 characters')).toBe('contrato_invalido');
     });
