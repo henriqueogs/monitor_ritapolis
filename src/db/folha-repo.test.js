@@ -159,6 +159,30 @@ describe('folha-repo', () => {
       expect(fazenda.total_remuneracao).toBe(2000);
     });
 
+    it('unifica o nome antigo (Departamento) e o novo (Secretaria) na mesma linha, sem contar o servidor 2x', () => {
+      upsertFolhaRegistro(registroBase({ secretaria: 'DEPARTAMENTO MUNICIPAL DE SAUDE', remuneracaoBruta: 1000, competenciaMes: 1 }));
+      upsertFolhaRegistro(registroBase({ secretaria: 'SECRETARIA DE SAUDE', remuneracaoBruta: 500, competenciaMes: 2 }));
+      upsertFolhaRegistro(registroBase({
+        vinculo: '0000027', matricula: '210', secretaria: 'SECRETARIA DE SAUDE', remuneracaoBruta: 300, competenciaMes: 2,
+      }));
+
+      const resumo = getFolhaResumoSecretarias({ competenciaAno: 2025 });
+      const saude = resumo.filter((r) => r.secretaria === 'SECRETARIA DE SAUDE');
+      expect(saude).toHaveLength(1);
+      expect(saude[0].total_servidores).toBe(2);
+      expect(saude[0].total_remuneracao).toBe(1800);
+      expect(resumo.some((r) => r.secretaria === 'DEPARTAMENTO MUNICIPAL DE SAUDE')).toBe(false);
+    });
+
+    it('filtrar servidores pelo nome novo traz tambem os registros do nome antigo', () => {
+      upsertFolhaRegistro(registroBase({ secretaria: 'DEPARTAMENTO MUNICIPAL DE SAUDE', competenciaMes: 1 }));
+      upsertFolhaRegistro(registroBase({ vinculo: '0000027', matricula: '210', secretaria: 'SECRETARIA DE SAUDE', competenciaMes: 2 }));
+      upsertFolhaRegistro(registroBase({ vinculo: '0000031', matricula: '305', secretaria: 'FAZENDA' }));
+
+      const r = getFolhaServidores({ secretaria: 'SECRETARIA DE SAUDE' });
+      expect(r.total).toBe(2);
+    });
+
     it('retorna vazio quando nao ha folha', () => {
       expect(getFolhaResumoSecretarias()).toEqual([]);
     });
