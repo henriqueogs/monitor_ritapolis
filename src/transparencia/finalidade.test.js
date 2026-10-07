@@ -66,6 +66,27 @@ describe('finalidade de empenhos', () => {
     expect(c.marcadores).toEqual(expect.arrayContaining(['cargo_credor', 'credor_pf_sem_cpf_publico']));
   });
 
+  it('diaria de show/som contratada de empresa (3.3.90.39) nao e diaria de servidor', () => {
+    const c = classificarFinalidadeDespesa(despesa({
+      credor_nome: 'DK PROMOCOES ARTISTICAS LTDA - ME',
+      categoria_economica: '3.3.90.39.00 - OUTROS SERVICOS DE TERCEIROS - PESSOA JURIDICA',
+      historico: 'CONTRATACAO DE 12 DIARIAS DE SERVICOS DE DJ E SOM PARA EVENTO',
+    }));
+
+    expect(c.classe_principal).not.toBe('diaria_servidor');
+  });
+
+  it('historico com diaria sem elemento de servico PJ ainda e diaria (confianca menor)', () => {
+    const c = classificarFinalidadeDespesa(despesa({
+      credor_cnpj: null,
+      categoria_economica: null,
+      historico: 'DIARIA PARA VIAGEM A BELO HORIZONTE',
+    }));
+
+    expect(c.classe_principal).toBe('diaria_servidor');
+    expect(c.confianca).toBeLessThan(0.9);
+  });
+
   it('classifica repasse a entidade', () => {
     const c = classificarFinalidadeDespesa(despesa({
       credor_nome: 'ASS. DE PAIS E AMIGOS EXCEPC. DE RITAPOLIS MG',

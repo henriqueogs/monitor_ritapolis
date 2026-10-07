@@ -2,7 +2,7 @@
 
 const { classificarCategoria } = require('./categorias');
 
-const CLASSIFICACAO_FINALIDADE_VERSAO = 'finalidade-v2';
+const CLASSIFICACAO_FINALIDADE_VERSAO = 'finalidade-v3';
 
 const FINALIDADES = Object.freeze({
   ordem_pagamento: { rotulo: 'Ordem de pagamento', tom: 'neutro' },
@@ -153,7 +153,11 @@ function classificarFinalidadeDespesa(despesa = {}) {
     });
   }
 
-  if (categoriaComecaCom(despesa, ['3.3.90.14']) || contem(texto, ['DIARIA', 'DIARIAS'])) {
+  // "Diárias" de show/som/palco contratadas de empresa (3.3.90.39) são diárias de
+  // serviço, não de servidor: só o texto, sem o elemento 3.3.90.14, não basta aí.
+  const diariaPorTexto =
+    contem(texto, ['DIARIA', 'DIARIAS']) && !categoriaComecaCom(despesa, ['3.3.90.39']);
+  if (categoriaComecaCom(despesa, ['3.3.90.14']) || diariaPorTexto) {
     evidencia(evidencias, 'categoria_economica', despesa.categoria_economica, 'elemento de despesa de diarias');
     evidencia(evidencias, 'historico', despesa.historico, 'historico menciona diaria');
     evidencia(evidencias, 'credor_cargo', despesa.credor_cargo, 'cargo do servidor veio do portal');
