@@ -107,9 +107,13 @@ genérico e detector de gasto atípico nas Descobertas
   (concentrados em 2022–2023) são gap real da fonte (confirmado ao vivo no
   site — zero registros desses tipos nesses anos na listagem oficial), não
   bug de linking. Não há mais matching a fazer sem inventar vínculo.
-- [ ] **Monitoração recorrente de deep-links** — integrar
-  `npm run transparencia:validar-links` ao daily-scheduler (amostra ~5) com
-  alerta em log se o portal mudar o contrato de URL. Rodar manual/mensal até lá.
+- [ ] **Monitoração recorrente de deep-links** — o portal devolve **403 a IPs
+  de datacenter** (VM Oracle e runners do GitHub, confirmado 07/10/2026; os
+  links abrem normalmente de rede residencial: 12/12). O check do
+  daily-scheduler na VM dava falso 403 (19/09). Interim: tarefa agendada
+  semanal na máquina do mantenedor (`scripts/check-portal-links.js`);
+  `.github/workflows/portal-links.yml` é só manual. **Definir um modelo de
+  observabilidade** que rode fora de datacenter (ex.: Worker/proxy residencial).
 
 ## ⏳ Pendente — Confirmar efeito do fix de cache pós-crawler (17/09/2026)
 
@@ -132,7 +136,23 @@ Crawler confirmado ao vivo (rajada de 6+ req/6s em `/acervo`, sem
   Ambas corrigidas (PRs #73, #74) + `vm.swappiness=10` + timer semanal de
   restart. **Reconfirmar em alguns dias** que a pressão não voltou.
 
+## ⏳ Em andamento — Campanha de resumos históricos + OCR da Câmara (07/10/2026)
+
+Ver `docs/CAMPANHA_RESUMOS_HISTORICOS.md` (limites do provedor medidos, etapas,
+monitoramento `campanha_*` em `/api/saude/pipeline`, rollback). Etapa 2 ativa
+(200 docs/dia, 4 h). OCR local → JSON → `aplicar-ocr-exportado.js` na VM (casa
+por `url_pdf`); Câmara: leis, portarias e atas aplicadas; restam indicações,
+resoluções, requerimentos, leis complementares e Prefeitura (53 imagens).
+Também em 07/10: diárias de show/som não contam mais como diária de servidor
+(`finalidade-v3`), folha unifica Departamento→Secretaria (1:1), gates de
+qualidade contam como revisão no health.
+
 ## ⏳ Pendente — Na Lupa: scheduler de promoção pausado
+
+**07/10/2026:** processamento manual na VM em lotes de 20
+(`descobertas:investigar --limite=20 --delay-ms=5000`); publicação automática
+segue desligada, tudo vai para `revisao` (aprovação humana no admin). Mantenedor
+avalia a fila antes de novos lotes e de religar os schedulers.
 
 `DESCOBERTAS_SCHEDULER_ENABLED=false` desde jul/2026 (confirmado em
 produção 17/09/2026). 211 candidatos parados em `estado_editorial=

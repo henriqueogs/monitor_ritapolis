@@ -33,8 +33,8 @@ gargalo, o tempo por tarefa é. Concorrência permanece 1 (RAM da VM: 954 MB).
 | Etapa | Docs/dia | Orçamento | Condição para avançar |
 |---|---|---|---|
 | 1 (06/10) | 50 | 3600000 (1 h) | 24 h sem alerta `campanha_*`, 0 erro 429 (cumprido em 07/10) |
-| 1b (07/10, vigente) | 100 | 7200000 (2 h) | idem + RAM livre da VM estável (>= 150 MB disponíveis) |
-| 2 | 200 | 14400000 (4 h) | idem, 3 dias seguidos |
+| 1b (07/10) | 100 | 7200000 (2 h) | idem + RAM livre da VM estável (>= 150 MB disponíveis) |
+| 2 (07/10, vigente) | 200 | 14400000 (4 h) | 0 erros 429 e RAM disponível >= 450 MB na 1b; reavaliar diariamente |
 
 A etapa 1b existe porque a RAM livre da VM estava em ~86 MB (325 MB disponíveis) após
 aplicar o OCR das leis/portarias; subir em dois passos evita saltar direto para 4x.
