@@ -35,9 +35,12 @@ describe('anexo-resumo-contract', () => {
     expect(() => validateAnexoResumo(base({ confianca: 1.5 }))).toThrow(/fora do contrato/);
   });
 
-  it('rejeita mais de 10 pontos_relevantes', () => {
-    const muitos = Array.from({ length: 11 }, (_, i) => ({ tipo: `t${i}` }));
-    expect(() => validateAnexoResumo(base({ pontos_relevantes: muitos }))).toThrow(/fora do contrato/);
+  it('mais de 10 pontos_relevantes: mantem os 10 primeiros em vez de perder o resumo', () => {
+    const muitos = Array.from({ length: 14 }, (_, i) => ({ tipo: `t${i}` }));
+    const validado = validateAnexoResumo(base({ pontos_relevantes: muitos }));
+    expect(validado.pontos_relevantes).toHaveLength(10);
+    expect(validado.pontos_relevantes[0].tipo).toBe('t0');
+    expect(validado.pontos_relevantes[9].tipo).toBe('t9');
   });
 
   it('rejeita ponto relevante sem tipo', () => {
