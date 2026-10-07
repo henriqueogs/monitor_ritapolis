@@ -99,6 +99,44 @@ describe('discovery-investigation', () => {
     })).toThrow(/acusatorio/);
   });
 
+  it('aceita a chave com typo evidencias_usada (singular) que o modelo as vezes devolve', () => {
+    const base = {
+      hipotese_publica: 'Vale conferir os documentos.',
+      pergunta_cidada: 'Quantos contratos houve?',
+      resposta_direta: 'Foram 7 contratos.',
+      por_que_olhar: 'Vale conferir o objeto.',
+      narrativa_consolidada: 'Foram 7 contratos no periodo, sem detalhe do objeto nos documentos analisados.',
+      o_que_os_dados_mostram: ['7 contratos'],
+      nivel_confianca: 0.7,
+      analise_admin: 'revisar',
+    };
+    const evidencias = [{ documento_id: 664, anexo_id: null, descricao: 'contrato' }];
+
+    const validado = validateDiscoveryInvestigation({ ...base, evidencias_usada: evidencias });
+
+    expect(validado.evidencias_usadas).toEqual(evidencias);
+    expect(validado.evidencias_usada).toBeUndefined();
+  });
+
+  it('a chave correta tem precedencia sobre o alias e ausencia continua invalida', () => {
+    const base = {
+      hipotese_publica: 'Vale conferir os documentos.',
+      pergunta_cidada: 'Quantos contratos houve?',
+      resposta_direta: 'Foram 7 contratos.',
+      por_que_olhar: 'Vale conferir o objeto.',
+      narrativa_consolidada: 'Foram 7 contratos no periodo, sem detalhe do objeto nos documentos analisados.',
+      o_que_os_dados_mostram: ['7 contratos'],
+      nivel_confianca: 0.7,
+      analise_admin: 'revisar',
+    };
+    const certa = [{ documento_id: 1, descricao: 'certa' }];
+    const errada = [{ documento_id: 2, descricao: 'errada' }];
+
+    const validado = validateDiscoveryInvestigation({ ...base, evidencias_usadas: certa, evidencias_usada: errada });
+    expect(validado.evidencias_usadas[0].documento_id).toBe(1);
+    expect(() => validateDiscoveryInvestigation(base)).toThrow(/evidencias_usadas/);
+  });
+
   it('contrato aceita narrativa_consolidada valida', () => {
     const validado = validateDiscoveryInvestigation({
       hipotese_publica: 'Vale conferir os documentos.',
