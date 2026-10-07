@@ -43,6 +43,21 @@ describe('anexo-resumo-contract', () => {
     expect(validado.pontos_relevantes[9].tipo).toBe('t9');
   });
 
+  it('texto de resumo_curto/descricao/lacunas acima do limite e cortado, nao rejeita o resumo', () => {
+    const validado = validateAnexoResumo(base({
+      resumo_curto: 'a'.repeat(700),
+      pontos_relevantes: [{ tipo: 'valor', descricao: 'b'.repeat(450) }],
+      lacunas: ['c'.repeat(500)],
+    }));
+    expect(validado.resumo_curto).toHaveLength(600);
+    expect(validado.pontos_relevantes[0].descricao).toHaveLength(300);
+    expect(validado.lacunas[0]).toHaveLength(300);
+  });
+
+  it('resumo_curto curto demais continua invalido (corte so para excesso)', () => {
+    expect(() => validateAnexoResumo(base({ resumo_curto: 'curto' }))).toThrow(/fora do contrato/);
+  });
+
   it('rejeita ponto relevante sem tipo', () => {
     expect(() => validateAnexoResumo(base({ pontos_relevantes: [{ descricao: 'sem tipo' }] }))).toThrow(/fora do contrato/);
   });

@@ -52,6 +52,18 @@ describe('parseSummaryResponse', () => {
     expect(parseSummaryResponse(raw)).toEqual({ tipo_documento: 'edital' });
   });
 
+  it('repara escapes invalidos do modelo (barra-cifrao, barra-porcento, barra-underscore) em vez de perder o resumo', () => {
+    const raw = String.raw`{"resumo": "Valor de R\$ 10 e 50\% do total em item\_um", "tipo_documento": "edital"}`;
+    const out = parseSummaryResponse(raw);
+    expect(out.resumo).toBe('Valor de R$ 10 e 50% do total em item_um');
+    expect(out.tipo_documento).toBe('edital');
+  });
+
+  it('o reparo preserva escapes validos e barras duplas', () => {
+    const raw = String.raw`{"a": "linha1\nlinha2 \"aspas\" caminho C:\\pasta \$"}`;
+    expect(parseSummaryResponse(raw).a).toBe('linha1\nlinha2 "aspas" caminho C:\\pasta $');
+  });
+
   it('lança erro em JSON inválido', () => {
     expect(() => parseSummaryResponse('{"campo": broken}')).toThrow('JSON valido');
   });

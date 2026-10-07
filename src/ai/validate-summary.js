@@ -30,13 +30,29 @@ function extractJsonText(rawContent) {
   return content;
 }
 
+const ESCAPES_JSON_VALIDOS = '"\\/bfnrtu';
+
+// O modelo às vezes escapa caracteres que o JSON não permite ("R\$", "50\%",
+// "item\_um") e o parse inteiro falha ("Bad escaped character", jobs 4361/4365,
+// 07/10/2026). Remove só a barra dos escapes inválidos; pares válidos (\n, \",
+// \\, \uXXXX) são consumidos juntos e ficam intactos.
+function repararEscapesInvalidos(jsonText) {
+  return jsonText.replace(/\\([\s\S])/g, (par, caractere) =>
+    ESCAPES_JSON_VALIDOS.includes(caractere) ? par : caractere
+  );
+}
+
 function parseSummaryResponse(rawContent) {
   const jsonText = extractJsonText(rawContent);
 
   try {
     return JSON.parse(jsonText);
   } catch (error) {
-    throw new Error(`Resposta da IA nao retornou JSON valido: ${error.message}`);
+    try {
+      return JSON.parse(repararEscapesInvalidos(jsonText));
+    } catch {
+      throw new Error(`Resposta da IA nao retornou JSON valido: ${error.message}`);
+    }
   }
 }
 
