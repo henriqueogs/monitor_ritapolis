@@ -93,3 +93,39 @@ test('page count outside the finite cap or native failure cannot return a partia
     'parser isolated failed'
   );
 });
+test('a long scan with a few border/noise pages is accepted and the weak pages are recorded', async () => {
+  const pages = 40;
+  const noisy = new Set([5, 17]);
+  run.mockImplementation(async (command, args) =>
+    command === 'pdfinfo'
+      ? `Pages: ${pages}\n`
+      : noisy.has(Number(args[2]))
+        ? '||||||||||||||| ———————— ||||||||||||'
+        : `Texto oficial legivel da pagina ${args[2]} com varias palavras reais em portugues.`
+  );
+  const result = await extractLargePdfFile('official.pdf', {
+    fileHash: hash,
+    run,
+    ocrPage: async () => '||||||||||||||| ———————— ||||||||||||',
+    progress: createProgress(db, 'noisy'),
+  });
+  expect(result.pages).toBe(pages);
+  expect(result.info.cobertura.complete).toBe(true);
+  expect(result.info.cobertura.paginas_baixa_qualidade).toEqual([5, 17]);
+});
+test('too many unreadable pages still require review instead of publishing garbage', async () => {
+  run.mockImplementation(async (command, args) =>
+    command === 'pdfinfo'
+      ? 'Pages: 10\n'
+      : Number(args[2]) <= 3
+        ? '||||||||||||||| ————————'
+        : `Texto oficial legivel da pagina ${args[2]} com varias palavras reais em portugues.`
+  );
+  await expect(
+    extractLargePdfFile('official.pdf', {
+      fileHash: 'd'.repeat(64),
+      run,
+      ocrPage: async () => '||||||||||||',
+    })
+  ).rejects.toThrow('exige revisao');
+});
