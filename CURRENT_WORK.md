@@ -115,26 +115,31 @@ genérico e detector de gasto atípico nas Descobertas
   `.github/workflows/portal-links.yml` é só manual. **Definir um modelo de
   observabilidade** que rode fora de datacenter (ex.: Worker/proxy residencial).
 
-## ⏳ Pendente — Confirmar efeito do fix de cache pós-crawler (17/09/2026)
+## ✅ Reconfirmado 08/10/2026 — cache pós-crawler e pressão da VM
 
-Continuação do achado de 02/09 (PR #44, ISR em `/empenho/[id]` e
-`/credores/[cnpj]`): em 17/09 achado que o **resto** das páginas públicas
-(`/acervo`, `/legislacao`, `/transparencia`, etc.) tinha o mesmo problema
-por uma causa diferente — `dynamic = 'force-dynamic'` zerava o
-`next.revalidate` de todo fetch da rota, então o cache que já existia em
-`lib/api.js` nunca funcionou. Corrigido via `unstable_cache` (PR #74).
-Crawler confirmado ao vivo (rajada de 6+ req/6s em `/acervo`, sem
-`Crawl-delay` no `robots.txt`).
+Continuação do achado de 02/09 (PR #44): ISR só vale para `/empenho/[id]`
+(não lê `searchParams`). `/credores/[cnpj]` **não** tem ISR e nunca deve ter
+sem refatorar: a página lê `searchParams` (filtro/paginação de empenhos) e a
+tentativa de ISR derrubou a rota com 500 em produção (ver comentário em
+`frontend/app/credores/[cnpj]/page.js`). Em 17/09 o resto das páginas públicas
+(`/acervo`, `/legislacao`, `/transparencia`) foi corrigido via `unstable_cache`
+(PR #74), porque `dynamic = 'force-dynamic'` zerava o `next.revalidate` dos fetches.
 
-- Sem task agendada desta vez (a de 04/09 expirou sem deixar resultado
-  registrado aqui — sessões anteriores não persistem `ScheduleWakeup`/cron
-  entre si). Checar manualmente em
-  vercel.com/henriqueogs-projects/monitor-ritapolis/observability/edge-requests
-  daqui a alguns dias, comparando com o volume de hoje.
-- VM: swap estava sob pressão real hoje (thrashing confirmado via
-  `vmstat`), causa dupla (schedulers concorrentes + crawler sem cache).
-  Ambas corrigidas (PRs #73, #74) + `vm.swappiness=10` + timer semanal de
-  restart. **Reconfirmar em alguns dias** que a pressão não voltou.
+Medido em 08/10:
+
+- `/credores/<cnpj>`: `x-vercel-cache: MISS`, `cache-control: private, no-store`,
+  ~120 ms (os dados vêm do cache de fetch). 0% de cache no CDN é **esperado**;
+  693 req/12 h, volume baixo. Só ganharia ISR movendo a tabela de empenhos
+  (a parte que usa `searchParams`) para componente cliente — não vale o risco hoje.
+- VM (`vm-capacity-check`): `status ok`, 394 MB disponíveis de 954, swap 104 MB,
+  disco 26%, load 0,08; todas as execuções diárias desde 21/09 em `success`.
+  Pressão de swap **não voltou**. Atenção: o critério de avanço de etapa da
+  campanha pede >= 450 MB disponíveis; estamos abaixo, então não subir de
+  200 docs/dia.
+- Comparação histórica de volume do crawler não é possível: o plano Hobby só
+  retém uma janela curta no painel de observabilidade. Regra prática: se a VM
+  ou o `vm-capacity-check` voltar a alertar, olhar primeiro o tráfego em
+  `/acervo`, `/legislacao` e `/credores`.
 
 ## ⏳ Em andamento — Campanha de resumos históricos + OCR da Câmara (07/10/2026)
 
