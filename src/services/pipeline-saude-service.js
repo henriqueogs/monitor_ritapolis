@@ -13,7 +13,7 @@ const { classifyAiError } = require('../ai/operation-policy');
 
 // Failures that need a human or a dedicated path (oversized file, source
 // changed/unreadable) are not provider or code faults.
-const CATEGORIAS_REVISAO = new Set(['limite_tamanho', 'revisao_fonte']);
+const CATEGORIAS_REVISAO = new Set(['limite_tamanho', 'revisao_fonte', 'contrato_rejeitado']);
 
 const LIMITE_HISTORICO_PADRAO = 10; // docs/dia; acima disso há força-tarefa ligada
 const JANELA_RECENTES_DIAS = 30;

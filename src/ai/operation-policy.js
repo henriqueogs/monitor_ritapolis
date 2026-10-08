@@ -17,6 +17,9 @@ function classifyAiError(error) {
   }
   if (/timeout|timed out/i.test(message)) {return 'timeout';}
   if (/429|rate limit|too many requests/i.test(message)) {return 'limite_provider';}
+  // Contrato estrito (validateItensProcessoStrict) rejeita de propósito a saída
+  // incompleta da IA; o ZodError chega como lista JSON de issues.
+  if (/^\s*\[\s*\{[\s\S]*"code"\s*:[\s\S]*"path"\s*:/.test(message)) {return 'contrato_rejeitado';}
   if (/contrato|zod|invalid|expected|required/i.test(message)) {return 'contrato_invalido';}
   if (/api key|unauthorized|401|403/i.test(message)) {return 'credencial';}
   if (/network|fetch|connect|econn|enotfound|eai_again/i.test(message)) {return 'rede';}
