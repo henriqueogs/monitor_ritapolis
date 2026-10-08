@@ -75,8 +75,19 @@ function assertPublicoCauteloso(data) {
   }
 }
 
+// O modelo às vezes devolve a chave com typo ("evidencias_usada", sem o s final)
+// com o conteúdo correto (observado em 07/10/2026: 9 de 20 candidatos do lote 1
+// ficaram presos em AI_PROVIDER_ERROR). Só renomeia a chave; a forma e o
+// conteúdo continuam validados pelo contrato.
+function normalizarChaves(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) { return value; }
+  if (value.evidencias_usadas !== undefined || value.evidencias_usada === undefined) { return value; }
+  const { evidencias_usada: evidencias, ...resto } = value;
+  return { ...resto, evidencias_usadas: evidencias };
+}
+
 function validateDiscoveryInvestigation(value) {
-  const parsed = DiscoveryInvestigationV2Contract.safeParse(value);
+  const parsed = DiscoveryInvestigationV2Contract.safeParse(normalizarChaves(value));
   if (!parsed.success) {
     const issues = parsed.error.issues
       .map((issue) => `${issue.path.join('.') || 'raiz'}: ${issue.message}`)
