@@ -99,6 +99,17 @@ describe('PipelineSaude', () => {
     it('erro de contrato continua sendo falha real', () => {
       expect(classifyAiError('Too big: expected string to have <=700 characters')).toBe('contrato_invalido');
     });
+    it('saida da IA rejeitada pelo contrato estrito (lista de issues do Zod) aguarda revisao', () => {
+      const issues = JSON.stringify([
+        {
+          expected: 'string',
+          code: 'invalid_type',
+          path: ['itens_solicitados', 0, 'trecho_fonte'],
+          message: 'Invalid input: expected string, received undefined',
+        },
+      ], null, 2);
+      expect(classifyAiError(issues)).toBe('contrato_rejeitado');
+    });
   });
 });
 

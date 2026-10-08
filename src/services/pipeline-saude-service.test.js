@@ -128,6 +128,28 @@ describe('pipeline-saude-service', () => {
     expect(result.motivos).toContain('tarefas_atuais_com_falha');
     expect(result.pipeline.falhas_reais).toBe(1);
   });
+  it('saida da IA rejeitada pelo contrato estrito aguarda revisao e nao alerta', () => {
+    const pipeline = require('../pipeline/coordinator');
+    pipeline.enabled.mockReturnValue(true);
+    const issues = JSON.stringify([
+      { expected: 'string', code: 'invalid_type', path: ['resultado_global', 'descricao'], message: 'Invalid input: expected string, received null' },
+    ]);
+    pipeline.status.mockReturnValue({
+      active: null,
+      counts: [],
+      oldest_pending: null,
+      oldest_pending_recent: null,
+      safety: { paused: false },
+      failures: [{ id: 4, kind: 'items', error: issues }],
+    });
+    repo.getUltimoResumoOk.mockReturnValue({ em: AGORA.toISOString() });
+    repo.contarRecentesSemResumo.mockReturnValue({ total: 9, semResumo: 0, semTexto: 0 });
+    const result = getSaudePipeline({ agora: AGORA });
+    expect(result.motivos).not.toContain('tarefas_atuais_com_falha');
+    expect(result.avisos).toContain('documentos_aguardando_revisao');
+    expect(result.pipeline.falhas_reais).toBe(0);
+    expect(result.pipeline.aguardando_revisao).toBe(1);
+  });
 });
 
 describe('pipeline-saude-service: campanha historica', () => {
