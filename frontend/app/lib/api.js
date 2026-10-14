@@ -1,3 +1,5 @@
+import { fetchComRetry, descreverErroDeRede } from '../../lib/fetch-retry';
+
 const backendApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 const adminProxyUrl = '/api/admin-proxy';
 
@@ -62,12 +64,14 @@ async function doFetchJson(path, cacheOpts) {
   let response;
 
   try {
-    response = await fetch(url, {
+    response = await fetchComRetry(url, {
       ...cacheOpts,
       headers: await buildRequestHeaders(path)
     });
   } catch (error) {
-    throw new Error(`Falha ao conectar na API ${url}: ${error.message}`);
+    throw new Error(`Falha ao conectar na API ${url}: ${descreverErroDeRede(error)}`, {
+      cause: error
+    });
   }
 
   if (!response.ok) {
