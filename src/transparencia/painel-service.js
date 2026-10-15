@@ -18,7 +18,13 @@ const { registrar } = require('../services/cache-registry');
 
 const TTL_MS = 10 * 60 * 1000;
 
-const CAMPOS_SOMA_MANDATO = ['n_empenhos', 'valor_total', 'n_empenhos_vinculados', 'valor_receita_previsto'];
+const CAMPOS_SOMA_MANDATO = [
+  'n_empenhos',
+  'valor_total',
+  'valor_estimado_global',
+  'n_empenhos_vinculados',
+  'valor_receita_previsto',
+];
 
 const MANDATO_ANOS = 4;
 

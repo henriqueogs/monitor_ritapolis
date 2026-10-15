@@ -13,18 +13,21 @@ const { parseCredorChave } = require('../transparencia/credor-chave');
 const { getFinalidadeMeta } = require('../transparencia/finalidade');
 const {
   SQL_TIPO_ORDEM_PAGAMENTO,
-  SQL_TIPO_ESTIMADO_GLOBAL,
   SQL_TIPO_ORDINARIO,
+  SQL_SUM_ORDINARIO,
+  SQL_SUM_ESTIMADO_GLOBAL,
+  SQL_COUNT_ORDINARIO,
+  SQL_COUNT_ESTIMADO_GLOBAL,
 } = require('../transparencia/tipo-empenho');
 
 // Semântica dos totais de credor (fiscal-valores V2/V3):
 //  - valor_total          = só empenho ordinário (EO), sem OP — o gasto comprometido;
 //  - valor_estimado_global = EE + EG (estimativa/parcelas futuras), campo à parte;
 //  - OP (ordem de pagamento) fica fora de tudo: pagar um empenho não é novo gasto.
-const SUM_ORDINARIO = `ROUND(SUM(CASE WHEN ${SQL_TIPO_ORDINARIO} THEN valor ELSE 0 END), 2)`;
-const COUNT_ORDINARIO = `SUM(CASE WHEN ${SQL_TIPO_ORDINARIO} THEN 1 ELSE 0 END)`;
-const COUNT_ESTIMADO_GLOBAL = `SUM(CASE WHEN ${SQL_TIPO_ESTIMADO_GLOBAL} THEN 1 ELSE 0 END)`;
-const SUM_ESTIMADO_GLOBAL = `ROUND(SUM(CASE WHEN ${SQL_TIPO_ESTIMADO_GLOBAL} THEN valor ELSE 0 END), 2)`;
+const SUM_ORDINARIO = SQL_SUM_ORDINARIO;
+const SUM_ESTIMADO_GLOBAL = SQL_SUM_ESTIMADO_GLOBAL;
+const COUNT_ORDINARIO = SQL_COUNT_ORDINARIO;
+const COUNT_ESTIMADO_GLOBAL = SQL_COUNT_ESTIMADO_GLOBAL;
 
 const FONTES_EXTERNAS_CREDORES = Object.freeze({
   receita_cnpj: {

@@ -285,3 +285,56 @@ describe('transparencia-agregados-repo', () => {
     });
   });
 });
+
+describe('transparencia-agregados-repo — tipos de empenho (fiscal-valores V2/V3/V7)', () => {
+  const TIPO_EE = 'EE - Empenho Estimativo';
+  const TIPO_EG = 'EG - Empenho Global';
+  const TIPO_OP = 'OP - Ordem de Pagamento';
+
+  beforeEach(() => {
+    mockConn.exec('DELETE FROM transparencia_despesas; DELETE FROM documentos;');
+    seq = 0;
+    seedDespesa({ valor: 100 });
+    seedDespesa({ valor: 400, tipo: TIPO_EE });
+    seedDespesa({ valor: 200, tipo: TIPO_EG });
+    seedDespesa({ valor: 30, tipo: TIPO_OP });
+    seedDespesa({ valor: 70, exercicio: 2025, data: '2025-02-01' });
+  });
+
+  it('categoria econômica: ordinário em valor_total, estimativo/global à parte, OP fora', () => {
+    const [cat] = repo.getAgregadoPorCategoriaEconomica({ exercicios: [2026] });
+
+    expect(cat).toMatchObject({ n: 1, valor_total: 100, valor_estimado_global: 600 });
+  });
+
+  it('invariante: Σ categoria == Σ unidade == Σ fonte (mesmo universo)', () => {
+    const soma = (rows) => rows.reduce((a, r) => a + r.valor_total, 0);
+    const exercicios = [2025, 2026];
+
+    const porCategoria = soma(repo.getAgregadoPorCategoriaEconomica({ exercicios }));
+    const porUnidade = soma(repo.getAgregadoPorUnidade({ exercicios }));
+    const porFonte = soma(repo.getAgregadoPorFonteRecurso({ exercicios }));
+
+    expect(porCategoria).toBe(170);
+    expect(porUnidade).toBe(porCategoria);
+    expect(porFonte).toBe(porCategoria);
+  });
+
+  it('ranking de credores: só ordinário no valor, estimativo/global separado, credor só-OP some', () => {
+    seedDespesa({ valor: 999, tipo: TIPO_OP, credorCnpj: '99999999999999', credorNome: 'SO OP' });
+
+    const ranking = repo.getRankingCredores({ exercicios: [2026] });
+
+    expect(ranking).toHaveLength(1);
+    expect(ranking[0]).toMatchObject({ n: 1, valor_total: 100, valor_estimado_global: 600 });
+  });
+
+  it('série por ano: cada ano soma só ordinário (dois mandatos não se misturam)', () => {
+    const serie = repo.getCategoriaPorAno({});
+
+    expect(serie).toEqual([
+      expect.objectContaining({ exercicio: 2025, valor_total: 70, valor_estimado_global: 0 }),
+      expect.objectContaining({ exercicio: 2026, valor_total: 100, valor_estimado_global: 600 }),
+    ]);
+  });
+});

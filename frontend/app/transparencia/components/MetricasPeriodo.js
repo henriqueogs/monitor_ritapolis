@@ -25,14 +25,19 @@ export default function MetricasPeriodo({ total, periodoLabel, pctVinculado }) {
       }}
     >
       <MetricCard
-        label={`Total empenhado (${periodoLabel})`}
+        label={`Empenhado ordinário (${periodoLabel})`}
         value={formatMoney(total.valor_total)}
+        sub={
+          total.valor_estimado_global > 0
+            ? `+ ${formatMoney(total.valor_estimado_global)} em empenhos estimativos/globais (previsão — fora do total)`
+            : undefined
+        }
         accent="--accent"
       />
       <MetricCard
         label={`Empenhos (${periodoLabel})`}
         value={total.n_empenhos?.toLocaleString('pt-BR')}
-        sub="EO + EG + EE + OP"
+        sub="ordinários (EO) — estimativos/globais e ordens de pagamento ficam fora"
       />
       <MetricCard
         label={`Credores únicos (${periodoLabel})`}

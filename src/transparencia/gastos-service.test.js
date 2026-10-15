@@ -15,8 +15,8 @@ describe('gastos-service', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     repo.getAgregadoPorCategoriaEconomica.mockReturnValue([
-      { categoria_economica: '3.3.90.14.00 - DIÁRIAS - CIVIL', n: 2, valor_total: 30 },
-      { categoria_economica: '3.3.90.14.00 - DIÁRIAS - MILITAR', n: 1, valor_total: 5 },
+      { categoria_economica: '3.3.90.14.00 - DIÁRIAS - CIVIL', n: 2, valor_total: 30, valor_estimado_global: 7 },
+      { categoria_economica: '3.3.90.14.00 - DIÁRIAS - MILITAR', n: 1, valor_total: 5, valor_estimado_global: 3 },
       { categoria_economica: '4.4.90.51.00 - OBRAS', n: 1, valor_total: 300 },
     ]);
     repo.getAgregadoPorUnidade.mockReturnValue([{ unidade: '02.001 - ADM', n: 4, valor_total: 335 }]);
@@ -27,8 +27,8 @@ describe('gastos-service', () => {
       { credor_nome: 'B', credor_cnpj: '2', n: 1, valor_total: 20 },
     ]);
     repo.getCategoriaPorAno.mockReturnValue([
-      { exercicio: 2025, n: 1, valor_total: 40 },
-      { exercicio: 2026, n: 3, valor_total: 335 },
+      { exercicio: 2025, n: 1, valor_total: 40, valor_estimado_global: 0 },
+      { exercicio: 2026, n: 3, valor_total: 335, valor_estimado_global: 20 },
     ]);
   });
 
@@ -43,6 +43,21 @@ describe('gastos-service', () => {
       expect(obras.valor_total).toBe(300);
       // ordenado por valor desc
       expect(panorama.categorias[0].slug).toBe('obras');
+    });
+
+    it('re-agrega também o estimativo/global por slug (campo separado, nunca somado ao ordinário)', () => {
+      const panorama = getGastosPanorama({ exercicio: 2026 });
+
+      const diarias = panorama.categorias.find((c) => c.slug === 'diarias');
+      expect(diarias.valor_estimado_global).toBe(10);
+      expect(diarias.valor_total).toBe(35);
+    });
+
+    it('por_mandato soma ordinário e estimativo/global separadamente', () => {
+      // chave de cache própria (o serviço memoiza por exercício/mandato)
+      const panorama = getGastosPanorama({ mandato: 2030 });
+
+      expect(panorama.por_mandato[0]).toMatchObject({ valor_total: 375, valor_estimado_global: 20 });
     });
 
     it('modo mandato resolve os 4 exercícios', () => {

@@ -16,7 +16,7 @@ const {
 const painelBase = {
   total: { n_empenhos: 4, valor_total: 150 },
   porAno: [
-    { exercicio: 2026, n_empenhos: 2, valor_total: 120, n_empenhos_vinculados: 1, valor_receita_previsto: 500 },
+    { exercicio: 2026, n_empenhos: 2, valor_total: 120, valor_estimado_global: 9, n_empenhos_vinculados: 1, valor_receita_previsto: 500 },
     { exercicio: 2025, n_empenhos: 1, valor_total: 20, n_empenhos_vinculados: 0, valor_receita_previsto: 400 },
     { exercicio: 2023, n_empenhos: 1, valor_total: 10, n_empenhos_vinculados: 0, valor_receita_previsto: 300 },
   ],
@@ -45,6 +45,7 @@ describe('painel-service', () => {
       expect(atual.mandato).toBe('2025-2028');
       expect(atual.n_empenhos).toBe(3);
       expect(atual.valor_total).toBe(140);
+      expect(atual.valor_estimado_global).toBe(9); // somado à parte, nunca dentro de valor_total
       expect(atual.anos).toEqual([2025, 2026]);
       expect(anterior.mandato).toBe('2021-2024');
       expect(anterior.anos).toEqual([2023]);

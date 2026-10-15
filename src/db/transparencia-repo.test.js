@@ -191,8 +191,8 @@ describe('transparencia-repo', () => {
 
     it('sem filtro mantém comportamento atual (agregado completo)', () => {
       const painel = repo.getPainelResumo();
-      expect(painel.total.n_empenhos).toBe(4);
-      expect(painel.total.valor_total).toBe(150);
+      expect(painel.total.n_empenhos).toBe(3);
+      expect(painel.total.valor_total).toBe(70); // EO 10+20+40; OP 80 fora
       expect(painel.porAno).toHaveLength(2);
       expect(painel.topCredores).toHaveLength(2);
       expect(painel.ultimosEmpenhos).toHaveLength(4);
@@ -201,11 +201,11 @@ describe('transparencia-repo', () => {
     it('com exercicio escopa total, topCredores, ultimosEmpenhos e tiposEmpenho', () => {
       const painel = repo.getPainelResumo({ exercicio: 2026 });
 
-      expect(painel.total.n_empenhos).toBe(2);
-      expect(painel.total.valor_total).toBe(120);
+      expect(painel.total.n_empenhos).toBe(1);
+      expect(painel.total.valor_total).toBe(40);
 
-      expect(painel.topCredores).toHaveLength(2);
-      expect(painel.topCredores[0].valor_total).toBe(80);
+      expect(painel.topCredores).toHaveLength(1); // credor B só tem OP em 2026
+      expect(painel.topCredores[0].valor_total).toBe(40);
 
       expect(painel.ultimosEmpenhos).toHaveLength(2);
       expect(painel.ultimosEmpenhos.every((e) => e.exercicio_orcamento === 2026)).toBe(true);
@@ -221,13 +221,13 @@ describe('transparencia-repo', () => {
       expect(painel.porAno.map((r) => r.exercicio).sort()).toEqual([2025, 2026]);
     });
 
-    it('porAno separa valor_empenhado (sem OP) de valor_total (movimentação)', () => {
+    it('porAno: valor_total e valor_empenhado excluem OP (pagamento não é novo gasto)', () => {
       // OP paga empenho (caixa) — não é nova despesa empenhada (competência);
       // misturar os dois infla o numerador da % de execução da LOA.
       const painel = repo.getPainelResumo();
       const ano2026 = painel.porAno.find((r) => r.exercicio === 2026);
-      expect(ano2026.valor_total).toBe(120); // EO 40 + OP 80 (movimentação)
-      expect(ano2026.valor_empenhado).toBe(40); // só empenhos
+      expect(ano2026.valor_total).toBe(40); // só EO
+      expect(ano2026.valor_empenhado).toBe(40); // EO + EE + EG (base da % de execução)
     });
 
     it('valor_receita_previsto soma apenas categorias nível-1 (sem dupla contagem)', () => {
@@ -247,8 +247,8 @@ describe('transparencia-repo', () => {
       seedDespesa({ exercicio: 2023, data: '2023-05-01', valor: 5, credorCnpj: '11111111111111', credorNome: 'A' });
       const painel = repo.getPainelResumo({ exercicios: [2025, 2026] });
 
-      expect(painel.total.n_empenhos).toBe(4);
-      expect(painel.total.valor_total).toBe(150);
+      expect(painel.total.n_empenhos).toBe(3); // EO; a OP de 80 não conta
+      expect(painel.total.valor_total).toBe(70);
       expect(painel.ultimosEmpenhos.every((e) => [2025, 2026].includes(e.exercicio_orcamento))).toBe(true);
       expect(painel.porAno).toHaveLength(3);
     });
@@ -462,5 +462,71 @@ describe('transparencia-repo', () => {
       expect(repo.getFilaPagamentos({ exercicio: 2026 }).itens).toHaveLength(1);
       expect(repo.getFilaPagamentos().itens).toHaveLength(2);
     });
+  });
+});
+
+describe('transparencia-repo — tipos de empenho no painel (fiscal-valores V2/V3/V7)', () => {
+  const TIPO_EE = 'EE - Empenho Estimativo';
+  const TIPO_EG = 'EG - Empenho Global';
+  const TIPO_OP = 'OP - Ordem de Pagamento';
+  const A = { credorCnpj: '11111111111111', credorNome: 'A' };
+  const B = { credorCnpj: '22222222222222', credorNome: 'B' };
+
+  beforeEach(() => {
+    mockConn.exec('DELETE FROM transparencia_despesas_classificacoes; DELETE FROM transparencia_despesas; DELETE FROM documentos;');
+    seq = 0;
+    seedDespesa({ ...A, valor: 100 });
+    seedDespesa({ ...B, valor: 50 });
+    seedDespesa({ ...A, valor: 400, tipo: TIPO_EE });
+    seedDespesa({ ...B, valor: 200, tipo: TIPO_EG });
+    seedDespesa({ ...A, valor: 30, tipo: TIPO_OP });
+  });
+
+  it('total: valor_total só ordinário; estimativo/global à parte; OP fora', () => {
+    const { total } = repo.getPainelResumo({ exercicio: 2026 });
+
+    expect(total).toMatchObject({
+      valor_total: 150,
+      valor_estimado_global: 600,
+      n_empenhos: 2,
+      n_empenhos_estimado_global: 2,
+    });
+  });
+
+  it('invariante: valor_empenhado == valor_total + valor_estimado_global (sem OP)', () => {
+    const ano = repo.getPainelResumo().porAno.find((r) => r.exercicio === 2026);
+
+    expect(ano.valor_empenhado).toBe(750);
+    expect(ano.valor_total + ano.valor_estimado_global).toBe(ano.valor_empenhado);
+  });
+
+  it('invariante: Σ porAno == total no recorte sem filtro', () => {
+    seedDespesa({ ...A, valor: 25, exercicio: 2025, data: '2025-03-01' });
+
+    const { total, porAno } = repo.getPainelResumo();
+
+    expect(porAno.reduce((a, r) => a + r.valor_total, 0)).toBe(total.valor_total);
+    expect(porAno.reduce((a, r) => a + r.n_empenhos, 0)).toBe(total.n_empenhos);
+  });
+
+  it('topCredores: ordena por ordinário e traz estimativo/global separado', () => {
+    const { topCredores } = repo.getPainelResumo({ exercicio: 2026 });
+
+    expect(topCredores[0]).toMatchObject({ credor_cnpj: A.credorCnpj, valor_total: 100, valor_estimado_global: 400 });
+    expect(topCredores[1]).toMatchObject({ credor_cnpj: B.credorCnpj, valor_total: 50, valor_estimado_global: 200 });
+  });
+
+  it('invariante: Σ finalidadesEmpenho == total.valor_total', () => {
+    repo.backfillClassificacoesDespesas({ force: true });
+
+    const { total, finalidadesEmpenho } = repo.getPainelResumo({ exercicio: 2026 });
+
+    expect(finalidadesEmpenho.reduce((a, f) => a + f.valor, 0)).toBe(total.valor_total);
+  });
+
+  it('tiposEmpenho continua listando todos os tipos (composição informativa)', () => {
+    const { tiposEmpenho } = repo.getPainelResumo({ exercicio: 2026 });
+
+    expect(tiposEmpenho.map((t) => t.tipo.slice(0, 2)).sort()).toEqual(['EE', 'EG', 'EO', 'OP']);
   });
 });

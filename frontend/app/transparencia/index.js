@@ -185,7 +185,7 @@ export default async function TransparenciaPage({ searchParams: searchParamsProm
 
       <EmpenhosRecentes ultimosEmpenhos={ultimosEmpenhos} periodoLabel={periodoLabel} />
 
-      <TiposEmpenho tiposEmpenho={tiposEmpenho} valorTotal={total.valor_total} periodoLabel={periodoLabel} />
+      <TiposEmpenho tiposEmpenho={tiposEmpenho} periodoLabel={periodoLabel} />
 
       {/* Análises de preço vivem na Inteligência — aqui só o convite */}
       <SectionBlock

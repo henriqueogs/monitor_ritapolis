@@ -9,6 +9,14 @@
 const crypto = require('crypto');
 const logger = require('../logger');
 const { db } = require('./index');
+const {
+  SQL_SUM_ORDINARIO,
+  SQL_SUM_ESTIMADO_GLOBAL,
+  SQL_COUNT_ORDINARIO,
+  SQL_COUNT_ESTIMADO_GLOBAL,
+  SQL_SEM_ORDEM_PAGAMENTO,
+  SQL_TIPO_ORDINARIO,
+} = require('../transparencia/tipo-empenho');
 const { hasContentChanges } = require('../utils/persisted-content');
 const { ensureDespesasMigracoes } = require('./transparencia-migracoes');
 const {
@@ -653,16 +661,19 @@ function getPainelResumo({ exercicio, exercicios } = {}) {
   const whereExercicio = temFiltro ? `WHERE exercicio_orcamento IN (${placeholders})` : '';
   const paramsExercicio = lista;
 
-  // valor_total = movimentação (empenhos + ordens de pagamento); valor_empenhado
-  // exclui OP — ordem de pagamento é caixa (paga empenho, inclusive restos a
-  // pagar de anos anteriores), não nova despesa empenhada. A % de execução da
-  // LOA compara previsto × EMPENHADO, senão o numerador infla.
+  // Convenção única (igual a credores e gastos): valor_total = só empenho
+  // ORDINÁRIO; EE/EG (estimativa/parcelas futuras) em valor_estimado_global;
+  // OP (caixa — paga empenho, inclusive restos a pagar) nunca entra.
+  // valor_empenhado = EO + EE + EG (sem OP) é a base orçamentária da % de
+  // execução da LOA (previsto × empenhado).
   const porAno = db.prepare(`
     SELECT
       exercicio_orcamento            AS exercicio,
-      COUNT(*)                       AS n_empenhos,
-      ROUND(SUM(valor), 2)           AS valor_total,
-      ROUND(SUM(CASE WHEN tipo NOT LIKE 'OP%' THEN valor ELSE 0 END), 2) AS valor_empenhado,
+      ${SQL_COUNT_ORDINARIO}          AS n_empenhos,
+      ${SQL_COUNT_ESTIMADO_GLOBAL}    AS n_empenhos_estimado_global,
+      ${SQL_SUM_ORDINARIO}            AS valor_total,
+      ${SQL_SUM_ESTIMADO_GLOBAL}      AS valor_estimado_global,
+      ROUND(SUM(CASE WHEN ${SQL_SEM_ORDEM_PAGAMENTO} THEN valor ELSE 0 END), 2) AS valor_empenhado,
       COUNT(DISTINCT credor_cnpj)    AS n_credores,
       COUNT(DISTINCT documento_id)   AS n_vinculados,
       COUNT(CASE WHEN documento_id IS NOT NULL THEN 1 END) AS n_empenhos_vinculados,
@@ -675,24 +686,28 @@ function getPainelResumo({ exercicio, exercicios } = {}) {
 
   const total = db.prepare(`
     SELECT
-      COUNT(*)                       AS n_empenhos,
-      ROUND(SUM(valor), 2)           AS valor_total,
+      ${SQL_COUNT_ORDINARIO}          AS n_empenhos,
+      ${SQL_COUNT_ESTIMADO_GLOBAL}    AS n_empenhos_estimado_global,
+      ${SQL_SUM_ORDINARIO}            AS valor_total,
+      ${SQL_SUM_ESTIMADO_GLOBAL}      AS valor_estimado_global,
       COUNT(DISTINCT credor_cnpj)    AS n_credores,
       COUNT(DISTINCT documento_id)   AS n_licitacoes_vinculadas
     FROM transparencia_despesas
-    ${whereExercicio}
+    ${whereExercicio ? `${whereExercicio} AND ${SQL_SEM_ORDEM_PAGAMENTO}` : `WHERE ${SQL_SEM_ORDEM_PAGAMENTO}`}
   `).get(...paramsExercicio);
 
   const topCredores = db.prepare(`
     SELECT
       credor_nome,
       credor_cnpj,
-      COUNT(*)              AS n_empenhos,
-      ROUND(SUM(valor), 2)  AS valor_total,
+      ${SQL_COUNT_ORDINARIO} AS n_empenhos,
+      ${SQL_SUM_ORDINARIO}   AS valor_total,
+      ${SQL_SUM_ESTIMADO_GLOBAL} AS valor_estimado_global,
       MIN(exercicio_orcamento) AS primeiro_exercicio,
       MAX(exercicio_orcamento) AS ultimo_exercicio
     FROM transparencia_despesas
     WHERE credor_cnpj IS NOT NULL AND credor_cnpj != ''
+      AND ${SQL_SEM_ORDEM_PAGAMENTO}
       ${temFiltro ? `AND exercicio_orcamento IN (${placeholders})` : ''}
     GROUP BY credor_cnpj
     ORDER BY valor_total DESC
@@ -736,7 +751,7 @@ function getPainelResumo({ exercicio, exercicios } = {}) {
     SELECT tdc.classe_principal, COUNT(*) AS n, ROUND(SUM(td.valor), 2) AS valor
     FROM transparencia_despesas td
     JOIN transparencia_despesas_classificacoes tdc ON tdc.despesa_id = td.id
-    ${whereExercicio}
+    ${whereExercicio ? `${whereExercicio} AND ${SQL_TIPO_ORDINARIO}` : `WHERE ${SQL_TIPO_ORDINARIO}`}
     GROUP BY tdc.classe_principal
     ORDER BY valor DESC
   `).all(...paramsExercicio);
