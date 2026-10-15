@@ -77,6 +77,20 @@ describe('inteligencia-repo — só empenho ordinário (fiscal-valores V2/V3)', 
     });
   });
 
+  describe('denominadores da pagina de inteligencia', () => {
+    it('invariante: total do exercicio (evolucao) == total_geral + total_sem_cnpj', () => {
+      seedDespesa({ cnpj: '11111111111111', nome: 'A LTDA', valor: 70 });
+      seedDespesa({ cnpj: null, nome: 'SEM CNPJ', valor: 30 });
+      seedDespesa({ cnpj: null, nome: 'OP SEM CNPJ', valor: 999, tipo: TIPO_OP });
+
+      const c = getConcentracaoCredores(2026);
+      const e = getEvolucaoFuncoes({ anosMin: 2026, anosMax: 2026 });
+
+      expect(c).toMatchObject({ total_geral: 70, total_sem_cnpj: 30 });
+      expect(e.total_por_ano[0].total).toBe(c.total_geral + c.total_sem_cnpj);
+    });
+  });
+
   describe('getEvolucaoFuncoes', () => {
     it('total por ano e por função só somam ordinário; anos não se misturam', () => {
       seedDespesa({ exercicio: 2024, data: '2024-12-31', valor: 10 });
@@ -121,6 +135,17 @@ describe('inteligencia-repo — só empenho ordinário (fiscal-valores V2/V3)', 
       const a = getEmpenhoAtipicos(2026);
 
       expect(a.total_outliers).toBe(0);
+    });
+
+    it('limiar de dispensa muda na fronteira 2023/2024 (3 x 10.000 na semana)', () => {
+      for (const exercicio of [2023, 2024]) {
+        for (const d of ['02', '03', '04']) {
+          seedDespesa({ exercicio, cnpj: '80000000000000', nome: 'LIMIAR LTDA', valor: 10000, data: `${exercicio}-03-${d}` });
+        }
+      }
+
+      expect(getEmpenhoAtipicos(2023).total_fracionamento).toBe(1); // 30.000 > 17.600
+      expect(getEmpenhoAtipicos(2024).total_fracionamento).toBe(0); // 30.000 < 57.900
     });
 
     it('fracionamento: 3 ordinários pequenos na semana são flagrados; EE/EG não contam', () => {

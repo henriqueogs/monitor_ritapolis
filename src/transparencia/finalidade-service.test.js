@@ -133,6 +133,24 @@ describe('finalidade-service - tipos de empenho (fiscal-valores V2/V3/V7)', () =
     expect(d.empenhos_recentes.some((e) => /^OP/.test(e.tipo))).toBe(false);
   });
 
+  it('contagens de credores, unidades e fontes tambem no universo ordinario', () => {
+    seedDespesa({ classe: 'licitacao', exercicio: 2026, valor: 900, credorNome: 'SO ESTIMADO', credorChave: '999', unidade: '99.999 - OUTRA', fonte: '9.999 - OUTRA', tipo: TIPO_EE });
+
+    const d = getFinalidadeDossie('licitacao', { mandato: 2026 });
+    const r = getFinalidadesResumo({ mandato: 2026 });
+
+    expect(d.resumo).toMatchObject({ n_credores: 1, n_unidades: 1, n_fontes: 1 });
+    expect(r.finalidades.find((f) => f.classe === 'licitacao').n_credores).toBe(1);
+  });
+
+  it('fronteira 2024/2025: estimativo/global tambem fica no mandato certo', () => {
+    seedDespesa({ classe: 'licitacao', exercicio: 2024, valor: 5, credorNome: 'EMPRESA A', credorChave: '111', tipo: TIPO_EE });
+
+    const d = getFinalidadeDossie('licitacao', { mandato: 2025 });
+
+    expect(d.por_mandato.map((m) => [m.mandato, m.valor_estimado_global])).toEqual([['2025-2028', 400], ['2021-2024', 5]]);
+  });
+
   it('fronteira 2024/2025: anos de mandatos diferentes nao se misturam', () => {
     seedDespesa({ classe: 'licitacao', exercicio: 2024, valor: 700, credorNome: 'EMPRESA A', credorChave: '111' });
 

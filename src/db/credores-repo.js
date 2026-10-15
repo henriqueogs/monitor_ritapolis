@@ -384,7 +384,8 @@ function getCredorProfile(identificador) {
 
   const perfil = tipo === 'cnpj'
     ? db.prepare(`
-        SELECT nome_canonico, total_valor_vencedor, total_valor_produtos, total_valor_pago,
+        SELECT nome_canonico, total_valor_vencedor, total_valor_produtos,
+               total_valor_pago AS total_valor_empenhado,
                n_vitorias, n_itens_produtos, n_licitacoes_vencedor, anos_ativos
         FROM fornecedores_perfil WHERE ${cnpjNorm('cnpj')} = ?
       `).get(chave)

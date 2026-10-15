@@ -16,6 +16,7 @@ const { comLinkPortal } = require('./portal-links');
 const { agruparPorMandato, mandatoInicio, mandatoLabel } = require('../utils/mandato');
 const { vinculoDocumentoExato } = require('../licitacoes/modalidade');
 const {
+  SQL_TIPO_ORDINARIO,
   SQL_SUM_ORDINARIO,
   SQL_SUM_ESTIMADO_GLOBAL,
   SQL_COUNT_ORDINARIO,
@@ -24,6 +25,7 @@ const {
 
 // Convenção única: valor_total = só empenho ordinário; EE/EG em valor_estimado_global;
 // OP (pagamento) nunca soma. Colunas de valor/tipo não existem em tdc, então não há ambiguidade.
+const DISTINTOS_ORD = (expr) => `COUNT(DISTINCT CASE WHEN ${SQL_TIPO_ORDINARIO} THEN ${expr} END)`;
 const COLUNAS_VALOR = `${SQL_COUNT_ORDINARIO} AS n,
            ${SQL_SUM_ORDINARIO} AS valor_total,
            ${SQL_SUM_ESTIMADO_GLOBAL} AS valor_estimado_global`;
@@ -158,7 +160,7 @@ function getFinalidadesResumo({ exercicio, mandato } = {}) {
   const rows = db.prepare(`
     SELECT tdc.classe_principal AS classe,
            ${COLUNAS_VALOR},
-           COUNT(DISTINCT COALESCE(td.credor_chave, td.credor_nome)) AS n_credores
+           ${DISTINTOS_ORD('COALESCE(td.credor_chave, td.credor_nome)')} AS n_credores
     FROM transparencia_despesas td
     JOIN transparencia_despesas_classificacoes tdc ON tdc.despesa_id = td.id
     WHERE ${ex.sql} AND ${SQL_SEM_ORDEM_PAGAMENTO}
@@ -195,9 +197,9 @@ function getResumoClasse(classe, exercicios) {
     SELECT IFNULL(${SQL_COUNT_ORDINARIO}, 0) AS n_empenhos,
            IFNULL(${SQL_SUM_ORDINARIO}, 0) AS valor_total,
            IFNULL(${SQL_SUM_ESTIMADO_GLOBAL}, 0) AS valor_estimado_global,
-           COUNT(DISTINCT COALESCE(td.credor_chave, td.credor_nome)) AS n_credores,
-           COUNT(DISTINCT td.unidade) AS n_unidades,
-           COUNT(DISTINCT td.fonte_recurso) AS n_fontes
+           ${DISTINTOS_ORD('COALESCE(td.credor_chave, td.credor_nome)')} AS n_credores,
+           ${DISTINTOS_ORD('td.unidade')} AS n_unidades,
+           ${DISTINTOS_ORD('td.fonte_recurso')} AS n_fontes
     FROM transparencia_despesas td
     JOIN transparencia_despesas_classificacoes tdc ON tdc.despesa_id = td.id
     WHERE tdc.classe_principal = ? AND ${ex.sql} AND ${SQL_SEM_ORDEM_PAGAMENTO}

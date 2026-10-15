@@ -3693,7 +3693,7 @@ function getFornecedoresRanking({ limite = 20, ordem = 'valor' } = {}) {
          nome_canonico,
          total_valor_produtos,
          total_valor_vencedor,
-         total_valor_pago,
+         total_valor_pago AS total_valor_empenhado,
          (total_valor_vencedor + total_valor_produtos) AS total_valor_combinado,
          n_itens_produtos,
          n_vitorias,

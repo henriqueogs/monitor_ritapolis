@@ -63,6 +63,15 @@ function getConcentracaoCredores(exercicio) {
     ORDER BY valor_total DESC
   `).all(exercicio);
 
+  // Linhas ordinárias sem CNPJ (folha etc.) ficam fora do ranking: expõe o total à parte
+  // para que total_geral + total_sem_cnpj feche com o total do exercício (evolução).
+  const semCnpj = db.prepare(`
+    SELECT ROUND(IFNULL(SUM(valor), 0), 2) AS total
+    FROM transparencia_despesas
+    WHERE exercicio_orcamento = ? AND ${ORDINARIO}
+      AND (credor_cnpj IS NULL OR credor_cnpj = '')
+  `).get(exercicio);
+
   // Filtrar entidades gov para o cálculo de concentração de mercado
   const privados = rows.filter((r) => !isEntidadeGov(r.credor_nome, r.credor_cnpj));
   const totalPrivado = privados.reduce((s, r) => s + r.valor_total, 0);
@@ -103,6 +112,7 @@ function getConcentracaoCredores(exercicio) {
   return {
     exercicio,
     total_geral: totalGeral,
+    total_sem_cnpj: semCnpj?.total || 0,
     total_privado: totalPrivado,
     pct_privado: totalGeral > 0 ? Math.round((totalPrivado / totalGeral) * 100) : 0,
     n_credores: rows.length,
