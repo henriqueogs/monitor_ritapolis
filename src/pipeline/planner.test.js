@@ -191,3 +191,35 @@ test('textless document with a recorded size limit is planned on the bounded dis
   expect(JSON.parse(rows[1].payload).largePdf).toBeUndefined();
   expect(rows[1].version).toBe('3');
 });
+
+describe('edital com items em revisao nao trava as demais etapas', () => {
+  function editalComResumo() {
+    document(1, 2026, '2026-09-29');
+    db.prepare("UPDATE documentos SET tipo = 'edital' WHERE id = 1").run();
+    const signature = crypto.createHash('sha256').update(text).digest('hex');
+    db.prepare(
+      `INSERT INTO documentos_resumos_ai(documento_id, provider, modelo, contrato_versao, resumo_json, texto_hash, status)
+      VALUES (1,'nvidia','test','1.1','{}',?,'ok')`
+    ).run(signature);
+  }
+  const kinds = () => db.prepare('SELECT kind, status FROM pipeline_jobs ORDER BY id').all();
+
+  test('items pendente segura a cadeia (integrated e facts dependem dele)', () => {
+    editalComResumo();
+    planAi(q, now);
+    planAi(q, now);
+    expect(kinds()).toEqual([{ kind: 'items', status: 'pending' }]);
+  });
+
+  test('items failed (revisao) segue para facts, sem enfileirar integrated', () => {
+    editalComResumo();
+    planAi(q, now);
+    const items = q.claim(now);
+    q.finish(items.id, { error: 'Itens: leitura excede o limite de tempo por documento; exige revisao' }, now);
+    planAi(q, now);
+    expect(kinds()).toEqual([
+      { kind: 'items', status: 'failed' },
+      { kind: 'facts', status: 'pending' },
+    ]);
+  });
+});

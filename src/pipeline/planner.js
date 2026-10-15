@@ -172,13 +172,18 @@ function planDocument(queue, doc, now = new Date()) {
       require('../db/itens-estruturacao-jobs-repo').getUltimoItensEstruturadosPorDocumento(doc.id);
     if (!items.assessItemsResult(cachedItems, doc, itemSources).valid) {
       const job = task('items', itemHash, {}, 3, items.CONTRACT_VERSION);
-      return job;
-    }
-    const payload = api.buildLicitacaoLeituraIntegradaPayload(doc.id);
-    if (api.getResumoAiByDocumentoHash(doc.id, payload.texto_hash, '2.0')?.status !== 'ok') {
-      const job = task('integrated', payload.texto_hash, {}, 4, '2.0');
-      if (job.status !== 'ok') {
+      // items in review (failed) must not starve the stages that do not need
+      // it; the leitura integrada does, so it waits for a valid items result.
+      if (job.status !== 'failed') {
         return job;
+      }
+    } else {
+      const payload = api.buildLicitacaoLeituraIntegradaPayload(doc.id);
+      if (api.getResumoAiByDocumentoHash(doc.id, payload.texto_hash, '2.0')?.status !== 'ok') {
+        const job = task('integrated', payload.texto_hash, {}, 4, '2.0');
+        if (job.status !== 'ok') {
+          return job;
+        }
       }
     }
   }
