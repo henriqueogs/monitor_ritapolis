@@ -10,6 +10,7 @@ const { parseResultadosItensLicitacao } = require('../parsers/licitacao-resultad
 const { agruparDocumentosLicitacao, papelLabel } = require('../licitacoes/grupos');
 const { normalizarNumeroDocumento, titulosCompativeis } = require('../licitacoes/processo');
 const { normalizarCnpj, formatarCnpj } = require('../licitacoes/cnpj');
+const { agregarEmpenhosPorCredor } = require('../transparencia/fornecedores-empenhos');
 const {
   inferirValorFinalTipoResultado: inferirValorFinalTipoResultadoDomain,
 } = require('../licitacoes/valor-final-tipo');
@@ -3558,25 +3559,8 @@ function consolidarFornecedores() {
     )
     .all();
 
-  // Agrega via empenhos (lado pago) — exclui folha de pagamento e tributos
-  const porEmpenhos = db
-    .prepare(
-      `SELECT
-         credor_cnpj AS cnpj,
-         credor_nome AS nome,
-         COUNT(*) AS n_empenhos,
-         SUM(COALESCE(valor, 0)) AS total_valor,
-         GROUP_CONCAT(DISTINCT CAST(exercicio_orcamento AS TEXT)) AS anos
-       FROM transparencia_despesas
-       WHERE credor_cnpj IS NOT NULL AND credor_cnpj <> ''
-         AND UPPER(IFNULL(credor_nome, '')) NOT LIKE '%FOLHA%'
-         AND UPPER(IFNULL(credor_nome, '')) NOT LIKE '%INSS%'
-         AND UPPER(IFNULL(credor_nome, '')) NOT LIKE '%FGTS%'
-         AND UPPER(IFNULL(credor_nome, '')) NOT LIKE '%PASEP%'
-         AND UPPER(IFNULL(credor_nome, '')) NOT LIKE '%RECEITA FEDERAL%'
-       GROUP BY credor_cnpj`
-    )
-    .all();
+  // Agrega via empenhos ordinários (OP e EE/EG fora) — exclui folha e tributos
+  const porEmpenhos = agregarEmpenhosPorCredor(db);
 
   const mapa = new Map();
 
