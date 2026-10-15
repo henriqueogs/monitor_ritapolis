@@ -56,7 +56,7 @@ const {
   getCoberturaPorAno,
 } = require('../services/painel-cidadao-service');
 const { getSaudePipeline } = require('../services/pipeline-saude-service');
-const { getCredorDossie } = require('../transparencia/credor-service');
+const { getCredorDossie, listarCredoresDoPeriodo } = require('../transparencia/credor-service');
 const { parseCredorChave } = require('../transparencia/credor-chave');
 const { buscaUnificada } = require('../busca/busca-unificada');
 const { getEmpenhoDossie } = require('../transparencia/empenho-service');
@@ -98,7 +98,6 @@ const {
   getItensEstruturacaoJobById,
 } = require('../db/itens-estruturacao-jobs-repo');
 const { getCollectionUpdateStatus, startCollectionUpdate } = require('../coletas/update-runner');
-const { listCredores } = require('../db/credores-repo');
 const { searchDocumentos, ensureFtsIndex, rebuildFtsIndex } = require('../db/fts-repo');
 const { ensureDespesasFtsIndex } = require('../db/fts-despesas-repo');
 const {
@@ -1146,14 +1145,13 @@ function createServer() {
   // GET /api/credores — lista de credores
   app.get('/api/credores', (req, res) => {
     const { limite, pagina, busca, exercicio, mandato, finalidade } = req.query;
-    const exercicios = !exercicio && mandato ? resolverExercicios({ mandato: Number(mandato) }) : undefined;
     if (finalidade && !FINALIDADES[finalidade]) { return res.status(400).json({ error: 'Finalidade desconhecida' }); }
-    return res.json(listCredores({
+    return res.json(listarCredoresDoPeriodo({
       limite: limite ? Number(limite) : 50,
       pagina: pagina ? Number(pagina) : 1,
       busca: busca || undefined,
       exercicio: exercicio ? Number(exercicio) : undefined,
-      exercicios,
+      mandato: mandato ? Number(mandato) : undefined,
       finalidade: finalidade || undefined,
     }));
   });

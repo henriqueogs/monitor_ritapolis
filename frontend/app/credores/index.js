@@ -16,17 +16,21 @@ const FINALIDADES = FINALIDADE_OPCOES;
 export default async function CredoresPage({ searchParams: searchParamsPromise }) {
   const searchParams = await searchParamsPromise;
   const busca = searchParams?.busca || '';
-  const exercicio = searchParams?.exercicio ? Number(searchParams.exercicio) : undefined;
-  const mandato = !exercicio && searchParams?.mandato ? Number(searchParams.mandato) : undefined;
-  const periodoTodos = !exercicio && !mandato && searchParams?.periodo === 'todos';
+  const exercicioNumerico = Number(searchParams?.exercicio);
+  const exercicio = Number.isInteger(exercicioNumerico) && exercicioNumerico > 0 ? exercicioNumerico : undefined;
+  const periodoTodos = !exercicio && (searchParams?.exercicio === 'todos' || searchParams?.periodo === 'todos');
+  // Padrão = mandato em curso (§11.1): soma de vida inteira só quando pedida.
+  const mandatoExplicito = !exercicio && !periodoTodos && searchParams?.mandato ? Number(searchParams.mandato) : undefined;
+  const mandato = mandatoExplicito || (!exercicio && !periodoTodos ? new Date().getFullYear() : undefined);
   const finalidade = searchParams?.finalidade || '';
   const pagina = searchParams?.pagina ? Number(searchParams.pagina) : 1;
 
   const resultado = await fetchCredores({ busca, exercicio, mandato, finalidade, pagina, limite: 50 }).catch(() => null);
   const dados = resultado?.dados || [];
+  const periodoLabel = resultado?.periodo?.label || null;
   const periodoParams = {
     ...(exercicio ? { exercicio: String(exercicio) } : {}),
-    ...(mandato ? { mandato: String(mandato) } : {}),
+    ...(mandatoExplicito ? { mandato: String(mandatoExplicito) } : {}),
     ...(periodoTodos ? { periodo: 'todos' } : {}),
   };
   const queryPagina = (p) => `/credores?${new URLSearchParams({
@@ -58,14 +62,14 @@ export default async function CredoresPage({ searchParams: searchParamsPromise }
             borderRadius: 6, fontSize: 14, background: 'var(--surface)',
           }}
         />
-        {mandato && <input type="hidden" name="mandato" value={mandato} />}
-        {periodoTodos && <input type="hidden" name="periodo" value="todos" />}
+        {mandatoExplicito && <input type="hidden" name="mandato" value={mandatoExplicito} />}
         <select
           name="exercicio"
-          defaultValue={exercicio || ''}
+          defaultValue={exercicio || (periodoTodos ? 'todos' : '')}
           style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 14, background: 'var(--surface)' }}
         >
-          <option value="">Todos os anos</option>
+          <option value="">Mandato atual</option>
+          <option value="todos">Todos os anos (acumulado)</option>
           {Array.from({ length: new Date().getFullYear() - 2023 + 1 }, (_, i) => 2023 + i).map((a) => (
             <option key={a} value={a}>{a}</option>
           ))}
@@ -110,7 +114,9 @@ export default async function CredoresPage({ searchParams: searchParamsPromise }
                 <span>Finalidade</span>
                 <span style={{ textAlign: 'center' }}>Anos</span>
                 <span style={{ textAlign: 'center' }}>Empenhos</span>
-                <span style={{ textAlign: 'right' }}>Total recebido</span>
+                <span style={{ textAlign: 'right' }}>
+                  Empenhado{periodoLabel ? <small style={{ display: 'block', fontWeight: 400 }}>{periodoLabel}</small> : null}
+                </span>
               </div>
               {dados.map((c, idx) => (
                 <Link
@@ -153,6 +159,11 @@ export default async function CredoresPage({ searchParams: searchParamsPromise }
                   <span style={{ fontSize: 13, fontVariantNumeric: 'tabular-nums', textAlign: 'center' }}>{c.n_empenhos}</span>
                   <span style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>
                     {formatMoney(c.valor_total)}
+                    {c.valor_estimado_global > 0 ? (
+                      <small style={{ display: 'block', fontWeight: 400, color: 'var(--text-muted)' }}>
+                        + {formatMoney(c.valor_estimado_global)} estim./global
+                      </small>
+                    ) : null}
                   </span>
                 </Link>
               ))}

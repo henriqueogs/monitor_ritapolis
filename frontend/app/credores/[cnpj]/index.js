@@ -159,7 +159,7 @@ export default async function CredorProfilePage({
     );
   }
 
-  const { nome, cnpj, chave, tipo, cargo, resumo, por_ano, por_mandato, por_funcao, finalidades, licitacoes_ganhas, enriquecimento } = perfil;
+  const { nome, cnpj, chave, tipo, cargo, resumo, destaque, acumulado, por_ano, por_mandato, por_funcao, finalidades, licitacoes_ganhas, enriquecimento } = perfil;
   const isPf = tipo === 'pf';
   // JSON-LD: Organization (CNPJ) ou Person (CPF/PF) -- schema mais especifico
   // que o WebSite generico da raiz, ajuda o Google a entender "isso e uma
@@ -226,13 +226,30 @@ export default async function CredorProfilePage({
 
       <div className="admin-metric-grid" style={{ marginBottom: 24 }}>
         <div className="admin-metric-card">
-          <span>
-            Total recebido ({resumo.primeiro_ano === resumo.ultimo_ano
-              ? resumo.primeiro_ano
-              : `${resumo.primeiro_ano}–${resumo.ultimo_ano}`})
-          </span>
-          <strong>{formatMoney(resumo.valor_total)}</strong>
+          <span>Empenhado no mandato {destaque?.mandato}{destaque?.em_curso ? ' (em curso)' : ''}</span>
+          <strong>{formatMoney(destaque?.valor_total ?? 0)}</strong>
+          <p style={{ margin: '4px 0 0', fontSize: 12, opacity: 0.6 }}>
+            {destaque?.n_empenhos ?? 0} empenho{destaque?.n_empenhos === 1 ? '' : 's'} ordinário{destaque?.n_empenhos === 1 ? '' : 's'} no mandato
+          </p>
         </div>
+        {acumulado && (
+          <div className="admin-metric-card">
+            <span>Acumulado ({acumulado.label})</span>
+            <strong style={{ fontSize: '1.1rem' }}>{formatMoney(acumulado.valor_total)}</strong>
+            <p style={{ margin: '4px 0 0', fontSize: 12, opacity: 0.6 }}>
+              Soma de todos os mandatos — veja o histórico por mandato abaixo.
+            </p>
+          </div>
+        )}
+        {resumo.valor_estimado_global > 0 && (
+          <div className="admin-metric-card">
+            <span>Estimativo/global ({acumulado?.label})</span>
+            <strong style={{ fontSize: '1.1rem' }}>{formatMoney(resumo.valor_estimado_global)}</strong>
+            <p style={{ margin: '4px 0 0', fontSize: 12, opacity: 0.6 }}>
+              Empenhos estimativos e globais são previsões/parcelas futuras, não valor recebido.
+            </p>
+          </div>
+        )}
         <div className="admin-metric-card">
           <span>Empenhos</span>
           <strong>{resumo.n_empenhos}</strong>
@@ -253,11 +270,11 @@ export default async function CredorProfilePage({
       {/* Licitado vs Pago — só quando há licitação vinculada */}
       {resumo.total_licitado > 0 && (
         <SectionBlock
-          title="Licitado vs. pago"
-          description="Valor homologado nas licitações vencidas comparado ao total efetivamente pago via empenhos. Diferenças são normais — pagamentos cobrem vários anos e contratos, e nem todo valor licitado é integralmente executado."
+          title="Licitado vs. empenhado"
+          description={`Valor homologado nas licitações vencidas comparado ao total empenhado (ordinário) em todos os anos ${acumulado ? `(${acumulado.label})` : ''}. A fonte não informa o valor efetivamente pago por empenho, então este comparativo não mede pagamento. Diferenças são normais — empenhos cobrem vários anos e contratos, e nem todo valor licitado é integralmente executado.`}
         >
           {(() => {
-            const max = Math.max(resumo.total_licitado, resumo.total_pago, 1);
+            const max = Math.max(resumo.total_licitado, resumo.total_empenhado, 1);
             const Linha = ({ rotulo, valor, cor, sub }) => (
               <div style={{ marginBottom: 14 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -279,8 +296,8 @@ export default async function CredorProfilePage({
                   sub={`${resumo.n_licitacoes_vencidas} licitação${resumo.n_licitacoes_vencidas !== 1 ? 'ões' : ''} vencida${resumo.n_licitacoes_vencidas !== 1 ? 's' : ''}`}
                 />
                 <Linha
-                  rotulo="Pago (empenhos)"
-                  valor={resumo.total_pago}
+                  rotulo="Empenhado (ordinário)"
+                  valor={resumo.total_empenhado}
                   cor="var(--success)"
                   sub={`${resumo.n_empenhos} empenhos em ${resumo.n_anos} ano${resumo.n_anos !== 1 ? 's' : ''}`}
                 />

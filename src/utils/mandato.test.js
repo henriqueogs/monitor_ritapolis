@@ -114,4 +114,13 @@ describe('mandato', () => {
       expect(grupos[0].valor).toBe(3);
     });
   });
+
+describe('exerciciosDoMandato', () => {
+  const { exerciciosDoMandato } = require('./mandato');
+
+  it('devolve os 4 anos do mandato que contém o ano', () => {
+    expect(exerciciosDoMandato(2026)).toEqual([2025, 2026, 2027, 2028]);
+    expect(exerciciosDoMandato(2024)).toEqual([2021, 2022, 2023, 2024]);
+  });
+});
 });
