@@ -38,8 +38,8 @@ const failures = db
   AND (
     (status='failed' AND (
     (kind IN ('extract','extract-anexo') AND version='2' AND error LIKE 'worker_interrupted%')
-    OR (kind='summary' AND version NOT LIKE '%resume-1' AND (error LIKE '%404%' OR error LIKE '%timeout%' OR error LIKE '%nao retornou JSON valido%'))
-    OR (kind='summary' AND version LIKE '%resume-1' AND attempts<3 AND error LIKE '%timed out%')
+    OR (kind='summary' AND version NOT LIKE '%resume-1' AND (error LIKE '%404%' OR error LIKE '%timeout%'))
+    OR (kind='summary' AND version LIKE '%resume-1' AND attempts<3 AND (error LIKE '%timed out%' OR error LIKE '%nao retornou JSON valido%'))
     OR (kind='collection' AND entity IN ('pncp','camara_legislacao','legislacao_prefeitura')
       AND (error LIKE '%url_origem%' OR error LIKE '%maxContentLength%' OR error LIKE '%timeout%'))
     ))
