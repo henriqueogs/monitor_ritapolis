@@ -90,7 +90,8 @@ module.exports = {
   // descobertas (menor volume, mais exige julgamento) — sem mexer no modelo
   // padrão usado por resumo/leitura simples/anexo. Vazio = usa nvidiaModel.
   nvidiaModelInvestigacao: process.env.NVIDIA_MODEL_INVESTIGACAO || null,
-  nvidiaEmbedModel: process.env.NVIDIA_EMBED_MODEL || 'baai/bge-m3',
+  // baai/bge-m3 foi aposentado na NVIDIA (410 Gone, spike S2 de 15/10/2026); 2048 dimensões.
+  nvidiaEmbedModel: process.env.NVIDIA_EMBED_MODEL || 'nvidia/nemotron-3-embed-1b',
   geminiApiKey: process.env.GEMINI_API_KEY || '',
   geminiModel: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
   groqApiKey: process.env.GROQ_API_KEY || '',
