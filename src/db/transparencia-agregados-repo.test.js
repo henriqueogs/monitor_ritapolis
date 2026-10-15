@@ -397,3 +397,19 @@ describe('transparencia-agregados-repo - insumo do detector de gasto atipico (fi
     expect(repo.getAgregadoCredorCategoriaAno()).toEqual([]);
   });
 });
+
+describe('transparencia-agregados-repo - detector preserva o exercicio por linha (fiscal-datas D6)', () => {
+  beforeEach(() => {
+    mockConn.exec('DELETE FROM transparencia_despesas; DELETE FROM documentos;');
+    seq = 0;
+  });
+
+  it('mesmo credor e categoria em 2024 e 2025 geram duas linhas (mandatos nao se misturam)', () => {
+    seedDespesa({ valor: 100, exercicio: 2024, data: '2024-12-31' });
+    seedDespesa({ valor: 40, exercicio: 2025, data: '2025-01-02' });
+
+    const linhas = repo.getAgregadoCredorCategoriaAno().sort((a, b) => a.exercicio - b.exercicio);
+
+    expect(linhas.map((l) => [l.exercicio, l.valor_total])).toEqual([[2024, 100], [2025, 40]]);
+  });
+});

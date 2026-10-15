@@ -103,6 +103,12 @@ describe('credor-service', () => {
       expect(listCredores).toHaveBeenNthCalledWith(2, expect.objectContaining({ exercicios: [2025, 2026, 2027, 2028] }));
     });
 
+    it('exercicio invalido com mandato valido usa o mandato (mesma regra de resolverExercicios)', () => {
+      const r = listarCredoresDoPeriodo({ exercicio: -5, mandato: 2026 });
+
+      expect(r.periodo).toEqual({ tipo: 'mandato', label: '2025–2028' });
+    });
+
     it('mandato inválido cai no acumulado em vez de inventar período', () => {
       const r = listarCredoresDoPeriodo({ mandato: Number.NaN });
 

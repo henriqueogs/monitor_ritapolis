@@ -142,6 +142,25 @@ describe('resolverExercicios / montarPeriodo (fonte unica do periodo)', () => {
     expect(resolverExercicios({ mandato: 'abc', exercicio: -3 })).toBeUndefined();
   });
 
+  it('montarPeriodo com exercicio invalido cai no mandato valido ou no acumulado', () => {
+    expect(montarPeriodo({ exercicio: -3, mandato: 2026 }, [])).toMatchObject({ exercicio: null, mandato: { label: '2025-2028' } });
+    expect(montarPeriodo({ exercicio: Number.NaN }, [])).toMatchObject({ exercicio: null, mandato: null });
+    expect(montarPeriodo({ exercicio: 'abc', mandato: 'x' }, [])).toMatchObject({ exercicio: null, mandato: null });
+  });
+
+  it('mandato aceita QUALQUER ano dentro do mandato (nao so o inicio)', () => {
+    expect(montarPeriodo({ mandato: 2027 }, []).mandato.label).toBe('2025-2028');
+    expect(resolverExercicios({ mandato: 2028 })).toEqual([2025, 2026, 2027, 2028]);
+  });
+
+  it('resolverFiltroPeriodo informa o tipo do filtro aplicado', () => {
+    const { resolverFiltroPeriodo } = require('./mandato');
+
+    expect(resolverFiltroPeriodo({ exercicio: 2024, mandato: 2026 })).toEqual({ tipo: 'exercicio', exercicios: [2024] });
+    expect(resolverFiltroPeriodo({ exercicio: -5, mandato: 2026 }).tipo).toBe('mandato');
+    expect(resolverFiltroPeriodo({})).toEqual({ tipo: 'acumulado', exercicios: undefined });
+  });
+
   it('descreverMandato rotula inicio, fim e label', () => {
     expect(descreverMandato(2025)).toEqual({ inicio: 2025, fim: 2028, label: '2025-2028' });
   });

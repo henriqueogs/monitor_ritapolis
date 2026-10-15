@@ -7,7 +7,7 @@
  */
 
 const { getCredorProfile, listCredores, getCoberturaCredores } = require('../db/credores-repo');
-const { agruparPorMandato, exerciciosDoMandato } = require('../utils/mandato');
+const { agruparPorMandato, resolverFiltroPeriodo } = require('../utils/mandato');
 const { comLinkPortal } = require('./portal-links');
 const { montarDestaqueCredor, rotuloPeriodoLista } = require('./credor-destaque');
 
@@ -30,24 +30,13 @@ function getCredorDossie(cnpj, { anoAtual = new Date().getFullYear() } = {}) {
   };
 }
 
-function resolverPeriodo({ exercicio, mandato }) {
-  const ano = Number(exercicio);
-  if (Number.isInteger(ano) && ano > 0) {
-    return { tipo: 'exercicio', exercicio: ano };
-  }
-  const refMandato = Number(mandato);
-  if (Number.isInteger(refMandato) && refMandato > 0) {
-    return { tipo: 'mandato', exercicios: exerciciosDoMandato(refMandato) };
-  }
-  return { tipo: 'acumulado' };
-}
-
 /**
  * Lista credores de um período (exercício > mandato > acumulado) e devolve o
  * rótulo do período aplicado — a UI nunca exibe soma sem intervalo (§11.1).
  */
 function listarCredoresDoPeriodo({ exercicio, mandato, ...filtros } = {}) {
-  const periodo = resolverPeriodo({ exercicio, mandato });
+  const { tipo, exercicios: exerciciosFiltro } = resolverFiltroPeriodo({ exercicio, mandato });
+  const periodo = tipo === 'exercicio' ? { tipo, exercicio: exerciciosFiltro[0] } : { tipo, exercicios: exerciciosFiltro };
   const resultado = listCredores({
     ...filtros,
     exercicio: periodo.exercicio,

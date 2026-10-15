@@ -407,6 +407,6 @@ describe('credores-repo - licitacoes ganhas sem valor final derivado de empenho 
     const p = getCredorProfile('12345678000190');
 
     const porDoc = Object.fromEntries(p.licitacoes_ganhas.map((l) => [l.documento_id, l.valor_final]));
-    expect(porDoc).toEqual({ 1: 900, 2: null, 3: null });
+    expect(porDoc).toEqual({ 1: 900, 2: null, 3: 4000 }); // 3 = ata (nome de arquivo): legitimo
   });
 });

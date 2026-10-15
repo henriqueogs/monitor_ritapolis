@@ -33,15 +33,23 @@ function descreverMandato(inicio) {
 }
 
 /**
- * Exercícios do filtro de uma rota: ano explícito > mandato (4 anos) > undefined
- * (acumulado). Fonte única — services não redefinem.
+ * Filtro de período de uma rota: ano explícito > mandato (4 anos) > acumulado.
+ * Contrato de `?mandato=`: aceita QUALQUER ano dentro do mandato (não só o de
+ * início); a normalização é por `mandatoInicio`. Fonte única — services não
+ * redefinem.
+ * @returns {{ tipo: 'exercicio'|'mandato'|'acumulado', exercicios?: number[] }}
  */
-function resolverExercicios({ exercicio, mandato } = {}) {
+function resolverFiltroPeriodo({ exercicio, mandato } = {}) {
   const ano = Number(exercicio);
-  if (Number.isInteger(ano) && ano > 0) {return [ano];}
+  if (Number.isInteger(ano) && ano > 0) {return { tipo: 'exercicio', exercicios: [ano] };}
   const ref = Number(mandato);
-  if (Number.isInteger(ref) && ref > 0) {return exerciciosDoMandato(ref);}
-  return undefined;
+  if (Number.isInteger(ref) && ref > 0) {return { tipo: 'mandato', exercicios: exerciciosDoMandato(ref) };}
+  return { tipo: 'acumulado', exercicios: undefined };
+}
+
+/** Exercícios do filtro (undefined = acumulado). Ver resolverFiltroPeriodo. */
+function resolverExercicios(filtro = {}) {
+  return resolverFiltroPeriodo(filtro).exercicios;
 }
 
 /**
@@ -110,6 +118,7 @@ module.exports = {
   exerciciosDoMandato,
   mandatoLabel,
   descreverMandato,
+  resolverFiltroPeriodo,
   resolverExercicios,
   montarPeriodo,
   agruparPorMandato,

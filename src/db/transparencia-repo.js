@@ -16,6 +16,7 @@ const {
   SQL_COUNT_ESTIMADO_GLOBAL,
   SQL_SEM_ORDEM_PAGAMENTO,
   SQL_TIPO_ORDINARIO,
+  sqlTipoOrdinario,
   TIPOS_EMPENHO,
   classificarTipoEmpenho,
 } = require('../transparencia/tipo-empenho');
@@ -454,7 +455,7 @@ function enriquecerDetalhesComEmpenhos() {
     WHERE td.documento_id IS NOT NULL
       AND td.credor_cnpj IS NOT NULL
       AND td.credor_cnpj != ''
-      AND ${SQL_TIPO_ORDINARIO.split('tipo').join('td.tipo')}
+      AND ${sqlTipoOrdinario('td')}
       AND td.tipo NOT LIKE '%INSS%'
       AND td.tipo NOT LIKE '%Extra%'
   `).all().filter((c) => vinculoDocumentoExato(c.modalidade, c.documento_titulo));
@@ -478,8 +479,11 @@ function enriquecerDetalhesComEmpenhos() {
     UPDATE licitacoes_detalhes
     SET vencedor_nome = @nome,
         vencedor_cnpj = @cnpj,
-        origem = 'portal_transparencia',
-        origem_detalhe = 'empenho_agregado',
+        -- origem/origem_detalhe descrevem o valor_final: só mudam quando ele não existe;
+        -- com valor legítimo (IA, contrato) a origem é preservada e o vencedor é anotado.
+        origem = CASE WHEN valor_final IS NULL THEN 'portal_transparencia' ELSE origem END,
+        origem_detalhe = CASE WHEN valor_final IS NULL THEN 'empenho_agregado'
+                              ELSE TRIM(IFNULL(origem_detalhe, '') || ' | vencedor_empenho_agregado') END,
         atualizado_em = CURRENT_TIMESTAMP
     WHERE documento_id = @docId AND vencedor_cnpj IS NULL
   `);

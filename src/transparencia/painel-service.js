@@ -28,8 +28,8 @@ const CAMPOS_SOMA_MANDATO = [
 ];
 
 /**
- * @param {{ exercicio?: number, mandato?: number }} filtro — `mandato` é o ano
- * de início do mandato; escopa pelos 4 exercícios correspondentes.
+ * @param {{ exercicio?: number, mandato?: number }} filtro — `mandato` é QUALQUER ano
+ * dentro do mandato (ver utils/mandato); escopa pelos 4 exercícios correspondentes.
  */
 function getPainelTransparenciaSemCache({ exercicio, mandato } = {}) {
   const exercicios = exercicio ? undefined : resolverExercicios({ mandato });

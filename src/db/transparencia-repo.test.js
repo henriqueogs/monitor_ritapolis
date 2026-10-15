@@ -637,3 +637,28 @@ describe('transparencia-repo - enriquecerDetalhesComEmpenhos nao inventa valor f
     expect(detalhe()).toMatchObject({ vencedor_cnpj: '33333333333333', valor_final: 777 });
   });
 });
+
+describe('transparencia-repo - enriquecimento preserva valor_final legitimo (fiscal-valores V2/V6)', () => {
+  const MOD = 'Pregao - 00012026';
+
+  beforeEach(() => {
+    mockConn.exec('DELETE FROM licitacoes_detalhes; DELETE FROM transparencia_despesas_classificacoes; DELETE FROM transparencia_despesas; DELETE FROM documentos;');
+    seq = 0;
+    mockConn.prepare(
+      `INSERT INTO documentos (id, fonte, tipo, numero, ano, titulo, url_origem)
+       VALUES (1, 'site_prefeitura', 'edital', '1/2026', 2026, 'Pregão 1/2026', 'https://x/1')`
+    ).run();
+  });
+
+  it('doc sem vencedor mas com valor_final de resumo_ai: ganha vencedor, mantem origem e valor', () => {
+    mockConn.prepare("INSERT INTO licitacoes_detalhes (documento_id, valor_final, origem) VALUES (1, 1234, 'resumo_ai')").run();
+    seedDespesa({ credorCnpj: '11111111111111', credorNome: 'EMPRESA A', valor: 100, documentoId: 1, modalidade: MOD });
+
+    expect(repo.enriquecerDetalhesComEmpenhos()).toBe(1);
+
+    const d = mockConn.prepare('SELECT * FROM licitacoes_detalhes WHERE documento_id = 1').get();
+    expect(d).toMatchObject({ vencedor_cnpj: '11111111111111', valor_final: 1234, origem: 'resumo_ai' });
+    expect(d.origem_detalhe).toContain('vencedor_empenho_agregado');
+    expect(d.origem_detalhe).not.toMatch(/^empenho_agregado/);
+  });
+});
