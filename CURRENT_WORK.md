@@ -74,7 +74,7 @@ Plano completo em `docs/PLANO_IA_RAG.md`; decisões em `docs/adr/` (0001–0006,
 *proposto*). Fases: 0 fundações (portas, spikes `sqlite-vec` e custo, eval harness) →
 1 RAG sobre licitações → 2 ferramentas analíticas → 3 núcleo agnóstico → 4 multi-tenant.
 - [x] Plano + ADRs escritos (aguardando revisão/aceite)
-- [ ] Fase 0 — spikes S1/S2, portas + testes de contrato, eval harness
+- [~] Fase 0 — spikes S1/S2 feitos em dev (`docs/spikes/S1-S2-sqlite-vec.md`; falta rodar na VM ARM e medir limite de embedding); portas + testes de contrato e eval harness pendentes
 
 ## 🎯 Próximos passos (plano de 14/10/2026) — melhorar resumos primeiro
 
