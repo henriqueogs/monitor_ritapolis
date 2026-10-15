@@ -238,3 +238,66 @@ describe('anexo completo com retomada', () => {
     expect(salvarResumoAnexo).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('saida invalida da IA no anexo: nova tentativa com temperatura maior', () => {
+  const valido = JSON.stringify({
+    resumo_curto: 'A ata registra a vitoria da Fornecedora Alfa com valor homologado.',
+    pontos_relevantes: [],
+    lacunas: [],
+    confianca: 0.85,
+  });
+  let original;
+  beforeEach(() => {
+    jest.clearAllMocks();
+    original = { aiSummaryEnabled: config.aiSummaryEnabled, aiRetryMax: config.aiRetryMax };
+    Object.assign(config, { aiSummaryEnabled: true, aiRetryMax: 2 });
+  });
+  afterEach(() => Object.assign(config, original));
+
+  it('JSON quebrado: tenta de novo e usa a IA', async () => {
+    const provider = {
+      provider: 'nvidia',
+      model: 'x',
+      generateJson: jest
+        .fn()
+        .mockResolvedValueOnce('{"resumo_curto": "a" "confianca": 0.8}')
+        .mockResolvedValueOnce(valido),
+    };
+
+    const resultado = await summarizeAnexo(anexoBase(), { provider });
+
+    expect(resultado.contrato_versao).toBe(CONTRACT_VERSION_IA);
+    expect(provider.generateJson).toHaveBeenCalledTimes(2);
+    const [primeira, segunda] = provider.generateJson.mock.calls.map(([r]) => r.temperature);
+    expect(segunda).toBeGreaterThan(primeira);
+  });
+
+  it('fora do contrato: tenta de novo e usa a IA', async () => {
+    const provider = {
+      provider: 'nvidia',
+      model: 'x',
+      generateJson: jest
+        .fn()
+        .mockResolvedValueOnce(JSON.stringify({ resumo_curto: '', confianca: 2 }))
+        .mockResolvedValueOnce(valido),
+    };
+
+    const resultado = await summarizeAnexo(anexoBase(), { provider });
+
+    expect(resultado.contrato_versao).toBe(CONTRACT_VERSION_IA);
+    expect(provider.generateJson).toHaveBeenCalledTimes(2);
+  });
+
+  it('esgota as tentativas e cai para o heuristico', async () => {
+    const provider = {
+      provider: 'nvidia',
+      model: 'x',
+      generateJson: jest.fn().mockResolvedValue('{"quebrado": }'),
+    };
+
+    const resultado = await summarizeAnexo(anexoBase(), { provider });
+
+    expect(provider.generateJson).toHaveBeenCalledTimes(3);
+    expect(resultado.contrato_versao).toBe(CONTRACT_VERSION_HEURISTICO);
+  });
+});
