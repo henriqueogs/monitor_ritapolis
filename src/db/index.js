@@ -10,7 +10,7 @@ const { parseResultadosItensLicitacao } = require('../parsers/licitacao-resultad
 const { agruparDocumentosLicitacao, papelLabel } = require('../licitacoes/grupos');
 const { normalizarNumeroDocumento, titulosCompativeis } = require('../licitacoes/processo');
 const { normalizarCnpj, formatarCnpj } = require('../licitacoes/cnpj');
-const { agregarEmpenhosPorCredor } = require('../transparencia/fornecedores-empenhos');
+const { agregarEmpenhosPorCredor, agregarVencedoresPorCnpj } = require('../transparencia/fornecedores-empenhos');
 const {
   inferirValorFinalTipoResultado: inferirValorFinalTipoResultadoDomain,
 } = require('../licitacoes/valor-final-tipo');
@@ -3543,21 +3543,7 @@ function consolidarFornecedores() {
     .all();
 
   // Agrega via detalhes (vencedores)
-  const porDetalhes = db
-    .prepare(
-      `SELECT
-         vencedor_cnpj AS cnpj,
-         vencedor_nome AS nome,
-         COUNT(DISTINCT documento_id) AS n_licitacoes,
-         COUNT(*) AS n_vitorias,
-         SUM(COALESCE(valor_final, 0)) AS total_valor,
-         GROUP_CONCAT(DISTINCT CAST(d.ano AS TEXT)) AS anos
-       FROM licitacoes_detalhes ld
-       JOIN documentos d ON d.id = ld.documento_id
-       WHERE vencedor_cnpj IS NOT NULL AND vencedor_cnpj <> ''
-       GROUP BY vencedor_cnpj`
-    )
-    .all();
+  const porDetalhes = agregarVencedoresPorCnpj(db);
 
   // Agrega via empenhos ordinários (OP e EE/EG fora) — exclui folha e tributos
   const porEmpenhos = agregarEmpenhosPorCredor(db);

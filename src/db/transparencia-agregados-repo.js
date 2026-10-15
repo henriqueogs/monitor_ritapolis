@@ -19,6 +19,7 @@ const {
   SQL_SUM_ESTIMADO_GLOBAL,
   SQL_COUNT_ORDINARIO,
   SQL_SEM_ORDEM_PAGAMENTO,
+  SQL_TIPO_ORDINARIO,
 } = require('../transparencia/tipo-empenho');
 
 const LIMITE_EXEMPLOS = 5;
@@ -221,7 +222,7 @@ function getAgregadoCredorCategoriaAno() {
               COUNT(*) AS n, ROUND(SUM(valor), 2) AS valor_total,
               GROUP_CONCAT(id) AS ids
        FROM transparencia_despesas
-       WHERE credor_nome IS NOT NULL
+       WHERE credor_nome IS NOT NULL AND ${SQL_TIPO_ORDINARIO}
        GROUP BY categoria_economica, exercicio_orcamento, COALESCE(credor_cnpj, credor_nome)`
     )
     .all()

@@ -391,3 +391,22 @@ describe('credores-repo - perfil consolidado sem "pago" falso (fiscal-valores V2
     expect(p.perfil_consolidado).not.toHaveProperty('total_valor_pago');
   });
 });
+
+describe('credores-repo - licitacoes ganhas sem valor final derivado de empenho (fiscal-valores V2)', () => {
+  it('valor_final vindo de empenho_agregado nao aparece como homologado', () => {
+    mockConn.exec('DELETE FROM licitacoes_detalhes; DELETE FROM transparencia_despesas_classificacoes; DELETE FROM transparencia_despesas; DELETE FROM documentos;');
+    seq = 0;
+    seedDespesa({ nome: 'EMPRESA X LTDA', cnpj: '12345678000190', valor: 100 });
+    mockConn.prepare("INSERT INTO documentos (id, fonte, tipo, numero, ano, titulo, url_origem) VALUES (1, 'site_prefeitura', 'edital', '1/2026', 2026, 'T', 'https://x')").run();
+    mockConn.prepare("INSERT INTO documentos (id, fonte, tipo, numero, ano, titulo, url_origem) VALUES (2, 'site_prefeitura', 'edital', '2/2026', 2026, 'T2', 'https://y')").run();
+    mockConn.prepare("INSERT INTO licitacoes_detalhes (documento_id, vencedor_cnpj, valor_final, origem_detalhe) VALUES (1, '12345678000190', 900, NULL)").run();
+    mockConn.prepare("INSERT INTO licitacoes_detalhes (documento_id, vencedor_cnpj, valor_final, origem_detalhe) VALUES (2, '12345678000190', 5000, 'empenho_agregado')").run();
+    mockConn.prepare("INSERT INTO documentos (id, fonte, tipo, numero, ano, titulo, url_origem) VALUES (3, 'site_prefeitura', 'edital', '3/2026', 2026, 'T3', 'https://z')").run();
+    mockConn.prepare("INSERT INTO licitacoes_detalhes (documento_id, vencedor_cnpj, valor_final, origem, origem_detalhe) VALUES (3, '12345678000190', 4000, 'portal_transparencia', 'ATA.pdf')").run();
+
+    const p = getCredorProfile('12345678000190');
+
+    const porDoc = Object.fromEntries(p.licitacoes_ganhas.map((l) => [l.documento_id, l.valor_final]));
+    expect(porDoc).toEqual({ 1: 900, 2: null, 3: 4000 }); // 3 = ata (nome de arquivo): legitimo
+  });
+});

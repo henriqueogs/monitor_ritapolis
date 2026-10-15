@@ -8,7 +8,7 @@
 
 const { db } = require('./index');
 const config = require('../config');
-const { SQL_TIPO_ORDINARIO } = require('../transparencia/tipo-empenho');
+const { SQL_TIPO_ORDINARIO, sqlTipoOrdinario } = require('../transparencia/tipo-empenho');
 const { anosReferenciaYoY, janelaAnos, limiarDispensa } = require('../inteligencia/periodo-inteligencia');
 
 // Exercícios com volume suficiente para análise (mesma regra do seletor do painel).
@@ -26,7 +26,7 @@ function listarAnosSignificativos(anoMin = config.inteligenciaAnoMin) {
 
 // Análises estatísticas olham gasto real: OP duplicaria o empenho e EE/EG são previsão.
 const ORDINARIO = SQL_TIPO_ORDINARIO;
-const ORDINARIO_TD = SQL_TIPO_ORDINARIO.split('tipo').join('td.tipo');
+const ORDINARIO_TD = sqlTipoOrdinario('td');
 
 // CNPJs que representam a própria Prefeitura/entidades governamentais obrigatórias
 // e não devem ser considerados "fornecedores privados" na análise de concentração.

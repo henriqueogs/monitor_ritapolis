@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { DatabaseSync } = require('node:sqlite');
-const { agregarEmpenhosPorCredor } = require('./fornecedores-empenhos');
+const { agregarEmpenhosPorCredor, agregarVencedoresPorCnpj } = require('./fornecedores-empenhos');
 
 function criarBancoMemoria() {
   const conn = new DatabaseSync(':memory:');
@@ -55,5 +55,29 @@ describe('agregarEmpenhosPorCredor (base do ranking de fornecedores)', () => {
     seed(conn, { cnpj: '55555555555555', nome: 'FORNECEDOR REAL', valor: 10 });
 
     expect(agregarEmpenhosPorCredor(conn).map((r) => r.cnpj)).toEqual(['55555555555555']);
+  });
+});
+
+describe('agregarVencedoresPorCnpj (total licitado)', () => {
+  let conn;
+  beforeEach(() => {
+    conn = criarBancoMemoria();
+  });
+
+  function licitacao(id, { cnpj = '11111111111111', valor, origemDetalhe = null, origem = null, ano = 2026 }) {
+    conn.prepare("INSERT INTO documentos (id, fonte, tipo, numero, ano, titulo, url_origem) VALUES (?, 'site_prefeitura', 'edital', ?, ?, 'T', 'https://x')").run(id, `${id}/${ano}`, ano);
+    conn.prepare('INSERT INTO licitacoes_detalhes (documento_id, vencedor_nome, vencedor_cnpj, valor_final, origem_detalhe, origem) VALUES (?, ?, ?, ?, ?, ?)').run(id, 'EMPRESA', cnpj, valor, origemDetalhe, origem);
+  }
+
+  it('soma o valor homologado e ignora valor derivado de empenho (empenhado nao e licitado)', () => {
+    licitacao(1, { valor: 1000 });
+    licitacao(2, { valor: 5000, origemDetalhe: 'empenho_agregado' });
+    licitacao(3, { valor: 300, origemDetalhe: 'empenho_agregado | valor_final_invalidado(1,x)' });
+    licitacao(4, { valor: 700, origem: 'portal_transparencia', origemDetalhe: 'ATA.pdf' }); // ata: legitimo
+    licitacao(5, { valor: 400, origem: 'portal_transparencia' }); // legado
+
+    const [linha] = agregarVencedoresPorCnpj(conn);
+
+    expect(linha).toMatchObject({ cnpj: '11111111111111', n_vitorias: 5, total_valor: 1700 });
   });
 });

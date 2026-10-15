@@ -6,6 +6,7 @@ const {
   SQL_TIPO_ORDEM_PAGAMENTO,
   SQL_TIPO_ESTIMADO_GLOBAL,
   SQL_TIPO_ORDINARIO,
+  sqlTipoOrdinario,
 } = require('./tipo-empenho');
 
 describe('tipo-empenho', () => {
@@ -54,5 +55,25 @@ describe('tipo-empenho', () => {
       expect(op).toBe(1);
       expect(ord).toBe(3);
     });
+  });
+});
+
+describe('sqlTipoOrdinario(alias)', () => {
+  it('qualifica a coluna e funciona em JOIN com tabela que tambem tem "tipo"', () => {
+    const { DatabaseSync } = require('node:sqlite');
+    const db = new DatabaseSync(':memory:');
+    db.exec("CREATE TABLE td (id INTEGER, tipo TEXT); CREATE TABLE d (id INTEGER, tipo TEXT);");
+    db.exec("INSERT INTO td VALUES (1, 'EO - Ordinário'), (2, 'EE - Estimativo'), (3, 'OP - Pagamento');");
+    db.exec("INSERT INTO d VALUES (1, 'edital'), (2, 'edital'), (3, 'edital');");
+
+    const sql = sqlTipoOrdinario('td');
+    const linhas = db.prepare(`SELECT td.id FROM td JOIN d ON d.id = td.id WHERE ${sql}`).all();
+
+    expect(sql).toContain('td.tipo');
+    expect(linhas.map((l) => l.id)).toEqual([1]);
+  });
+
+  it('sem alias devolve o fragmento padrao', () => {
+    expect(sqlTipoOrdinario()).toBe(SQL_TIPO_ORDINARIO);
   });
 });

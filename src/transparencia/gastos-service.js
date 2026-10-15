@@ -15,11 +15,10 @@ const {
 } = require('../db/transparencia-agregados-repo');
 const { classificarCategoria, slugParaPrefixos, CATEGORIAS } = require('./categorias');
 const { slugNomeCredor } = require('./credor-chave');
-const { agruparPorMandato, mandatoInicio, mandatoLabel } = require('../utils/mandato');
+const { agruparPorMandato, resolverExercicios, montarPeriodo } = require('../utils/mandato');
 const { memoTtl } = require('../utils/memo-ttl');
 const { registrar } = require('../services/cache-registry');
 
-const MANDATO_ANOS = 4;
 const TTL_MS = 10 * 60 * 1000;
 const LIMITE_CREDORES = 15;
 const LIMITE_CREDORES_BUSCA = 100;
@@ -32,43 +31,6 @@ function normalizarBusca(busca) {
   const termo = String(busca || '').trim().replace(/\s+/g, ' ').slice(0, BUSCA_MAX_CHARS).trim();
   if (termo.length < BUSCA_MIN_CHARS) {return null;}
   return termo;
-}
-
-function resolverExercicios({ exercicio, mandato } = {}) {
-  const ano = Number(exercicio);
-  if (Number.isInteger(ano) && ano > 0) {return [ano];}
-
-  const inicio = Number(mandato);
-  if (Number.isInteger(inicio) && inicio > 0) {
-    const base = mandatoInicio(inicio);
-    return Array.from({ length: MANDATO_ANOS }, (_, i) => base + i);
-  }
-  return undefined;
-}
-
-function montarPeriodo({ exercicio, mandato }, serieAnual) {
-  const anos = (serieAnual || []).map((r) => Number(r.exercicio)).filter(Number.isInteger);
-  const anosCobertos = anos.length ? [Math.min(...anos), Math.max(...anos)] : [];
-
-  const ano = Number(exercicio);
-  if (Number.isInteger(ano) && ano > 0) {
-    const inicio = mandatoInicio(ano);
-    return {
-      exercicio: ano,
-      mandato: { inicio, fim: inicio + MANDATO_ANOS - 1, label: mandatoLabel(inicio) },
-      anos_cobertos: anosCobertos,
-    };
-  }
-  const inicioMandato = Number(mandato);
-  if (Number.isInteger(inicioMandato) && inicioMandato > 0) {
-    const inicio = mandatoInicio(inicioMandato);
-    return {
-      exercicio: null,
-      mandato: { inicio, fim: inicio + MANDATO_ANOS - 1, label: mandatoLabel(inicio) },
-      anos_cobertos: anosCobertos,
-    };
-  }
-  return { exercicio: null, mandato: null, anos_cobertos: anosCobertos };
 }
 
 function reclassificarPorSlug(rowsBrutas) {

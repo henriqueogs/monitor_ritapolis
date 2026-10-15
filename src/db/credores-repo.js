@@ -11,6 +11,7 @@ const { db } = require('./index');
 const { vinculoDocumentoExato } = require('../licitacoes/modalidade');
 const { parseCredorChave } = require('../transparencia/credor-chave');
 const { getFinalidadeMeta } = require('../transparencia/finalidade');
+const { sqlValorFinalDeEmpenho } = require('../transparencia/valor-final-empenho');
 const {
   SQL_TIPO_ORDEM_PAGAMENTO,
   SQL_TIPO_ORDINARIO,
@@ -372,7 +373,9 @@ function getCredorProfile(identificador) {
     ? db.prepare(`
         SELECT
           ld.documento_id, ld.vencedor_nome, ld.vencedor_cnpj,
-          d.valor_estimado, ld.valor_final, ld.data_homologacao, ld.modalidade,
+          d.valor_estimado,
+          CASE WHEN ${sqlValorFinalDeEmpenho('ld')} THEN NULL ELSE ld.valor_final END AS valor_final,
+          ld.data_homologacao, ld.modalidade,
           d.titulo, d.ano, d.numero
         FROM licitacoes_detalhes ld
         JOIN documentos d ON d.id = ld.documento_id

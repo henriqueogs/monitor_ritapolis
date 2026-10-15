@@ -32,6 +32,16 @@ const SQL_COUNT_ORDINARIO = `SUM(CASE WHEN ${SQL_TIPO_ORDINARIO} THEN 1 ELSE 0 E
 const SQL_COUNT_ESTIMADO_GLOBAL = `SUM(CASE WHEN ${SQL_TIPO_ESTIMADO_GLOBAL} THEN 1 ELSE 0 END)`;
 const SQL_SEM_ORDEM_PAGAMENTO = `NOT ${SQL_TIPO_ORDEM_PAGAMENTO}`;
 
+/**
+ * Fragmento "ordinário" para uma coluna qualificada (ex.: 'td' → td.tipo), útil
+ * quando o JOIN traz outra tabela com coluna `tipo` (documentos).
+ */
+function sqlTipoOrdinario(alias = '') {
+  if (!alias) {return SQL_TIPO_ORDINARIO;}
+  const col = `${alias}.tipo`;
+  return `NOT COALESCE(${col}, '') LIKE 'OP%' AND NOT (COALESCE(${col}, '') LIKE 'EE%' OR COALESCE(${col}, '') LIKE 'EG%')`;
+}
+
 function classificarTipoEmpenho(tipo) {
   const prefixo = String(tipo ?? '').trim().slice(0, 2).toUpperCase();
   if (prefixo === TIPOS_EMPENHO.ESTIMADO) {return TIPOS_EMPENHO.ESTIMADO;}
@@ -51,4 +61,5 @@ module.exports = {
   SQL_COUNT_ORDINARIO,
   SQL_COUNT_ESTIMADO_GLOBAL,
   SQL_SEM_ORDEM_PAGAMENTO,
+  sqlTipoOrdinario,
 };
