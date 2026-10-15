@@ -72,6 +72,8 @@ describe('guard de leitura do valor_final (empenhado não é homologado)', () =>
 
     expect(p.resumo.valor_vencedor_identificado).toBe(1700); // 1000 + 700
     expect(p.por_ano[0].valor_final_total).toBe(1700);
+    // invariante: o total do panorama fecha com a soma por ano
+    expect(p.por_ano.reduce((a, r) => a + r.valor_final_total, 0)).toBe(p.resumo.valor_vencedor_identificado);
     // com vencedor mas sem valor: os dois derivados de empenho passam a contar como "sem valor"
     expect(p.alertas.sem_valor_vencedor).toBe(2);
   });

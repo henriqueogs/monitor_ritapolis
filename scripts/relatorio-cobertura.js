@@ -9,6 +9,7 @@
 
 const { setupDatabase } = require('../src/db/setup');
 const { db, getCoberturaPorAno } = require('../src/db');
+const { sqlValorFinalHomologado } = require('../src/transparencia/valor-final-empenho');
 
 function get(sql) {
   return db.prepare(sql).get();
@@ -27,7 +28,7 @@ function main() {
     resumo: get("SELECT COUNT(DISTINCT documento_id) n FROM documentos_resumos_ai WHERE status='ok' AND contrato_versao NOT LIKE '2.%' AND documento_id IN (SELECT id FROM documentos WHERE tipo='edital')").n,
     analise: get("SELECT COUNT(DISTINCT documento_id) n FROM documentos_resumos_ai WHERE status='ok' AND contrato_versao LIKE '2.%' AND documento_id IN (SELECT id FROM documentos WHERE tipo='edital')").n,
     vencedor: get("SELECT COUNT(*) n FROM licitacoes_detalhes WHERE vencedor_nome IS NOT NULL").n,
-    valor: get("SELECT COUNT(*) n FROM licitacoes_detalhes WHERE valor_final>0").n,
+    valor: get(`SELECT COUNT(*) n FROM licitacoes_detalhes WHERE ${sqlValorFinalHomologado()} > 0`).n,
   };
 
   console.warn(`\n=== COBERTURA — editais: ${totEditais} ===`);
