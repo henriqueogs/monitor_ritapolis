@@ -68,6 +68,83 @@ virou sync, hero/quick links renderizam na hora; hubs (`HomeHubsData`) e
 fontes oficiais (`LimitsAndSourcesData`) viraram componentes async isolados,
 cada um no seu `<Suspense>` com skeleton próprio.
 
+## 🎯 Próximos passos (plano de 14/10/2026) — melhorar resumos primeiro
+
+Fotografia ao vivo (`/api/saude/pipeline`, 15/10 00:27 UTC): status `ok`, 0 falhas
+reais, 0 erros 429 do provider, CI verde, VM sem alerta. Mas a campanha está
+**abaixo do alvo**: 47 docs/24 h (meta 200), `sem_resumo_com_texto`=545,
+`pendentes`=192, `waiting.historical_budget`=1126 (fila esperando orçamento).
+Pipeline: `anexo-summary` 405 failed vs 421 ok; `items` 206 failed vs 55 ok;
+`collection` 62 failed; `extract` 25 failed (categorias: `revisao_fonte`,
+`contrato_rejeitado`, `limite_tamanho`). `ia.scheduler.ultimo_ciclo` = null.
+Obs.: `curl` na home dá 429 — é o Challenge do firewall Vercel, não queda.
+
+### Fase A — Resumos (prioridade)
+- [ ] **A1. Por que 47/200?** Sem acesso à VM (SSH de produção negado nesta
+  sessão), análise por código (`src/pipeline/queue.js` `claim`). Hipóteses:
+  (1) o orçamento é por **tarefa**, não por doc: cada doc gasta extract+summary+
+  items+integrated+facts(+anexo) — 4 h/47 docs ≈ 5 min/doc, não 45 s;
+  (2) `pipeline_runs` registra **toda** execução histórica, inclusive as que
+  falham/dão timeout (até 10 min) e lease expirado (grava 600000 ms fixos) —
+  `items` 206 e `anexo-summary` 405 failed queimam orçamento sem gerar resumo;
+  (3) janelas diferentes: `docs_24h` é rolante, o orçamento zera à 03:00Z.
+  **Feito:** `campanha.consumo_24h` (kind, execuções, docs, erros, min) em
+  `/api/saude/pipeline` (`getConsumoHistorico`, com teste). **Falta:** deploy,
+  ler `consumo_24h` e confirmar qual hipótese; depois decidir (não contar falha
+  no orçamento / limitar retries de histórico / reduzir tipos por doc).
+  **Proposta de fix (A1b, a implementar após ler `consumo_24h`):**
+  1. `pipeline_runs` ganha coluna `ok` (migração `ALTER TABLE` guardada por
+     `PRAGMA table_info` — o `CREATE IF NOT EXISTS` não altera a tabela da
+     produção); `finish()` grava `ok = !error`; lease expirado grava `ok = 0`.
+  2. `claim()`: `spent` e o teto de docs/dia passam a contar só `ok = 1`
+     (falha não queima orçamento nem "vaga" de doc).
+  3. Válvula de segurança: tempo gasto em runs `ok = 0` tem teto próprio
+     (`PIPELINE_HISTORICAL_FAIL_BUDGET_MS`, padrão 25% do orçamento) — sem ele,
+     falhas não contadas deixariam a VM tentando e falhando sem limite
+     (retries já são limitados a 3, mas há >600 jobs failed).
+  4. Testes em `queue.test.js`: falha não consome orçamento; falha acima do teto
+     bloqueia histórico; recente (`historical = 0`) segue intocado.
+  Risco: o orçamento deixa de limitar tempo real de IA/dia (falhas somam por
+  fora) — por isso o item 3. Não resolve a causa das falhas (A2–A4).
+- [ ] **A2. Taxa de falha de `anexo-summary` (49%) e `items` (79%)**: agrupar os
+  failed por `categoria`; separar o que é bug (contrato/JSON, `limite_tamanho`)
+  do que é revisão legítima (`revisao_fonte`). Teste primeiro (TDD) com os casos
+  reais reduzidos a fixtures.
+- [ ] **A3. `limite_tamanho` em `collection`**: chunking/map-reduce em vez de
+  rejeitar documentos grandes.
+- [ ] **A4. `contrato_rejeitado`**: ver prompts/schema; o modelo erra chave
+  (já houve `evidencias_usada`) — decidir entre tolerância no parser e
+  reforço no prompt.
+- [ ] **A5. Fila de revisão** (10 docs aguardando): esvaziar no admin; definir
+  SLA para não virar acúmulo silencioso.
+- [ ] **A6. Alerta de ritmo**: `campanha_abaixo_da_meta` quando `docs_24h` <
+  50% do limite com fila — hoje só alerta por 429 e "sem progresso" (36 h).
+- [ ] **A7. Decidir etapa 3** só depois de A1: se o gargalo é tempo/tarefa,
+  subir limite não adianta; paralelismo exige RAM (VM 954 MB).
+- [ ] **A8. `source-check` pendente (891) e `facts` (191)**: confirmar que
+  drenam ou se estão presos.
+
+### Fase B — Na Lupa
+- [ ] Avaliar fila de revisão com o mantenedor; rodar novo lote de 20; só então
+  religar `DESCOBERTAS_SCHEDULER_ENABLED` (hoje false; 1 público, #57).
+
+### Fase C — OCR Câmara/Prefeitura
+- [ ] Aplicar OCR de indicações, resoluções, requerimentos, leis complementares
+  e 53 imagens da Prefeitura (fluxo local→JSON→VM por `url_pdf`); cada doc
+  aplicado alimenta a fila de A.
+
+### Fase D — Operação
+- [ ] Reconfirmar swap da VM e edge requests da Vercel (pendentes desde 17/09).
+- [ ] Observabilidade de deep-links fora de datacenter (Worker/proxy).
+- [ ] Corrigir contagem de testes citada em "Como retomar" (1041 vs 2067).
+
+### Fase E — Transparência (backlog abaixo)
+- [ ] Fonte de recurso → emendas×empenhos → `coTce` → busca unificada →
+  detector atípico no scheduler.
+
+**Ordem sugerida:** A1 → A2/A3/A4 (em paralelo, arquivos distintos) → A6 → A5/A8
+→ B → C → D → E.
+
 ## ⏳ Pendente — Transparência: dados e vinculação (pós Empenhos v2, 02/07/2026)
 
 Entregue em 02/07 (Empenhos v2): página `/empenho/[id]`, painel "Pra onde

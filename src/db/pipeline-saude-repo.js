@@ -108,7 +108,25 @@ function getCampanhaHistorica({ desde }) {
   };
 }
 
+/**
+ * Onde o orçamento histórico é gasto: execuções, tempo e docs por tipo de
+ * tarefa desde `desde` (ISO). `erros` = execuções cujo job guarda erro.
+ */
+function getConsumoHistorico({ desde }) {
+  return db
+    .prepare(
+      `SELECT r.kind AS kind, COUNT(*) AS execucoes, SUM(r.duration_ms) AS ms,
+              COUNT(DISTINCT r.entity) AS docs,
+              SUM(CASE WHEN j.error IS NOT NULL THEN 1 ELSE 0 END) AS erros
+       FROM pipeline_runs r LEFT JOIN pipeline_jobs j ON j.id = r.job_id
+       WHERE r.historical = 1 AND r.finished_at >= ?
+       GROUP BY r.kind ORDER BY ms DESC`
+    )
+    .all(desde);
+}
+
 module.exports = {
+  getConsumoHistorico,
   getUltimoResumoOk,
   getUltimoErroResumo,
   contarRecentesSemResumo,
