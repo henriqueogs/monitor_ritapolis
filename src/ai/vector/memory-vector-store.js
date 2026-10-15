@@ -89,6 +89,12 @@ function criarMemoryVectorStore({ dims, quantizacao = QUANTIZACOES.FLOAT32 }) {
     }
   }
 
+  async function replaceByDoc(docId, chunks) {
+    chunks.forEach(c => validarChunk(c, dims)); // valida tudo antes de tocar no índice
+    await deleteByDoc(docId);
+    await upsert(chunks);
+  }
+
   async function search({ vetor, k, filtros }) {
     const limite = validarK(k);
     validarVetor(vetor, dims);
@@ -121,7 +127,7 @@ function criarMemoryVectorStore({ dims, quantizacao = QUANTIZACOES.FLOAT32 }) {
   }
 
   async function deleteByDoc(docId) {
-    const alvo = [...entradas.values()].filter(e => e.docId === docId);
+    const alvo = [...entradas.values()].filter(e => String(e.docId) === String(docId));
     alvo.forEach(e => entradas.delete(e.id));
     return alvo.length;
   }
@@ -132,6 +138,7 @@ function criarMemoryVectorStore({ dims, quantizacao = QUANTIZACOES.FLOAT32 }) {
 
   return {
     upsert,
+    replaceByDoc,
     search,
     searchLexical,
     deleteByDoc,

@@ -227,6 +227,68 @@ describe('indexarIncremental', () => {
   });
 });
 
+describe('indexarIncremental: robustez (revisão independente)', () => {
+  it('mudar a configuração do chunker (versaoChunker) invalida o hash e reindexa', async () => {
+    const env = ambiente();
+    const base = { ...env, documentos: [doc(1, 'merenda')], chunker: pequeno };
+    await indexarIncremental({ ...base, versaoChunker: 'v1' });
+
+    expect((await indexarIncremental({ ...base, versaoChunker: 'v1' })).indexados).toBe(0);
+    expect((await indexarIncremental({ ...base, versaoChunker: 'v2' })).indexados).toBe(1);
+  });
+
+  it('docId 5 e "5" são o mesmo documento: não duplica chunks nem estado', async () => {
+    const env = ambiente();
+    await indexarIncremental({ ...env, documentos: [doc(5, 'merenda escolar')], chunker: pequeno });
+
+    const r = await indexarIncremental({
+      ...env,
+      documentos: [doc('5', 'merenda escolar municipal')],
+      chunker: pequeno,
+    });
+
+    expect(r.indexados).toBe(1);
+    expect(await env.store.count()).toBe(1);
+    expect(await env.estado.listarDocIds()).toHaveLength(1);
+  });
+
+  it('falha ao trocar os chunks deixa marcador pendente: se o documento sair da fonte, é removido', async () => {
+    const env = ambiente();
+    const store = {
+      ...env.store,
+      replaceByDoc: async () => {
+        throw new Error('disco cheio');
+      },
+    };
+    await expect(
+      indexarIncremental({ ...env, store, documentos: [doc(7, 'merenda')], chunker: pequeno })
+    ).rejects.toThrow(/disco cheio/);
+    expect(await env.estado.obter('7')).not.toBeNull();
+
+    const r = await indexarIncremental({ ...env, documentos: [], removerAusentes: true });
+
+    expect(r.removidos).toBe(1);
+    expect(await env.estado.obter('7')).toBeNull();
+  });
+
+  it('troca de chunks acontece numa só operação do store (replaceByDoc), sem janela sem dados', async () => {
+    const env = ambiente();
+    const chamadas = [];
+    const store = {
+      ...env.store,
+      deleteByDoc: async id => (chamadas.push('delete'), env.store.deleteByDoc(id)),
+      replaceByDoc: async (id, chunks) => (
+        chamadas.push('replace'),
+        env.store.replaceByDoc(id, chunks)
+      ),
+    };
+
+    await indexarIncremental({ ...env, store, documentos: [doc(1, 'merenda')], chunker: pequeno });
+
+    expect(chamadas).toEqual(['replace']);
+  });
+});
+
 describe('estado de indexação em memória', () => {
   it('guarda, lê, lista e remove hashes por docId', async () => {
     const estado = criarEstadoIndexacaoMemoria();

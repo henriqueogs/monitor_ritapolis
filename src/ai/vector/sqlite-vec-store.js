@@ -23,9 +23,14 @@ function abrirBancoVetorial(caminho) {
   return db;
 }
 
+// Inteiro JS vira REAL no bind; BigInt grava INTEGER (docId 1 e '1' passam a ser comparáveis como texto)
+const docIdParaSql = docId => (Number.isInteger(docId) ? BigInt(docId) : docId);
 const comoBytes = tipado => new Uint8Array(tipado.buffer, tipado.byteOffset, tipado.byteLength);
 
 function prepararSchema(db, { dims, quantizacao }) {
+  const ftsExistia = Boolean(
+    db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'ia_chunks_fts'").get()
+  );
   const tipo = quantizacao === QUANTIZACOES.INT8 ? 'int8' : 'float';
   db.exec(`
     CREATE TABLE IF NOT EXISTS ia_store_meta (chave TEXT PRIMARY KEY, valor TEXT NOT NULL);
@@ -66,6 +71,10 @@ function prepararSchema(db, { dims, quantizacao }) {
   const grava = db.prepare('INSERT OR IGNORE INTO ia_store_meta (chave, valor) VALUES (?, ?)');
   grava.run('dims', String(dims));
   grava.run('quantizacao', quantizacao);
+  if (!ftsExistia) {
+    // índice externo recém-criado sobre chunks que já existiam: sem isso, o ramo lexical não os vê
+    db.exec("INSERT INTO ia_chunks_fts (ia_chunks_fts) VALUES ('rebuild')");
+  }
 }
 
 function condicaoFiltros(filtros) {
@@ -129,7 +138,9 @@ function criarSqliteVecStore({ db, dims, quantizacao = QUANTIZACOES.FLOAT32 }) {
       db.exec('COMMIT');
       return retorno;
     } catch (err) {
-      db.exec('ROLLBACK');
+      if (db.isTransaction) {
+        db.exec('ROLLBACK'); // o SQLite pode já ter revertido (disco cheio, IO): não mascarar a causa
+      }
       throw err;
     }
   };
@@ -146,7 +157,7 @@ function criarSqliteVecStore({ db, dims, quantizacao = QUANTIZACOES.FLOAT32 }) {
       )
       .run(
         c.id,
-        c.docId,
+        docIdParaSql(c.docId),
         c.texto,
         JSON.stringify(c.metadados ?? {}),
         c.url_origem,
@@ -209,13 +220,26 @@ function criarSqliteVecStore({ db, dims, quantizacao = QUANTIZACOES.FLOAT32 }) {
     return linhas.map(paraResultado);
   }
 
-  async function deleteByDoc(docId) {
-    const rowids = db
-      .prepare('SELECT rowid FROM ia_chunks WHERE doc_id = ?')
-      .all(docId)
+  // docId é comparado como texto: 5 e '5' são o mesmo documento (citações também comparam assim)
+  const rowidsDoDoc = docId =>
+    db
+      .prepare('SELECT rowid FROM ia_chunks WHERE CAST(doc_id AS TEXT) = ?')
+      .all(String(docId))
       .map(r => r.rowid);
+
+  async function deleteByDoc(docId) {
+    const rowids = rowidsDoDoc(docId);
     emTransacao(() => apagarPorRowids(rowids));
     return rowids.length;
+  }
+
+  /** Troca TODOS os chunks do documento numa transação: se algo falhar, o índice anterior fica. */
+  async function replaceByDoc(docId, chunks) {
+    chunks.forEach(c => validarChunk(c, dims));
+    emTransacao(() => {
+      apagarPorRowids(rowidsDoDoc(docId));
+      chunks.forEach(gravarChunk);
+    });
   }
 
   const count = async () => db.prepare('SELECT COUNT(*) AS n FROM ia_chunks').get().n;
@@ -224,7 +248,7 @@ function criarSqliteVecStore({ db, dims, quantizacao = QUANTIZACOES.FLOAT32 }) {
     return (await count()) * (int8 ? dims : dims * BYTES_FLOAT32);
   }
 
-  return { upsert, search, searchLexical, deleteByDoc, count, tamanhoBytes };
+  return { upsert, replaceByDoc, search, searchLexical, deleteByDoc, count, tamanhoBytes };
 }
 
 module.exports = { criarSqliteVecStore, abrirBancoVetorial };

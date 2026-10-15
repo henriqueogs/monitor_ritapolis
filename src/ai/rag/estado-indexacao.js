@@ -3,7 +3,8 @@
 /**
  * Estado da indexação incremental: hash do que foi indexado por documento.
  * Porta: obter(docId) → hash | null · gravar(docId, hash) · remover(docId) · listarDocIds().
- * O estado mora junto do índice (mesmo arquivo SQLite) para que reindexar do zero apague os dois.
+ * No SQLite o estado pode morar no mesmo arquivo do índice vetorial. Reindexar do zero = apagar o
+ * arquivo do índice (apagar só as tabelas de chunks deixaria hashes dizendo que está tudo indexado).
  */
 
 function criarEstadoIndexacaoMemoria() {

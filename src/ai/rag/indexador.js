@@ -18,11 +18,14 @@ const CHUNK_PADRAO = Object.freeze({
   maxChunksPerDocument: 200,
 });
 const TAMANHO_LOTE = 64;
+const MARCADOR_PENDENTE = 'pendente';
+const VERSAO_CHUNKER_PADRAO = JSON.stringify(CHUNK_PADRAO);
 
 const chunkerPadrao = texto => splitTextIntoChunks(texto, CHUNK_PADRAO);
 
-function hashDocumento(doc, provider) {
+function hashDocumento(doc, provider, versaoChunker = VERSAO_CHUNKER_PADRAO) {
   const base = JSON.stringify([
+    versaoChunker,
     provider.model,
     provider.dims,
     doc.texto,
@@ -48,11 +51,25 @@ async function embedarEmLotes(provider, textos) {
   return vetores;
 }
 
+const chaveEstado = docId => String(docId); // 5 e '5' são o mesmo documento
+
+async function trocarChunks(store, docId, chunks) {
+  if (typeof store.replaceByDoc === 'function') {
+    return store.replaceByDoc(docId, chunks); // atômico: falhou, o índice anterior fica
+  }
+  await store.deleteByDoc(docId);
+  return store.upsert(chunks);
+}
+
 async function reindexarDocumento({ doc, hash, provider, store, estado, chunker }) {
   const textos = chunker(doc.texto);
   const vetores = textos.length ? await embedarEmLotes(provider, textos) : [];
-  await store.deleteByDoc(doc.docId);
-  await store.upsert(
+  // Marcador ANTES de mexer no índice: se cair no meio, o documento continua rastreável
+  // (reindexa na próxima execução, ou é removido se sair da fonte) em vez de virar órfão.
+  await estado.gravar(chaveEstado(doc.docId), MARCADOR_PENDENTE);
+  await trocarChunks(
+    store,
+    doc.docId,
     textos.map((texto, ordem) => ({
       id: `${doc.docId}#${ordem}`,
       docId: doc.docId,
@@ -63,16 +80,16 @@ async function reindexarDocumento({ doc, hash, provider, store, estado, chunker 
       vetor: vetores[ordem],
     }))
   );
-  await estado.gravar(doc.docId, hash);
+  await estado.gravar(chaveEstado(doc.docId), hash);
   return textos.length;
 }
 
 async function removerAusentes({ documentos, store, estado }) {
-  const atuais = new Set(documentos.map(d => d.docId));
+  const atuais = new Set(documentos.map(d => chaveEstado(d.docId)));
   const ausentes = (await estado.listarDocIds()).filter(id => !atuais.has(id));
   for (const docId of ausentes) {
     await store.deleteByDoc(docId);
-    await estado.remover(docId);
+    await estado.remover(chaveEstado(docId));
   }
   return ausentes.length;
 }
@@ -83,14 +100,15 @@ async function indexarIncremental({
   store,
   estado,
   chunker = chunkerPadrao,
+  versaoChunker,
   limite = Infinity,
   removerAusentes: espelhar = false,
 }) {
   documentos.forEach(validarDocumento);
   const resumo = { indexados: 0, ignorados: 0, removidos: 0, chunks: 0, pendentes: 0 };
   for (const doc of documentos) {
-    const hash = hashDocumento(doc, provider);
-    if ((await estado.obter(doc.docId)) === hash) {
+    const hash = hashDocumento(doc, provider, versaoChunker);
+    if ((await estado.obter(chaveEstado(doc.docId))) === hash) {
       resumo.ignorados += 1;
     } else if (resumo.indexados >= limite) {
       resumo.pendentes += 1;
