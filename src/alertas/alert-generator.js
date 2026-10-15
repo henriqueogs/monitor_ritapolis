@@ -12,6 +12,7 @@
 
 const { db } = require('../db/connection');
 const logger = require('../logger');
+const { sqlValorFinalHomologado } = require('../transparencia/valor-final-empenho');
 const config = require('../config');
 const { getLatestResumoAiByDocumentoId } = require('../db/ai-jobs-repo');
 const { getCategoriasDocumentoId } = require('../db');
@@ -104,7 +105,7 @@ function buscarDocumentosRecentes(since, limite) {
 
 function buscarValorDocumento(documentoId) {
   const det = db
-    .prepare('SELECT valor_final FROM licitacoes_detalhes WHERE documento_id = ?')
+    .prepare(`SELECT ${sqlValorFinalHomologado()} AS valor_final FROM licitacoes_detalhes WHERE documento_id = ?`)
     .get(documentoId);
   if (det && Number(det.valor_final) > 0) {
     return Number(det.valor_final);

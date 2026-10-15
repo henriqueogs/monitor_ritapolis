@@ -19,6 +19,26 @@ function sqlValorFinalDeEmpenho(alias = '') {
   return `(COALESCE(${prefixo}origem_detalhe, '') LIKE 'empenho_agregado%' OR (COALESCE(${prefixo}origem, '') = 'portal_transparencia' AND ${prefixo}origem_detalhe IS NULL))`;
 }
 
+/** Valor final HOMOLOGADO: o derivado de empenho vira NULL (guard de leitura). */
+function sqlValorFinalHomologado(alias = '') {
+  const prefixo = alias ? `${alias}.` : '';
+  return `(CASE WHEN ${sqlValorFinalDeEmpenho(alias)} THEN NULL ELSE ${prefixo}valor_final END)`;
+}
+
+/** Mesma regra do SQL, para linhas já lidas (ex.: SELECT * de licitacoes_detalhes). */
+function ehValorFinalDeEmpenho(linha) {
+  if (!linha) {return false;}
+  const detalhe = linha.origem_detalhe;
+  if (String(detalhe ?? '').startsWith('empenho_agregado')) {return true;}
+  return linha.origem === 'portal_transparencia' && (detalhe === null || detalhe === undefined);
+}
+
+/** Esconde o valor derivado de empenho e registra o motivo; linhas legítimas passam intactas. */
+function ocultarValorFinalDeEmpenho(linha) {
+  if (!ehValorFinalDeEmpenho(linha) || linha.valor_final === null || linha.valor_final === undefined) {return linha;}
+  return { ...linha, valor_final: null, valor_final_oculto: 'derivado_de_empenho' };
+}
+
 const FILTRO_VALOR_DE_EMPENHO = `${sqlValorFinalDeEmpenho()} AND valor_final IS NOT NULL`;
 
 function diagnosticarValorFinalDeEmpenho(db) {
@@ -44,6 +64,9 @@ function limparValorFinalDeEmpenho(db) {
 
 module.exports = {
   sqlValorFinalDeEmpenho,
+  sqlValorFinalHomologado,
+  ehValorFinalDeEmpenho,
+  ocultarValorFinalDeEmpenho,
   diagnosticarValorFinalDeEmpenho,
   listarValorFinalDeEmpenho,
   limparValorFinalDeEmpenho,

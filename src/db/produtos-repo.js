@@ -9,6 +9,7 @@
 const { db } = require('./connection');
 const { likeParam } = require('./documentos-repo');
 const { normalizeText } = require('../utils/text');
+const { sqlValorFinalHomologado } = require('../transparencia/valor-final-empenho');
 const { montarItensProcesso, montarItensProcessoDeIA } = require('../licitacoes/itens-processo-view');
 const { getUltimoItensEstruturadosPorDocumento } = require('./itens-estruturacao-jobs-repo');
 const { assessItemsResult } = require('../ai/itens-processo-evidence');
@@ -193,7 +194,7 @@ function getLicitacaoProdutosByDocumentoId(documentoId) {
   // Visão estruturada (demanda × resultado por lote × global), aditiva:
   // `.dados` segue plano para os consumidores legados (leitura integrada etc.).
   const detalhes = db
-    .prepare('SELECT valor_final, origem FROM licitacoes_detalhes WHERE documento_id = ?')
+    .prepare(`SELECT ${sqlValorFinalHomologado()} AS valor_final, origem FROM licitacoes_detalhes WHERE documento_id = ?`)
     .get(Number(documentoId));
   const valoresProcesso = { valorFinalProcesso: detalhes?.valor_final ?? null, valorFinalOrigem: detalhes?.origem ?? null };
 

@@ -7,6 +7,9 @@ const {
   diagnosticarValorFinalDeEmpenho,
   limparValorFinalDeEmpenho,
   listarValorFinalDeEmpenho,
+  ehValorFinalDeEmpenho,
+  ocultarValorFinalDeEmpenho,
+  sqlValorFinalHomologado,
 } = require('./valor-final-empenho');
 
 function criarBancoMemoria() {
@@ -63,5 +66,46 @@ describe('valor-final-empenho (saneamento do valor_final derivado de empenho)', 
 
     expect(limparValorFinalDeEmpenho(conn)).toEqual({ n: 0 });
     expect(diagnosticarValorFinalDeEmpenho(conn)).toEqual({ n: 0, valor_total: 0 });
+  });
+});
+
+describe('guard de leitura (helpers)', () => {
+  it('ehValorFinalDeEmpenho usa o mesmo marcador do saneamento', () => {
+    expect(ehValorFinalDeEmpenho({ origem: 'portal_transparencia', origem_detalhe: null })).toBe(true);
+    expect(ehValorFinalDeEmpenho({ origem: 'resumo_ai', origem_detalhe: 'empenho_agregado' })).toBe(true);
+    expect(ehValorFinalDeEmpenho({ origem: 'portal_transparencia', origem_detalhe: 'ATA.pdf' })).toBe(false);
+    expect(ehValorFinalDeEmpenho({ origem: 'resumo_ai', origem_detalhe: null })).toBe(false);
+    expect(ehValorFinalDeEmpenho(null)).toBe(false);
+  });
+
+  it('ocultarValorFinalDeEmpenho anula o valor e diz o motivo, sem mutar a linha original', () => {
+    const linha = { valor_final: 5000, origem: 'portal_transparencia', origem_detalhe: null };
+
+    const r = ocultarValorFinalDeEmpenho(linha);
+
+    expect(r).toMatchObject({ valor_final: null, valor_final_oculto: 'derivado_de_empenho' });
+    expect(linha.valor_final).toBe(5000);
+  });
+
+  it('ocultarValorFinalDeEmpenho devolve valor legitimo e linha ausente como estao', () => {
+    const legitima = { valor_final: 10, origem: 'resumo_ai' };
+
+    expect(ocultarValorFinalDeEmpenho(legitima)).toBe(legitima);
+    expect(ocultarValorFinalDeEmpenho(undefined)).toBeUndefined();
+  });
+
+  it('sqlValorFinalHomologado concorda com o helper JS para cada tipo de linha', () => {
+    const conn = criarBancoMemoria();
+    detalhe(conn, 1, { valor: 100, origem: 'resumo_ai' });
+    detalhe(conn, 2, { valor: 200, origem: 'portal_transparencia' });
+    detalhe(conn, 3, { valor: 300, origem: 'portal_transparencia', origemDetalhe: 'ATA.pdf' });
+
+    const sql = sqlValorFinalHomologado('ld');
+    const linhas = conn.prepare(`SELECT ld.documento_id AS id, ${sql} AS v, ld.origem, ld.origem_detalhe FROM licitacoes_detalhes ld ORDER BY ld.documento_id`).all();
+
+    expect(linhas.map((l) => l.v)).toEqual([100, null, 300]);
+    for (const l of linhas) {
+      expect(l.v === null).toBe(ehValorFinalDeEmpenho(l));
+    }
   });
 });
