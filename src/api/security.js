@@ -63,6 +63,8 @@ function classifyRequest(req) {
   if (path.startsWith('/api/admin')) { return method === 'GET' ? 'adminRead' : 'adminWrite'; }
   if (path.startsWith('/api/scheduler')) { return 'adminRead'; }
   if (path.startsWith('/api/coletas')) { return method === 'GET' ? 'adminRead' : 'expensiveJob'; }
+  const caminhoNormalizado = path.toLowerCase().replace(/\/+$/, '');
+  if (caminhoNormalizado === '/api/ia/perguntar' && method === 'POST') { return 'publicAsk'; }
   if (path.startsWith('/api/ia/')) { return method === 'GET' ? 'adminRead' : 'expensiveJob'; }
   if (path.startsWith('/api/alertas/config')) { return method === 'GET' ? 'adminRead' : 'adminWrite'; }
   if (path === '/api/alertas/gerar') { return 'expensiveJob'; }
@@ -173,6 +175,7 @@ function getRateLimit(classification, env = process.env) {
     adminRead: 180,
     adminWrite: 60,
     expensiveJob: 20,
+    publicAsk: 30,
   };
   const key = `RATE_LIMIT_${classification.toUpperCase()}`;
   return Math.max(Number(env[key] || defaults[classification] || 300), 1);

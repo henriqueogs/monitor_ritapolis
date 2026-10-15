@@ -57,9 +57,9 @@ de mandato e de dupla contagem entram no dataset ouro (ADR 0006).
 - [ ] Chunker estrutural (reaproveita `chunk-text.js`, respeita seções/itens; hash para idempotência)
 - [~] Indexador incremental ✅ (`src/ai/rag/indexador.js`: hash por documento = modelo+dims+texto+metadados+origem, só reembeda o que mudou, `limite` por execução, retomável, `removerAusentes`; estado em memória ou SQLite). **Pendente:** job na fila existente com orçamento próprio e a leitura dos documentos reais do banco
 - [x] Recuperador híbrido (FTS5/BM25 + vetor + RRF) com filtros de metadados: `searchLexical` nos dois stores (contrato `lexical-search.contract.js`), `src/ai/rag/{rrf,recuperador-hibrido}.js`; `score` segue sendo o cosseno (evidência), a ordem vem do RRF; gate em `tests/evals/hibrido.test.js`
-- [ ] Serviço `perguntar()`: recupera → monta contexto delimitado → LLM com saída estruturada → verificador → citações
-- [ ] Rota `POST /api/ia/perguntar` fina (sem lógica), rate limit, teto de tokens, kill-switch
-- [ ] Prompt versionado em `src/ai/prompts/` + log de trace (recuperados, tokens, latência)
+- [x] Serviço `perguntar()` (`src/ai/rag/perguntar.js`): recupera → contexto delimitado (limiar de evidência, teto de caracteres) → LLM → **verificador** (citação válida com `url_origem`, valores só do contexto, sem linguagem acusatória; senão vira recusa) → citações e fontes. Orçamento diário e filtros em lista permitida (`ano`, `tipo`, `fonte`)
+- [x] Rota `POST /api/ia/perguntar` fina (`src/api/ia-perguntar.js`): pública, classe de rate limit própria `publicAsk` (30/15 min por IP), `no-store`, erros tipados → HTTP sem vazar mensagem interna. **Kill-switch:** `AI_ASK_ENABLED=true` (padrão desligado) + índice em `AI_VECTOR_DB_PATH`; sem eles a rota responde 503. Ajustes: `AI_ASK_LIMIAR` (calibrar com o modelo real), `AI_ASK_DAILY_LIMIT`, `AI_ASK_EMBED_DIMS`, `AI_ASK_QUANTIZACAO`
+- [x] Prompt versionado em `src/ai/prompts/` + log de trace (`ia.perguntar`: modelo, versão do prompt, recuperados/usados, motivos, latência, tokens estimados; sem texto de documento nem pergunta). **Pendente:** job que popula o índice a partir dos documentos reais (a rota só liga depois dele)
 - [ ] Dataset ouro com 30–50 perguntas reais sobre licitações
 - [ ] UI mínima (campo de pergunta, resposta, citações clicáveis para `url_origem`)
 
