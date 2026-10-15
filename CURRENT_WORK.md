@@ -148,6 +148,12 @@ Obs.: `curl` na home dá 429 — é o Challenge do firewall Vercel, não queda.
   esperar atrás de `items`. **Em aberto (decisão de produto):** abortar cedo no
   primeiro trecho irrecuperável em vez de ler o resto; tolerar `too_big`/campo
   ausente (hoje contraria a regra "nunca truncar"); prompt para citações.
+- [x] **A2b. Cadeia por documento** (`planner.js`, `planDocument`): summary →
+  anexos → (edital: items → integrated) → facts. Antes, `items` em revisão
+  (`failed`) fazia `return` e **travava `facts` do edital para sempre** (10
+  editais de 2026 sem facts/integrated em 15/10; o teto de 30 min por doc
+  aumentaria isso). Agora `facts` segue; `integrated` espera `items` válido.
+  Cobertura medida em 15/10: editais 2019–2025 com items 100%; 2026 73/83.
 - [ ] **A3. `limite_tamanho` em `collection`**: chunking/map-reduce em vez de
   rejeitar documentos grandes.
 - [ ] **A4. `contrato_rejeitado`**: ver prompts/schema; o modelo erra chave
