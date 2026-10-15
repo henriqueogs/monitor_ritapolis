@@ -156,7 +156,7 @@ async function fetchSourcePreview(url) {
   const proxyUrl = String(process.env.COLLECTOR_PROXY_URL || '').trim();
   const proxyToken = String(process.env.COLLECTOR_PROXY_TOKEN || '').trim();
 
-  // O Worker já é autorizado pelo portal e evita bloqueios de IP do Render.
+  // O Worker já é autorizado pelo portal e evita bloqueios de IP do host da API.
   // O destino continua validado por parseSourcePreviewUrl antes desta função.
   if (proxyUrl && proxyToken) {
     return fetch(proxyUrl, {
@@ -352,7 +352,7 @@ function createServer() {
 
   // Proxy público restrito aos PDFs do portal oficial. O portal bloqueia
   // incorporação cross-site em navegadores móveis e também rejeita alguns
-  // IPs de infraestrutura do Vercel; a API Render faz a busca server-side.
+  // IPs de infraestrutura do Vercel; a API faz a busca server-side.
   app.get('/api/source-preview', async (req, res) => {
     const targetUrl = parseSourcePreviewUrl(req.query?.url);
     if (!targetUrl) {
