@@ -321,3 +321,64 @@ describe('teto diario de tempo para items historicos', () => {
     expect(fq.claim(new Date(now.getTime() + 31 * MIN))).toBeNull();
   });
 });
+
+describe('teto de tempo por documento em items historico', () => {
+  const MIN = 60000;
+  const itens = { ...task, kind: 'items', historical: true };
+  const fatia = (queue, job, inicio, minutos) => {
+    queue.finish(job.id, { deferred: true }, new Date(inicio.getTime() + minutos * MIN));
+    return new Date(inicio.getTime() + minutos * MIN + 20000);
+  };
+
+  test('doc que passa do teto vira revisao em vez de ganhar outra fatia', () => {
+    const fq = createQueue(db, {
+      historicalBudgetMs: 6000 * MIN,
+      historicalItemsJobCapMs: 30 * MIN,
+    });
+    const job = fq.enqueue(itens, now);
+    fq.claim(now);
+    const depois = fatia(fq, job, now, 31);
+
+    expect(fq.claim(depois)).toBeNull();
+    expect(fq.get(job.id)).toMatchObject({ status: 'failed' });
+    expect(fq.get(job.id).error).toMatch(/exige revisao/);
+  });
+
+  test('doc abaixo do teto continua sendo processado', () => {
+    const fq = createQueue(db, {
+      historicalBudgetMs: 6000 * MIN,
+      historicalItemsJobCapMs: 30 * MIN,
+    });
+    const job = fq.enqueue(itens, now);
+    fq.claim(now);
+    const depois = fatia(fq, job, now, 8);
+
+    expect(fq.claim(depois).id).toBe(job.id);
+  });
+
+  test('items recente e outros tipos nao tem o teto por documento', () => {
+    const fq = createQueue(db, {
+      historicalBudgetMs: 6000 * MIN,
+      historicalItemsJobCapMs: 30 * MIN,
+    });
+    const recente = fq.enqueue({ ...itens, historical: false, entity: 2 }, now);
+    fq.claim(now);
+    const depois = fatia(fq, recente, now, 31);
+    expect(fq.claim(depois).id).toBe(recente.id);
+
+    const resumo = fq.enqueue({ ...task, historical: true, entity: 3 }, now);
+    fq.finish(recente.id, { result: {} }, depois);
+    fq.claim(depois);
+    const depoisResumo = fatia(fq, resumo, depois, 31);
+    expect(fq.claim(depoisResumo).id).toBe(resumo.id);
+  });
+
+  test('teto padrao por documento e 30 minutos', () => {
+    const fq = createQueue(db, { historicalBudgetMs: 6000 * MIN });
+    const job = fq.enqueue(itens, now);
+    fq.claim(now);
+    const depois = fatia(fq, job, now, 31);
+    expect(fq.claim(depois)).toBeNull();
+    expect(fq.get(job.id).status).toBe('failed');
+  });
+});

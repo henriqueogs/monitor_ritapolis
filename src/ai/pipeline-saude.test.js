@@ -86,6 +86,10 @@ describe('PipelineSaude', () => {
     it('arquivo acima do limite é limite_tamanho', () => {
       expect(classifyAiError('maxContentLength size of 52428800 exceeded')).toBe('limite_tamanho');
     });
+    it('items historico acima do teto de tempo por documento aguarda revisao, nao alerta', () => {
+      const erro = 'Itens: leitura excede o limite de tempo por documento; exige revisao';
+      expect(['limite_tamanho', 'revisao_fonte']).toContain(classifyAiError(erro));
+    });
     it('fonte ilegível ou alterada aguarda revisão', () => {
       expect(classifyAiError('Texto insuficiente: extracao/OCR exige revisao')).toBe('revisao_fonte');
     });
