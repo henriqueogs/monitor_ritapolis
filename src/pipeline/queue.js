@@ -10,6 +10,10 @@ const HISTORICAL_BUDGET_MS = 3000000;
 // Failed runs do not spend the summary budget, but have their own cap so a
 // stuck stage cannot keep the VM retrying forever (default: 25% of the budget).
 const FAIL_BUDGET_SHARE = 0.25;
+// `items` re-reads whole licitacoes in 8-minute slices (one doc took 117 min and
+// failed review at the end); historical items get a daily cap so summaries keep
+// flowing (default: 25% of the budget, any outcome counts).
+const ITEMS_BUDGET_SHARE = 0.25;
 
 function createQueue(
   db,
@@ -17,6 +21,7 @@ function createQueue(
     historicalDocsPerDay = HISTORICAL_DOCS_PER_DAY,
     historicalBudgetMs = HISTORICAL_BUDGET_MS,
     historicalFailBudgetMs = Math.floor(historicalBudgetMs * FAIL_BUDGET_SHARE),
+    historicalItemsBudgetMs = Math.floor(historicalBudgetMs * ITEMS_BUDGET_SHARE),
   } = {}
 ) {
   db.exec(`CREATE TABLE IF NOT EXISTS pipeline_jobs (
@@ -97,10 +102,11 @@ function createQueue(
         lease_until = NULL, available_at = ?, error = 'worker_interrupted'
         WHERE status = 'running' AND lease_until < ?`
       ).run(iso, iso);
-      const { spent, failedMs } = db
+      const { spent, failedMs, itemsMs } = db
         .prepare(
           `SELECT COALESCE(SUM(CASE WHEN ok = 1 THEN duration_ms END),0) AS spent,
-          COALESCE(SUM(CASE WHEN ok = 0 THEN duration_ms END),0) AS failedMs
+          COALESCE(SUM(CASE WHEN ok = 0 THEN duration_ms END),0) AS failedMs,
+          COALESCE(SUM(CASE WHEN kind = 'items' THEN duration_ms END),0) AS itemsMs
         FROM pipeline_runs WHERE historical = 1 AND finished_at >= ?`
         )
         .get(dayStart);
@@ -113,6 +119,7 @@ function createQueue(
         AND (historical = 0 OR kind NOT IN (${aiKinds})
           OR entity IN (SELECT entity FROM pipeline_runs WHERE historical = 1 AND kind IN (${aiKinds}) AND ok = 1 AND finished_at >= @dayStart)
           OR (SELECT COUNT(DISTINCT entity) FROM pipeline_runs WHERE historical = 1 AND kind IN (${aiKinds}) AND ok = 1 AND finished_at >= @dayStart) < @docsPerDay)
+        AND (historical = 0 OR kind <> 'items' OR @itemsMs = 0 OR @itemsMs < @itemsBudgetMs)
         AND NOT EXISTS (SELECT 1 FROM pipeline_jobs WHERE status = 'running')
         ORDER BY priority, created_at, id LIMIT 1`
         )
@@ -122,6 +129,8 @@ function createQueue(
             budgetMs: historicalBudgetMs,
             failedMs,
             failBudgetMs: historicalFailBudgetMs,
+            itemsMs,
+            itemsBudgetMs: historicalItemsBudgetMs,
             docsPerDay: historicalDocsPerDay,
           },
           iso,

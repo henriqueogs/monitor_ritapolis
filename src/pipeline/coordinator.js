@@ -34,6 +34,7 @@ function getQueue() {
       historicalDocsPerDay: config.pipelineHistoricalDocsPerDay,
       historicalBudgetMs: config.pipelineHistoricalBudgetMs,
       historicalFailBudgetMs: config.pipelineHistoricalFailBudgetMs,
+      historicalItemsBudgetMs: config.pipelineHistoricalItemsBudgetMs,
     });
   }
   return queue;
