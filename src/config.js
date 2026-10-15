@@ -91,6 +91,14 @@ module.exports = {
   // padrão usado por resumo/leitura simples/anexo. Vazio = usa nvidiaModel.
   nvidiaModelInvestigacao: process.env.NVIDIA_MODEL_INVESTIGACAO || null,
   // baai/bge-m3 foi aposentado na NVIDIA (410 Gone, spike S2 de 15/10/2026); 2048 dimensões.
+  // Perguntas do cidadão (RAG): desligado por padrão até o índice vetorial existir na VM.
+  aiAskEnabled: String(process.env.AI_ASK_ENABLED || 'false').toLowerCase() === 'true',
+  aiVectorDbPath: process.env.AI_VECTOR_DB_PATH || 'data/ia-vetorial.db',
+  aiAskQuantizacao: process.env.AI_ASK_QUANTIZACAO || 'int8',
+  aiAskEmbedDims: Number(process.env.AI_ASK_EMBED_DIMS || 2048),
+  // Cosseno mínimo para um trecho entrar no contexto. Calibrar com o eval do modelo real.
+  aiAskLimiar: Number(process.env.AI_ASK_LIMIAR || 0.2),
+  aiAskDailyLimit: Number(process.env.AI_ASK_DAILY_LIMIT || 300),
   nvidiaEmbedModel: process.env.NVIDIA_EMBED_MODEL || 'nvidia/nemotron-3-embed-1b',
   geminiApiKey: process.env.GEMINI_API_KEY || '',
   geminiModel: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
