@@ -22,6 +22,8 @@ module.exports = {
   pipelineHistoricalFailBudgetMs: process.env.PIPELINE_HISTORICAL_FAIL_BUDGET_MS
     ? Number(process.env.PIPELINE_HISTORICAL_FAIL_BUDGET_MS)
     : undefined,
+  // Primeiro exercício considerado na análise financeira (antes disso faltam dados de função).
+  inteligenciaAnoMin: Number(process.env.INTELIGENCIA_ANO_MIN || 2023),
   frontendApiUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api',
   collectorDelayMs: Number(process.env.COLETOR_DELAY_MS || 1000),
   collectorTimeoutMs: Number(process.env.COLETOR_TIMEOUT_MS || 15000),

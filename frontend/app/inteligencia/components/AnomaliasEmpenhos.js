@@ -17,13 +17,13 @@ function ZscoreBadge({ zscore }) {
 
 export default function AnomaliasEmpenhos({ dados }) {
   if (!dados) return null;
-  const { exercicio, outliers_valor, possivel_fracionamento, total_outliers, total_fracionamento, limiar_dispensa } = dados;
+  const { exercicio, outliers_valor, possivel_fracionamento, total_outliers, total_fracionamento, limiar_dispensa, limiar_dispensa_extrapolado } = dados;
   const semAlertas = total_outliers === 0 && total_fracionamento === 0;
 
   return (
     <SectionBlock
       title="B2 — Empenhos atípicos e possível fracionamento"
-      description={`Detecção de valores fora do padrão estatístico (z-score ≥ 2,5σ por área funcional) e possível fracionamento de contratos em ${exercicio}. Limiar de dispensa: ${formatMoney(limiar_dispensa)}.`}
+      description={`Detecção de valores fora do padrão estatístico (z-score ≥ 2,5σ por área funcional) e possível fracionamento de contratos em ${exercicio}. Limiar de dispensa: ${formatMoney(limiar_dispensa)}${limiar_dispensa_extrapolado ? ' (valor do último ano conferido — pode estar desatualizado)' : ''}.`}
     >
       <NarrativaAnomalias exercicio={exercicio} />
 

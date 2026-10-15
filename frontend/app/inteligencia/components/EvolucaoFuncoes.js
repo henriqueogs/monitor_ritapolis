@@ -35,7 +35,7 @@ function CrescimentoBadge({ pct }) {
 
 export default function EvolucaoFuncoes({ dados }) {
   if (!dados) return null;
-  const { total_por_ano, por_funcao } = dados;
+  const { total_por_ano, por_funcao, ano_ref: anoRef, ano_anterior: anoAnterior } = dados;
   const anos = total_por_ano?.map((r) => r.ano) || [];
   const principais = (por_funcao || []).filter((f) => f.total_periodo > 500_000).slice(0, 8);
 
@@ -44,7 +44,7 @@ export default function EvolucaoFuncoes({ dados }) {
   return (
     <SectionBlock
       title="B3 — Evolução de gastos por área funcional"
-      description="Empenhos ordinários por exercício e área de governo (ordens de pagamento e empenhos estimativos/globais ficam fora). Crescimento indica variação 2024→2025."
+      description={`Empenhos ordinários por exercício e área de governo (ordens de pagamento e empenhos estimativos/globais ficam fora). Crescimento indica variação ${anoAnterior}→${anoRef}.`}
     >
       {/* Total por ano */}
       {total_por_ano?.length > 0 && (
