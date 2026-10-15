@@ -155,6 +155,74 @@ describe('perguntar()', () => {
     expect(r).toMatchObject({ recusou: true, resposta: MENSAGEM_NAO_FUNDAMENTADA });
   });
 
+  it('recusa do modelo também passa pelo verificador: texto acusatório ou com valor inventado não sai', async () => {
+    for (const texto of ['Houve superfaturamento de R$ 5.000,00.', 'Sem base, mas há fraude.']) {
+      const llm = llmQueResponde({ recusou: true, resposta: texto, citacoes: [] });
+      const { servico } = montar({ llm });
+
+      const r = await servico.perguntar({ pergunta: 'Quem venceu o pregão 001/2025?' });
+
+      expect(r).toMatchObject({ recusou: true, resposta: MENSAGEM_NAO_FUNDAMENTADA });
+    }
+  });
+
+  it('recusa honesta do modelo (sem valores nem acusação) é entregue', async () => {
+    const llm = llmQueResponde({
+      recusou: true,
+      resposta: 'Os documentos não informam o vencedor.',
+      citacoes: [],
+    });
+    const { servico } = montar({ llm });
+
+    const r = await servico.perguntar({ pergunta: 'Quem venceu o pregão 001/2025?' });
+
+    expect(r.resposta).toBe('Os documentos não informam o vencedor.');
+  });
+
+  it('valor tem de estar no documento CITADO, não em qualquer documento do contexto', async () => {
+    const outro = {
+      ...recuperados[0],
+      id: '3#0',
+      docId: 3,
+      texto: 'Contrato de R$ 7.000,00 para outra coisa.',
+      url_origem: 'https://fonte.example/3',
+    };
+    const llm = llmQueResponde({ ...respostaFiel, resposta: 'A vencedora recebeu R$ 7.000,00.' });
+    const { servico } = montar({
+      llm,
+      recuperar: jest.fn().mockResolvedValue([recuperados[0], outro]),
+    });
+
+    const r = await servico.perguntar({ pergunta: 'Quem venceu o pregão 001/2025?' });
+
+    expect(r).toMatchObject({ recusou: true, resposta: MENSAGEM_NAO_FUNDAMENTADA });
+  });
+
+  it('CPF completo no contexto é mascarado antes do LLM e na entrega', async () => {
+    const comCpf = { ...recuperados[0], texto: TEXTO_1 + ' Responsável CPF 123.456.789-09.' };
+    const llm = llmQueResponde({
+      ...respostaFiel,
+      resposta: 'Vencedora: Alimentos Minas Ltda, responsável 123.456.789-09.',
+    });
+    const { servico } = montar({ llm, recuperar: jest.fn().mockResolvedValue([comCpf]) });
+
+    const r = await servico.perguntar({ pergunta: 'Quem venceu o pregão 001/2025?' });
+
+    expect(llm.generateJson.mock.calls[0][0].prompt).not.toMatch(/123.456.789-09/);
+    expect(JSON.stringify(r)).not.toMatch(/123.456.789-09/);
+  });
+
+  it('lista de filtro com mais de 20 valores é rejeitada', async () => {
+    const { servico } = montar();
+
+    await expect(
+      servico.perguntar({
+        pergunta: 'Quem venceu o pregão 001/2025?',
+        filtros: { ano: Array.from({ length: 21 }, (_, i) => 2000 + i) },
+      })
+    ).rejects.toBeInstanceOf(PerguntaInvalidaError);
+  });
+
   it('saída do modelo fora do contrato vira recusa, não erro 500', async () => {
     const llm = llmQueResponde({ oops: true });
     const { servico } = montar({ llm });

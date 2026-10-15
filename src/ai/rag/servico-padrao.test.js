@@ -50,6 +50,27 @@ describe('criarServicoPadrao', () => {
     expect(logger.warn).toHaveBeenCalled();
   });
 
+  it('índice com dimensão diferente: null, aviso e o arquivo não fica travado', async () => {
+    const pasta = fs.mkdtempSync(path.join(os.tmpdir(), 'servico-dims-'));
+    const arquivo = path.join(pasta, 'v.db');
+    try {
+      const db = abrirBancoVetorial(arquivo);
+      criarSqliteVecStore({ db, dims: 8 });
+      db.close();
+
+      const servico = criarServicoPadrao({
+        config: { aiAskEnabled: true, aiVectorDbPath: arquivo, aiAskQuantizacao: 'float32' },
+        logger,
+        fabricas: { criarEmbedding: () => criarFakeEmbeddingProvider(), criarLlm: llmFalso },
+      });
+
+      expect(servico).toBeNull();
+      expect(() => fs.rmSync(pasta, { recursive: true, force: true })).not.toThrow();
+    } finally {
+      fs.rmSync(pasta, { recursive: true, force: true });
+    }
+  });
+
   it('ligado com índice: monta recuperador híbrido + LLM e responde com citação verificada', async () => {
     const pasta = fs.mkdtempSync(path.join(os.tmpdir(), 'servico-padrao-'));
     const arquivo = path.join(pasta, 'v.db');

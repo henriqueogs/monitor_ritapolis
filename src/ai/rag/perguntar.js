@@ -26,10 +26,15 @@ const TEXTO_FILTRO_MAX = 50;
 const K_PADRAO = 5;
 const LIMIAR_EVIDENCIA_PADRAO = 0.2;
 const TETO_CONTEXTO_PADRAO = 12000;
+const FILTRO_LISTA_MAX = 20;
+const RESPOSTA_MAX = 1500;
+const CPF = /\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/g;
+const CPF_MASCARADO = '***.***.***-**';
 const CHAVES_FILTRO = ['ano', 'tipo', 'fonte'];
 const MOTIVO_FORA_DO_CONTRATO = 'fora_do_contrato';
 const MOTIVO_VALOR_INVENTADO = 'valor_inventado';
 const MOTIVO_ACUSATORIA = 'linguagem_acusatoria';
+const MOTIVO_LONGA_DEMAIS = 'resposta_longa_demais';
 
 class PerguntaInvalidaError extends Error {
   constructor(motivo) {
@@ -73,12 +78,19 @@ function validarFiltros(filtros) {
     if (!CHAVES_FILTRO.includes(chave)) {
       throw new PerguntaInvalidaError(`filtro desconhecido: ${chave}`);
     }
-    if (!lista.length || !lista.every(v => valorFiltroValido(v) && (!ano || Number.isInteger(v)))) {
+    if (
+      !lista.length ||
+      lista.length > FILTRO_LISTA_MAX ||
+      !lista.every(v => valorFiltroValido(v) && (!ano || Number.isInteger(v)))
+    ) {
       throw new PerguntaInvalidaError(`valor inválido para o filtro ${chave}`);
     }
   }
   return filtros;
 }
+
+// fiscal-privacidade L1: CPF nunca entra no prompt nem sai na resposta
+const mascararCpf = texto => String(texto ?? '').replace(CPF, CPF_MASCARADO);
 
 function limitarContexto(recuperados, { limiar, teto }) {
   const contexto = [];
@@ -88,7 +100,7 @@ function limitarContexto(recuperados, { limiar, teto }) {
     if (restante <= 0 || (contexto.length && r.texto.length > restante)) {
       break;
     }
-    contexto.push({ ...r, texto: r.texto.slice(0, restante) });
+    contexto.push({ ...r, texto: mascararCpf(r.texto).slice(0, restante) });
     usado += Math.min(r.texto.length, restante);
   }
   return contexto;
@@ -121,21 +133,38 @@ async function gerarResposta({ pergunta, contexto, llm }) {
   }
 }
 
-/** Devolve { aprovada, motivos }: a resposta só segue se passar fundamentação, valores e linguagem. */
+function verificarTexto(texto, contextoBase) {
+  const motivos = [];
+  if (texto.length > RESPOSTA_MAX) {
+    motivos.push(MOTIVO_LONGA_DEMAIS);
+  }
+  if (numerosInventados(texto, contextoBase).length) {
+    motivos.push(MOTIVO_VALOR_INVENTADO);
+  }
+  if (termosAcusatorios(texto).length) {
+    motivos.push(MOTIVO_ACUSATORIA);
+  }
+  return motivos;
+}
+
+/**
+ * Devolve { aprovada, motivos }. TODO texto que o modelo escreveu passa pelo verificador, inclusive
+ * recusas. Valores precisam estar no documento CITADO (não em qualquer documento do contexto).
+ */
 function verificar(resposta, contexto) {
   if (resposta.malformada) {
     return { aprovada: false, motivos: [MOTIVO_FORA_DO_CONTRATO] };
   }
   if (resposta.recusou) {
-    return { aprovada: true, motivos: [] };
+    const motivos = verificarTexto(resposta.resposta, contexto);
+    return { aprovada: motivos.length === 0, motivos };
   }
-  const motivos = [...avaliarFundamentacao({ resposta, contexto }).motivos];
-  if (numerosInventados(resposta.resposta, contexto).length) {
-    motivos.push(MOTIVO_VALOR_INVENTADO);
-  }
-  if (termosAcusatorios(resposta.resposta).length) {
-    motivos.push(MOTIVO_ACUSATORIA);
-  }
+  const citados = new Set(resposta.citacoes.map(c => String(c.doc_id)));
+  const contextoCitado = contexto.filter(c => citados.has(String(c.docId)));
+  const motivos = [
+    ...avaliarFundamentacao({ resposta, contexto }).motivos,
+    ...verificarTexto(resposta.resposta, contextoCitado),
+  ];
   return { aprovada: motivos.length === 0, motivos };
 }
 
@@ -143,7 +172,7 @@ function montarEntrega(resposta, contexto) {
   const porDoc = new Map(contexto.map(c => [String(c.docId), c]));
   const citacoes = resposta.citacoes.map(c => ({
     doc_id: c.doc_id,
-    trecho: c.trecho,
+    trecho: mascararCpf(c.trecho),
     url_origem: c.url_origem,
     origemGenerica: Boolean(porDoc.get(String(c.doc_id))?.origemGenerica),
   }));
@@ -153,7 +182,7 @@ function montarEntrega(resposta, contexto) {
     url_origem: porDoc.get(id).url_origem,
     origemGenerica: Boolean(porDoc.get(id).origemGenerica),
   }));
-  return { recusou: false, resposta: resposta.resposta, citacoes, fontes };
+  return { recusou: false, resposta: mascararCpf(resposta.resposta), citacoes, fontes };
 }
 
 const recusa = mensagem => ({ recusou: true, resposta: mensagem, citacoes: [], fontes: [] });
@@ -187,7 +216,7 @@ function criarServicoPerguntar({
     const { aprovada, motivos } = verificar(bruta, contexto);
     const entrega = aprovada
       ? bruta.recusou
-        ? recusa(bruta.resposta)
+        ? recusa(mascararCpf(bruta.resposta))
         : montarEntrega(bruta, contexto)
       : recusa(MENSAGEM_NAO_FUNDAMENTADA);
 

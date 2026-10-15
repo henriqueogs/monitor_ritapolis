@@ -38,14 +38,14 @@ function traduzirErro(err, res) {
 function criarHandlerPerguntar({ obterServico }) {
   return async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
-    const servico = obterServico();
-    if (!servico) {
-      return res.status(HTTP.UNAVAILABLE).json({ error: 'ia_indisponivel' });
-    }
-    if (!ehObjetoSimples(req.body)) {
-      return res.status(HTTP.BAD_REQUEST).json({ error: 'pergunta_invalida' });
-    }
     try {
+      const servico = obterServico();
+      if (!servico) {
+        return res.status(HTTP.UNAVAILABLE).json({ error: 'ia_indisponivel' });
+      }
+      if (!ehObjetoSimples(req.body)) {
+        return res.status(HTTP.BAD_REQUEST).json({ error: 'pergunta_invalida' });
+      }
       const { pergunta, filtros } = req.body;
       return res.json(await servico.perguntar({ pergunta, filtros }));
     } catch (err) {

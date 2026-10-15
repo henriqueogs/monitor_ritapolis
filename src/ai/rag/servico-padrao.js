@@ -44,11 +44,17 @@ function montar({ config, logger, fabricas }) {
   const abrirBanco = fabricas.abrirBanco ?? abrirBancoPadrao;
   const embedder = (fabricas.criarEmbedding ?? criarEmbeddingPadrao)(config);
   const db = abrirBanco(config.aiVectorDbPath);
-  const store = criarStorePadrao({
-    db,
-    dims: embedder.dims,
-    quantizacao: config.aiAskQuantizacao,
-  });
+  let store;
+  try {
+    store = criarStorePadrao({
+      db,
+      dims: embedder.dims,
+      quantizacao: config.aiAskQuantizacao,
+    });
+  } catch (err) {
+    db.close(); // dimensão/quantização divergentes: não deixar o arquivo travado
+    throw err;
+  }
   const servico = criarServicoPerguntar({
     recuperar: criarRecuperadorHibrido({ provider: embedder, store }),
     llm: (fabricas.criarLlm ?? criarLlmPadrao)(config),

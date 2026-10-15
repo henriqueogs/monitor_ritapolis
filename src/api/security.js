@@ -63,7 +63,8 @@ function classifyRequest(req) {
   if (path.startsWith('/api/admin')) { return method === 'GET' ? 'adminRead' : 'adminWrite'; }
   if (path.startsWith('/api/scheduler')) { return 'adminRead'; }
   if (path.startsWith('/api/coletas')) { return method === 'GET' ? 'adminRead' : 'expensiveJob'; }
-  if (path === '/api/ia/perguntar' && method === 'POST') { return 'publicAsk'; }
+  const caminhoNormalizado = path.toLowerCase().replace(/\/+$/, '');
+  if (caminhoNormalizado === '/api/ia/perguntar' && method === 'POST') { return 'publicAsk'; }
   if (path.startsWith('/api/ia/')) { return method === 'GET' ? 'adminRead' : 'expensiveJob'; }
   if (path.startsWith('/api/alertas/config')) { return method === 'GET' ? 'adminRead' : 'adminWrite'; }
   if (path === '/api/alertas/gerar') { return 'expensiveJob'; }

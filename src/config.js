@@ -9,6 +9,13 @@ function resolveFromRoot(value, fallback) {
   return path.resolve(rootDir, value || fallback);
 }
 
+// Número de env: valor ausente ou inválido (NaN) cai no padrão, nunca vira NaN silencioso
+// (um teto comparado com NaN deixaria de limitar).
+function numeroOuPadrao(value, fallback) {
+  const numero = Number(value);
+  return value !== undefined && value !== '' && Number.isFinite(numero) ? numero : fallback;
+}
+
 module.exports = {
   rootDir,
   dbPath: resolveFromRoot(process.env.DB_PATH, './data/ritapolis.db'),
@@ -95,10 +102,10 @@ module.exports = {
   aiAskEnabled: String(process.env.AI_ASK_ENABLED || 'false').toLowerCase() === 'true',
   aiVectorDbPath: process.env.AI_VECTOR_DB_PATH || 'data/ia-vetorial.db',
   aiAskQuantizacao: process.env.AI_ASK_QUANTIZACAO || 'int8',
-  aiAskEmbedDims: Number(process.env.AI_ASK_EMBED_DIMS || 2048),
+  aiAskEmbedDims: numeroOuPadrao(process.env.AI_ASK_EMBED_DIMS, 2048),
   // Cosseno mínimo para um trecho entrar no contexto. Calibrar com o eval do modelo real.
-  aiAskLimiar: Number(process.env.AI_ASK_LIMIAR || 0.2),
-  aiAskDailyLimit: Number(process.env.AI_ASK_DAILY_LIMIT || 300),
+  aiAskLimiar: numeroOuPadrao(process.env.AI_ASK_LIMIAR, 0.2),
+  aiAskDailyLimit: numeroOuPadrao(process.env.AI_ASK_DAILY_LIMIT, 300),
   nvidiaEmbedModel: process.env.NVIDIA_EMBED_MODEL || 'nvidia/nemotron-3-embed-1b',
   geminiApiKey: process.env.GEMINI_API_KEY || '',
   geminiModel: process.env.GEMINI_MODEL || 'gemini-2.0-flash',

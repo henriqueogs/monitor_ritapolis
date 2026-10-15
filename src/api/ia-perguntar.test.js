@@ -115,6 +115,35 @@ describe('POST /api/ia/perguntar', () => {
   });
 });
 
+describe('handler: serviço que lança na obtenção', () => {
+  it('erro síncrono em obterServico vira 502, não requisição pendurada', async () => {
+    const app = express();
+    app.use(express.json());
+    app.post(
+      '/p',
+      criarHandlerPerguntar({
+        obterServico: () => {
+          throw new Error('boom');
+        },
+      })
+    );
+    const server = await new Promise(r => {
+      const s = app.listen(0, '127.0.0.1', () => r(s));
+    });
+    try {
+      const res = await fetch(`http://127.0.0.1:${server.address().port}/p`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{"pergunta":"abc def"}',
+      });
+
+      expect(res.status).toBe(502);
+    } finally {
+      await new Promise(d => server.close(d));
+    }
+  });
+});
+
 describe('segurança da rota de perguntas', () => {
   const req = (path, method) => ({ path, method, query: {} });
 
@@ -125,6 +154,11 @@ describe('segurança da rota de perguntas', () => {
       windowMs: 900000,
       limit: 30,
     });
+  });
+
+  it('barra final e caixa diferente continuam na rota pública', () => {
+    expect(security.classifyRequest(req('/api/ia/perguntar/', 'POST'))).toBe('publicAsk');
+    expect(security.classifyRequest(req('/API/IA/PERGUNTAR', 'POST'))).toBe('publicAsk');
   });
 
   it('as demais rotas /api/ia/ continuam administrativas', () => {
