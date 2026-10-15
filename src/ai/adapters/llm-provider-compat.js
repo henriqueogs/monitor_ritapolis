@@ -6,9 +6,14 @@
  */
 
 const { extrairObjetoJson } = require('../ports/json-resposta');
+const { classificarErroProvider } = require('../ports/errors');
+
+const ehObjetoSimples = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 
 function criarLLMProviderCompat(legado) {
-  if (typeof legado?.generateJson !== 'function') {throw new TypeError('provedor legado precisa de generateJson()');}
+  if (typeof legado?.generateJson !== 'function') {
+    throw new TypeError('provedor legado precisa de generateJson()');
+  }
 
   return {
     provider: legado.provider || 'compat',
@@ -18,9 +23,9 @@ function criarLLMProviderCompat(legado) {
       try {
         resposta = await legado.generateJson(opcoes);
       } catch (err) {
-        throw new Error(`LLM provider falhou [${legado.model}]: ${err.message}`, { cause: err });
+        throw classificarErroProvider(err, { modelo: legado.model });
       }
-      return resposta !== null && typeof resposta === 'object' ? resposta : extrairObjetoJson(resposta);
+      return ehObjetoSimples(resposta) ? resposta : extrairObjetoJson(resposta);
     },
   };
 }

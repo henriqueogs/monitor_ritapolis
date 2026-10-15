@@ -37,7 +37,9 @@ function runEmbeddingProviderContract(nome, { criar, criarMorto, criarLimitado }
       const r = await p.embed(['licitação de merenda', 'decreto de feriado']);
 
       expect(r).toHaveLength(2);
-      for (const v of r) {expect(v).toHaveLength(p.dims);}
+      for (const v of r) {
+        expect(v).toHaveLength(p.dims);
+      }
       expect(r[0]).not.toEqual(r[1]);
     });
 
@@ -54,7 +56,10 @@ function runEmbeddingProviderContract(nome, { criar, criarMorto, criarLimitado }
 
     it(`aceita mais de ${LOTE_GRANDE} textos de uma vez, sem perder nem trocar a ordem`, async () => {
       const p = criar();
-      const textos = Array.from({ length: LOTE_GRANDE }, (_, i) => `texto numero ${i} sobre pregao ${i * 7}`);
+      const textos = Array.from(
+        { length: LOTE_GRANDE },
+        (_, i) => `texto numero ${i} sobre pregao ${i * 7}`
+      );
 
       const r = await p.embed(textos);
       const primeiro = await p.embed([textos[0]]);
@@ -73,6 +78,14 @@ function runEmbeddingProviderContract(nome, { criar, criarMorto, criarLimitado }
       await expect(p.embed(['x'], { tipo: 'banana' })).rejects.toBeInstanceOf(TypeError);
     });
 
+    it('rejeita entrada que não é lista e textos vazios ou que não são texto (TypeError)', async () => {
+      const p = criar();
+
+      await expect(p.embed(null)).rejects.toBeInstanceOf(TypeError);
+      await expect(p.embed(['ok', ''])).rejects.toBeInstanceOf(TypeError);
+      await expect(p.embed([42])).rejects.toBeInstanceOf(TypeError);
+    });
+
     it('verificarModelo: modelo vivo devolve ok e as dimensões', async () => {
       const p = criar();
 
@@ -87,7 +100,11 @@ function runEmbeddingProviderContract(nome, { criar, criarMorto, criarLimitado }
       it('verificarModelo reporta modelo_indisponivel (sem lançar)', async () => {
         const p = criarMorto();
 
-        expect(await verificarModelo(p)).toEqual({ ok: false, modelo: p.model, motivo: 'modelo_indisponivel' });
+        expect(await verificarModelo(p)).toEqual({
+          ok: false,
+          modelo: p.model,
+          motivo: 'modelo_indisponivel',
+        });
       });
     }
 

@@ -9,10 +9,18 @@
  */
 
 function assertLLMProvider(provider) {
-  if (!provider || typeof provider !== 'object') {throw new TypeError('LLMProvider inválido: objeto esperado');}
-  if (typeof provider.generateJson !== 'function') {throw new TypeError('LLMProvider inválido: falta generateJson()');}
-  if (typeof provider.provider !== 'string') {throw new TypeError('LLMProvider inválido: falta provider (string)');}
-  if (typeof provider.model !== 'string') {throw new TypeError('LLMProvider inválido: falta model (string)');}
+  if (!provider || typeof provider !== 'object') {
+    throw new TypeError('LLMProvider inválido: objeto esperado');
+  }
+  if (typeof provider.generateJson !== 'function') {
+    throw new TypeError('LLMProvider inválido: falta generateJson()');
+  }
+  if (typeof provider.provider !== 'string') {
+    throw new TypeError('LLMProvider inválido: falta provider (string)');
+  }
+  if (typeof provider.model !== 'string') {
+    throw new TypeError('LLMProvider inválido: falta model (string)');
+  }
   return provider;
 }
 

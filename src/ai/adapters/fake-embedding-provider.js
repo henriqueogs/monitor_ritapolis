@@ -9,7 +9,7 @@
  */
 
 const { ModeloIndisponivelError, ProviderLimiteError } = require('../ports/errors');
-const { validarTipo, TIPOS_EMBEDDING } = require('../ports/embedding-provider');
+const { validarTipo, validarTextos, TIPOS_EMBEDDING } = require('../ports/embedding-provider');
 const { normalizar } = require('../vector/quantizacao');
 
 const DIMS_PADRAO = 256;
@@ -18,7 +18,9 @@ const FNV_BASE = 2166136261;
 const STATUS_GONE = 410;
 const RETRY_AFTER_PADRAO_MS = 1000;
 const STOPWORDS = new Set(
-  'a o as os um uma de da do das dos em no na nos nas para por com que e ou se foi ao aos qual quem quais'.split(' ')
+  'a o as os um uma de da do das dos em no na nos nas para por com que e ou se foi ao aos qual quem quais'.split(
+    ' '
+  )
 );
 
 function hashFnv(texto) {
@@ -35,25 +37,36 @@ function tokens(texto) {
     .replace(/[̀-ͯ]/g, '')
     .toLowerCase()
     .split(/[^a-z0-9]+/)
-    .filter((t) => t && !STOPWORDS.has(t));
+    .filter(t => t && !STOPWORDS.has(t));
 }
 
 function vetorDe(texto, dims) {
   const v = new Float32Array(dims);
-  for (const t of tokens(texto)) {v[hashFnv(t) % dims] += 1;}
+  for (const t of tokens(texto)) {
+    v[hashFnv(t) % dims] += 1;
+  }
   return Array.from(normalizar(v));
 }
 
-function criarFakeEmbeddingProvider({ dims = DIMS_PADRAO, modelo = 'fake-hash-embed', falha = null } = {}) {
+function criarFakeEmbeddingProvider({
+  dims = DIMS_PADRAO,
+  modelo = 'fake-hash-embed',
+  falha = null,
+} = {}) {
   return {
     provider: 'fake',
     model: modelo,
     dims,
     async embed(textos, { tipo = TIPOS_EMBEDDING.PASSAGE } = {}) {
       validarTipo(tipo);
-      if (falha === 'modelo_morto') {throw new ModeloIndisponivelError({ modelo, status: STATUS_GONE });}
-      if (falha === 'limite') {throw new ProviderLimiteError({ modelo, retryAfterMs: RETRY_AFTER_PADRAO_MS });}
-      return textos.map((t) => vetorDe(t, dims));
+      validarTextos(textos);
+      if (falha === 'modelo_morto') {
+        throw new ModeloIndisponivelError({ modelo, status: STATUS_GONE });
+      }
+      if (falha === 'limite') {
+        throw new ProviderLimiteError({ modelo, retryAfterMs: RETRY_AFTER_PADRAO_MS });
+      }
+      return textos.map(t => vetorDe(t, dims));
     },
   };
 }

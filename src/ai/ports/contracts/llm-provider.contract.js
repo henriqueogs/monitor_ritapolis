@@ -27,7 +27,12 @@ function runLLMProviderContract(nome, { criar, criarFalho }) {
     });
 
     it('aceita opções de temperatura, timeout e retries sem quebrar', async () => {
-      const r = await criar().generateJson({ prompt: 'x', temperature: 0, timeoutMs: 1000, maxRetries: 0 });
+      const r = await criar().generateJson({
+        prompt: 'x',
+        temperature: 0,
+        timeoutMs: 1000,
+        maxRetries: 0,
+      });
 
       expect(typeof r).toBe('object');
     });

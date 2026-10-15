@@ -6,7 +6,9 @@ function criarFakeLLMProvider({ resposta = {}, falha = null, model = 'fake-llm' 
     provider: 'fake',
     model,
     async generateJson() {
-      if (falha) {throw falha;}
+      if (falha) {
+        throw falha;
+      }
       return structuredClone(resposta);
     },
   };

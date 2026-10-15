@@ -66,12 +66,16 @@ describe('quantizacao int8', () => {
   it('cosseno int8 preserva a ordem dos vizinhos (top-1 igual ao float32)', () => {
     const consulta = normalizar(aleatorio(512, 10));
     const candidatos = Array.from({ length: 200 }, (_, i) => normalizar(aleatorio(512, 100 + i)));
-    candidatos[137] = normalizar(Float32Array.from(consulta, (x, i) => x + aleatorio(512, 999)[i] * 0.1));
+    candidatos[137] = normalizar(
+      Float32Array.from(consulta, (x, i) => x + aleatorio(512, 999)[i] * 0.1)
+    );
 
-    const melhorExato = candidatos.map((c) => cosseno(consulta, c)).reduce((m, s, i, arr) => (s > arr[m] ? i : m), 0);
+    const melhorExato = candidatos
+      .map(c => cosseno(consulta, c))
+      .reduce((m, s, i, arr) => (s > arr[m] ? i : m), 0);
     const qConsulta = quantizarInt8(consulta);
     const melhorInt8 = candidatos
-      .map((c) => cossenoInt8(qConsulta, quantizarInt8(c)))
+      .map(c => cossenoInt8(qConsulta, quantizarInt8(c)))
       .reduce((m, s, i, arr) => (s > arr[m] ? i : m), 0);
 
     expect(melhorExato).toBe(137);

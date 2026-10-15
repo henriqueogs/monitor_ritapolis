@@ -1,6 +1,13 @@
 'use strict';
 
-const { recallAtK, reciprocalRank, media, citacoesValidas, recusaCorreta } = require('./metricas');
+const {
+  recallAtK,
+  reciprocalRank,
+  media,
+  citacoesValidas,
+  recusaCorreta,
+  avaliarFundamentacao,
+} = require('./metricas');
 
 describe('recallAtK', () => {
   it('fração das fontes esperadas presentes no top-k', () => {
@@ -35,35 +42,117 @@ describe('media', () => {
 
 describe('citacoesValidas', () => {
   const contexto = [
-    { docId: 1, texto: 'A empresa Alimentos Minas foi declarada vencedora do pregão.', url_origem: 'https://x/1' },
+    {
+      docId: 1,
+      texto: 'A empresa Alimentos Minas foi declarada vencedora do pregão.',
+      url_origem: 'https://x/1',
+    },
+    {
+      docId: 1,
+      texto: 'O valor homologado foi de dez mil reais para o item único.',
+      url_origem: 'https://x/1',
+    },
     { docId: 2, texto: 'Decreto sobre horário de funcionamento.', url_origem: 'https://x/2' },
   ];
+  const citacao = extra => ({
+    doc_id: 1,
+    trecho: 'declarada vencedora do pregão',
+    url_origem: 'https://x/1',
+    ...extra,
+  });
 
-  it('aceita citação cujo documento está no contexto e cujo trecho existe no texto (sem acento/caixa)', () => {
+  it('aceita citação cujo documento está no contexto, trecho presente (sem acento/caixa) e url igual à do contexto', () => {
     const r = citacoesValidas({
-      citacoes: [{ doc_id: 1, trecho: 'ALIMENTOS MINAS foi declarada vencedora', url_origem: 'https://x/1' }],
+      citacoes: [citacao({ trecho: 'ALIMENTOS MINAS foi declarada vencedora' })],
       contexto,
     });
 
     expect(r).toEqual({ validas: 1, total: 1, invalidas: [] });
   });
 
-  it('rejeita documento fora do contexto, trecho inventado e citação sem url_origem (§11.3)', () => {
+  it('o trecho pode vir de QUALQUER chunk do mesmo documento', () => {
+    const r = citacoesValidas({
+      citacoes: [citacao({ trecho: 'valor homologado foi de dez mil reais' })],
+      contexto,
+    });
+
+    expect(r.validas).toBe(1);
+  });
+
+  it('doc_id como texto casa com o docId numérico', () => {
+    expect(citacoesValidas({ citacoes: [citacao({ doc_id: '1' })], contexto }).validas).toBe(1);
+  });
+
+  it('rejeita documento fora do contexto, trecho inventado, trecho vazio/curto demais e url inventada ou ausente', () => {
     const r = citacoesValidas({
       citacoes: [
-        { doc_id: 99, trecho: 'qualquer', url_origem: 'https://x/99' },
-        { doc_id: 1, trecho: 'a empresa ganhou 1 milhão', url_origem: 'https://x/1' },
-        { doc_id: 2, trecho: 'Decreto sobre horário', url_origem: '' },
+        citacao({ doc_id: 99 }),
+        citacao({ trecho: 'a empresa ganhou 1 milhão de reais' }),
+        citacao({ trecho: '' }),
+        citacao({ trecho: 'de' }),
+        citacao({ url_origem: 'https://inventada.example/x' }),
+        citacao({ url_origem: '' }),
       ],
       contexto,
     });
 
     expect(r.validas).toBe(0);
-    expect(r.invalidas.map((i) => i.motivo)).toEqual(['doc_fora_do_contexto', 'trecho_nao_encontrado', 'sem_url_origem']);
+    expect(r.invalidas.map(i => i.motivo)).toEqual([
+      'doc_fora_do_contexto',
+      'trecho_nao_encontrado',
+      'trecho_curto_demais',
+      'trecho_curto_demais',
+      'url_diferente_do_contexto',
+      'sem_url_origem',
+    ]);
   });
 
-  it('resposta sem nenhuma citação conta como zero válidas de zero', () => {
-    expect(citacoesValidas({ citacoes: [], contexto })).toEqual({ validas: 0, total: 0, invalidas: [] });
+  it('resposta sem citações (ou citacoes indefinido) dá zero de zero, sem lançar', () => {
+    expect(citacoesValidas({ citacoes: [], contexto })).toEqual({
+      validas: 0,
+      total: 0,
+      invalidas: [],
+    });
+    expect(citacoesValidas({ contexto })).toEqual({ validas: 0, total: 0, invalidas: [] });
+  });
+});
+
+describe('avaliarFundamentacao (ADR 0005: citar ou recusar)', () => {
+  const contexto = [
+    {
+      docId: 1,
+      texto: 'A empresa Alimentos Minas foi vencedora do pregão.',
+      url_origem: 'https://x/1',
+    },
+  ];
+  const boa = { doc_id: 1, trecho: 'Alimentos Minas foi vencedora', url_origem: 'https://x/1' };
+
+  it('recusa explícita é fundamentada (não precisa citar)', () => {
+    expect(
+      avaliarFundamentacao({ resposta: { recusou: true, citacoes: [] }, contexto })
+    ).toMatchObject({ ok: true });
+  });
+
+  it('resposta que não recusa e não cita nada FALHA (P4)', () => {
+    const r = avaliarFundamentacao({ resposta: { recusou: false, citacoes: [] }, contexto });
+
+    expect(r).toMatchObject({ ok: false, motivos: ['sem_citacao'] });
+  });
+
+  it('resposta com citação inválida FALHA, listando os motivos', () => {
+    const r = avaliarFundamentacao({
+      resposta: { recusou: false, citacoes: [boa, { ...boa, doc_id: 9 }] },
+      contexto,
+    });
+
+    expect(r.ok).toBe(false);
+    expect(r.motivos).toEqual(['doc_fora_do_contexto']);
+  });
+
+  it('todas as citações válidas → ok', () => {
+    expect(
+      avaliarFundamentacao({ resposta: { recusou: false, citacoes: [boa] }, contexto })
+    ).toMatchObject({ ok: true, validas: 1, total: 1 });
   });
 });
 

@@ -40,26 +40,47 @@ class DimensaoInesperadaError extends Error {
   }
 }
 
-function lerRetryAfterMs(err) {
-  const headers = err?.headers;
-  if (!headers) {return null;}
-  const bruto = typeof headers.get === 'function' ? headers.get('retry-after') : headers['retry-after'];
-  const segundos = Number(bruto);
-  return Number.isFinite(segundos) && bruto !== undefined && bruto !== null ? segundos * MS_POR_SEGUNDO : null;
+function lerHeader(headers, nome) {
+  if (!headers) {
+    return null;
+  }
+  if (typeof headers.get === 'function') {
+    return headers.get(nome);
+  }
+  const chave = Object.keys(headers).find(k => k.toLowerCase() === nome);
+  return chave ? headers[chave] : null;
+}
+
+/** Retry-After em segundos ou data HTTP → ms; vazio, negativo, passado ou lixo → null (desconhecido). */
+function lerRetryAfterMs(err, agora = Date.now()) {
+  const texto = String(lerHeader(err?.headers, 'retry-after') ?? '').trim();
+  if (!texto) {
+    return null;
+  }
+  const segundos = Number(texto);
+  if (Number.isFinite(segundos)) {
+    return segundos >= 0 ? segundos * MS_POR_SEGUNDO : null;
+  }
+  const restante = Date.parse(texto) - agora;
+  return restante > 0 ? restante : null;
 }
 
 const JA_CLASSIFICADO = [ModeloIndisponivelError, ProviderLimiteError, DimensaoInesperadaError];
 
 /** Converte o erro cru do SDK/HTTP no erro tipado da porta (com a causa preservada). */
 function classificarErroProvider(err, { modelo }) {
-  if (JA_CLASSIFICADO.some((Tipo) => err instanceof Tipo)) {return err;}
+  if (JA_CLASSIFICADO.some(Tipo => err instanceof Tipo)) {
+    return err;
+  }
   if (STATUS_MODELO_INDISPONIVEL.includes(err?.status)) {
     return new ModeloIndisponivelError({ modelo, status: err.status, cause: err });
   }
   if (err?.status === STATUS_LIMITE_DE_TAXA) {
     return new ProviderLimiteError({ modelo, retryAfterMs: lerRetryAfterMs(err), cause: err });
   }
-  return new Error(`IA provider falhou [${modelo}]: ${err?.message}`, { cause: err });
+  const generico = new Error(`IA provider falhou [${modelo}]: ${err?.message}`, { cause: err });
+  generico.status = err?.status;
+  return generico;
 }
 
 module.exports = {

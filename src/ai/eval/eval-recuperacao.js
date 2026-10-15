@@ -15,19 +15,20 @@ const K_PADRAO = 5;
 const LIMIAR_EVIDENCIA_PADRAO = 0.2;
 const CASAS = 3;
 
-const unicos = (lista) => [...new Set(lista)];
-const pct = (v) => (v === null ? 'n/d' : v.toFixed(CASAS));
+const unicos = lista => [...new Set(lista)];
+const TIPO = Object.freeze({ RECUPERACAO: 'recuperacao', RECUSA: 'recusa' });
+const formatar = v => (v === null || v === undefined ? 'n/d' : v.toFixed(CASAS));
 
 function avaliarRecusa(item, resultados, limiarEvidencia) {
-  const melhor = Math.max(0, ...resultados.map((r) => r.score));
-  return { id: item.id, tipo: 'recusa', correta: melhor < limiarEvidencia, melhorScore: melhor };
+  const melhor = Math.max(0, ...resultados.map(r => r.score));
+  return { id: item.id, tipo: TIPO.RECUSA, correta: melhor < limiarEvidencia, melhorScore: melhor };
 }
 
 function avaliarRecuperacao(item, resultados, k) {
-  const docIds = unicos(resultados.map((r) => r.docId));
+  const docIds = unicos(resultados.map(r => r.docId));
   return {
     id: item.id,
-    tipo: 'recuperacao',
+    tipo: TIPO.RECUPERACAO,
     recall: recallAtK(item.fontes_esperadas, docIds, k),
     rr: reciprocalRank(item.fontes_esperadas, docIds),
     docIds,
@@ -35,23 +36,32 @@ function avaliarRecuperacao(item, resultados, k) {
 }
 
 function resumir(perguntas) {
-  const recup = perguntas.filter((p) => p.tipo === 'recuperacao');
-  const recusas = perguntas.filter((p) => p.tipo === 'recusa');
+  const recup = perguntas.filter(p => p.tipo === TIPO.RECUPERACAO);
+  const recusas = perguntas.filter(p => p.tipo === TIPO.RECUSA);
   return {
     n_recuperacao: recup.length,
-    recall_medio: media(recup.map((p) => p.recall)),
-    mrr: media(recup.map((p) => p.rr)),
+    recall_medio: media(recup.map(p => p.recall)),
+    mrr: media(recup.map(p => p.rr)),
     n_recusa: recusas.length,
-    recusa_correta_pct: recusas.length ? recusas.filter((p) => p.correta).length / recusas.length : null,
+    recusa_correta_pct: recusas.length
+      ? recusas.filter(p => p.correta).length / recusas.length
+      : null,
   };
 }
 
-async function rodarEvalRecuperacao({ dataset, recuperar, k = K_PADRAO, limiarEvidencia = LIMIAR_EVIDENCIA_PADRAO }) {
+async function rodarEvalRecuperacao({
+  dataset,
+  recuperar,
+  k = K_PADRAO,
+  limiarEvidencia = LIMIAR_EVIDENCIA_PADRAO,
+}) {
   const perguntas = [];
   for (const item of dataset) {
     const resultados = await recuperar(item.pergunta, { k, filtros: item.filtros });
     perguntas.push(
-      item.deve_recusar ? avaliarRecusa(item, resultados, limiarEvidencia) : avaliarRecuperacao(item, resultados, k)
+      item.deve_recusar
+        ? avaliarRecusa(item, resultados, limiarEvidencia)
+        : avaliarRecuperacao(item, resultados, k)
     );
   }
   return { perguntas, resumo: resumir(perguntas) };
@@ -60,23 +70,40 @@ async function rodarEvalRecuperacao({ dataset, recuperar, k = K_PADRAO, limiarEv
 /** Gate: cada métrica precisa existir e atingir o mínimo (falta de dado reprova). */
 function verificarLimiares(resumo, minimos) {
   const falhas = Object.entries(minimos)
-    .filter(([metrica, minimo]) => resumo[metrica] === null || resumo[metrica] === undefined || resumo[metrica] < minimo)
+    .filter(
+      ([metrica, minimo]) =>
+        resumo[metrica] === null || resumo[metrica] === undefined || resumo[metrica] < minimo
+    )
     .map(([metrica, minimo]) => `${metrica}: ${resumo[metrica] ?? 'ausente'} < ${minimo}`);
   return { passou: falhas.length === 0, falhas };
 }
 
+function descreverFalha(p) {
+  if (p.tipo === TIPO.RECUSA) {
+    return `- ${p.id}: melhor score ${formatar(p.melhorScore)} (deveria recusar)`;
+  }
+  return `- ${p.id}: recall ${formatar(p.recall)}, docs ${p.docIds.join(', ') || '—'}`;
+}
+
+const falhou = p => (p.tipo === TIPO.RECUSA ? !p.correta : p.recall !== null && p.recall < 1);
+
 function formatarRelatorio({ resumo, perguntas }) {
   const linhas = [
     '## Eval de recuperação',
-    `- recall_medio: ${pct(resumo.recall_medio)} · mrr: ${pct(resumo.mrr)} · recusa_correta: ${pct(resumo.recusa_correta_pct)}`,
+    `- recall_medio: ${formatar(resumo.recall_medio)} · mrr: ${formatar(resumo.mrr)} · recusa_correta: ${formatar(resumo.recusa_correta_pct)}`,
     `- perguntas: ${resumo.n_recuperacao} de recuperação, ${resumo.n_recusa} de recusa`,
   ];
-  const erradas = perguntas.filter((p) => (p.tipo === 'recusa' ? !p.correta : p.recall !== null && p.recall < 1));
+  const erradas = perguntas.filter(falhou);
   if (erradas.length) {
-    linhas.push('', '### Perguntas com falha');
-    for (const p of erradas) {linhas.push(`- ${p.id}: ${p.tipo === 'recusa' ? `melhor score ${pct(p.melhorScore)}` : `recall ${pct(p.recall)}, docs ${p.docIds.join(', ') || '—'}`}`);}
+    linhas.push('', '### Perguntas com falha', ...erradas.map(descreverFalha));
   }
   return linhas.join('\n');
 }
 
-module.exports = { rodarEvalRecuperacao, verificarLimiares, formatarRelatorio, K_PADRAO, LIMIAR_EVIDENCIA_PADRAO };
+module.exports = {
+  rodarEvalRecuperacao,
+  verificarLimiares,
+  formatarRelatorio,
+  K_PADRAO,
+  LIMIAR_EVIDENCIA_PADRAO,
+};

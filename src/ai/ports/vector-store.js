@@ -11,9 +11,13 @@
 const METODOS = ['upsert', 'search', 'deleteByDoc', 'count', 'tamanhoBytes'];
 
 function assertVectorStore(store) {
-  if (!store || typeof store !== 'object') {throw new TypeError('VectorStore inválido: objeto esperado');}
-  const faltando = METODOS.filter((m) => typeof store[m] !== 'function');
-  if (faltando.length) {throw new TypeError(`VectorStore inválido: faltam ${faltando.join(', ')}`);}
+  if (!store || typeof store !== 'object') {
+    throw new TypeError('VectorStore inválido: objeto esperado');
+  }
+  const faltando = METODOS.filter(m => typeof store[m] !== 'function');
+  if (faltando.length) {
+    throw new TypeError(`VectorStore inválido: faltam ${faltando.join(', ')}`);
+  }
   return store;
 }
 

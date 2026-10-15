@@ -11,7 +11,7 @@ async function indexarCorpus({ provider, store, corpus, tamanhoLote = TAMANHO_LO
   for (let i = 0; i < corpus.length; i += tamanhoLote) {
     const lote = corpus.slice(i, i + tamanhoLote);
     const vetores = await provider.embed(
-      lote.map((c) => c.texto),
+      lote.map(c => c.texto),
       { tipo: TIPOS_EMBEDDING.PASSAGE }
     );
     await store.upsert(
@@ -19,7 +19,9 @@ async function indexarCorpus({ provider, store, corpus, tamanhoLote = TAMANHO_LO
         id: c.id,
         docId: c.docId,
         texto: c.texto,
-        metadados: { ...c.metadados, url_origem: c.url_origem },
+        metadados: c.metadados ?? {},
+        url_origem: c.url_origem,
+        origemGenerica: c.origemGenerica,
         vetor: vetores[idx],
       }))
     );

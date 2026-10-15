@@ -16,9 +16,18 @@ class RespostaNaoJsonError extends Error {
   }
 }
 
-const ehObjeto = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+const ehObjeto = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 
-function tentarParse(texto) {
+const ESCAPES_VALIDOS = '"\\/bfnrtu';
+
+// O modelo às vezes escapa o que o JSON não permite ("R\$", "50\%"): remove só a barra dos
+// escapes inválidos (fix de produção, jobs 4361/4365 de 07/10/2026, hoje em validate-summary.js).
+const repararEscapes = texto =>
+  texto.replace(/\\([\s\S])/g, (par, caractere) =>
+    ESCAPES_VALIDOS.includes(caractere) ? par : caractere
+  );
+
+function interpretar(texto) {
   try {
     const valor = JSON.parse(texto);
     return ehObjeto(valor) ? valor : null;
@@ -27,6 +36,8 @@ function tentarParse(texto) {
   }
 }
 
+const tentarParse = texto => interpretar(texto) || interpretar(repararEscapes(texto));
+
 /** Fim do objeto balanceado que começa em `inicio` (respeita strings e escapes), ou -1. */
 function fimDoObjeto(texto, inicio) {
   let profundidade = 0;
@@ -34,14 +45,20 @@ function fimDoObjeto(texto, inicio) {
   for (let i = inicio; i < texto.length; i += 1) {
     const c = texto[i];
     if (emString) {
-      if (c === '\\') {i += 1;} else if (c === '"') {emString = false;}
+      if (c === '\\') {
+        i += 1;
+      } else if (c === '"') {
+        emString = false;
+      }
     } else if (c === '"') {
       emString = true;
     } else if (c === '{') {
       profundidade += 1;
     } else if (c === '}') {
       profundidade -= 1;
-      if (profundidade === 0) {return i;}
+      if (profundidade === 0) {
+        return i;
+      }
     }
   }
   return -1;
@@ -51,18 +68,27 @@ function buscarObjetoEmbutido(texto) {
   for (let inicio = texto.indexOf('{'); inicio !== -1; inicio = texto.indexOf('{', inicio + 1)) {
     const fim = fimDoObjeto(texto, inicio);
     const objeto = fim === -1 ? null : tentarParse(texto.slice(inicio, fim + 1));
-    if (objeto) {return objeto;}
+    if (objeto) {
+      return objeto;
+    }
   }
   return null;
 }
 
 function extrairObjetoJson(bruto) {
-  if (typeof bruto !== 'string' || !bruto.trim()) {throw new RespostaNaoJsonError(bruto);}
+  if (typeof bruto !== 'string' || !bruto.trim()) {
+    throw new RespostaNaoJsonError(bruto);
+  }
   const cerca = bruto.match(CERCA_MARKDOWN);
-  const texto = (cerca ? cerca[1] : bruto).trim();
-  const objeto = tentarParse(texto) || buscarObjetoEmbutido(texto);
-  if (!objeto) {throw new RespostaNaoJsonError(bruto);}
-  return objeto;
+  // Se a cerca não contém JSON (ex.: um bloco de código antes do JSON real), cai para o texto inteiro.
+  const candidatos = cerca ? [cerca[1].trim(), bruto.trim()] : [bruto.trim()];
+  for (const texto of candidatos) {
+    const objeto = tentarParse(texto) || buscarObjetoEmbutido(texto);
+    if (objeto) {
+      return objeto;
+    }
+  }
+  throw new RespostaNaoJsonError(bruto);
 }
 
 module.exports = { extrairObjetoJson, RespostaNaoJsonError };

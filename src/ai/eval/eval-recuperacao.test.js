@@ -1,6 +1,10 @@
 'use strict';
 
-const { rodarEvalRecuperacao, verificarLimiares, formatarRelatorio } = require('./eval-recuperacao');
+const {
+  rodarEvalRecuperacao,
+  verificarLimiares,
+  formatarRelatorio,
+} = require('./eval-recuperacao');
 
 const dataset = [
   { id: 'q1', pergunta: 'p1', fontes_esperadas: [1] },
@@ -10,21 +14,33 @@ const dataset = [
 
 // Recuperador simulado: devolve chunks (dois do doc 1, para provar a deduplicação por documento).
 function recuperadorPorPergunta(mapa) {
-  return jest.fn(async (pergunta) => mapa[pergunta]);
+  return jest.fn(async pergunta => mapa[pergunta]);
 }
 
 describe('rodarEvalRecuperacao', () => {
   it('mede recall e MRR por documento (chunks do mesmo documento contam uma vez)', async () => {
     const recuperar = recuperadorPorPergunta({
-      p1: [{ docId: 1, score: 0.9 }, { docId: 1, score: 0.8 }, { docId: 5, score: 0.5 }],
-      p2: [{ docId: 9, score: 0.7 }, { docId: 3, score: 0.6 }, { docId: 2, score: 0.5 }],
+      p1: [
+        { docId: 1, score: 0.9 },
+        { docId: 1, score: 0.8 },
+        { docId: 5, score: 0.5 },
+      ],
+      p2: [
+        { docId: 9, score: 0.7 },
+        { docId: 3, score: 0.6 },
+        { docId: 2, score: 0.5 },
+      ],
       p3: [{ docId: 7, score: 0.1 }],
     });
 
     const r = await rodarEvalRecuperacao({ dataset, recuperar, k: 3 });
 
-    expect(r.perguntas.find((p) => p.id === 'q1')).toMatchObject({ recall: 1, rr: 1, docIds: [1, 5] });
-    expect(r.perguntas.find((p) => p.id === 'q2')).toMatchObject({ recall: 1, rr: 0.5 });
+    expect(r.perguntas.find(p => p.id === 'q1')).toMatchObject({
+      recall: 1,
+      rr: 1,
+      docIds: [1, 5],
+    });
+    expect(r.perguntas.find(p => p.id === 'q2')).toMatchObject({ recall: 1, rr: 0.5 });
     expect(r.resumo).toMatchObject({ n_recuperacao: 2, recall_medio: 1, mrr: 0.75 });
   });
 
@@ -62,7 +78,9 @@ describe('verificarLimiares', () => {
   const resumo = { recall_medio: 0.8, mrr: 0.6, recusa_correta_pct: 1 };
 
   it('passa quando todas as métricas atingem o mínimo', () => {
-    expect(verificarLimiares(resumo, { recall_medio: 0.8, mrr: 0.5, recusa_correta_pct: 1 })).toEqual({ passou: true, falhas: [] });
+    expect(
+      verificarLimiares(resumo, { recall_medio: 0.8, mrr: 0.5, recusa_correta_pct: 1 })
+    ).toEqual({ passou: true, falhas: [] });
   });
 
   it('lista cada métrica abaixo do limiar', () => {
@@ -74,7 +92,10 @@ describe('verificarLimiares', () => {
   });
 
   it('métrica ausente (null) conta como falha: gate não passa por falta de dado', () => {
-    const r = verificarLimiares({ recall_medio: null, mrr: 1, recusa_correta_pct: 1 }, { recall_medio: 0.5 });
+    const r = verificarLimiares(
+      { recall_medio: null, mrr: 1, recusa_correta_pct: 1 },
+      { recall_medio: 0.5 }
+    );
 
     expect(r.passou).toBe(false);
   });
@@ -83,7 +104,13 @@ describe('verificarLimiares', () => {
 describe('formatarRelatorio', () => {
   it('gera tabela legível com o resumo e as perguntas que erraram', () => {
     const texto = formatarRelatorio({
-      resumo: { n_recuperacao: 1, recall_medio: 0.5, mrr: 0.25, n_recusa: 0, recusa_correta_pct: null },
+      resumo: {
+        n_recuperacao: 1,
+        recall_medio: 0.5,
+        mrr: 0.25,
+        n_recusa: 0,
+        recusa_correta_pct: null,
+      },
       perguntas: [{ id: 'q9', tipo: 'recuperacao', recall: 0, rr: 0, docIds: [4] }],
     });
 

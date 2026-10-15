@@ -3,6 +3,7 @@
 const { runLLMProviderContract } = require('../ports/contracts/llm-provider.contract');
 const { assertLLMProvider } = require('../ports/llm-provider');
 const { RespostaNaoJsonError } = require('../ports/json-resposta');
+const { ProviderLimiteError, ModeloIndisponivelError } = require('../ports/errors');
 const { criarFakeLLMProvider } = require('./fake-llm-provider');
 const { criarLLMProviderCompat } = require('./llm-provider-compat');
 
@@ -12,7 +13,9 @@ function legado(texto, { falha } = {}) {
     provider: 'nvidia',
     model: 'nvidia/nemotron-3-super',
     generateJson: jest.fn(async () => {
-      if (falha) {throw falha;}
+      if (falha) {
+        throw falha;
+      }
       return texto;
     }),
   };
@@ -40,9 +43,19 @@ describe('criarLLMProviderCompat', () => {
   it('repassa as opções ao provedor legado', async () => {
     const base = legado('{"a":1}');
 
-    await criarLLMProviderCompat(base).generateJson({ prompt: 'p', temperature: 0, timeoutMs: 500, maxRetries: 1 });
+    await criarLLMProviderCompat(base).generateJson({
+      prompt: 'p',
+      temperature: 0,
+      timeoutMs: 500,
+      maxRetries: 1,
+    });
 
-    expect(base.generateJson).toHaveBeenCalledWith({ prompt: 'p', temperature: 0, timeoutMs: 500, maxRetries: 1 });
+    expect(base.generateJson).toHaveBeenCalledWith({
+      prompt: 'p',
+      temperature: 0,
+      timeoutMs: 500,
+      maxRetries: 1,
+    });
   });
 
   it('resposta que não é JSON vira RespostaNaoJsonError (e não um objeto vazio)', async () => {
@@ -59,5 +72,27 @@ describe('criarLLMProviderCompat', () => {
       message: expect.stringContaining('nvidia/nemotron-3-super'),
       cause: causa,
     });
+  });
+});
+
+describe('criarLLMProviderCompat: erros tipados e formatos', () => {
+  it('429 e 410 do provedor viram erros tipados da porta', async () => {
+    const limite = criarLLMProviderCompat(
+      legado('', { falha: Object.assign(new Error('429'), { status: 429 }) })
+    );
+    const morto = criarLLMProviderCompat(
+      legado('', { falha: Object.assign(new Error('410'), { status: 410 }) })
+    );
+
+    await expect(limite.generateJson({ prompt: 'x' })).rejects.toBeInstanceOf(ProviderLimiteError);
+    await expect(morto.generateJson({ prompt: 'x' })).rejects.toBeInstanceOf(
+      ModeloIndisponivelError
+    );
+  });
+
+  it('resposta que já é array não é aceita como objeto', async () => {
+    const p = criarLLMProviderCompat({ ...legado(''), generateJson: async () => [1, 2] });
+
+    await expect(p.generateJson({ prompt: 'x' })).rejects.toBeInstanceOf(RespostaNaoJsonError);
   });
 });

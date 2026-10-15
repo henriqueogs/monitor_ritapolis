@@ -4,9 +4,13 @@ const { runVectorStoreContract } = require('../ports/contracts/vector-store.cont
 const { criarMemoryVectorStore } = require('./memory-vector-store');
 const { normalizar } = require('./quantizacao');
 
-runVectorStoreContract('memória', ({ dims, quantizacao }) => criarMemoryVectorStore({ dims, quantizacao }), {
-  quantizacoes: ['float32', 'int8'],
-});
+runVectorStoreContract(
+  'memória',
+  ({ dims, quantizacao }) => criarMemoryVectorStore({ dims, quantizacao }),
+  {
+    quantizacoes: ['float32', 'int8'],
+  }
+);
 
 function aleatorio(dims, semente) {
   let s = semente;
@@ -26,6 +30,7 @@ describe('memory-vector-store: int8 vs float32', () => {
     docId: i,
     texto: `t${i}`,
     metadados: {},
+    url_origem: `https://fonte.example/${i}`,
     vetor: aleatorio(DIMS, 100 + i),
   }));
 
@@ -44,10 +49,14 @@ describe('memory-vector-store: int8 vs float32', () => {
     for (let i = 0; i < consultas; i += 1) {
       const alvo = chunks[(i * 3) % N].vetor;
       const ruido = aleatorio(DIMS, 5000 + i);
-      const consulta = Array.from(normalizar(Float32Array.from(alvo, (x, j) => x + ruido[j] * 0.3)));
+      const consulta = Array.from(
+        normalizar(Float32Array.from(alvo, (x, j) => x + ruido[j] * 0.3))
+      );
       const [a] = await exato.search({ vetor: consulta, k: 1 });
       const [b] = await quant.search({ vetor: consulta, k: 1 });
-      if (a.id === b.id) {acertos += 1;}
+      if (a.id === b.id) {
+        acertos += 1;
+      }
     }
 
     expect(acertos / consultas).toBeGreaterThanOrEqual(0.95);
@@ -58,10 +67,10 @@ describe('memory-vector-store: int8 vs float32', () => {
     const quant = await criarCom('int8');
     const consulta = aleatorio(DIMS, 777);
 
-    const topExato = (await exato.search({ vetor: consulta, k: 10 })).map((r) => r.id);
-    const topInt8 = (await quant.search({ vetor: consulta, k: 10 })).map((r) => r.id);
+    const topExato = (await exato.search({ vetor: consulta, k: 10 })).map(r => r.id);
+    const topInt8 = (await quant.search({ vetor: consulta, k: 10 })).map(r => r.id);
 
-    const comuns = topInt8.filter((id) => topExato.includes(id)).length;
+    const comuns = topInt8.filter(id => topExato.includes(id)).length;
     expect(comuns / 10).toBeGreaterThanOrEqual(0.9);
   });
 
@@ -76,5 +85,34 @@ describe('memory-vector-store: int8 vs float32', () => {
 
   it('rejeita quantização desconhecida', () => {
     expect(() => criarMemoryVectorStore({ dims: 8, quantizacao: 'bit' })).toThrow(/quantiza/i);
+  });
+});
+
+describe('memory-vector-store: scores do int8 acompanham o float32', () => {
+  it('diferença de score no top-10 abaixo de 0,02', async () => {
+    const dims = 256;
+    const chunks = Array.from({ length: 100 }, (_, i) => ({
+      id: `c${i}`,
+      docId: i,
+      texto: 't',
+      metadados: {},
+      url_origem: 'https://x',
+      vetor: aleatorio(dims, 300 + i),
+    }));
+    const exato = criarMemoryVectorStore({ dims, quantizacao: 'float32' });
+    const quant = criarMemoryVectorStore({ dims, quantizacao: 'int8' });
+    await exato.upsert(chunks);
+    await quant.upsert(chunks);
+    const consulta = aleatorio(dims, 4242);
+
+    const a = await exato.search({ vetor: consulta, k: 10 });
+    const b = await quant.search({ vetor: consulta, k: 10 });
+    const porId = Object.fromEntries(b.map(r => [r.id, r.score]));
+
+    for (const r of a) {
+      if (porId[r.id] !== undefined) {
+        expect(Math.abs(r.score - porId[r.id])).toBeLessThan(0.02);
+      }
+    }
   });
 });

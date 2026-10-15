@@ -11,7 +11,7 @@
     "test:e2e": "playwright test",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "eval:ia": "jest tests/evals",
+    "eval:recuperacao": "jest tests/evals",
     "lint": "eslint src/ scripts/ --ext .js",
     "lint:fix": "eslint src/ scripts/ --ext .js --fix",
     "format": "prettier --write \"src/**/*.js\" \"scripts/**/*.js\"",

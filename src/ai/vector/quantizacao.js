@@ -11,23 +11,33 @@ const INT8_MAX = 127;
 function normalizar(vetor) {
   const v = Float32Array.from(vetor);
   let soma = 0;
-  for (let i = 0; i < v.length; i += 1) {soma += v[i] * v[i];}
+  for (let i = 0; i < v.length; i += 1) {
+    soma += v[i] * v[i];
+  }
   const norma = Math.sqrt(soma);
-  if (norma === 0) {return v;}
-  for (let i = 0; i < v.length; i += 1) {v[i] /= norma;}
+  if (norma === 0) {
+    return v;
+  }
+  for (let i = 0; i < v.length; i += 1) {
+    v[i] /= norma;
+  }
   return v;
 }
 
 function normaInt8(dados) {
   let soma = 0;
-  for (let i = 0; i < dados.length; i += 1) {soma += dados[i] * dados[i];}
+  for (let i = 0; i < dados.length; i += 1) {
+    soma += dados[i] * dados[i];
+  }
   return Math.sqrt(soma);
 }
 
 /** Quantiza um vetor (idealmente já normalizado) para int8 com escala simétrica. */
 function quantizarInt8(vetor) {
   let maxAbs = 0;
-  for (let i = 0; i < vetor.length; i += 1) {maxAbs = Math.max(maxAbs, Math.abs(vetor[i]));}
+  for (let i = 0; i < vetor.length; i += 1) {
+    maxAbs = Math.max(maxAbs, Math.abs(vetor[i]));
+  }
   const escala = maxAbs > 0 ? maxAbs / INT8_MAX : 1;
   const dados = new Int8Array(vetor.length);
   for (let i = 0; i < vetor.length; i += 1) {
@@ -37,7 +47,7 @@ function quantizarInt8(vetor) {
 }
 
 function desquantizar({ dados, escala }) {
-  return Float32Array.from(dados, (x) => x * escala);
+  return Float32Array.from(dados, x => x * escala);
 }
 
 function cosseno(a, b) {
@@ -56,9 +66,13 @@ function cosseno(a, b) {
 function cossenoInt8(a, b) {
   const normaA = a.norma ?? normaInt8(a.dados);
   const normaB = b.norma ?? normaInt8(b.dados);
-  if (normaA === 0 || normaB === 0) {return 0;}
+  if (normaA === 0 || normaB === 0) {
+    return 0;
+  }
   let dot = 0;
-  for (let i = 0; i < a.dados.length; i += 1) {dot += a.dados[i] * b.dados[i];}
+  for (let i = 0; i < a.dados.length; i += 1) {
+    dot += a.dados[i] * b.dados[i];
+  }
   return dot / (normaA * normaB);
 }
 
