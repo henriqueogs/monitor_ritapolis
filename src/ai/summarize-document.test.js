@@ -204,3 +204,33 @@ test('source changed during generation is never published with the previous hash
   ).rejects.toThrow('fonte mudou');
   expect(api.saveResumoAi).not.toHaveBeenCalled();
 });
+describe('JSON malformado da IA', () => {
+  const restaurar = {};
+  beforeEach(() => {
+    for (const k of ['aiMaxCharsDirect', 'aiChunkSizeChars', 'aiRetryMax']) {
+      restaurar[k] = config[k];
+    }
+    Object.assign(config, { aiMaxCharsDirect: 5000, aiChunkSizeChars: 5000, aiRetryMax: 2 });
+  });
+  afterEach(() => Object.assign(config, restaurar));
+
+  test('tenta de novo com temperatura maior e salva o resumo (tarefa 13039)', async () => {
+    provider.generateJson
+      .mockResolvedValueOnce('{"tipo_documento": "lei" "titulo_curto": "x"}')
+      .mockResolvedValueOnce(JSON.stringify(summary));
+
+    await summarizeDocument(7, { provider });
+
+    expect(provider.generateJson).toHaveBeenCalledTimes(2);
+    expect(provider.generateJson.mock.calls[0][0].temperature).toBe(0);
+    expect(provider.generateJson.mock.calls[1][0].temperature).toBeGreaterThan(0);
+    expect(api.saveResumoAi).toHaveBeenCalled();
+  });
+
+  test('desiste depois de esgotar as tentativas e propaga o erro de JSON', async () => {
+    provider.generateJson.mockResolvedValue('{"quebrado": }');
+
+    await expect(summarizeDocument(7, { provider })).rejects.toThrow('JSON valido');
+    expect(provider.generateJson).toHaveBeenCalledTimes(3);
+  });
+});
