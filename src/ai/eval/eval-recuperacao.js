@@ -67,14 +67,19 @@ async function rodarEvalRecuperacao({
   return { perguntas, resumo: resumir(perguntas) };
 }
 
-/** Gate: cada métrica precisa existir e atingir o mínimo (falta de dado reprova). */
-function verificarLimiares(resumo, minimos) {
-  const falhas = Object.entries(minimos)
-    .filter(
-      ([metrica, minimo]) =>
-        resumo[metrica] === null || resumo[metrica] === undefined || resumo[metrica] < minimo
-    )
+/**
+ * Gate: cada métrica precisa existir e respeitar o mínimo (`minimos`) ou o máximo (`maximos`).
+ * Falta de dado reprova: sem medição não há aprovação.
+ */
+function verificarLimiares(resumo, minimos = {}, maximos = {}) {
+  const ausente = v => v === null || v === undefined;
+  const falhasMinimos = Object.entries(minimos)
+    .filter(([metrica, minimo]) => ausente(resumo[metrica]) || resumo[metrica] < minimo)
     .map(([metrica, minimo]) => `${metrica}: ${resumo[metrica] ?? 'ausente'} < ${minimo}`);
+  const falhasMaximos = Object.entries(maximos)
+    .filter(([metrica, maximo]) => ausente(resumo[metrica]) || resumo[metrica] > maximo)
+    .map(([metrica, maximo]) => `${metrica}: ${resumo[metrica] ?? 'ausente'} > ${maximo}`);
+  const falhas = [...falhasMinimos, ...falhasMaximos];
   return { passou: falhas.length === 0, falhas };
 }
 

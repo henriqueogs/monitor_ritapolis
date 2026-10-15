@@ -57,3 +57,6 @@ test-results/
 
 # Artefatos de FS
 .fuse_hidden*
+
+# relatórios locais do eval de IA (podem conter respostas de modelo)
+relatorios/
