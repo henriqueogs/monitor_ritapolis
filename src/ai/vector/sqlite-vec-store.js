@@ -11,6 +11,7 @@ const { DatabaseSync } = require('node:sqlite');
 const sqliteVec = require('sqlite-vec');
 const { QUANTIZACOES } = require('./memory-vector-store');
 const { normalizar, quantizarInt8 } = require('./quantizacao');
+const { montarMatchFts } = require('./lexical');
 const { validarK, validarVetor, vetorNulo, validarChunk } = require('./validacao');
 
 const BYTES_FLOAT32 = 4;
@@ -38,6 +39,15 @@ function prepararSchema(db, { dims, quantizacao }) {
       origem_generica INTEGER NOT NULL DEFAULT 0
     );
     CREATE INDEX IF NOT EXISTS idx_ia_chunks_doc_id ON ia_chunks (doc_id);
+    CREATE VIRTUAL TABLE IF NOT EXISTS ia_chunks_fts USING fts5(
+      texto, content='ia_chunks', content_rowid='rowid', tokenize='unicode61 remove_diacritics 2'
+    );
+    CREATE TRIGGER IF NOT EXISTS ia_chunks_fts_ai AFTER INSERT ON ia_chunks BEGIN
+      INSERT INTO ia_chunks_fts (rowid, texto) VALUES (new.rowid, new.texto);
+    END;
+    CREATE TRIGGER IF NOT EXISTS ia_chunks_fts_ad AFTER DELETE ON ia_chunks BEGIN
+      INSERT INTO ia_chunks_fts (ia_chunks_fts, rowid, texto) VALUES ('delete', old.rowid, old.texto);
+    END;
     CREATE VIRTUAL TABLE IF NOT EXISTS ia_vec USING vec0(embedding ${tipo}[${dims}] distance_metric=cosine);
   `);
   const meta = new Map(
@@ -77,6 +87,16 @@ function condicaoFiltros(filtros) {
   }
   return { sql: partes.join(' AND '), params };
 }
+
+const paraResultado = l => ({
+  id: l.id,
+  docId: l.doc_id,
+  texto: l.texto,
+  metadados: JSON.parse(l.metadados),
+  url_origem: l.url_origem,
+  origemGenerica: Boolean(l.origem_generica),
+  score: Math.min(1, 1 - l.distance),
+});
 
 function criarSqliteVecStore({ db, dims, quantizacao = QUANTIZACOES.FLOAT32 }) {
   if (!Object.values(QUANTIZACOES).includes(quantizacao)) {
@@ -160,15 +180,33 @@ function criarSqliteVecStore({ db, dims, quantizacao = QUANTIZACOES.FLOAT32 }) {
           ORDER BY v.distance, c.id`
       )
       .all(bytesDoVetor(vetor), limite, ...params);
-    return linhas.map(l => ({
-      id: l.id,
-      docId: l.doc_id,
-      texto: l.texto,
-      metadados: JSON.parse(l.metadados),
-      url_origem: l.url_origem,
-      origemGenerica: Boolean(l.origem_generica),
-      score: Math.min(1, 1 - l.distance),
-    }));
+    return linhas.map(paraResultado);
+  }
+
+  /** Ramo lexical (BM25 do FTS5) com o mesmo formato da busca vetorial; score = cosseno com `vetor`. */
+  async function searchLexical({ consulta, vetor, k, filtros }) {
+    const limite = validarK(k);
+    validarVetor(vetor, dims);
+    const { sql, params } = condicaoFiltros(filtros);
+    const match = montarMatchFts(consulta);
+    if (!match) {
+      return [];
+    }
+    const comVetor = !vetorNulo(vetor);
+    const distancia = comVetor ? `vec_distance_cosine(v.embedding, ${marcador})` : '1.0';
+    const linhas = db
+      .prepare(
+        `SELECT c.id, c.doc_id, c.texto, c.metadados, c.url_origem, c.origem_generica,
+                ${distancia} AS distance
+           FROM ia_chunks_fts f
+           JOIN ia_chunks c ON c.rowid = f.rowid
+           JOIN ia_vec v ON v.rowid = c.rowid
+          WHERE ia_chunks_fts MATCH ? ${sql ? `AND ${sql}` : ''}
+          ORDER BY bm25(ia_chunks_fts), c.id
+          LIMIT ?`
+      )
+      .all(...(comVetor ? [bytesDoVetor(vetor)] : []), match, ...params, limite);
+    return linhas.map(paraResultado);
   }
 
   async function deleteByDoc(docId) {
@@ -186,7 +224,7 @@ function criarSqliteVecStore({ db, dims, quantizacao = QUANTIZACOES.FLOAT32 }) {
     return (await count()) * (int8 ? dims : dims * BYTES_FLOAT32);
   }
 
-  return { upsert, search, deleteByDoc, count, tamanhoBytes };
+  return { upsert, search, searchLexical, deleteByDoc, count, tamanhoBytes };
 }
 
 module.exports = { criarSqliteVecStore, abrirBancoVetorial };

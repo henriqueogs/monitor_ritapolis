@@ -55,8 +55,8 @@ de mandato e de dupla contagem entram no dataset ouro (ADR 0006).
 
 - [ ] Esquema: `ai_chunks` (id, doc_id, anexo_id, ordem, texto, hash, ano, tipo, fonte, url_origem) + tabela vetorial
 - [ ] Chunker estrutural (reaproveita `chunk-text.js`, respeita seções/itens; hash para idempotência)
-- [ ] Indexador incremental (job na fila existente, orçamento próprio, retomável) — só reembeda o que mudou
-- [ ] Recuperador híbrido (FTS5 + vetor + RRF) com filtros de metadados
+- [~] Indexador incremental ✅ (`src/ai/rag/indexador.js`: hash por documento = modelo+dims+texto+metadados+origem, só reembeda o que mudou, `limite` por execução, retomável, `removerAusentes`; estado em memória ou SQLite). **Pendente:** job na fila existente com orçamento próprio e a leitura dos documentos reais do banco
+- [x] Recuperador híbrido (FTS5/BM25 + vetor + RRF) com filtros de metadados: `searchLexical` nos dois stores (contrato `lexical-search.contract.js`), `src/ai/rag/{rrf,recuperador-hibrido}.js`; `score` segue sendo o cosseno (evidência), a ordem vem do RRF; gate em `tests/evals/hibrido.test.js`
 - [ ] Serviço `perguntar()`: recupera → monta contexto delimitado → LLM com saída estruturada → verificador → citações
 - [ ] Rota `POST /api/ia/perguntar` fina (sem lógica), rate limit, teto de tokens, kill-switch
 - [ ] Prompt versionado em `src/ai/prompts/` + log de trace (recuperados, tokens, latência)

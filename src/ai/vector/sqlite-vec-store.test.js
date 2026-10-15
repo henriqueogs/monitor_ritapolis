@@ -4,6 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { runVectorStoreContract } = require('../ports/contracts/vector-store.contract');
+const { runLexicalSearchContract } = require('../ports/contracts/lexical-search.contract');
 const { criarSqliteVecStore, abrirBancoVetorial } = require('./sqlite-vec-store');
 
 const DIMS = 8;
@@ -90,3 +91,10 @@ describe('SqliteVecStore: específicos do adaptador', () => {
     ).toThrow(/quantiza/i);
   });
 });
+
+runLexicalSearchContract(
+  'sqlite-vec',
+  ({ dims, quantizacao }) =>
+    criarSqliteVecStore({ db: abrirBancoVetorial(':memory:'), dims, quantizacao }),
+  { quantizacoes: ['float32', 'int8'] }
+);

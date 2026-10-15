@@ -7,6 +7,7 @@
  */
 
 const { validarK, validarVetor, vetorNulo, validarChunk } = require('./validacao');
+const { tokenizar } = require('./lexical');
 const { normalizar, quantizarInt8, cosseno, cossenoInt8 } = require('./quantizacao');
 
 const QUANTIZACOES = Object.freeze({ FLOAT32: 'float32', INT8: 'int8' });
@@ -32,6 +33,27 @@ function resultado(entrada, score) {
     origemGenerica,
     score,
   };
+}
+
+const BM25_K1 = 1.2;
+const BM25_B = 0.75;
+
+/** BM25 sobre os textos (o mesmo princípio do FTS5 do adaptador SQLite). */
+function pontuarBm25(consulta, textos) {
+  const docs = textos.map(tokenizar);
+  const media = docs.reduce((a, d) => a + d.length, 0) / (docs.length || 1) || 1;
+  const termos = [...new Set(tokenizar(consulta))];
+  const idf = termos.map(t => {
+    const df = docs.filter(d => d.includes(t)).length;
+    return Math.log(1 + (docs.length - df + 0.5) / (df + 0.5));
+  });
+  return docs.map(d =>
+    termos.reduce((soma, t, j) => {
+      const tf = d.filter(x => x === t).length;
+      const denom = tf + BM25_K1 * (1 - BM25_B + (BM25_B * d.length) / media);
+      return tf ? soma + (idf[j] * tf * (BM25_K1 + 1)) / denom : soma;
+    }, 0)
+  );
 }
 
 function criarMemoryVectorStore({ dims, quantizacao = QUANTIZACOES.FLOAT32 }) {
@@ -81,6 +103,23 @@ function criarMemoryVectorStore({ dims, quantizacao = QUANTIZACOES.FLOAT32 }) {
       .slice(0, limite);
   }
 
+  async function searchLexical({ consulta, vetor, k, filtros }) {
+    const limite = validarK(k);
+    validarVetor(vetor, dims);
+    const todas = [...entradas.values()];
+    const pontos = pontuarBm25(
+      consulta,
+      todas.map(e => e.texto)
+    );
+    const consultaVetor = vetorNulo(vetor) ? null : preparar(vetor);
+    return todas
+      .map((e, i) => ({ e, lexical: pontos[i] }))
+      .filter(({ e, lexical }) => lexical > 0 && casaFiltros(e.metadados, filtros))
+      .sort((a, b) => b.lexical - a.lexical || (a.e.id < b.e.id ? -1 : 1))
+      .slice(0, limite)
+      .map(({ e }) => resultado(e, consultaVetor ? pontuar(consultaVetor, e.vetor) : 0));
+  }
+
   async function deleteByDoc(docId) {
     const alvo = [...entradas.values()].filter(e => e.docId === docId);
     alvo.forEach(e => entradas.delete(e.id));
@@ -91,7 +130,14 @@ function criarMemoryVectorStore({ dims, quantizacao = QUANTIZACOES.FLOAT32 }) {
     return entradas.size * (int8 ? dims + BYTES_SOBRECARGA_INT8 : dims * BYTES_FLOAT32);
   }
 
-  return { upsert, search, deleteByDoc, count: async () => entradas.size, tamanhoBytes };
+  return {
+    upsert,
+    search,
+    searchLexical,
+    deleteByDoc,
+    count: async () => entradas.size,
+    tamanhoBytes,
+  };
 }
 
 module.exports = { criarMemoryVectorStore, QUANTIZACOES };

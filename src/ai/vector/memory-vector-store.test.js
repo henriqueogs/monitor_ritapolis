@@ -1,6 +1,7 @@
 'use strict';
 
 const { runVectorStoreContract } = require('../ports/contracts/vector-store.contract');
+const { runLexicalSearchContract } = require('../ports/contracts/lexical-search.contract');
 const { criarMemoryVectorStore } = require('./memory-vector-store');
 const { normalizar } = require('./quantizacao');
 
@@ -115,4 +116,8 @@ describe('memory-vector-store: scores do int8 acompanham o float32', () => {
       }
     }
   });
+});
+
+runLexicalSearchContract('em memória', criarMemoryVectorStore, {
+  quantizacoes: ['float32', 'int8'],
 });
