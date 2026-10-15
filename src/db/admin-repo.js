@@ -7,6 +7,7 @@
  */
 
 const { db } = require('./index');
+const { sqlValorFinalHomologado } = require('../transparencia/valor-final-empenho');
 
 // ── Jobs ──────────────────────────────────────────────────────────────────────
 
@@ -56,7 +57,7 @@ function getCoberturaVencedores() {
         COUNT(*)                                      AS total,
         SUM(vencedor_nome IS NOT NULL)                AS com_vencedor,
         SUM(vencedor_cnpj IS NOT NULL)                AS com_cnpj,
-        SUM(valor_final IS NOT NULL)                  AS com_valor_final,
+        SUM(${sqlValorFinalHomologado()} IS NOT NULL)  AS com_valor_final,
         SUM(origem = 'resumo_ai')                     AS origem_ai,
         SUM(origem = 'portal_transparencia')          AS origem_portal,
         SUM(origem = 'pncp')                          AS origem_pncp

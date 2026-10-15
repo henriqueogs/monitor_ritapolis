@@ -11,6 +11,10 @@ const { agruparDocumentosLicitacao, papelLabel } = require('../licitacoes/grupos
 const { normalizarNumeroDocumento, titulosCompativeis } = require('../licitacoes/processo');
 const { normalizarCnpj, formatarCnpj } = require('../licitacoes/cnpj');
 const { agregarEmpenhosPorCredor, agregarVencedoresPorCnpj } = require('../transparencia/fornecedores-empenhos');
+const { sqlValorFinalHomologado, ocultarValorFinalDeEmpenho } = require('../transparencia/valor-final-empenho');
+
+// Valor final HOMOLOGADO de licitacoes_detalhes (alias ld): o derivado de empenho vira NULL.
+const VF_LD = sqlValorFinalHomologado('ld');
 const {
   inferirValorFinalTipoResultado: inferirValorFinalTipoResultadoDomain,
 } = require('../licitacoes/valor-final-tipo');
@@ -755,7 +759,7 @@ function listLicitacoesParaDiagnosticoPncp({
               d.url_origem, d.url_pdf, d.dados_extras,
               d.coletado_em, d.atualizado_em,
               ld.modalidade, ld.status, ld.vencedor_nome, ld.vencedor_cnpj,
-              ld.valor_final, ld.numero_pncp, ld.data_homologacao,
+              ${VF_LD} AS valor_final, ld.numero_pncp, ld.data_homologacao,
               ld.origem, ld.origem_detalhe
        FROM documentos d
        LEFT JOIN licitacoes_detalhes ld ON ld.documento_id = d.id
@@ -957,7 +961,7 @@ function listDocumentosEditalParaGrupos({ ano } = {}) {
     .prepare(
       `SELECT d.*,
               ld.modalidade, ld.status, ld.vencedor_nome, ld.vencedor_cnpj,
-              ld.valor_final, ld.numero_pncp, ld.data_homologacao
+              ${VF_LD} AS valor_final, ld.numero_pncp, ld.data_homologacao
        FROM documentos d
        LEFT JOIN licitacoes_detalhes ld ON ld.documento_id = d.id
        WHERE ${filters.join(' AND ')}
@@ -1473,7 +1477,7 @@ function estruturarDetalhesLicitacoes({ ano = new Date().getFullYear(), limite }
     .prepare(
       `SELECT d.id, d.numero, d.ano, d.titulo, d.texto_completo, d.dados_extras,
               ld.modalidade, ld.status, ld.vencedor_nome, ld.vencedor_cnpj,
-              ld.valor_final, ld.numero_pncp, ld.data_homologacao,
+              ${VF_LD} AS valor_final, ld.numero_pncp, ld.data_homologacao,
               ld.origem, ld.origem_detalhe, ld.trecho_fonte, ld.confianca
        FROM documentos d
        LEFT JOIN licitacoes_detalhes ld ON ld.documento_id = d.id
@@ -1617,7 +1621,7 @@ function getLicitacaoRowParaProdutos(documentoId) {
               d.coletado_em, d.atualizado_em,
               LENGTH(IFNULL(d.texto_completo, '')) AS texto_completo_chars,
               ld.modalidade, ld.status, ld.vencedor_nome, ld.vencedor_cnpj,
-              ld.valor_final, ld.numero_pncp, ld.data_homologacao,
+              ${VF_LD} AS valor_final, ld.numero_pncp, ld.data_homologacao,
               ld.origem, ld.origem_detalhe, ld.trecho_fonte, ld.confianca,
               ld.atualizado_em AS detalhes_atualizado_em,
               EXISTS (
@@ -1713,7 +1717,7 @@ function estruturarProdutosLicitacoes({ ano = new Date().getFullYear(), limite, 
               d.coletado_em, d.atualizado_em,
               LENGTH(IFNULL(d.texto_completo, '')) AS texto_completo_chars,
               ld.modalidade, ld.status, ld.vencedor_nome, ld.vencedor_cnpj,
-              ld.valor_final, ld.numero_pncp, ld.data_homologacao,
+              ${VF_LD} AS valor_final, ld.numero_pncp, ld.data_homologacao,
               ld.origem, ld.origem_detalhe, ld.trecho_fonte, ld.confianca,
               ld.atualizado_em AS detalhes_atualizado_em,
               r.id AS resumo_ai_id, r.resumo_json,
@@ -2336,7 +2340,7 @@ function validarProdutosLicitacoesValores({
     `SELECT lp.*,
             d.numero AS documento_numero,
             d.titulo AS documento_titulo,
-            ld.valor_final AS valor_final_licitacao,
+            ${VF_LD} AS valor_final_licitacao,
             ld.origem AS valor_final_licitacao_origem,
             ld.trecho_fonte AS valor_final_licitacao_trecho
      FROM licitacoes_produtos lp
@@ -2607,7 +2611,7 @@ function listLicitacoesPorAnoStats() {
               d.coletado_em, d.atualizado_em,
               LENGTH(IFNULL(d.texto_completo, '')) AS texto_completo_chars,
               ld.modalidade, ld.status, ld.vencedor_nome, ld.vencedor_cnpj,
-              ld.valor_final, ld.numero_pncp, ld.data_homologacao,
+              ${VF_LD} AS valor_final, ld.numero_pncp, ld.data_homologacao,
               ld.origem, ld.origem_detalhe, ld.trecho_fonte, ld.confianca,
               ld.atualizado_em AS detalhes_atualizado_em,
               EXISTS (
@@ -3100,7 +3104,7 @@ function listLicitacoes({ fonte, ano, status, termo, categoria, fornecedor, pagi
               d.coletado_em, d.atualizado_em,
               LENGTH(IFNULL(d.texto_completo, '')) AS texto_completo_chars,
               ld.modalidade, ld.status, ld.vencedor_nome, ld.vencedor_cnpj,
-              ld.valor_final, ld.numero_pncp, ld.data_homologacao,
+              ${VF_LD} AS valor_final, ld.numero_pncp, ld.data_homologacao,
               ld.origem, ld.origem_detalhe, ld.trecho_fonte, ld.confianca,
               ld.atualizado_em AS detalhes_atualizado_em,
               EXISTS (
@@ -3399,9 +3403,9 @@ function getDocumentoById(id) {
   const licitacaoGrupo =
     documento.tipo === 'edital' ? getLicitacaoGrupoByDocumentoId(id) : null;
 
-  const licitacao = db
-    .prepare('SELECT * FROM licitacoes_detalhes WHERE documento_id = ?')
-    .get(id);
+  const licitacao = ocultarValorFinalDeEmpenho(
+    db.prepare('SELECT * FROM licitacoes_detalhes WHERE documento_id = ?').get(id)
+  );
   const resumoAi = aiJobsRepo.getLatestResumoAiByDocumentoId(id);
   const leituraIntegradaAi =
     documento.tipo === 'edital' ? aiJobsRepo.getLatestLeituraIntegradaByDocumentoId(id) : null;
@@ -3709,7 +3713,7 @@ function getCoberturaPorAno() {
       `SELECT d.ano,
               COUNT(*) AS total,
               SUM(CASE WHEN ld.vencedor_nome IS NOT NULL THEN 1 ELSE 0 END) AS com_vencedor,
-              SUM(CASE WHEN ld.valor_final IS NOT NULL AND ld.valor_final > 0 THEN 1 ELSE 0 END) AS com_valor,
+              SUM(CASE WHEN ${VF_LD} IS NOT NULL AND ${VF_LD} > 0 THEN 1 ELSE 0 END) AS com_valor,
               SUM(CASE WHEN EXISTS (SELECT 1 FROM documentos_resumos_ai r WHERE r.documento_id = d.id AND r.status = 'ok') THEN 1 ELSE 0 END) AS com_resumo,
               SUM(CASE WHEN EXISTS (SELECT 1 FROM documentos_resumos_ai r WHERE r.documento_id = d.id AND r.status = 'ok' AND r.contrato_versao LIKE '2.%') THEN 1 ELSE 0 END) AS com_analise
          FROM documentos d
@@ -3735,7 +3739,7 @@ function getInteligenciaPanorama() {
     .get().n;
 
   const valorVencedor = db
-    .prepare("SELECT ROUND(COALESCE(SUM(valor_final),0),2) AS total FROM licitacoes_detalhes WHERE valor_final IS NOT NULL AND valor_final > 0")
+    .prepare(`SELECT ROUND(COALESCE(SUM(${VF_LD}),0),2) AS total FROM licitacoes_detalhes ld WHERE ${VF_LD} IS NOT NULL AND ${VF_LD} > 0`)
     .get().total;
 
   const valorProdutos = db
@@ -3761,7 +3765,7 @@ function getInteligenciaPanorama() {
     .get().n;
 
   const semValorVencedor = db
-    .prepare("SELECT COUNT(*) AS n FROM licitacoes_detalhes WHERE vencedor_nome IS NOT NULL AND (valor_final IS NULL OR valor_final = 0)")
+    .prepare(`SELECT COUNT(*) AS n FROM licitacoes_detalhes ld WHERE ld.vencedor_nome IS NOT NULL AND (${VF_LD} IS NULL OR ${VF_LD} = 0)`)
     .get().n;
 
   const porAno = db
@@ -3770,7 +3774,7 @@ function getInteligenciaPanorama() {
         d.ano,
         COUNT(*) AS total_licitacoes,
         ROUND(COALESCE(SUM(d.valor_estimado), 0), 2) AS valor_estimado_total,
-        ROUND(COALESCE(SUM(ld.valor_final), 0), 2) AS valor_final_total,
+        ROUND(COALESCE(SUM(${VF_LD}), 0), 2) AS valor_final_total,
         COUNT(CASE WHEN ld.vencedor_nome IS NOT NULL AND ld.vencedor_nome <> '' THEN 1 END) AS com_vencedor,
         COUNT(CASE WHEN lc.categoria IS NOT NULL THEN 1 END) AS com_categoria
       FROM documentos d
@@ -3787,7 +3791,7 @@ function getInteligenciaPanorama() {
       SELECT
         lc.categoria,
         COUNT(*) AS total,
-        ROUND(COALESCE(SUM(ld.valor_final), 0), 2) AS valor_final_total,
+        ROUND(COALESCE(SUM(${VF_LD}), 0), 2) AS valor_final_total,
         ROUND(COALESCE(SUM(d.valor_estimado), 0), 2) AS valor_estimado_total,
         COUNT(CASE WHEN ld.vencedor_nome IS NOT NULL AND ld.vencedor_nome <> '' THEN 1 END) AS com_vencedor
       FROM licitacoes_categorias lc

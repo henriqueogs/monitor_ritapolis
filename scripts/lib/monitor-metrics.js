@@ -6,6 +6,7 @@ const { DatabaseSync } = require('node:sqlite');
 const config = require('../../src/config');
 const { classifyProdutoPrecoLacuna } = require('./produtos-lacunas');
 const { mandatoInicio, mandatoLabel } = require('../../src/utils/mandato');
+const { sqlValorFinalHomologado } = require('../../src/transparencia/valor-final-empenho');
 
 const db = new DatabaseSync(config.dbPath, { readOnly: true, timeout: 15000 });
 db.exec('PRAGMA query_only = ON;');
@@ -118,7 +119,7 @@ function getLacunasPrecoProdutos() {
     SELECT d.id,
            d.ano,
            d.titulo,
-           IFNULL(ld.valor_final, 0) AS valor_final,
+           IFNULL(${sqlValorFinalHomologado('ld')}, 0) AS valor_final,
            IFNULL(produtos.produtos_total, 0) AS produtos_total,
            IFNULL(produtos.produtos_com_preco, 0) AS produtos_com_preco,
            IFNULL(anexos.resultado_ok, 0) AS resultado_ok,
@@ -190,7 +191,7 @@ function collectMetrics() {
   const detalhes = getOne(`
     SELECT COUNT(*) total,
            SUM(CASE WHEN IFNULL(vencedor_nome,'') <> '' THEN 1 ELSE 0 END) vencedor,
-           SUM(CASE WHEN valor_final IS NOT NULL AND valor_final > 0 THEN 1 ELSE 0 END) valor
+           SUM(CASE WHEN ${sqlValorFinalHomologado()} IS NOT NULL AND ${sqlValorFinalHomologado()} > 0 THEN 1 ELSE 0 END) valor
       FROM licitacoes_detalhes
   `);
   const produtos = getOne(`
@@ -404,7 +405,7 @@ function getCoberturaPorAnoLocal() {
     SELECT d.ano,
            COUNT(*) AS total,
            SUM(CASE WHEN ld.vencedor_nome IS NOT NULL AND ld.vencedor_nome <> '' THEN 1 ELSE 0 END) AS com_vencedor,
-           SUM(CASE WHEN ld.valor_final IS NOT NULL AND ld.valor_final > 0 THEN 1 ELSE 0 END) AS com_valor,
+           SUM(CASE WHEN ${sqlValorFinalHomologado('ld')} IS NOT NULL AND ${sqlValorFinalHomologado('ld')} > 0 THEN 1 ELSE 0 END) AS com_valor,
            SUM(CASE WHEN EXISTS (
              SELECT 1 FROM documentos_resumos_ai r
               WHERE r.documento_id = d.id AND r.status = 'ok' AND r.provider <> 'mock'
