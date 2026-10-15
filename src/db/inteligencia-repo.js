@@ -53,6 +53,12 @@ function isEntidadeGov(credor_nome, credor_cnpj) {
 // B1 — Concentração de fornecedores
 // ---------------------------------------------------------------------------
 
+/** Exercício padrão das rotas: último ano com dados significativos (null se não houver). */
+function getExercicioPadrao() {
+  const anos = listarAnosSignificativos();
+  return anos.length ? anos[anos.length - 1] : null;
+}
+
 /**
  * Calcula concentração de fornecedores por exercício.
  * Exclui folha de pagamento e entidades governamentais.
@@ -144,12 +150,8 @@ function getConcentracaoCredores(exercicio) {
  * Concentração comparada entre todos os exercícios disponíveis.
  */
 function getConcentracaoHistorico() {
-  const exercicios = db.prepare(`
-    SELECT DISTINCT exercicio_orcamento AS exercicio
-    FROM transparencia_despesas
-    WHERE exercicio_orcamento >= ?
-    ORDER BY exercicio DESC
-  `).all(config.inteligenciaAnoMin).map((r) => r.exercicio);
+  // Mesma regra de volume da evolução e do painel (ano quase vazio não entra no histórico).
+  const exercicios = listarAnosSignificativos().reverse();
 
   return exercicios.map((ano) => {
     const c = getConcentracaoCredores(ano);
@@ -300,7 +302,16 @@ function getEvolucaoFuncoes({ anosMin, anosMax, anoAtual = new Date().getFullYea
       anoMin: config.inteligenciaAnoMin,
     });
     if (!janela) {
-      return { anos_range: null, total_por_ano: [], por_funcao: [], ano_ref: null, ano_anterior: null };
+      return {
+        sem_dados: true,
+        anos_range: null,
+        total_por_ano: [],
+        por_funcao: [],
+        ano_ref: null,
+        ano_anterior: null,
+        ano_parcial: null,
+        yoy_indisponivel: true,
+      };
     }
     anosMin = anosMin ?? janela.anosMin;
     anosMax = anosMax ?? janela.anosMax;
@@ -335,10 +346,12 @@ function getEvolucaoFuncoes({ anosMin, anosMax, anoAtual = new Date().getFullYea
   }
 
   // Calcular crescimento YoY para cada funcao (comparando último ano completo)
-  const { ano_ref: anoRef, ano_anterior: anoAnterior, ano_ref_completo: anoRefCompleto } = anosReferenciaYoY({
+  const { ano_ref: anoRef, ano_anterior: anoAnterior, ano_parcial: anoParcial } = anosReferenciaYoY({
     anosMax,
     anoAtual,
   });
+  // Sem os dois anos dentro da janela não há crescimento calculável (não mostra "2025→2026" vazio).
+  const yoyIndisponivel = anoAnterior < anosMin || anoRef > anosMax;
 
   const resultado = [...porFuncao.values()]
     .map((f) => {
@@ -362,7 +375,8 @@ function getEvolucaoFuncoes({ anosMin, anosMax, anoAtual = new Date().getFullYea
     anos_range: { min: anosMin, max: anosMax },
     ano_ref: anoRef,
     ano_anterior: anoAnterior,
-    ano_ref_completo: anoRefCompleto,
+    ano_parcial: anoParcial,
+    yoy_indisponivel: yoyIndisponivel,
     total_por_ano: totalPorAno,
     por_funcao: resultado,
   };
@@ -476,4 +490,5 @@ module.exports = {
   getEvolucaoFuncoes,
   getRankingPorFuncao,
   getPainelInteligencia,
+  getExercicioPadrao,
 };

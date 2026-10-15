@@ -19,6 +19,7 @@ const {
   getRankingPorFuncao,
   getEmpenhoAtipicos,
   getPainelInteligencia,
+  getExercicioPadrao,
 } = require('./inteligencia-repo');
 
 const TIPO_EO = 'EO - Empenho Ordinário';
@@ -220,5 +221,47 @@ describe('inteligencia-repo - periodo dinamico (fiscal-datas D1/D7/D9)', () => {
     expect(getEmpenhoAtipicos(2024)).toMatchObject({ limiar_dispensa: 57900, limiar_dispensa_extrapolado: false });
     expect(getEmpenhoAtipicos(2027)).toMatchObject({ limiar_dispensa: 57900, limiar_dispensa_extrapolado: true });
     expect(getEmpenhoAtipicos(2027).limiar_dispensa_fonte).toEqual(expect.any(String));
+  });
+});
+
+describe('inteligencia-repo - bordas de periodo (fiscal-datas)', () => {
+  beforeEach(() => {
+    mockConn.exec('DELETE FROM transparencia_despesas; DELETE FROM documentos;');
+    seq = 0;
+  });
+
+  function semear(exercicio, n = 101) {
+    for (let i = 0; i < n; i += 1) {
+      seedDespesa({ exercicio, data: `${exercicio}-03-10`, valor: 10, cnpj: String(10000000000000 + i), nome: `F${i}` });
+    }
+  }
+
+  it('getExercicioPadrao: ultimo ano com dados significativos; null sem dados (nunca 2025)', () => {
+    expect(getExercicioPadrao()).toBeNull();
+    semear(2024);
+    semear(2026);
+    expect(getExercicioPadrao()).toBe(2026);
+  });
+
+  it('so o ano corrente com dados: yoy indisponivel e o ano em curso marcado como parcial', () => {
+    semear(2026);
+
+    const e = getEvolucaoFuncoes({ anoAtual: 2026 });
+
+    expect(e).toMatchObject({ yoy_indisponivel: true, ano_parcial: 2026 });
+  });
+
+  it('com o ano anterior ao de referencia na serie o yoy e calculavel', () => {
+    semear(2024);
+    semear(2025);
+    semear(2026);
+
+    const e = getEvolucaoFuncoes({ anoAtual: 2026 });
+
+    expect(e).toMatchObject({ yoy_indisponivel: false, ano_ref: 2025, ano_anterior: 2024 });
+  });
+
+  it('evolucao sem nenhum ano com dados sinaliza sem_dados', () => {
+    expect(getEvolucaoFuncoes()).toMatchObject({ sem_dados: true, por_funcao: [], total_por_ano: [] });
   });
 });

@@ -73,7 +73,9 @@ const {
   getEvolucaoFuncoes,
   getRankingPorFuncao,
   getPainelInteligencia,
+  getExercicioPadrao,
 } = require('../db/inteligencia-repo');
+const { parseExercicio } = require('../inteligencia/periodo-inteligencia');
 const { summarizeDocument, buildTextoHash } = require('../ai/summarize-document');
 const { correlateLicitation } = require('../ai/correlate-licitation');
 const { createAiProvider } = require('../ai/providers');
@@ -916,9 +918,25 @@ function createServer() {
     return res.json(getConcentracaoHistorico());
   });
 
+  // Exercício da query validado; ausente = último ano com dados. null = resposta já enviada.
+  function resolverExercicioInteligencia(req, res) {
+    const parsed = parseExercicio(req.query.exercicio);
+    if (!parsed.valido) {
+      res.status(400).json({ error: 'exercicio inválido' });
+      return null;
+    }
+    const exercicio = parsed.valor ?? getExercicioPadrao();
+    if (!exercicio) {
+      res.json({ sem_dados: true });
+      return null;
+    }
+    return exercicio;
+  }
+
   // GET /api/inteligencia/anomalias?exercicio=2025 — B2 anomalias
   app.get('/api/inteligencia/anomalias', (req, res) => {
-    const exercicio = Number(req.query.exercicio || 2025);
+    const exercicio = resolverExercicioInteligencia(req, res);
+    if (!exercicio) { return undefined; }
     return res.json(getEmpenhoAtipicos(exercicio));
   });
 
@@ -929,7 +947,8 @@ function createServer() {
 
   // GET /api/inteligencia/ranking?exercicio=2025 — B4 ranking por funcao
   app.get('/api/inteligencia/ranking', (req, res) => {
-    const exercicio = Number(req.query.exercicio || 2025);
+    const exercicio = resolverExercicioInteligencia(req, res);
+    if (!exercicio) { return undefined; }
     const topN = req.query.topN ? Number(req.query.topN) : 5;
     return res.json(getRankingPorFuncao(exercicio, topN));
   });
@@ -938,7 +957,8 @@ function createServer() {
 
   // POST /api/inteligencia/anomalias/narrativa?exercicio=2025
   app.post('/api/inteligencia/anomalias/narrativa', async (req, res) => {
-    const exercicio = Number(req.query.exercicio || 2025);
+    const exercicio = resolverExercicioInteligencia(req, res);
+    if (!exercicio) { return undefined; }
     const pipeline = require('../pipeline/coordinator');
     if (pipeline.enabled()) {
       const input = getEmpenhoAtipicos(exercicio);

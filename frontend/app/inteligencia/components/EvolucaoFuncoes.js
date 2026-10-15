@@ -35,7 +35,7 @@ function CrescimentoBadge({ pct }) {
 
 export default function EvolucaoFuncoes({ dados }) {
   if (!dados) return null;
-  const { total_por_ano, por_funcao, ano_ref: anoRef, ano_anterior: anoAnterior } = dados;
+  const { total_por_ano, por_funcao, ano_ref: anoRef, ano_anterior: anoAnterior, ano_parcial: anoParcial, yoy_indisponivel: yoyIndisponivel } = dados;
   const anos = total_por_ano?.map((r) => r.ano) || [];
   const principais = (por_funcao || []).filter((f) => f.total_periodo > 500_000).slice(0, 8);
 
@@ -44,7 +44,7 @@ export default function EvolucaoFuncoes({ dados }) {
   return (
     <SectionBlock
       title="B3 — Evolução de gastos por área funcional"
-      description={`Empenhos ordinários por exercício e área de governo (ordens de pagamento e empenhos estimativos/globais ficam fora). Crescimento indica variação ${anoAnterior}→${anoRef}.`}
+      description={`Empenhos ordinários por exercício e área de governo (ordens de pagamento e empenhos estimativos/globais ficam fora). ${yoyIndisponivel ? 'Dados insuficientes para calcular o crescimento anual.' : `Crescimento indica variação ${anoAnterior}→${anoRef}.`}${anoParcial ? ` ${anoParcial} está em curso (parcial).` : ''}`}
     >
       {/* Total por ano */}
       {total_por_ano?.length > 0 && (
@@ -57,7 +57,7 @@ export default function EvolucaoFuncoes({ dados }) {
             return (
               <div key={r.ano} style={{ marginBottom: 8 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                  <span style={{ fontSize: 13, fontWeight: 500 }}>{r.ano}</span>
+                  <span style={{ fontSize: 13, fontWeight: 500 }}>{r.ano}{r.ano === anoParcial ? ' (parcial)' : ''}</span>
                   <span style={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{formatMoney(r.total)}</span>
                 </div>
                 <div style={{ height: 6, background: 'var(--surface-muted)', borderRadius: 3, overflow: 'hidden' }}>
@@ -79,8 +79,8 @@ export default function EvolucaoFuncoes({ dados }) {
             <div className="simple-table" style={{ minWidth: `${380 + anos.length * 100}px` }}>
               <div className="table-row table-row-header">
                 <span>Área funcional</span>
-                {anos.map((a) => <span key={a}>{a}</span>)}
-                <span>Crescimento</span>
+                {anos.map((a) => <span key={a}>{a}{a === anoParcial ? ' (parcial)' : ''}</span>)}
+                <span>{yoyIndisponivel ? 'Crescimento' : `Crescimento ${anoAnterior}→${anoRef}`}</span>
               </div>
               {principais.map((f) => (
                 <div key={f.funcao} className="table-row">
