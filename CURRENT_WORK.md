@@ -92,6 +92,20 @@ Obs.: `curl` na home dá 429 — é o Challenge do firewall Vercel, não queda.
   `/api/saude/pipeline` (`getConsumoHistorico`, com teste). **Falta:** deploy,
   ler `consumo_24h` e confirmar qual hipótese; depois decidir (não contar falha
   no orçamento / limitar retries de histórico / reduzir tipos por doc).
+  **Proposta de fix (A1b, a implementar após ler `consumo_24h`):**
+  1. `pipeline_runs` ganha coluna `ok` (migração `ALTER TABLE` guardada por
+     `PRAGMA table_info` — o `CREATE IF NOT EXISTS` não altera a tabela da
+     produção); `finish()` grava `ok = !error`; lease expirado grava `ok = 0`.
+  2. `claim()`: `spent` e o teto de docs/dia passam a contar só `ok = 1`
+     (falha não queima orçamento nem "vaga" de doc).
+  3. Válvula de segurança: tempo gasto em runs `ok = 0` tem teto próprio
+     (`PIPELINE_HISTORICAL_FAIL_BUDGET_MS`, padrão 25% do orçamento) — sem ele,
+     falhas não contadas deixariam a VM tentando e falhando sem limite
+     (retries já são limitados a 3, mas há >600 jobs failed).
+  4. Testes em `queue.test.js`: falha não consome orçamento; falha acima do teto
+     bloqueia histórico; recente (`historical = 0`) segue intocado.
+  Risco: o orçamento deixa de limitar tempo real de IA/dia (falhas somam por
+  fora) — por isso o item 3. Não resolve a causa das falhas (A2–A4).
 - [ ] **A2. Taxa de falha de `anexo-summary` (49%) e `items` (79%)**: agrupar os
   failed por `categoria`; separar o que é bug (contrato/JSON, `limite_tamanho`)
   do que é revisão legítima (`revisao_fonte`). Teste primeiro (TDD) com os casos
