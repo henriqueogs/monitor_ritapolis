@@ -7,6 +7,7 @@ data/*.db
 data/*.db-shm
 data/*.db-wal
 data/backups/*.db
+data/backups/*.json
 data/r2-export/
 data/migration-manifests/
 
