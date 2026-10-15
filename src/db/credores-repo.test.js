@@ -272,7 +272,7 @@ describe('credores-repo — tipos de empenho (fiscal-valores V2/V3/V7)', () => {
 
     expect(p.resumo.valor_total).toBe(1500);
     expect(p.resumo.valor_estimado_global).toBe(6000);
-    expect(p.resumo.n_empenhos).toBe(4);
+    expect(p.resumo.n_empenhos).toBe(2);
   });
 
   it('perfil: "Pago" não é mais o valor empenhado — expõe total_empenhado', () => {
@@ -315,7 +315,7 @@ describe('credores-repo — tipos de empenho (fiscal-valores V2/V3/V7)', () => {
     const x = r.dados.find((c) => c.credor_chave === CNPJ);
     expect(x.valor_total).toBe(1500);
     expect(x.valor_estimado_global).toBe(6000);
-    expect(x.n_empenhos).toBe(4);
+    expect(x.n_empenhos).toBe(2);
   });
 
   it('lista: credor só com estimativo/global aparece com valor_total 0', () => {
@@ -334,6 +334,38 @@ describe('credores-repo — tipos de empenho (fiscal-valores V2/V3/V7)', () => {
     const r = listCredores({ exercicios: [2025, 2026, 2027, 2028] });
 
     expect(r.dados[0].valor_total).toBe(1000);
+  });
+
+  it('invariante de contagem: n_empenhos conta só o universo do valor (EO)', () => {
+    seedMisto();
+
+    const p = getCredorProfile(CNPJ);
+    const l = listCredores({}).dados.find((c) => c.credor_chave === CNPJ);
+
+    expect(p.resumo.n_empenhos).toBe(2);
+    expect(p.resumo.n_empenhos_estimado_global).toBe(2);
+    expect(p.por_ano.reduce((a, r) => a + r.n_empenhos, 0)).toBe(p.resumo.n_empenhos);
+    expect(l.n_empenhos).toBe(2);
+    expect(l.n_empenhos_estimado_global).toBe(2);
+  });
+
+  it('invariante: Σ por_funcao == valor_total mesmo com função ausente ("Sem função")', () => {
+    seedDespesa({ nome: 'EMPRESA X LTDA', cnpj: CNPJ, valor: 100, funcao: '10 - SAÚDE' });
+    seedDespesa({ nome: 'EMPRESA X LTDA', cnpj: CNPJ, valor: 40, funcao: null });
+
+    const p = getCredorProfile(CNPJ);
+
+    expect(p.por_funcao.reduce((a, f) => a + f.valor_total, 0)).toBe(p.resumo.valor_total);
+    expect(p.por_funcao.map((f) => f.funcao)).toContain('Sem função informada');
+  });
+
+  it('empenhos recentes não listam ordem de pagamento (pagamento ≠ novo gasto)', () => {
+    seedMisto();
+
+    const p = getCredorProfile(CNPJ);
+
+    expect(p.empenhos_recentes.some((e) => e.tipo === TIPO_OP)).toBe(false);
+    expect(p.empenhos_recentes).toHaveLength(4);
   });
 
   it('cobertura: primeiro e último exercício com dados de credor', () => {

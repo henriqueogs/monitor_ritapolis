@@ -9,7 +9,7 @@
 const logger = require('../logger');
 const { searchDocumentos } = require('../db/fts-repo');
 const { getDespesas } = require('../db/transparencia-repo');
-const { listCredores } = require('../db/credores-repo');
+const { listarCredoresDoPeriodo } = require('../transparencia/credor-service');
 
 const LIMITE_POR_SECAO = 5;
 const SECAO_VAZIA = { total: 0, dados: [] };
@@ -17,7 +17,7 @@ const SECAO_VAZIA = { total: 0, dados: [] };
 function secaoSegura(nome, fn) {
   try {
     const r = fn();
-    return { total: r.total || 0, dados: r.dados || [] };
+    return { total: r.total || 0, dados: r.dados || [], ...(r.periodo ? { periodo: r.periodo } : {}) };
   } catch (err) {
     logger.warn('busca-unificada: seção falhou', { secao: nome, erro: err.message });
     return { ...SECAO_VAZIA };
@@ -29,7 +29,10 @@ function buscaUnificada(q, { limite = LIMITE_POR_SECAO } = {}) {
     q,
     documentos: secaoSegura('documentos', () => searchDocumentos(q, { limite })),
     empenhos: secaoSegura('empenhos', () => getDespesas({ q, limite })),
-    credores: secaoSegura('credores', () => listCredores({ busca: q, limite })),
+    credores: secaoSegura('credores', () =>
+      // valor de credor é sempre de um período: mandato atual, como em /credores (§11.1)
+      listarCredoresDoPeriodo({ busca: q, limite, mandato: new Date().getFullYear() })
+    ),
   };
 }
 

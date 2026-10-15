@@ -22,6 +22,8 @@ const {
 //  - valor_estimado_global = EE + EG (estimativa/parcelas futuras), campo à parte;
 //  - OP (ordem de pagamento) fica fora de tudo: pagar um empenho não é novo gasto.
 const SUM_ORDINARIO = `ROUND(SUM(CASE WHEN ${SQL_TIPO_ORDINARIO} THEN valor ELSE 0 END), 2)`;
+const COUNT_ORDINARIO = `SUM(CASE WHEN ${SQL_TIPO_ORDINARIO} THEN 1 ELSE 0 END)`;
+const COUNT_ESTIMADO_GLOBAL = `SUM(CASE WHEN ${SQL_TIPO_ESTIMADO_GLOBAL} THEN 1 ELSE 0 END)`;
 const SUM_ESTIMADO_GLOBAL = `ROUND(SUM(CASE WHEN ${SQL_TIPO_ESTIMADO_GLOBAL} THEN valor ELSE 0 END), 2)`;
 
 const FONTES_EXTERNAS_CREDORES = Object.freeze({
@@ -239,7 +241,8 @@ function listCredores({ limite = 50, pagina = 1, busca, exercicio, exercicios, f
       credor_chave,
       MAX(credor_cnpj)                    AS credor_cnpj,
       MAX(credor_nome)                    AS credor_nome,
-      COUNT(*)                            AS n_empenhos,
+      ${COUNT_ORDINARIO}                    AS n_empenhos,
+      ${COUNT_ESTIMADO_GLOBAL}              AS n_empenhos_estimado_global,
       ${SUM_ORDINARIO}                     AS valor_total,
       ${SUM_ESTIMADO_GLOBAL}               AS valor_estimado_global,
       COUNT(DISTINCT exercicio_orcamento) AS n_anos,
@@ -299,7 +302,8 @@ function getCredorProfile(identificador) {
   const identidade = db.prepare(`
     SELECT credor_cnpj, credor_nome,
       MAX(credor_cargo)                   AS cargo,
-      COUNT(*)                            AS n_empenhos,
+      ${COUNT_ORDINARIO}                    AS n_empenhos,
+      ${COUNT_ESTIMADO_GLOBAL}              AS n_empenhos_estimado_global,
       ${SUM_ORDINARIO}                     AS valor_total,
       ${SUM_ESTIMADO_GLOBAL}               AS valor_estimado_global,
       MIN(data_empenho)                   AS primeiro_empenho,
@@ -318,7 +322,7 @@ function getCredorProfile(identificador) {
   const porAno = db.prepare(`
     SELECT
       exercicio_orcamento  AS ano,
-      COUNT(*)             AS n_empenhos,
+      ${COUNT_ORDINARIO}     AS n_empenhos,
       ${SUM_ORDINARIO}      AS valor_total,
       ${SUM_ESTIMADO_GLOBAL} AS valor_estimado_global
     FROM transparencia_despesas
@@ -329,12 +333,12 @@ function getCredorProfile(identificador) {
   // ── Por área funcional ──
   const porFuncao = db.prepare(`
     SELECT
-      funcao,
+      COALESCE(funcao, 'Sem função informada') AS funcao,
       COUNT(*)             AS n_empenhos,
       ROUND(SUM(valor), 2) AS valor_total
     FROM transparencia_despesas
-    WHERE credor_chave = ? AND funcao IS NOT NULL AND ${SQL_TIPO_ORDINARIO}
-    GROUP BY funcao ORDER BY valor_total DESC
+    WHERE credor_chave = ? AND ${SQL_TIPO_ORDINARIO}
+    GROUP BY COALESCE(funcao, 'Sem função informada') ORDER BY valor_total DESC
   `).all(chave);
 
   // ── Empenhos recentes ──
@@ -347,7 +351,7 @@ function getCredorProfile(identificador) {
       d.id                   AS documento_id
     FROM transparencia_despesas td
     LEFT JOIN documentos d ON d.id = td.documento_id
-    WHERE td.credor_chave = ?
+    WHERE td.credor_chave = ? AND COALESCE(td.tipo, '') NOT LIKE 'OP%'
     ORDER BY td.data_empenho DESC, td.valor DESC
     LIMIT 20
   `).all(chave).map((empenho) => {
@@ -401,6 +405,7 @@ function getCredorProfile(identificador) {
       n_empenhos: identidade.n_empenhos,
       valor_total: identidade.valor_total,
       valor_estimado_global: identidade.valor_estimado_global,
+      n_empenhos_estimado_global: identidade.n_empenhos_estimado_global,
       n_anos: identidade.n_anos,
       primeiro_ano: identidade.primeiro_ano,
       ultimo_ano: identidade.ultimo_ano,

@@ -2,11 +2,11 @@
 
 jest.mock('../db/fts-repo', () => ({ searchDocumentos: jest.fn() }));
 jest.mock('../db/transparencia-repo', () => ({ getDespesas: jest.fn() }));
-jest.mock('../db/credores-repo', () => ({ listCredores: jest.fn() }));
+jest.mock('../transparencia/credor-service', () => ({ listarCredoresDoPeriodo: jest.fn() }));
 
 const { searchDocumentos } = require('../db/fts-repo');
 const { getDespesas } = require('../db/transparencia-repo');
-const { listCredores } = require('../db/credores-repo');
+const { listarCredoresDoPeriodo } = require('../transparencia/credor-service');
 const { buscaUnificada } = require('./busca-unificada');
 
 describe('buscaUnificada', () => {
@@ -14,7 +14,11 @@ describe('buscaUnificada', () => {
     jest.clearAllMocks();
     searchDocumentos.mockReturnValue({ total: 42, dados: [{ id: 1, titulo: 'Edital merenda' }] });
     getDespesas.mockReturnValue({ total: 118, dados: [{ id: 9, credor_nome: 'X' }] });
-    listCredores.mockReturnValue({ total: 3, dados: [{ credor_chave: 'pf-x', credor_nome: 'X' }] });
+    listarCredoresDoPeriodo.mockReturnValue({
+      total: 3,
+      dados: [{ credor_chave: 'pf-x', credor_nome: 'X' }],
+      periodo: { tipo: 'mandato', label: '2025–2028' },
+    });
   });
 
   it('compõe as 3 seções com total + dados limitados', () => {
@@ -23,7 +27,11 @@ describe('buscaUnificada', () => {
     expect(r.q).toBe('merenda');
     expect(r.documentos).toEqual({ total: 42, dados: [{ id: 1, titulo: 'Edital merenda' }] });
     expect(r.empenhos).toEqual({ total: 118, dados: [{ id: 9, credor_nome: 'X' }] });
-    expect(r.credores).toEqual({ total: 3, dados: [{ credor_chave: 'pf-x', credor_nome: 'X' }] });
+    expect(r.credores).toEqual({
+      total: 3,
+      dados: [{ credor_chave: 'pf-x', credor_nome: 'X' }],
+      periodo: { tipo: 'mandato', label: '2025–2028' },
+    });
   });
 
   it('propaga q e limite pros 3 índices (busca: pros credores)', () => {
@@ -31,7 +39,12 @@ describe('buscaUnificada', () => {
 
     expect(searchDocumentos).toHaveBeenCalledWith('merenda', { limite: 5 });
     expect(getDespesas).toHaveBeenCalledWith({ q: 'merenda', limite: 5 });
-    expect(listCredores).toHaveBeenCalledWith({ busca: 'merenda', limite: 5 });
+    // valor de credor na busca é do mandato atual (§11.1), igual à lista /credores
+    expect(listarCredoresDoPeriodo).toHaveBeenCalledWith({
+      busca: 'merenda',
+      limite: 5,
+      mandato: new Date().getFullYear(),
+    });
   });
 
   it('seção que lança erro vira vazia sem derrubar as outras', () => {

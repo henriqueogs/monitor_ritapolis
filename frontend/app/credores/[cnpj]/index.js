@@ -18,7 +18,7 @@ export async function generateMetadata({ params: paramsPromise }) {
   };
 }
 
-function CrescimentoBadge({ pct }) {
+function CrescimentoBadge({ pct, anoAtual, anoAnterior }) {
   if (pct === null || pct === undefined) return null;
   const up = pct > 0;
   const color = up ? (pct > 40 ? 'var(--error)' : 'var(--warning)') : 'var(--success)';
@@ -28,7 +28,7 @@ function CrescimentoBadge({ pct }) {
       background: 'color-mix(in srgb, currentColor 12%, transparent)',
       padding: '3px 10px', borderRadius: 10, marginLeft: 8,
     }}>
-      {up ? '▲' : '▼'} {Math.abs(pct)}% vs ano anterior
+      {up ? '▲' : '▼'} {Math.abs(pct)}% ({anoAtual} vs {anoAnterior})
     </span>
   );
 }
@@ -113,7 +113,7 @@ function FinalidadesCredor({ finalidades, chave, valorTotal, periodoQuery = '' }
                   </Link>
                 </span>
                 <span style={{ display: 'block', marginTop: 3, fontSize: 11, color: 'var(--text-muted)' }}>
-                  {pct}% do total recebido por este credor
+                  {pct}% do total empenhado deste credor (todos os anos)
                 </span>
               </span>
               <span style={{ fontSize: 13, textAlign: 'center', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
@@ -211,7 +211,11 @@ export default async function CredorProfilePage({
             </p>
           ) : null}
         </div>
-        <CrescimentoBadge pct={resumo.crescimento_yoy} />
+        <CrescimentoBadge
+          pct={resumo.crescimento_yoy}
+          anoAtual={por_ano?.[por_ano.length - 1]?.ano}
+          anoAnterior={por_ano?.[por_ano.length - 2]?.ano}
+        />
       </div>
 
       {/* Métricas */}
@@ -226,7 +230,10 @@ export default async function CredorProfilePage({
 
       <div className="admin-metric-grid" style={{ marginBottom: 24 }}>
         <div className="admin-metric-card">
-          <span>Empenhado no mandato {destaque?.mandato}{destaque?.em_curso ? ' (em curso)' : ''}</span>
+          <span>
+            Empenhado no mandato {String(destaque?.mandato || '').replace('-', '–')}
+            {destaque?.em_curso ? ` (em curso${destaque.anos?.length ? `, dados de ${destaque.anos[0]}–${destaque.anos[destaque.anos.length - 1]}` : ''})` : ''}
+          </span>
           <strong>{formatMoney(destaque?.valor_total ?? 0)}</strong>
           <p style={{ margin: '4px 0 0', fontSize: 12, opacity: 0.6 }}>
             {destaque?.n_empenhos ?? 0} empenho{destaque?.n_empenhos === 1 ? '' : 's'} ordinário{destaque?.n_empenhos === 1 ? '' : 's'} no mandato
@@ -241,9 +248,9 @@ export default async function CredorProfilePage({
             </p>
           </div>
         )}
-        {resumo.valor_estimado_global > 0 && (
+        {acumulado && resumo.valor_estimado_global > 0 && (
           <div className="admin-metric-card">
-            <span>Estimativo/global ({acumulado?.label})</span>
+            <span>Estimativo/global ({acumulado.label})</span>
             <strong style={{ fontSize: '1.1rem' }}>{formatMoney(resumo.valor_estimado_global)}</strong>
             <p style={{ margin: '4px 0 0', fontSize: 12, opacity: 0.6 }}>
               Empenhos estimativos e globais são previsões/parcelas futuras, não valor recebido.
@@ -251,12 +258,12 @@ export default async function CredorProfilePage({
           </div>
         )}
         <div className="admin-metric-card">
-          <span>Empenhos</span>
+          <span>Empenhos ordinários{acumulado ? ` (acumulado ${acumulado.label})` : ''}</span>
           <strong>{resumo.n_empenhos}</strong>
           <p style={{ margin: '4px 0 0', fontSize: 12, opacity: 0.6 }}>{resumo.n_anos} ano{resumo.n_anos !== 1 ? 's' : ''}</p>
         </div>
         <div className="admin-metric-card">
-          <span>Áreas atendidas</span>
+          <span>Áreas atendidas{acumulado ? ` (acumulado ${acumulado.label})` : ''}</span>
           <strong>{resumo.n_funcoes}</strong>
         </div>
         {licitacoes_ganhas?.length > 0 && (
@@ -312,7 +319,7 @@ export default async function CredorProfilePage({
 
       {/* Por área funcional */}
       {por_funcao?.length > 0 && (
-        <SectionBlock title="Recebimentos por área de governo">
+        <SectionBlock title="Empenhos por área de governo (acumulado)">
           <div className="table-scroll-x">
             <div className="simple-table" style={{ minWidth: 400 }}>
               <div className="table-row table-row-header" style={{ display: 'grid', gridTemplateColumns: '1fr 100px 130px', gap: 12, alignItems: 'center' }}>

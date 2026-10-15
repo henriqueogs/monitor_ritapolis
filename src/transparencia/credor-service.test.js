@@ -95,6 +95,20 @@ describe('credor-service', () => {
       expect(r.periodo).toEqual({ tipo: 'exercicio', label: '2024' });
     });
 
+    it('fronteira: mandato 2024 e 2025 resolvem para exercícios diferentes', () => {
+      listarCredoresDoPeriodo({ mandato: 2024 });
+      listarCredoresDoPeriodo({ mandato: 2025 });
+
+      expect(listCredores).toHaveBeenNthCalledWith(1, expect.objectContaining({ exercicios: [2021, 2022, 2023, 2024] }));
+      expect(listCredores).toHaveBeenNthCalledWith(2, expect.objectContaining({ exercicios: [2025, 2026, 2027, 2028] }));
+    });
+
+    it('mandato inválido cai no acumulado em vez de inventar período', () => {
+      const r = listarCredoresDoPeriodo({ mandato: Number.NaN });
+
+      expect(r.periodo.tipo).toBe('acumulado');
+    });
+
     it('sem filtro usa a cobertura dos dados e diz que é acumulado', () => {
       const r = listarCredoresDoPeriodo({});
 
