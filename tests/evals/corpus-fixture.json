@@ -1,0 +1,12 @@
+[
+  { "id": "d1-c1", "docId": 1, "texto": "A empresa Alimentos Minas Ltda foi declarada vencedora do pregão eletrônico para fornecimento de gêneros alimentícios destinados à merenda escolar da rede municipal.", "metadados": { "ano": 2025, "tipo": "edital" }, "url_origem": "https://fonte.example/1" },
+  { "id": "d2-c1", "docId": 2, "texto": "Pregão para aquisição de material de limpeza e higiene. Sagrou-se vencedora a empresa Limpa Bem ME, com menor preço por item.", "metadados": { "ano": 2025, "tipo": "edital" }, "url_origem": "https://fonte.example/2" },
+  { "id": "d3-c1", "docId": 3, "texto": "Dispensa de licitação para conserto do motor da ambulância da secretaria de saúde, com fundamento na urgência do serviço.", "metadados": { "ano": 2024, "tipo": "dispensa" }, "url_origem": "https://fonte.example/3" },
+  { "id": "d4-c1", "docId": 4, "texto": "Contrato de manutenção da iluminação pública com substituição de lâmpadas por tecnologia LED nas vias centrais.", "metadados": { "ano": 2026, "tipo": "contrato" }, "url_origem": "https://fonte.example/4" },
+  { "id": "d5-c1", "docId": 5, "texto": "Decreto altera o horário de funcionamento das repartições durante o feriado prolongado de novembro.", "metadados": { "ano": 2025, "tipo": "decreto" }, "url_origem": "https://fonte.example/5" },
+  { "id": "d6-c1", "docId": 6, "texto": "Pregão de combustíveis para a frota: o Posto Central apresentou a proposta mais vantajosa para gasolina e diesel.", "metadados": { "ano": 2024, "tipo": "edital" }, "url_origem": "https://fonte.example/6" },
+  { "id": "d7-c1", "docId": 7, "texto": "Aquisição de medicamentos para a farmácia básica municipal, registro de preços válido por doze meses.", "metadados": { "ano": 2025, "tipo": "edital" }, "url_origem": "https://fonte.example/7" },
+  { "id": "d8-c1", "docId": 8, "texto": "Tomada de preços para obra de pavimentação asfáltica da rua principal do distrito, com recursos de convênio estadual.", "metadados": { "ano": 2026, "tipo": "edital" }, "url_origem": "https://fonte.example/8" },
+  { "id": "d9-c1", "docId": 9, "texto": "Contrato de transporte escolar para alunos da zona rural, com rotas e veículos descritos no termo de referência.", "metadados": { "ano": 2025, "tipo": "contrato" }, "url_origem": "https://fonte.example/9" },
+  { "id": "d10-c1", "docId": 10, "texto": "Aquisição de computadores e equipamentos de informática para as escolas, com garantia de trinta e seis meses.", "metadados": { "ano": 2026, "tipo": "edital" }, "url_origem": "https://fonte.example/10" }
+]

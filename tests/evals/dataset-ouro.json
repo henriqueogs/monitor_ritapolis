@@ -1,0 +1,7 @@
+[
+  { "id": "q1-merenda", "pergunta": "Quem venceu o pregão da merenda escolar?", "fontes_esperadas": [1] },
+  { "id": "q2-limpeza", "pergunta": "Qual empresa fornece o material de limpeza?", "fontes_esperadas": [2] },
+  { "id": "q3-ambulancia", "pergunta": "Houve dispensa de licitação para o conserto da ambulância?", "fontes_esperadas": [3] },
+  { "id": "q4-pavimentacao-2026", "pergunta": "Que obra de pavimentação foi contratada?", "fontes_esperadas": [8], "filtros": { "ano": 2026 } },
+  { "id": "q5-sem-evidencia", "pergunta": "Qual foi a arrecadação do IPTU no ano passado?", "fontes_esperadas": [], "deve_recusar": true }
+]

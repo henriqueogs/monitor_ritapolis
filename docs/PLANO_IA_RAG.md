@@ -43,9 +43,9 @@ de mandato e de dupla contagem entram no dataset ouro (ADR 0006).
 - [ ] ADRs 0001–0006 revisados e aceitos
 - [x] **Spike S1:** `sqlite-vec` carrega em `node:sqlite` no Windows (dev) e na **VM de produção (Linux x86_64, não ARM)** ✅. Resultado em [`docs/spikes/S1-S2-sqlite-vec.md`](spikes/S1-S2-sqlite-vec.md)
 - [x] **Spike S2:** ~66 mil chunks, ~26 M tokens; `baai/bge-m3` está morto (410) → `nvidia/nemotron-3-embed-1b` (2048 dim); sem 429 até 3 em paralelo (~1.800–4.300 chunks/min). **Pendente**: preço/crédito do modelo e quantização (int8) para caber na RAM da VM
-- [ ] Portas `LLMProvider` / `EmbeddingProvider` / `VectorStore` + **testes de contrato** (suíte reutilizável)
-- [ ] `VectorStore` fake (em memória) para testes
-- [ ] Eval harness: formato do dataset ouro, runner de recuperação (offline), runner de geração, relatório
+- [x] Portas `LLMProvider` / `EmbeddingProvider` / `VectorStore` + **testes de contrato** reutilizáveis (`src/ai/ports/`, contratos em `src/ai/ports/contracts/*.contract.js`). Inclui erros tipados (`ModeloIndisponivelError` detecta modelo morto como o `bge-m3`, `ProviderLimiteError`, `DimensaoInesperadaError`), `verificarModelo()` e o adaptador NVIDIA de embeddings (lotes de 128, `input_type`/`truncate`). O `generateJson` atual devolve **texto**: `llm-provider-compat` cumpre a porta e centraliza a extração de JSON (hoje copiada em 6 módulos)
+- [x] `VectorStore` em memória (float32 e **int8**, ~4× menos espaço; recall@1 ≥ 95% contra o exato) — referência para o adaptador `sqlite-vec` da Fase 1
+- [~] Eval harness: recuperação offline ✅ (`npm run eval:ia`; `tests/evals/` com dataset ouro de 5 perguntas e gate no CI; métricas de citação e recusa prontas em `src/ai/eval/metricas.js`). **Pendente:** runner de geração (groundedness, citações, recusa com LLM) e dataset real de 30–50 perguntas
 - [ ] Mapa "genérico vs. Ritápolis" (inventário de constantes/CNPJs/domínios no código) — insumo da Fase 3
 
 **Pronto quando:** testes de contrato verdes contra fake e contra provider real; spikes S1/S2 documentados com decisão; harness roda com dataset de 5 perguntas.

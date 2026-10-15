@@ -31,7 +31,8 @@ module.exports = {
     },
     {
       // Arquivos de teste: variáveis de test helpers
-      files: ['**/*.test.js', '**/*.spec.js', 'tests/**/*.js'],
+      // (*.contract.js = suítes de contrato das portas, executadas dentro de testes Jest)
+      files: ['**/*.test.js', '**/*.spec.js', '**/*.contract.js', 'tests/**/*.js'],
       env: { jest: true },
       rules: { 'no-unused-vars': ['error', { argsIgnorePattern: '^_' }] },
     },
