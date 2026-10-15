@@ -114,7 +114,14 @@ export default async function BuscaPage({ searchParams: searchParamsPromise }) {
                     {c.primeiro_ano ? ` · ${c.primeiro_ano === c.ultimo_ano ? c.primeiro_ano : `${c.primeiro_ano}–${c.ultimo_ano}`}` : ''}
                   </span>
                 </span>
-                <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{formatMoney(c.valor_total)}</strong>
+                <strong style={{ fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>
+                  {formatMoney(c.valor_total)}
+                  {r.credores.periodo?.label ? (
+                    <small style={{ display: 'block', fontWeight: 400, color: 'var(--text-muted)' }}>
+                      empenhado {r.credores.periodo.label}
+                    </small>
+                  ) : null}
+                </strong>
               </li>
             ))}
           </ul>

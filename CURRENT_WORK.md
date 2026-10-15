@@ -68,6 +68,14 @@ virou sync, hero/quick links renderizam na hora; hubs (`HomeHubsData`) e
 fontes oficiais (`LimitsAndSourcesData`) viraram componentes async isolados,
 cada um no seu `<Suspense>` com skeleton próprio.
 
+## 🧭 Iniciativa — Camada de IA analítica (RAG) + núcleo agnóstico (iniciada 15/10/2026)
+
+Plano completo em `docs/PLANO_IA_RAG.md`; decisões em `docs/adr/` (0001–0006, status
+*proposto*). Fases: 0 fundações (portas, spikes `sqlite-vec` e custo, eval harness) →
+1 RAG sobre licitações → 2 ferramentas analíticas → 3 núcleo agnóstico → 4 multi-tenant.
+- [x] Plano + ADRs escritos (aguardando revisão/aceite)
+- [ ] Fase 0 — spikes S1/S2, portas + testes de contrato, eval harness
+
 ## 🎯 Próximos passos (plano de 14/10/2026) — melhorar resumos primeiro
 
 Fotografia ao vivo (`/api/saude/pipeline`, 15/10 00:27 UTC): status `ok`, 0 falhas

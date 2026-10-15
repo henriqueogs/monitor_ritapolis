@@ -13,7 +13,7 @@ function criarBancoMemoria() {
 const mockConn = criarBancoMemoria();
 jest.mock('./index', () => ({ db: mockConn }));
 
-const { listCredores, getCredorProfile, upsertCredorEnriquecimento } = require('./credores-repo');
+const { listCredores, getCredorProfile, upsertCredorEnriquecimento, getCoberturaCredores } = require('./credores-repo');
 const { backfillClassificacoesDespesas } = require('./transparencia-classificacao-repo');
 const { buildCredorChave } = require('../transparencia/credor-chave');
 
@@ -27,18 +27,22 @@ function seedDespesa({
   funcao = '10 - SAÚDE',
   categoriaEconomica = '3.3.90.39.00 - OUTROS SERVICOS PJ',
   historico = null,
+  tipo = 'EO - Empenho Ordinário',
+  dataPagamento = null,
 }) {
   seq += 1;
   mockConn
     .prepare(
       `INSERT INTO transparencia_despesas
          (exercicio_orcamento, empenho, tipo, data_empenho, credor_nome, credor_cnpj,
-          credor_cargo, credor_chave, valor, funcao, categoria_economica, historico, hash_despesa)
-       VALUES (?, ?, 'EO - Empenho Ordinário', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          credor_cargo, credor_chave, valor, funcao, categoria_economica, historico, hash_despesa,
+          data_pagamento)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       exercicio,
       `${seq}`.padStart(5, '0') + '-000',
+      tipo,
       `${exercicio}-06-01`,
       nome,
       cnpj,
@@ -48,9 +52,14 @@ function seedDespesa({
       funcao,
       categoriaEconomica,
       historico,
-      `hash-${seq}`
+      `hash-${seq}`,
+      dataPagamento
     );
 }
+
+const TIPO_EE = 'EE - Empenho Estimativo';
+const TIPO_EG = 'EG - Empenho Global';
+const TIPO_OP = 'OP - Ordem de Pagamento';
 
 describe('credores-repo', () => {
   beforeEach(() => {
@@ -237,5 +246,132 @@ describe('credores-repo finalidade no perfil', () => {
       valor_total: 1000,
     });
     expect(p.finalidades[1]).toMatchObject({ classe: 'investimento', valor_total: 500 });
+  });
+});
+
+describe('credores-repo — tipos de empenho (fiscal-valores V2/V3/V7)', () => {
+  const CNPJ = '12345678000190';
+
+  beforeEach(() => {
+    mockConn.exec('DELETE FROM credores_enriquecimentos; DELETE FROM transparencia_despesas_classificacoes; DELETE FROM transparencia_despesas; DELETE FROM licitacoes_detalhes; DELETE FROM fornecedores_perfil; DELETE FROM documentos;');
+    seq = 0;
+  });
+
+  function seedMisto() {
+    seedDespesa({ nome: 'EMPRESA X LTDA', cnpj: CNPJ, valor: 1000, exercicio: 2025, dataPagamento: '2025-07-01' });
+    seedDespesa({ nome: 'EMPRESA X LTDA', cnpj: CNPJ, valor: 500, exercicio: 2026 });
+    seedDespesa({ nome: 'EMPRESA X LTDA', cnpj: CNPJ, valor: 4000, exercicio: 2026, tipo: TIPO_EE });
+    seedDespesa({ nome: 'EMPRESA X LTDA', cnpj: CNPJ, valor: 2000, exercicio: 2025, tipo: TIPO_EG });
+    seedDespesa({ nome: 'EMPRESA X LTDA', cnpj: CNPJ, valor: 300, exercicio: 2026, tipo: TIPO_OP });
+  }
+
+  it('perfil: valor_total é só ordinário; estimativo/global em campo próprio; OP fora', () => {
+    seedMisto();
+
+    const p = getCredorProfile(CNPJ);
+
+    expect(p.resumo.valor_total).toBe(1500);
+    expect(p.resumo.valor_estimado_global).toBe(6000);
+    expect(p.resumo.n_empenhos).toBe(2);
+  });
+
+  it('perfil: "Pago" não é mais o valor empenhado — expõe total_empenhado', () => {
+    seedMisto();
+
+    const p = getCredorProfile(CNPJ);
+
+    expect(p.resumo).not.toHaveProperty('total_pago');
+    expect(p.resumo.total_empenhado).toBe(p.resumo.valor_total);
+  });
+
+  it('invariante: Σ por_ano == resumo (ordinário e estimativo/global)', () => {
+    seedMisto();
+
+    const p = getCredorProfile(CNPJ);
+
+    const somaOrd = p.por_ano.reduce((a, r) => a + r.valor_total, 0);
+    const somaEstGlob = p.por_ano.reduce((a, r) => a + r.valor_estimado_global, 0);
+    expect(somaOrd).toBe(p.resumo.valor_total);
+    expect(somaEstGlob).toBe(p.resumo.valor_estimado_global);
+  });
+
+  it('invariante: Σ finalidades == valor_total e Σ por_funcao == valor_total', () => {
+    seedMisto();
+    backfillClassificacoesDespesas({ force: true });
+
+    const p = getCredorProfile(CNPJ);
+
+    expect(p.finalidades.reduce((a, f) => a + f.valor_total, 0)).toBe(p.resumo.valor_total);
+    expect(p.por_funcao.reduce((a, f) => a + f.valor_total, 0)).toBe(p.resumo.valor_total);
+  });
+
+  it('lista: ordena e totaliza só ordinário, com estimativo/global separado', () => {
+    seedMisto();
+    seedDespesa({ nome: 'OUTRA LTDA', cnpj: '11111111000111', valor: 1700, exercicio: 2026 });
+
+    const r = listCredores({});
+
+    expect(r.dados[0].credor_chave).toBe('11111111000111');
+    const x = r.dados.find((c) => c.credor_chave === CNPJ);
+    expect(x.valor_total).toBe(1500);
+    expect(x.valor_estimado_global).toBe(6000);
+    expect(x.n_empenhos).toBe(2);
+  });
+
+  it('lista: credor só com estimativo/global aparece com valor_total 0', () => {
+    seedDespesa({ nome: 'SO ESTIMADO LTDA', cnpj: '22222222000122', valor: 900, tipo: TIPO_EE });
+
+    const r = listCredores({});
+
+    expect(r.dados).toHaveLength(1);
+    expect(r.dados[0]).toMatchObject({ valor_total: 0, valor_estimado_global: 900 });
+  });
+
+  it('lista com mandato: dois mandatos não se misturam', () => {
+    seedDespesa({ nome: 'EMPRESA X LTDA', cnpj: CNPJ, valor: 1000, exercicio: 2000 });
+    seedDespesa({ nome: 'EMPRESA X LTDA', cnpj: CNPJ, valor: 1000, exercicio: 2025 });
+
+    const r = listCredores({ exercicios: [2025, 2026, 2027, 2028] });
+
+    expect(r.dados[0].valor_total).toBe(1000);
+  });
+
+  it('invariante de contagem: n_empenhos conta só o universo do valor (EO)', () => {
+    seedMisto();
+
+    const p = getCredorProfile(CNPJ);
+    const l = listCredores({}).dados.find((c) => c.credor_chave === CNPJ);
+
+    expect(p.resumo.n_empenhos).toBe(2);
+    expect(p.resumo.n_empenhos_estimado_global).toBe(2);
+    expect(p.por_ano.reduce((a, r) => a + r.n_empenhos, 0)).toBe(p.resumo.n_empenhos);
+    expect(l.n_empenhos).toBe(2);
+    expect(l.n_empenhos_estimado_global).toBe(2);
+  });
+
+  it('invariante: Σ por_funcao == valor_total mesmo com função ausente ("Sem função")', () => {
+    seedDespesa({ nome: 'EMPRESA X LTDA', cnpj: CNPJ, valor: 100, funcao: '10 - SAÚDE' });
+    seedDespesa({ nome: 'EMPRESA X LTDA', cnpj: CNPJ, valor: 40, funcao: null });
+
+    const p = getCredorProfile(CNPJ);
+
+    expect(p.por_funcao.reduce((a, f) => a + f.valor_total, 0)).toBe(p.resumo.valor_total);
+    expect(p.por_funcao.map((f) => f.funcao)).toContain('Sem função informada');
+  });
+
+  it('empenhos recentes não listam ordem de pagamento (pagamento ≠ novo gasto)', () => {
+    seedMisto();
+
+    const p = getCredorProfile(CNPJ);
+
+    expect(p.empenhos_recentes.some((e) => e.tipo === TIPO_OP)).toBe(false);
+    expect(p.empenhos_recentes).toHaveLength(4);
+  });
+
+  it('cobertura: primeiro e último exercício com dados de credor', () => {
+    seedDespesa({ nome: 'A LTDA', cnpj: CNPJ, exercicio: 2019 });
+    seedDespesa({ nome: 'A LTDA', cnpj: CNPJ, exercicio: 2026 });
+
+    expect(getCoberturaCredores()).toEqual({ primeiro: 2019, ultimo: 2026 });
   });
 });

@@ -30,7 +30,12 @@ Thumbs.db
 
 # Local tooling (não publicar)
 .wrangler/
-.claude/
+.claude/*
+# Fiscais do projeto (skills + agentes) são versionados — fazem parte do processo
+!.claude/agents/
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/fiscal-*/
 .agents/
 .gemini/
 .qodo/

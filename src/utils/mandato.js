@@ -18,6 +18,12 @@ function mandatoInicio(ano) {
   );
 }
 
+/** Exercícios (anos) do mandato que contém `ano`. */
+function exerciciosDoMandato(ano) {
+  const inicio = mandatoInicio(ano);
+  return Array.from({ length: MANDATO_DURACAO_ANOS }, (_, i) => inicio + i);
+}
+
 function mandatoLabel(inicio) {
   return `${inicio}-${inicio + MANDATO_DURACAO_ANOS - 1}`;
 }
@@ -62,7 +68,9 @@ function agruparPorMandato(rows, { anoKey = 'ano', camposSoma = [], anoAtual } =
 }
 
 module.exports = {
+  MANDATO_DURACAO_ANOS,
   mandatoInicio,
+  exerciciosDoMandato,
   mandatoLabel,
   agruparPorMandato,
 };
