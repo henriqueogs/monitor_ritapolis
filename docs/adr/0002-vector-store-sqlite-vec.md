@@ -13,6 +13,12 @@ Fallback se a extensão não carregar em `node:sqlite`/ARM: busca exata em JS (c
 Float32Array) — aceitável até ~100k chunks. Multi-tenant futuro: implementação pgvector
 da mesma porta.
 
+## Evidência dos spikes (15/10/2026)
+Ver [S1/S2](../spikes/S1-S2-sqlite-vec.md). Em Windows x64: `sqlite-vec` 0.1.9 carrega em `node:sqlite`
+(`allowExtension`), KNN exato de ~60 ms a 66 mil chunks de 1024 dimensões; a busca exata em JS atende o
+fallback (~1,1 s carregando do SQLite). Volume estimado do acervo: ~66 mil chunks, ~24,5 M tokens, ~258 MB
+em float32 (+76% do banco; avaliar int8). **Falta provar a VM Linux ARM** — critério para aceitar este ADR.
+
 ## Consequências
 + Zero infra nova; backup existente cobre o índice; filtros por metadados via SQL.
 − `node:sqlite` é experimental e precisa de `allowExtension`; validar no spike S1

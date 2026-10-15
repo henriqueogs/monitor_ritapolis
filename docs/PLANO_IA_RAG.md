@@ -41,8 +41,8 @@ de mandato e de dupla contagem entram no dataset ouro (ADR 0006).
 ## Fase 0 — Fundações (sem feature visível)
 
 - [ ] ADRs 0001–0006 revisados e aceitos
-- [ ] **Spike S1:** `sqlite-vec` carrega em `node:sqlite` (`allowExtension`) no Windows (dev) e no Linux ARM (VM Oracle)? Decide ADR 0002 (extensão vs. fallback JS)
-- [ ] **Spike S2:** custo/volume — nº de chunks do acervo × tokens de embedding vs. cota NVIDIA disponível; define orçamento de indexação
+- [~] **Spike S1:** `sqlite-vec` carrega em `node:sqlite` no Windows (dev) ✅; **falta rodar na VM Linux ARM** (`scripts/spikes/sqlite-vec-spike.js`). Resultado em [`docs/spikes/S1-S2-sqlite-vec.md`](spikes/S1-S2-sqlite-vec.md)
+- [~] **Spike S2:** volume medido (~66 mil chunks, ~24,5 M tokens, ~2.060 chamadas em lotes de 32) ✅; **falta** medir o limite de taxa do endpoint de embedding e confirmar custo/crédito do `bge-m3` na NVIDIA
 - [ ] Portas `LLMProvider` / `EmbeddingProvider` / `VectorStore` + **testes de contrato** (suíte reutilizável)
 - [ ] `VectorStore` fake (em memória) para testes
 - [ ] Eval harness: formato do dataset ouro, runner de recuperação (offline), runner de geração, relatório
