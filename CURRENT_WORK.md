@@ -80,9 +80,18 @@ Pipeline: `anexo-summary` 405 failed vs 421 ok; `items` 206 failed vs 55 ok;
 Obs.: `curl` na home dá 429 — é o Challenge do firewall Vercel, não queda.
 
 ### Fase A — Resumos (prioridade)
-- [ ] **A1. Por que 47/200?** 47 docs esgotaram o orçamento de 4 h (~5 min/doc vs
-  45 s estimado). Medir tempo por tarefa e retries em `pipeline_tasks`; achar
-  quem consome orçamento (falhas que re-tentam? `extract` lento? timeouts?).
+- [ ] **A1. Por que 47/200?** Sem acesso à VM (SSH de produção negado nesta
+  sessão), análise por código (`src/pipeline/queue.js` `claim`). Hipóteses:
+  (1) o orçamento é por **tarefa**, não por doc: cada doc gasta extract+summary+
+  items+integrated+facts(+anexo) — 4 h/47 docs ≈ 5 min/doc, não 45 s;
+  (2) `pipeline_runs` registra **toda** execução histórica, inclusive as que
+  falham/dão timeout (até 10 min) e lease expirado (grava 600000 ms fixos) —
+  `items` 206 e `anexo-summary` 405 failed queimam orçamento sem gerar resumo;
+  (3) janelas diferentes: `docs_24h` é rolante, o orçamento zera à 03:00Z.
+  **Feito:** `campanha.consumo_24h` (kind, execuções, docs, erros, min) em
+  `/api/saude/pipeline` (`getConsumoHistorico`, com teste). **Falta:** deploy,
+  ler `consumo_24h` e confirmar qual hipótese; depois decidir (não contar falha
+  no orçamento / limitar retries de histórico / reduzir tipos por doc).
 - [ ] **A2. Taxa de falha de `anexo-summary` (49%) e `items` (79%)**: agrupar os
   failed por `categoria`; separar o que é bug (contrato/JSON, `limite_tamanho`)
   do que é revisão legítima (`revisao_fonte`). Teste primeiro (TDD) com os casos

@@ -137,4 +137,24 @@ describe('getCampanhaHistorica', () => {
     expect(r.ultimaExecucaoEm).toBe(agora.toISOString());
     expect(r.errosRecentes).toEqual([]);
   });
+
+  it('getConsumoHistorico soma tempo e execucoes por tipo, separando as que terminaram em erro', () => {
+    mockConn.exec('DELETE FROM pipeline_jobs; DELETE FROM pipeline_runs;');
+    const q = createQueue(mockConn);
+    const t0 = new Date('2026-11-06T12:00:00Z');
+    const t1 = new Date(t0.getTime() + 60000);
+    const run = (entity, kind, error = null) => {
+      q.enqueue({ kind, entity, hash: `c${entity}${kind}`, historical: true }, t0);
+      const job = q.claim(t0);
+      q.finish(job.id, error ? { error } : { result: {} }, t1);
+    };
+    run(101, 'summary');
+    run(101, 'items', 'contrato_rejeitado');
+    run(102, 'summary');
+
+    const r = repo.getConsumoHistorico({ desde: '2026-11-06T00:00:00.000Z' });
+
+    expect(r.find((x) => x.kind === 'summary')).toMatchObject({ execucoes: 2, ms: 120000, docs: 2, erros: 0 });
+    expect(r.find((x) => x.kind === 'items')).toMatchObject({ execucoes: 1, ms: 60000, erros: 1 });
+  });
 });

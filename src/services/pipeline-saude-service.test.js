@@ -5,6 +5,7 @@ jest.mock('../db/pipeline-saude-repo', () => ({
   getUltimoErroResumo: jest.fn(),
   contarRecentesSemResumo: jest.fn(),
   getCampanhaHistorica: jest.fn(),
+  getConsumoHistorico: jest.fn().mockReturnValue([{ kind: 'summary', execucoes: 2, ms: 600000, docs: 2, erros: 1 }]),
 }));
 jest.mock('../ai/ai-daily-scheduler', () => ({ getStatus: jest.fn() }));
 jest.mock('../pipeline/coordinator', () => ({ enabled: jest.fn(() => false), status: jest.fn() }));
@@ -180,6 +181,7 @@ describe('pipeline-saude-service: campanha historica', () => {
       ativa: true, limite_docs_dia: 50, docs_24h: 12, pendentes: 30,
       sem_resumo_com_texto: 200, erros_limite_provider_24h: 1,
     });
+    expect(s.campanha.consumo_24h).toEqual([{ kind: 'summary', execucoes: 2, docs: 2, erros: 1, min: 10 }]);
     expect(s.motivos).toContain('campanha_limite_provider');
     expect(s.status).toBe('alerta');
     expect(JSON.stringify(s)).not.toContain('key=abc');
