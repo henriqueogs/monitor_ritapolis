@@ -80,7 +80,7 @@ Pipeline: `anexo-summary` 405 failed vs 421 ok; `items` 206 failed vs 55 ok;
 Obs.: `curl` na home dá 429 — é o Challenge do firewall Vercel, não queda.
 
 ### Fase A — Resumos (prioridade)
-- [ ] **A1. Por que 47/200?** Sem acesso à VM (SSH de produção negado nesta
+- [x] **A1. Por que 47/200?** Sem acesso à VM (SSH de produção negado nesta
   sessão), análise por código (`src/pipeline/queue.js` `claim`). Hipóteses:
   (1) o orçamento é por **tarefa**, não por doc: cada doc gasta extract+summary+
   items+integrated+facts(+anexo) — 4 h/47 docs ≈ 5 min/doc, não 45 s;
@@ -88,11 +88,13 @@ Obs.: `curl` na home dá 429 — é o Challenge do firewall Vercel, não queda.
   falham/dão timeout (até 10 min) e lease expirado (grava 600000 ms fixos) —
   `items` 206 e `anexo-summary` 405 failed queimam orçamento sem gerar resumo;
   (3) janelas diferentes: `docs_24h` é rolante, o orçamento zera à 03:00Z.
-  **Feito:** `campanha.consumo_24h` (kind, execuções, docs, erros, min) em
-  `/api/saude/pipeline` (`getConsumoHistorico`, com teste). **Falta:** deploy,
-  ler `consumo_24h` e confirmar qual hipótese; depois decidir (não contar falha
-  no orçamento / limitar retries de histórico / reduzir tipos por doc).
-  **Proposta de fix (A1b, a implementar após ler `consumo_24h`):**
+  **Medido em produção (15/10, `campanha.consumo_24h`, 24 h):** `items` 32
+  execuções, 10 docs, **32 erros, 188 min** (~6 min cada, perto do timeout de
+  10 min) — 78% dos 240 min do orçamento; `summary` 28 execuções, 28 docs, 0
+  erros, 29 min; `anexo-summary` 26 exec., 17 erros, 21 min; `integrated` 3 exec.
+  (2 min); `facts` 4 exec. (0 min). Hipótese 2 **confirmada**: `items` falha
+  100% e queima o orçamento sem gerar resumo (causa da falha = A2).
+  **Fix A1b (implementado em 15/10, PR da branch `orcamento-historico-falhas`):**
   1. `pipeline_runs` ganha coluna `ok` (migração `ALTER TABLE` guardada por
      `PRAGMA table_info` — o `CREATE IF NOT EXISTS` não altera a tabela da
      produção); `finish()` grava `ok = !error`; lease expirado grava `ok = 0`.
@@ -104,6 +106,8 @@ Obs.: `curl` na home dá 429 — é o Challenge do firewall Vercel, não queda.
      (retries já são limitados a 3, mas há >600 jobs failed).
   4. Testes em `queue.test.js`: falha não consome orçamento; falha acima do teto
      bloqueia histórico; recente (`historical = 0`) segue intocado.
+  Variável nova: `PIPELINE_HISTORICAL_FAIL_BUDGET_MS` (opcional). Após o deploy,
+  conferir em `consumo_24h` que `docs_24h` sobe e `min` de `items` deixa de dominar.
   Risco: o orçamento deixa de limitar tempo real de IA/dia (falhas somam por
   fora) — por isso o item 3. Não resolve a causa das falhas (A2–A4).
 - [ ] **A2. Taxa de falha de `anexo-summary` (49%) e `items` (79%)**: agrupar os

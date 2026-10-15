@@ -18,6 +18,10 @@ module.exports = {
   // Teto do trabalho de IA em documentos históricos (força-tarefa temporária).
   pipelineHistoricalDocsPerDay: Number(process.env.PIPELINE_HISTORICAL_DOCS_PER_DAY || 10),
   pipelineHistoricalBudgetMs: Number(process.env.PIPELINE_HISTORICAL_BUDGET_MS || 3000000),
+  // vazio = 25% do orcamento (ver FAIL_BUDGET_SHARE em pipeline/queue.js)
+  pipelineHistoricalFailBudgetMs: process.env.PIPELINE_HISTORICAL_FAIL_BUDGET_MS
+    ? Number(process.env.PIPELINE_HISTORICAL_FAIL_BUDGET_MS)
+    : undefined,
   frontendApiUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api',
   collectorDelayMs: Number(process.env.COLETOR_DELAY_MS || 1000),
   collectorTimeoutMs: Number(process.env.COLETOR_TIMEOUT_MS || 15000),
