@@ -29,6 +29,15 @@ function textoHash(texto) {
   return crypto.createHash('sha256').update(String(texto || ''), 'utf8').digest('hex');
 }
 
+// Saída quebrada da IA (JSON inválido ou fora do contrato) costuma sumir numa
+// nova tentativa; repetir com a mesma temperatura reproduziria o erro.
+const TEMPERATURA_BASE = 0.15;
+const TEMPERATURA_RETRY_PASSO = 0.2;
+
+function isSaidaInvalida(err) {
+  return err instanceof SyntaxError || /JSON valido|fora do contrato/i.test(err.message);
+}
+
 function extractJsonObject(raw) {
   const text = String(raw || '').trim();
   if (!text) {
@@ -88,11 +97,25 @@ async function gerarViaIa(anexo, documento, provider, progress) {
       logger.info('Reutilizando resumo parcial de anexo validado', { anexoId: anexo.id });
       return summary;
     }
-    progress?.checkTime();
-    const raw = await generateWithProgress(provider, { prompt, temperature: 0.15 }, progress, config.aiRequestTimeoutMs);
-    const summary = validateAnexoResumo(extractJsonObject(raw));
-    progress?.save(step, { summary });
-    return summary;
+    const tentativas = Math.max(1, Number(config.aiRetryMax || 0) + 1);
+    let ultimoErro;
+    for (let tentativa = 0; tentativa < tentativas; tentativa++) {
+      progress?.checkTime();
+      const temperature = TEMPERATURA_BASE + tentativa * TEMPERATURA_RETRY_PASSO;
+      const raw = await generateWithProgress(provider, { prompt, temperature }, progress, config.aiRequestTimeoutMs);
+      try {
+        const summary = validateAnexoResumo(extractJsonObject(raw));
+        progress?.save(step, { summary });
+        return summary;
+      } catch (err) {
+        if (!isSaidaInvalida(err)) {
+          throw err;
+        }
+        ultimoErro = err;
+        logger.warn('Resumo de anexo: saida invalida da IA; nova tentativa', { anexoId: anexo.id, tentativa: tentativa + 1, erro: err.message });
+      }
+    }
+    throw ultimoErro;
   }
   let summaries = [];
   for (let i = 0; i < chunks.length; i++) {
