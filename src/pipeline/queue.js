@@ -35,7 +35,8 @@ function createQueue(
   CREATE TABLE IF NOT EXISTS pipeline_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
   CREATE TABLE IF NOT EXISTS pipeline_runs (id INTEGER PRIMARY KEY, job_id INTEGER NOT NULL, kind TEXT NOT NULL,
     entity TEXT NOT NULL, historical INTEGER NOT NULL, finished_at TEXT NOT NULL, duration_ms INTEGER NOT NULL);`);
-  // Databases created before the `ok` flag keep their history as successful.
+  // Databases created before the `ok` flag: history defaults to successful, except
+  // runs whose job still carries an error (they ate the budget without a result).
   if (
     !db
       .prepare('PRAGMA table_info(pipeline_runs)')
@@ -43,6 +44,9 @@ function createQueue(
       .some(c => c.name === 'ok')
   ) {
     db.exec('ALTER TABLE pipeline_runs ADD COLUMN ok INTEGER NOT NULL DEFAULT 1');
+    db.exec(
+      'UPDATE pipeline_runs SET ok = 0 WHERE job_id IN (SELECT id FROM pipeline_jobs WHERE error IS NOT NULL)'
+    );
   }
   function get(id) {
     return db.prepare('SELECT * FROM pipeline_jobs WHERE id = ?').get(id);

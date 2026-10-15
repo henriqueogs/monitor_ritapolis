@@ -253,3 +253,31 @@ describe('orcamento historico: falhas nao queimam o orcamento de resumos', () =>
     old.close();
   });
 });
+
+test('migracao marca como falha as execucoes antigas cujo job guarda erro', () => {
+  const old = new DatabaseSync(':memory:');
+  createQueue(old);
+  old.exec('DROP TABLE pipeline_runs');
+  old.exec(`CREATE TABLE pipeline_runs (id INTEGER PRIMARY KEY, job_id INTEGER NOT NULL,
+    kind TEXT NOT NULL, entity TEXT NOT NULL, historical INTEGER NOT NULL,
+    finished_at TEXT NOT NULL, duration_ms INTEGER NOT NULL)`);
+  const job = old.prepare(`INSERT INTO pipeline_jobs
+    (id, identity, kind, entity, input_hash, version, payload, status, error, available_at, created_at)
+    VALUES (?, ?, 'items', '7', 'h', '1', '{}', ?, ?, 'x', 'x')`);
+  job.run(1, 'a', 'failed', 'contrato_rejeitado');
+  job.run(2, 'b', 'ok', null);
+  const run = old.prepare(
+    "INSERT INTO pipeline_runs (job_id, kind, entity, historical, finished_at, duration_ms) VALUES (?, 'items', '7', 1, 'x', 1000)"
+  );
+  run.run(1);
+  run.run(2);
+
+  createQueue(old);
+
+  const ok = old.prepare('SELECT job_id, ok FROM pipeline_runs ORDER BY job_id').all();
+  expect(ok.map((r) => [r.job_id, r.ok])).toEqual([
+    [1, 0],
+    [2, 1],
+  ]);
+  old.close();
+});

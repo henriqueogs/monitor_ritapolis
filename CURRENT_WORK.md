@@ -106,6 +106,13 @@ Obs.: `curl` na home dá 429 — é o Challenge do firewall Vercel, não queda.
      (retries já são limitados a 3, mas há >600 jobs failed).
   4. Testes em `queue.test.js`: falha não consome orçamento; falha acima do teto
      bloqueia histórico; recente (`historical = 0`) segue intocado.
+  **Backfill (15/10):** a migração marca `ok = 0` nas execuções antigas cujo job
+  guarda erro (senão as falhas de antes do deploy seguiam queimando o orçamento
+  do dia). Medido na produção em 15/10 desde 03:00Z: 148 min de sucesso + 91 min
+  de falha — com o teto padrão de falhas (25% de 240 = 60 min) o histórico
+  continua bloqueado até zerar o dia; para retomar antes, subir
+  `PIPELINE_HISTORICAL_FAIL_BUDGET_MS` no drop-in da VM (ex.: 7200000), ciente
+  de que `items` segue falhando 100% (A2).
   Variável nova: `PIPELINE_HISTORICAL_FAIL_BUDGET_MS` (opcional). Após o deploy,
   conferir em `consumo_24h` que `docs_24h` sobe e `min` de `items` deixa de dominar.
   Risco: o orçamento deixa de limitar tempo real de IA/dia (falhas somam por
