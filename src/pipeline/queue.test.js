@@ -180,3 +180,76 @@ test('status separates retry backoff and historical budget waits from stalled cu
   expect(q.status(now).waiting.ready_recent).toBe(1);
   expect(q.status(now).oldest_pending_recent).toBe(old.toISOString());
 });
+
+describe('orcamento historico: falhas nao queimam o orcamento de resumos', () => {
+  const MIN = 60000;
+  const hist = { ...task, historical: true };
+  const falha = (queue, job, inicio, minutos) =>
+    queue.finish(
+      job.id,
+      { error: 'contrato_rejeitado' },
+      new Date(inicio.getTime() + minutos * MIN)
+    );
+
+  test('execucao que falha nao consome o orcamento nem a vaga de doc', () => {
+    const fq = createQueue(db, {
+      historicalDocsPerDay: 1,
+      historicalBudgetMs: 10 * MIN,
+      historicalFailBudgetMs: 30 * MIN,
+    });
+    const a = fq.enqueue({ ...hist, entity: 1 }, now);
+    fq.claim(now);
+    falha(fq, a, now, 12); // 12 min de falha > orcamento de 10 min
+    const fim = new Date(now.getTime() + 12 * MIN);
+    fq.enqueue({ ...hist, entity: 2 }, now);
+    expect(fq.claim(fim).entity).toBe('2');
+  });
+
+  test('falhas alem do teto proprio bloqueiam o historico, nao o recente', () => {
+    const fq = createQueue(db, { historicalBudgetMs: 600 * MIN, historicalFailBudgetMs: 10 * MIN });
+    const a = fq.enqueue({ ...hist, entity: 1 }, now);
+    fq.claim(now);
+    falha(fq, a, now, 11);
+    const fim = new Date(now.getTime() + 11 * MIN);
+    fq.enqueue({ ...hist, entity: 2 }, now);
+    expect(fq.claim(fim)).toBeNull();
+    fq.enqueue({ ...task, entity: 3, historical: false }, now);
+    expect(fq.claim(fim).entity).toBe('3');
+  });
+
+  test('teto de falhas padrao e 25% do orcamento', () => {
+    const fq = createQueue(db, { historicalBudgetMs: 40 * MIN });
+    const a = fq.enqueue({ ...hist, entity: 1 }, now);
+    fq.claim(now);
+    falha(fq, a, now, 11); // > 10 min = 25% de 40
+    fq.enqueue({ ...hist, entity: 2 }, now);
+    expect(fq.claim(new Date(now.getTime() + 11 * MIN))).toBeNull();
+  });
+
+  test('sucesso continua consumindo o orcamento', () => {
+    const fq = createQueue(db, { historicalBudgetMs: 10 * MIN });
+    const a = fq.enqueue({ ...hist, entity: 1 }, now);
+    fq.claim(now);
+    fq.finish(a.id, { result: {} }, new Date(now.getTime() + 11 * MIN));
+    fq.enqueue({ ...hist, entity: 2 }, now);
+    expect(fq.claim(new Date(now.getTime() + 11 * MIN))).toBeNull();
+  });
+
+  test('lease expirado e registrado como execucao com falha', () => {
+    const a = q.enqueue(hist, now);
+    q.claim(now);
+    q.claim(new Date(now.getTime() + 12 * MIN));
+    expect(db.prepare('SELECT ok FROM pipeline_runs WHERE job_id = ?').get(a.id).ok).toBe(0);
+  });
+
+  test('tabela pipeline_runs antiga ganha a coluna ok sem perder historico', () => {
+    const old = new DatabaseSync(':memory:');
+    old.exec(`CREATE TABLE pipeline_runs (id INTEGER PRIMARY KEY, job_id INTEGER NOT NULL,
+      kind TEXT NOT NULL, entity TEXT NOT NULL, historical INTEGER NOT NULL,
+      finished_at TEXT NOT NULL, duration_ms INTEGER NOT NULL);
+      INSERT INTO pipeline_runs VALUES (1, 1, 'summary', '7', 1, '2026-09-30T00:00:00Z', 1000);`);
+    createQueue(old);
+    expect(old.prepare('SELECT ok FROM pipeline_runs').get().ok).toBe(1);
+    old.close();
+  });
+});

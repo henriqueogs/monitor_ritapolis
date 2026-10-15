@@ -7,9 +7,17 @@
 const HISTORICAL_DOCS_PER_DAY = 10;
 const HISTORICAL_BUDGET_MS = 3000000;
 
+// Failed runs do not spend the summary budget, but have their own cap so a
+// stuck stage cannot keep the VM retrying forever (default: 25% of the budget).
+const FAIL_BUDGET_SHARE = 0.25;
+
 function createQueue(
   db,
-  { historicalDocsPerDay = HISTORICAL_DOCS_PER_DAY, historicalBudgetMs = HISTORICAL_BUDGET_MS } = {}
+  {
+    historicalDocsPerDay = HISTORICAL_DOCS_PER_DAY,
+    historicalBudgetMs = HISTORICAL_BUDGET_MS,
+    historicalFailBudgetMs = Math.floor(historicalBudgetMs * FAIL_BUDGET_SHARE),
+  } = {}
 ) {
   db.exec(`CREATE TABLE IF NOT EXISTS pipeline_jobs (
     id INTEGER PRIMARY KEY, identity TEXT NOT NULL UNIQUE, kind TEXT NOT NULL,
@@ -27,6 +35,15 @@ function createQueue(
   CREATE TABLE IF NOT EXISTS pipeline_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
   CREATE TABLE IF NOT EXISTS pipeline_runs (id INTEGER PRIMARY KEY, job_id INTEGER NOT NULL, kind TEXT NOT NULL,
     entity TEXT NOT NULL, historical INTEGER NOT NULL, finished_at TEXT NOT NULL, duration_ms INTEGER NOT NULL);`);
+  // Databases created before the `ok` flag keep their history as successful.
+  if (
+    !db
+      .prepare('PRAGMA table_info(pipeline_runs)')
+      .all()
+      .some(c => c.name === 'ok')
+  ) {
+    db.exec('ALTER TABLE pipeline_runs ADD COLUMN ok INTEGER NOT NULL DEFAULT 1');
+  }
   function get(id) {
     return db.prepare('SELECT * FROM pipeline_jobs WHERE id = ?').get(id);
   }
@@ -68,34 +85,41 @@ function createQueue(
       // Expired tasks were killed or the coordinator died. Resume from the
       // committed source window/stage, with a bounded retry count.
       db.prepare(
-        `INSERT INTO pipeline_runs(job_id,kind,entity,historical,finished_at,duration_ms)
-        SELECT id,kind,entity,historical,?,600000 FROM pipeline_jobs WHERE status = 'running' AND lease_until < ?`
+        `INSERT INTO pipeline_runs(job_id,kind,entity,historical,finished_at,duration_ms,ok)
+        SELECT id,kind,entity,historical,?,600000,0 FROM pipeline_jobs WHERE status = 'running' AND lease_until < ?`
       ).run(iso, iso);
       db.prepare(
         `UPDATE pipeline_jobs SET status = CASE WHEN attempts < 3 THEN 'pending' ELSE 'failed' END,
         lease_until = NULL, available_at = ?, error = 'worker_interrupted'
         WHERE status = 'running' AND lease_until < ?`
       ).run(iso, iso);
-      const spent = db
+      const { spent, failedMs } = db
         .prepare(
-          `SELECT COALESCE(SUM(duration_ms),0) AS ms
+          `SELECT COALESCE(SUM(CASE WHEN ok = 1 THEN duration_ms END),0) AS spent,
+          COALESCE(SUM(CASE WHEN ok = 0 THEN duration_ms END),0) AS failedMs
         FROM pipeline_runs WHERE historical = 1 AND finished_at >= ?`
         )
-        .get(dayStart).ms;
+        .get(dayStart);
       const aiKinds =
         "'extract','summary','items','integrated','facts','extract-anexo','anexo-summary'";
       const row = db
         .prepare(
           `SELECT * FROM pipeline_jobs WHERE status = 'pending' AND available_at <= ?
-        AND (? = 0 OR kind = 'backup') AND (? < @budgetMs OR historical = 0)
+        AND (? = 0 OR kind = 'backup') AND ((? < @budgetMs AND (@failedMs = 0 OR @failedMs < @failBudgetMs)) OR historical = 0)
         AND (historical = 0 OR kind NOT IN (${aiKinds})
-          OR entity IN (SELECT entity FROM pipeline_runs WHERE historical = 1 AND kind IN (${aiKinds}) AND finished_at >= @dayStart)
-          OR (SELECT COUNT(DISTINCT entity) FROM pipeline_runs WHERE historical = 1 AND kind IN (${aiKinds}) AND finished_at >= @dayStart) < @docsPerDay)
+          OR entity IN (SELECT entity FROM pipeline_runs WHERE historical = 1 AND kind IN (${aiKinds}) AND ok = 1 AND finished_at >= @dayStart)
+          OR (SELECT COUNT(DISTINCT entity) FROM pipeline_runs WHERE historical = 1 AND kind IN (${aiKinds}) AND ok = 1 AND finished_at >= @dayStart) < @docsPerDay)
         AND NOT EXISTS (SELECT 1 FROM pipeline_jobs WHERE status = 'running')
         ORDER BY priority, created_at, id LIMIT 1`
         )
         .get(
-          { dayStart, budgetMs: historicalBudgetMs, docsPerDay: historicalDocsPerDay },
+          {
+            dayStart,
+            budgetMs: historicalBudgetMs,
+            failedMs,
+            failBudgetMs: historicalFailBudgetMs,
+            docsPerDay: historicalDocsPerDay,
+          },
           iso,
           Number(paused),
           spent
@@ -127,14 +151,15 @@ function createQueue(
     db.exec('BEGIN IMMEDIATE');
     try {
       db.prepare(
-        'INSERT INTO pipeline_runs(job_id,kind,entity,historical,finished_at,duration_ms) VALUES (?,?,?,?,?,?)'
+        'INSERT INTO pipeline_runs(job_id,kind,entity,historical,finished_at,duration_ms,ok) VALUES (?,?,?,?,?,?,?)'
       ).run(
         row.id,
         row.kind,
         row.entity,
         row.historical,
         now.toISOString(),
-        Math.max(0, now.getTime() - Date.parse(row.started_at))
+        Math.max(0, now.getTime() - Date.parse(row.started_at)),
+        error ? 0 : 1
       );
       db.prepare(
         `UPDATE pipeline_jobs SET status = ?, result = ?, error = ?, finished_at = ?,

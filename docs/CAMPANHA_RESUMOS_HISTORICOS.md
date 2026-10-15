@@ -13,7 +13,8 @@ O pipeline roda uma tarefa por vez. O trabalho em documentos **históricos**
 | Variável (drop-in systemd) | Padrão | Significado |
 |---|---|---|
 | `PIPELINE_HISTORICAL_DOCS_PER_DAY` | 10 | documentos históricos distintos por dia |
-| `PIPELINE_HISTORICAL_BUDGET_MS` | 3000000 | tempo de IA histórica por dia (ms) |
+| `PIPELINE_HISTORICAL_BUDGET_MS` | 3000000 | tempo de IA histórica **bem-sucedida** por dia (ms) |
+| `PIPELINE_HISTORICAL_FAIL_BUDGET_MS` | 25% do orçamento | teto do tempo gasto em execuções que falharam (não consomem o orçamento nem a vaga de doc, mas esse teto bloqueia o histórico se estourar) |
 
 Drop-in na VM: `/etc/systemd/system/monitor-ritapolis.service.d/historico-campanha.conf`
 (cópia versionada em `deploy/systemd/.../historico-campanha.conf`, valores da etapa
