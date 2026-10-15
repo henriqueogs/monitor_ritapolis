@@ -14,6 +14,12 @@ const FAIL_BUDGET_SHARE = 0.25;
 // failed review at the end); historical items get a daily cap so summaries keep
 // flowing (default: 25% of the budget, any outcome counts).
 const ITEMS_BUDGET_SHARE = 0.25;
+// Per-document ceiling for historical items. Measured in production (15/10/2026):
+// 60 successful jobs never exceeded 19 min; the 2 jobs over 30 min (117 and 51 min)
+// both ended in review. Past the cap the document waits for a person, keeping its
+// checkpoints, instead of getting another 8-minute slice.
+const ITEMS_JOB_CAP_MS = 30 * 60000;
+const ITEMS_JOB_CAP_ERROR = 'Itens: leitura excede o limite de tempo por documento; exige revisao';
 
 function createQueue(
   db,
@@ -22,6 +28,7 @@ function createQueue(
     historicalBudgetMs = HISTORICAL_BUDGET_MS,
     historicalFailBudgetMs = Math.floor(historicalBudgetMs * FAIL_BUDGET_SHARE),
     historicalItemsBudgetMs = Math.floor(historicalBudgetMs * ITEMS_BUDGET_SHARE),
+    historicalItemsJobCapMs = ITEMS_JOB_CAP_MS,
   } = {}
 ) {
   db.exec(`CREATE TABLE IF NOT EXISTS pipeline_jobs (
@@ -102,6 +109,11 @@ function createQueue(
         lease_until = NULL, available_at = ?, error = 'worker_interrupted'
         WHERE status = 'running' AND lease_until < ?`
       ).run(iso, iso);
+      db.prepare(
+        `UPDATE pipeline_jobs SET status = 'failed', error = @erro, finished_at = @iso, lease_until = NULL
+        WHERE kind = 'items' AND historical = 1 AND status = 'pending'
+        AND (SELECT COALESCE(SUM(duration_ms),0) FROM pipeline_runs WHERE job_id = pipeline_jobs.id) >= @cap`
+      ).run({ erro: ITEMS_JOB_CAP_ERROR, iso, cap: historicalItemsJobCapMs });
       const { spent, failedMs, itemsMs } = db
         .prepare(
           `SELECT COALESCE(SUM(CASE WHEN ok = 1 THEN duration_ms END),0) AS spent,

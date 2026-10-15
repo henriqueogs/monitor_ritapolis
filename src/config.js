@@ -28,6 +28,10 @@ module.exports = {
   pipelineHistoricalItemsBudgetMs: process.env.PIPELINE_HISTORICAL_ITEMS_BUDGET_MS
     ? Number(process.env.PIPELINE_HISTORICAL_ITEMS_BUDGET_MS)
     : undefined,
+  // vazio = 30 min por documento (ver ITEMS_JOB_CAP_MS em pipeline/queue.js)
+  pipelineHistoricalItemsJobCapMs: process.env.PIPELINE_HISTORICAL_ITEMS_JOB_CAP_MS
+    ? Number(process.env.PIPELINE_HISTORICAL_ITEMS_JOB_CAP_MS)
+    : undefined,
   frontendApiUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api',
   collectorDelayMs: Number(process.env.COLETOR_DELAY_MS || 1000),
   collectorTimeoutMs: Number(process.env.COLETOR_TIMEOUT_MS || 15000),

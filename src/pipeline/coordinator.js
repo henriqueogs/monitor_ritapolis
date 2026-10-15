@@ -35,6 +35,7 @@ function getQueue() {
       historicalBudgetMs: config.pipelineHistoricalBudgetMs,
       historicalFailBudgetMs: config.pipelineHistoricalFailBudgetMs,
       historicalItemsBudgetMs: config.pipelineHistoricalItemsBudgetMs,
+      historicalItemsJobCapMs: config.pipelineHistoricalItemsJobCapMs,
     });
   }
   return queue;

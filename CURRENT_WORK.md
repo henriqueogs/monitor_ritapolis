@@ -135,6 +135,14 @@ Obs.: `curl` na home dá 429 — é o Challenge do firewall Vercel, não queda.
   `too_big` (>700 chars) 20; campo string ausente (`invalid_type`) 13; demais
   gates de evidência ~25; timeout 3. A maioria são gates funcionando — o
   problema é o **custo antes de falhar**, não os gates.
+  **Distribuição medida (15/10, 278 jobs `items`):** 60 ok (mediana 2,1 min, máx
+  19 min) × 217 failed; 203 failed < 10 min (337 min no total), 12 failed entre 10
+  e 30 min (201 min), só 2 passaram de 30 min (117 e 51 min) e **nenhum** ok
+  passou de 19 min. **Feito (2):** teto de **30 min por documento** em `items`
+  histórico (`PIPELINE_HISTORICAL_ITEMS_JOB_CAP_MS`): passou disso, o job vai para
+  revisão (`exige revisao`, sem alerta) mantendo os checkpoints, em vez de
+  ganhar outra fatia de 8 min. Recente não tem teto. Reprocessar: reenfileirar o
+  job (retoma dos checkpoints).
   **Feito:** teto diário para `items` histórico (`PIPELINE_HISTORICAL_ITEMS_BUDGET_MS`,
   padrão 25% do orçamento; qualquer resultado conta) — `summary` deixa de
   esperar atrás de `items`. **Em aberto (decisão de produto):** abortar cedo no
