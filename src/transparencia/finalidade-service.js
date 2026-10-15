@@ -13,7 +13,7 @@ const {
 } = require('../db/transparencia-classificacao-repo');
 const { FINALIDADES, getFinalidadeMeta } = require('./finalidade');
 const { comLinkPortal } = require('./portal-links');
-const { agruparPorMandato, mandatoInicio, mandatoLabel } = require('../utils/mandato');
+const { agruparPorMandato, resolverExercicios, montarPeriodo } = require('../utils/mandato');
 const { vinculoDocumentoExato } = require('../licitacoes/modalidade');
 const {
   SQL_TIPO_ORDINARIO,
@@ -30,7 +30,6 @@ const COLUNAS_VALOR = `${SQL_COUNT_ORDINARIO} AS n,
            ${SQL_SUM_ORDINARIO} AS valor_total,
            ${SQL_SUM_ESTIMADO_GLOBAL} AS valor_estimado_global`;
 
-const MANDATO_ANOS = 4;
 const LIMITE_CREDORES = 15;
 const LIMITE_EMPENHOS_RECENTES = 20;
 
@@ -67,45 +66,6 @@ const REGRAS = Object.freeze({
   indenizacao_restituicao: 'Detectada por elementos 3.3.90.93, 94 ou 95.',
   outros: 'Fallback quando nenhuma regra anterior explica o empenho.',
 });
-
-function resolverExercicios({ exercicio, mandato } = {}) {
-  const ano = Number(exercicio);
-  if (Number.isInteger(ano) && ano > 0) { return [ano]; }
-
-  const inicio = Number(mandato);
-  if (Number.isInteger(inicio) && inicio > 0) {
-    const base = mandatoInicio(inicio);
-    return Array.from({ length: MANDATO_ANOS }, (_, i) => base + i);
-  }
-  return undefined;
-}
-
-function montarPeriodo({ exercicio, mandato }, serieAnual) {
-  const anos = (serieAnual || []).map((r) => Number(r.exercicio)).filter(Number.isInteger);
-  const anosCobertos = anos.length ? [Math.min(...anos), Math.max(...anos)] : [];
-
-  const ano = Number(exercicio);
-  if (Number.isInteger(ano) && ano > 0) {
-    const inicio = mandatoInicio(ano);
-    return {
-      exercicio: ano,
-      mandato: { inicio, fim: inicio + MANDATO_ANOS - 1, label: mandatoLabel(inicio) },
-      anos_cobertos: anosCobertos,
-    };
-  }
-
-  const inicioMandato = Number(mandato);
-  if (Number.isInteger(inicioMandato) && inicioMandato > 0) {
-    const inicio = mandatoInicio(inicioMandato);
-    return {
-      exercicio: null,
-      mandato: { inicio, fim: inicio + MANDATO_ANOS - 1, label: mandatoLabel(inicio) },
-      anos_cobertos: anosCobertos,
-    };
-  }
-
-  return { exercicio: null, mandato: null, anos_cobertos: anosCobertos };
-}
 
 function finalidadePublica(classe, extra = {}) {
   const meta = getFinalidadeMeta(classe);

@@ -435,61 +435,61 @@ function crosswalkDespesasDocumentos({ relink = false } = {}) {
 // ---------------------------------------------------------------------------
 
 /**
- * Para cada documento vinculado, atualiza licitacoes_detalhes com
- * vencedor e valor final se ainda não tiver dados de boa qualidade.
+ * Para cada documento vinculado SEM vencedor, identifica o provável vencedor: o
+ * credor com maior valor de empenho ORDINÁRIO (OP e EE/EG não decidem) em
+ * vínculos exatos com o documento.
+ *
+ * NÃO grava valor_final: soma de empenho é gasto empenhado, não valor
+ * homologado — gravá-lo contaminava alertas, IA e totais de "licitado". O
+ * rótulo `empenho_agregado` fica em origem_detalhe para auditoria.
  * @returns {number} quantidade de detalhes enriquecidos
  */
 function enriquecerDetalhesComEmpenhos() {
-  // Agrupar empenhos por documento_id para encontrar credor principal
-  const grupos = db.prepare(`
+  const candidatos = db.prepare(`
     SELECT
-      documento_id,
-      credor_nome,
-      credor_cnpj,
-      SUM(valor) as valor_total,
-      COUNT(*) as n_empenhos
-    FROM transparencia_despesas
-    WHERE documento_id IS NOT NULL
-      AND credor_cnpj IS NOT NULL
-      AND credor_cnpj != ''
-      AND tipo NOT LIKE '%INSS%'
-      AND tipo NOT LIKE '%Extra%'
-    GROUP BY documento_id, credor_cnpj
-    ORDER BY valor_total DESC
-  `).all();
+      td.documento_id, td.credor_nome, td.credor_cnpj, td.valor, td.modalidade,
+      d.titulo AS documento_titulo
+    FROM transparencia_despesas td
+    JOIN documentos d ON d.id = td.documento_id
+    WHERE td.documento_id IS NOT NULL
+      AND td.credor_cnpj IS NOT NULL
+      AND td.credor_cnpj != ''
+      AND ${SQL_TIPO_ORDINARIO.split('tipo').join('td.tipo')}
+      AND td.tipo NOT LIKE '%INSS%'
+      AND td.tipo NOT LIKE '%Extra%'
+  `).all().filter((c) => vinculoDocumentoExato(c.modalidade, c.documento_titulo));
 
-  // Manter apenas o credor com maior valor por documento
-  const melhorPorDoc = new Map();
-  for (const g of grupos) {
-    const key = g.documento_id;
-    if (!melhorPorDoc.has(key) || g.valor_total > melhorPorDoc.get(key).valor_total) {
-      melhorPorDoc.set(key, g);
-    }
+  // Soma por (documento, credor) e mantém só o credor de maior valor por documento
+  const porCredor = new Map();
+  for (const c of candidatos) {
+    const chave = `${c.documento_id}|${c.credor_cnpj}`;
+    const atual = porCredor.get(chave) || { ...c, valor_total: 0 };
+    atual.valor_total += Number(c.valor) || 0;
+    porCredor.set(chave, atual);
   }
+  const melhorPorDoc = new Map();
+  for (const g of porCredor.values()) {
+    const melhor = melhorPorDoc.get(g.documento_id);
+    if (!melhor || g.valor_total > melhor.valor_total) {melhorPorDoc.set(g.documento_id, g);}
+  }
+
+  const buscarAtual = db.prepare('SELECT vencedor_cnpj FROM licitacoes_detalhes WHERE documento_id = ?');
+  const gravar = db.prepare(`
+    UPDATE licitacoes_detalhes
+    SET vencedor_nome = @nome,
+        vencedor_cnpj = @cnpj,
+        origem = 'portal_transparencia',
+        origem_detalhe = 'empenho_agregado',
+        atualizado_em = CURRENT_TIMESTAMP
+    WHERE documento_id = @docId AND vencedor_cnpj IS NULL
+  `);
 
   let enriquecidos = 0;
   for (const [docId, grupo] of melhorPorDoc) {
-    // Só atualizar se o campo vencedor_cnpj ainda está vazio ou origem é 'ia_resumo'
-    const atual = db.prepare(
-      'SELECT vencedor_cnpj, origem FROM licitacoes_detalhes WHERE documento_id = ?'
-    ).get(docId);
-
-    if (!atual) {continue;}
-    // The SQL below never replaces an existing CNPJ. Do not update its
-    // timestamp (or report an enrichment) when nothing can change.
-    if (atual.vencedor_cnpj) {continue;}
-
-    db.prepare(`
-      INSERT INTO licitacoes_detalhes (documento_id, vencedor_nome, vencedor_cnpj, valor_final, origem, origem_detalhe)
-      VALUES (@docId, @nome, @cnpj, @valor, 'portal_transparencia', 'empenho_agregado')
-      ON CONFLICT (documento_id) DO UPDATE SET
-        vencedor_nome  = CASE WHEN excluded.vencedor_nome IS NOT NULL AND vencedor_cnpj IS NULL THEN excluded.vencedor_nome ELSE vencedor_nome END,
-        vencedor_cnpj  = CASE WHEN excluded.vencedor_cnpj IS NOT NULL AND vencedor_cnpj IS NULL THEN excluded.vencedor_cnpj ELSE vencedor_cnpj END,
-        valor_final    = CASE WHEN vencedor_cnpj IS NULL THEN excluded.valor_final ELSE valor_final END,
-        origem         = CASE WHEN vencedor_cnpj IS NULL THEN 'portal_transparencia' ELSE origem END,
-        atualizado_em  = CURRENT_TIMESTAMP
-    `).run({ docId, nome: grupo.credor_nome, cnpj: grupo.credor_cnpj, valor: grupo.valor_total });
-
+    const atual = buscarAtual.get(docId);
+    // Nunca substitui vencedor existente nem cria detalhe novo (sem linha, nada a enriquecer).
+    if (!atual || atual.vencedor_cnpj) {continue;}
+    gravar.run({ docId, nome: grupo.credor_nome, cnpj: grupo.credor_cnpj });
     enriquecidos++;
   }
 

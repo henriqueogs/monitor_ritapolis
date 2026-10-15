@@ -577,3 +577,63 @@ describe('transparencia-repo - vinculados, resumo por documento e top credores (
     expect(topCredores.map((c) => c.credor_nome)).toEqual(['FORNECEDOR REAL']);
   });
 });
+
+describe('transparencia-repo - enriquecerDetalhesComEmpenhos nao inventa valor final (fiscal-valores V2/V6)', () => {
+  const TIPO_EE = 'EE - Empenho Estimativo';
+  const TIPO_OP = 'OP - Ordem de Pagamento';
+  const MOD = 'Pregao - 00012026';
+  const A = { credorCnpj: '11111111111111', credorNome: 'EMPRESA A' };
+  const B = { credorCnpj: '22222222222222', credorNome: 'EMPRESA B' };
+
+  beforeEach(() => {
+    mockConn.exec('DELETE FROM licitacoes_detalhes; DELETE FROM transparencia_despesas_classificacoes; DELETE FROM transparencia_despesas; DELETE FROM documentos;');
+    seq = 0;
+    mockConn.prepare(
+      `INSERT INTO documentos (id, fonte, tipo, numero, ano, titulo, url_origem)
+       VALUES (1, 'site_prefeitura', 'edital', '1/2026', 2026, 'Pregão 1/2026', 'https://x/1')`
+    ).run();
+    mockConn.prepare('INSERT INTO licitacoes_detalhes (documento_id) VALUES (1)').run();
+  });
+
+  const detalhe = () => mockConn.prepare('SELECT * FROM licitacoes_detalhes WHERE documento_id = 1').get();
+
+  it('identifica o vencedor pelo maior valor ORDINARIO mas deixa valor_final vazio (empenhado nao e homologado)', () => {
+    seedDespesa({ ...A, valor: 100, documentoId: 1, modalidade: MOD });
+    seedDespesa({ ...B, valor: 40, documentoId: 1, modalidade: MOD });
+
+    const n = repo.enriquecerDetalhesComEmpenhos();
+
+    expect(n).toBe(1);
+    expect(detalhe()).toMatchObject({
+      vencedor_cnpj: A.credorCnpj,
+      valor_final: null,
+      origem: 'portal_transparencia',
+      origem_detalhe: 'empenho_agregado',
+    });
+  });
+
+  it('EE/EG e OP de outro credor nao decidem o vencedor', () => {
+    seedDespesa({ ...A, valor: 100, documentoId: 1, modalidade: MOD });
+    seedDespesa({ ...B, valor: 9000, documentoId: 1, modalidade: MOD, tipo: TIPO_EE });
+    seedDespesa({ ...B, valor: 8000, documentoId: 1, modalidade: MOD, tipo: TIPO_OP });
+
+    repo.enriquecerDetalhesComEmpenhos();
+
+    expect(detalhe().vencedor_cnpj).toBe(A.credorCnpj);
+  });
+
+  it('vinculo inexato (modalidade diferente do titulo) nao enriquece', () => {
+    seedDespesa({ ...A, valor: 100, documentoId: 1, modalidade: 'Dispensa - 00012026' });
+
+    expect(repo.enriquecerDetalhesComEmpenhos()).toBe(0);
+    expect(detalhe().vencedor_cnpj).toBeNull();
+  });
+
+  it('nao sobrescreve vencedor ja conhecido', () => {
+    mockConn.prepare("UPDATE licitacoes_detalhes SET vencedor_cnpj = '33333333333333', valor_final = 777 WHERE documento_id = 1").run();
+    seedDespesa({ ...A, valor: 100, documentoId: 1, modalidade: MOD });
+
+    expect(repo.enriquecerDetalhesComEmpenhos()).toBe(0);
+    expect(detalhe()).toMatchObject({ vencedor_cnpj: '33333333333333', valor_final: 777 });
+  });
+});

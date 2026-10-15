@@ -371,3 +371,29 @@ describe('transparencia-agregados-repo - relacionados no empenho (fiscal-valores
     expect(r).toMatchObject({ n: 1, valor_total: 30, valor_estimado_global: 800 });
   });
 });
+
+describe('transparencia-agregados-repo - insumo do detector de gasto atipico (fiscal-valores V3)', () => {
+  beforeEach(() => {
+    mockConn.exec('DELETE FROM transparencia_despesas; DELETE FROM documentos;');
+    seq = 0;
+  });
+
+  it('agrega so ordinario por credor/categoria/ano: OP duplicaria o gasto e EE/EG sao previsao', () => {
+    const eo1 = seedDespesa({ valor: 100 });
+    const eo2 = seedDespesa({ valor: 50 });
+    seedDespesa({ valor: 5000, tipo: 'EE - Empenho Estimativo' });
+    seedDespesa({ valor: 900, tipo: 'OP - Ordem de Pagamento' });
+
+    const [linha] = repo.getAgregadoCredorCategoriaAno();
+
+    expect(linha).toMatchObject({ n: 2, valor_total: 150 });
+    expect(linha.empenho_ids.sort()).toEqual([eo1, eo2].sort());
+  });
+
+  it('credor so com estimativo/global ou OP nao vira linha do detector', () => {
+    seedDespesa({ valor: 5000, tipo: 'EG - Empenho Global', credorCnpj: '99999999999999', credorNome: 'SO GLOBAL' });
+    seedDespesa({ valor: 700, tipo: 'OP - Ordem de Pagamento', credorCnpj: '88888888888888', credorNome: 'SO OP' });
+
+    expect(repo.getAgregadoCredorCategoriaAno()).toEqual([]);
+  });
+});

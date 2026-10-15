@@ -24,6 +24,7 @@
     "licitacoes:detalhar": "node scripts/detalhar-licitacoes.js",
     "licitacoes:enriquecer-produtos": "node scripts/enriquecer-produtos-licitacoes.js",
     "licitacoes:validar-valores": "node scripts/validar-valores-licitacoes.js",
+    "licitacoes:limpar-valor-final-empenho": "node scripts/limpar-valor-final-empenho.js",
     "licitacoes:gate-valores": "node scripts/aplicar-gate-valores.js",
     "licitacoes:gate-valores-itens": "node scripts/aplicar-gate-valores-itens.js",
     "licitacoes:marcar-lixo": "node scripts/marcar-itens-lixo.js",

@@ -7,6 +7,7 @@
  */
 
 const { SQL_TIPO_ORDINARIO } = require('./tipo-empenho');
+const { sqlValorFinalDeEmpenho } = require('./valor-final-empenho');
 
 function agregarEmpenhosPorCredor(db) {
   return db
@@ -30,4 +31,28 @@ function agregarEmpenhosPorCredor(db) {
     .all();
 }
 
-module.exports = { agregarEmpenhosPorCredor };
+/**
+ * Vitórias e valor homologado por CNPJ. Valor derivado de empenho
+ * (ver valor-final-empenho) é empenhado, não licitado: a vitória
+ * conta, o valor não.
+ */
+function agregarVencedoresPorCnpj(db) {
+  return db
+    .prepare(
+      `SELECT
+         vencedor_cnpj AS cnpj,
+         vencedor_nome AS nome,
+         COUNT(DISTINCT documento_id) AS n_licitacoes,
+         COUNT(*) AS n_vitorias,
+         SUM(CASE WHEN ${sqlValorFinalDeEmpenho('ld')}
+                  THEN 0 ELSE COALESCE(valor_final, 0) END) AS total_valor,
+         GROUP_CONCAT(DISTINCT CAST(d.ano AS TEXT)) AS anos
+       FROM licitacoes_detalhes ld
+       JOIN documentos d ON d.id = ld.documento_id
+       WHERE vencedor_cnpj IS NOT NULL AND vencedor_cnpj <> ''
+       GROUP BY vencedor_cnpj`
+    )
+    .all();
+}
+
+module.exports = { agregarEmpenhosPorCredor, agregarVencedoresPorCnpj };

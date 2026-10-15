@@ -28,6 +28,41 @@ function mandatoLabel(inicio) {
   return `${inicio}-${inicio + MANDATO_DURACAO_ANOS - 1}`;
 }
 
+function descreverMandato(inicio) {
+  return { inicio, fim: inicio + MANDATO_DURACAO_ANOS - 1, label: mandatoLabel(inicio) };
+}
+
+/**
+ * Exercícios do filtro de uma rota: ano explícito > mandato (4 anos) > undefined
+ * (acumulado). Fonte única — services não redefinem.
+ */
+function resolverExercicios({ exercicio, mandato } = {}) {
+  const ano = Number(exercicio);
+  if (Number.isInteger(ano) && ano > 0) {return [ano];}
+  const ref = Number(mandato);
+  if (Number.isInteger(ref) && ref > 0) {return exerciciosDoMandato(ref);}
+  return undefined;
+}
+
+/**
+ * Período devolvido ao cliente: exercício, mandato que o contém e anos cobertos
+ * pela série (linhas com campo `exercicio`).
+ */
+function montarPeriodo({ exercicio, mandato } = {}, serieAnual = []) {
+  const anos = (serieAnual || []).map((r) => Number(r.exercicio)).filter(Number.isInteger);
+  const anosCobertos = anos.length ? [Math.min(...anos), Math.max(...anos)] : [];
+
+  const ano = Number(exercicio);
+  if (Number.isInteger(ano) && ano > 0) {
+    return { exercicio: ano, mandato: descreverMandato(mandatoInicio(ano)), anos_cobertos: anosCobertos };
+  }
+  const ref = Number(mandato);
+  if (Number.isInteger(ref) && ref > 0) {
+    return { exercicio: null, mandato: descreverMandato(mandatoInicio(ref)), anos_cobertos: anosCobertos };
+  }
+  return { exercicio: null, mandato: null, anos_cobertos: anosCobertos };
+}
+
 /**
  * Agrupa linhas anuais por mandato, somando campos indicados.
  * Expõe `anos` reais presentes nos dados para a UI rotular mandatos parciais.
@@ -74,5 +109,8 @@ module.exports = {
   mandatoInicio,
   exerciciosDoMandato,
   mandatoLabel,
+  descreverMandato,
+  resolverExercicios,
+  montarPeriodo,
   agruparPorMandato,
 };
