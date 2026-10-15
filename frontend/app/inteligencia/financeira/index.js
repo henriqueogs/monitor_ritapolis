@@ -57,7 +57,13 @@ export default async function AnaliseFinanceiraPage({ searchParams: searchParams
         </div>
       )}
 
-      {dados && (
+      {dados?.sem_dados && (
+        <div style={{ padding: '32px 0', color: 'var(--text-muted)', textAlign: 'center' }}>
+          Ainda não há exercício com dados suficientes para a análise financeira.
+        </div>
+      )}
+
+      {dados && !dados.sem_dados && (
         <>
           <ConcentracaoCredores
             dados={dados.concentracao}

@@ -22,6 +22,8 @@ module.exports = {
   pipelineHistoricalFailBudgetMs: process.env.PIPELINE_HISTORICAL_FAIL_BUDGET_MS
     ? Number(process.env.PIPELINE_HISTORICAL_FAIL_BUDGET_MS)
     : undefined,
+  // Primeiro exercício considerado na análise financeira (antes disso faltam dados de função).
+  inteligenciaAnoMin: Number(process.env.INTELIGENCIA_ANO_MIN || 2023),
   // vazio = 25% do orcamento (ver ITEMS_BUDGET_SHARE em pipeline/queue.js)
   pipelineHistoricalItemsBudgetMs: process.env.PIPELINE_HISTORICAL_ITEMS_BUDGET_MS
     ? Number(process.env.PIPELINE_HISTORICAL_ITEMS_BUDGET_MS)

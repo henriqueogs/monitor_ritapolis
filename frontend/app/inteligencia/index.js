@@ -264,7 +264,7 @@ export default async function InteligenciaPage() {
         <p style={{ margin: 0, fontSize: 14, color: 'var(--text-muted)' }}>
           Análise inteligente sobre os {' '}
           <strong>empenhos reais</strong> da Prefeitura: índice HHI de concentração de mercado,
-          detecção de valores atípicos com z-score, evolução 2023–2026 por área funcional e
+          detecção de valores atípicos com z-score, evolução anual por área funcional e
           ranking dos principais fornecedores por secretaria.
         </p>
       </SectionBlock>

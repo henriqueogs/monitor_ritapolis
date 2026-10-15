@@ -68,6 +68,8 @@ function agruparPorMandato(rows, { anoKey = 'ano', camposSoma = [], anoAtual } =
 }
 
 module.exports = {
+  ANO_PLAUSIVEL_MIN,
+  ANO_PLAUSIVEL_MAX,
   MANDATO_DURACAO_ANOS,
   mandatoInicio,
   exerciciosDoMandato,

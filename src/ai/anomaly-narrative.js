@@ -24,7 +24,10 @@ function formatMoney(valor) {
 }
 
 function buildPrompt(anomalias) {
-  const { exercicio, outliers_valor, possivel_fracionamento, total_outliers, total_fracionamento, limiar_dispensa } = anomalias;
+  const { exercicio, outliers_valor, possivel_fracionamento, total_outliers, total_fracionamento, limiar_dispensa, limiar_dispensa_extrapolado, limiar_dispensa_fonte } = anomalias;
+  const ressalvaLimiar = limiar_dispensa_extrapolado
+    ? ` (valor do último ano conferido — ${limiar_dispensa_fonte}; pode estar desatualizado para ${exercicio}. Mantenha essa ressalva no texto.)`
+    : '';
 
   const outliersStr = outliers_valor.slice(0, 5).map((o, i) =>
     `${i + 1}. ${o.credor_nome} | ${o.funcao} | ${formatMoney(o.valor)} | z-score=${o.zscore}σ | empenho ${o.empenho} (${o.data_empenho})`
@@ -38,7 +41,7 @@ function buildPrompt(anomalias) {
 Analise os dados financeiros abaixo e escreva um relatório conciso em português, acessível para cidadãos.
 
 EXERCÍCIO: ${exercicio}
-LIMIAR DE DISPENSA DE LICITAÇÃO: ${formatMoney(limiar_dispensa)}
+LIMIAR DE DISPENSA DE LICITAÇÃO: ${formatMoney(limiar_dispensa)}${ressalvaLimiar}
 
 == EMPENHOS COM VALOR FORA DO PADRÃO ESTATÍSTICO (${total_outliers} no total) ==
 (z-score mede quantos desvios-padrão acima da média da área o empenho está)
@@ -101,4 +104,4 @@ function invalidarCache(exercicio) {
   else {cache.clear();}
 }
 
-module.exports = { gerarNarrativaAnomalias, invalidarCache };
+module.exports = { gerarNarrativaAnomalias, invalidarCache, buildPrompt };

@@ -7,7 +7,22 @@
  */
 
 const { db } = require('./index');
+const config = require('../config');
 const { SQL_TIPO_ORDINARIO } = require('../transparencia/tipo-empenho');
+const { anosReferenciaYoY, janelaAnos, limiarDispensa } = require('../inteligencia/periodo-inteligencia');
+
+// Exercícios com volume suficiente para análise (mesma regra do seletor do painel).
+const MIN_EMPENHOS_ANO_SIGNIFICATIVO = 100;
+
+function listarAnosSignificativos(anoMin = config.inteligenciaAnoMin) {
+  return db.prepare(`
+    SELECT exercicio_orcamento AS ano FROM transparencia_despesas
+    WHERE exercicio_orcamento >= ?
+    GROUP BY exercicio_orcamento
+    HAVING COUNT(*) > ?
+    ORDER BY exercicio_orcamento ASC
+  `).all(anoMin, MIN_EMPENHOS_ANO_SIGNIFICATIVO).map((r) => r.ano);
+}
 
 // Análises estatísticas olham gasto real: OP duplicaria o empenho e EE/EG são previsão.
 const ORDINARIO = SQL_TIPO_ORDINARIO;
@@ -37,6 +52,12 @@ function isEntidadeGov(credor_nome, credor_cnpj) {
 // ---------------------------------------------------------------------------
 // B1 — Concentração de fornecedores
 // ---------------------------------------------------------------------------
+
+/** Exercício padrão das rotas: último ano com dados significativos (null se não houver). */
+function getExercicioPadrao() {
+  const anos = listarAnosSignificativos();
+  return anos.length ? anos[anos.length - 1] : null;
+}
 
 /**
  * Calcula concentração de fornecedores por exercício.
@@ -129,12 +150,8 @@ function getConcentracaoCredores(exercicio) {
  * Concentração comparada entre todos os exercícios disponíveis.
  */
 function getConcentracaoHistorico() {
-  const exercicios = db.prepare(`
-    SELECT DISTINCT exercicio_orcamento AS exercicio
-    FROM transparencia_despesas
-    WHERE exercicio_orcamento >= 2023
-    ORDER BY exercicio DESC
-  `).all().map((r) => r.exercicio);
+  // Mesma regra de volume da evolução e do painel (ano quase vazio não entra no histórico).
+  const exercicios = listarAnosSignificativos().reverse();
 
   return exercicios.map((ano) => {
     const c = getConcentracaoCredores(ano);
@@ -219,9 +236,10 @@ function getEmpenhoAtipicos(exercicio) {
   }
 
   // 2. Possível fracionamento: mesmo credor, mesma semana, ≥3 empenhos < limiar de dispensa
-  // Limiar de dispensa em 2024: R$57.900; antes: R$17.600
+  // Limiar de dispensa por regime/ano (periodo-inteligencia); ano sem valor conferido vem marcado.
   // Exclui folha de pagamento (muitos empenhos individuais por natureza)
-  const LIMIAR_DISPENSA = exercicio >= 2024 ? 57900 : 17600;
+  const limiar = limiarDispensa(exercicio);
+  const LIMIAR_DISPENSA = limiar.valor;
   const fracionamento = db.prepare(`
     SELECT
       credor_cnpj, credor_nome,
@@ -262,6 +280,8 @@ function getEmpenhoAtipicos(exercicio) {
       mensagem: `${r.n_empenhos} empenhos na semana ${r.semana} totalizam R$ ${(r.valor_semana).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} — abaixo do limiar individual mas acima coletivamente`,
     })),
     limiar_dispensa: LIMIAR_DISPENSA,
+    limiar_dispensa_fonte: limiar.fonte,
+    limiar_dispensa_extrapolado: limiar.extrapolado,
     total_outliers: outliers.length,
     total_fracionamento: fracionamento.length,
   };
@@ -275,7 +295,28 @@ function getEmpenhoAtipicos(exercicio) {
  * Evolução anual de gastos por funcao, com crescimento YoY.
  * Retorna séries temporais por área de governo.
  */
-function getEvolucaoFuncoes({ anosMin = 2023, anosMax = 2026 } = {}) {
+function getEvolucaoFuncoes({ anosMin, anosMax, anoAtual = new Date().getFullYear() } = {}) {
+  if (anosMin === undefined || anosMax === undefined) {
+    const janela = janelaAnos({
+      anosDisponiveis: listarAnosSignificativos(),
+      anoMin: config.inteligenciaAnoMin,
+    });
+    if (!janela) {
+      return {
+        sem_dados: true,
+        anos_range: null,
+        total_por_ano: [],
+        por_funcao: [],
+        ano_ref: null,
+        ano_anterior: null,
+        ano_parcial: null,
+        yoy_indisponivel: true,
+      };
+    }
+    anosMin = anosMin ?? janela.anosMin;
+    anosMax = anosMax ?? janela.anosMax;
+  }
+
   const porFuncaoAno = db.prepare(`
     SELECT
       funcao,
@@ -305,8 +346,12 @@ function getEvolucaoFuncoes({ anosMin = 2023, anosMax = 2026 } = {}) {
   }
 
   // Calcular crescimento YoY para cada funcao (comparando último ano completo)
-  const anoRef = anosMax >= 2025 ? 2025 : anosMax;
-  const anoAnterior = anoRef - 1;
+  const { ano_ref: anoRef, ano_anterior: anoAnterior, ano_parcial: anoParcial } = anosReferenciaYoY({
+    anosMax,
+    anoAtual,
+  });
+  // Sem os dois anos dentro da janela não há crescimento calculável (não mostra "2025→2026" vazio).
+  const yoyIndisponivel = anoAnterior < anosMin || anoRef > anosMax;
 
   const resultado = [...porFuncao.values()]
     .map((f) => {
@@ -328,6 +373,10 @@ function getEvolucaoFuncoes({ anosMin = 2023, anosMax = 2026 } = {}) {
 
   return {
     anos_range: { min: anosMin, max: anosMax },
+    ano_ref: anoRef,
+    ano_anterior: anoAnterior,
+    ano_parcial: anoParcial,
+    yoy_indisponivel: yoyIndisponivel,
     total_por_ano: totalPorAno,
     por_funcao: resultado,
   };
@@ -397,25 +446,31 @@ function getRankingPorFuncao(exercicio, topN = 5) {
  * Exercício padrão = último ano com dados significativos.
  */
 function getPainelInteligencia(exercicio) {
-  const anoAlvo = exercicio || (() => {
-    const r = db.prepare(`
-      SELECT exercicio_orcamento AS ano FROM transparencia_despesas
-      WHERE exercicio_orcamento >= 2023
-      GROUP BY exercicio_orcamento
-      HAVING COUNT(*) > 100
-      ORDER BY exercicio_orcamento DESC LIMIT 1
-    `).get();
-    return r?.ano || 2025;
-  })();
+  const anosSignificativos = listarAnosSignificativos();
+  const anoAlvo = exercicio || anosSignificativos[anosSignificativos.length - 1] || null;
 
   const anosDisponiveis = db
     .prepare(
       `SELECT DISTINCT exercicio_orcamento AS ano FROM transparencia_despesas
-       GROUP BY exercicio_orcamento HAVING COUNT(*) > 100
+       GROUP BY exercicio_orcamento HAVING COUNT(*) > ${MIN_EMPENHOS_ANO_SIGNIFICATIVO}
        ORDER BY exercicio_orcamento DESC`
     )
     .all()
     .map((r) => r.ano);
+
+  // Sem nenhum ano com dados: não inventa exercício (antes caía em 2025).
+  if (!anoAlvo) {
+    return {
+      exercicio: null,
+      sem_dados: true,
+      anos_disponiveis: anosDisponiveis,
+      concentracao: null,
+      concentracao_historico: [],
+      anomalias: null,
+      evolucao: null,
+      ranking_por_funcao: null,
+    };
+  }
 
   return {
     exercicio: anoAlvo,
@@ -435,4 +490,5 @@ module.exports = {
   getEvolucaoFuncoes,
   getRankingPorFuncao,
   getPainelInteligencia,
+  getExercicioPadrao,
 };
