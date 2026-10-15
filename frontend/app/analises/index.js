@@ -29,8 +29,8 @@ export default async function AnalisesPage({ searchParams: searchParamsPromise }
     <main className="page-container">
       <div className="page-title">
         <div>
-          <h1>Análises verificáveis</h1>
-          <p>Leituras feitas a partir de resumos IA reais já salvos. Cada item aponta para o documento oficial e deixa claro quando a cobertura ainda é limitada.</p>
+          <h1>Análises da Prefeitura e Câmara de Ritápolis</h1>
+          <p>Consulte resumos de documentos públicos de Ritápolis, como licitações, contratos e atos municipais. As leituras usam inteligência artificial e podem conter imprecisões: abra cada documento e confira a fonte oficial antes de tirar conclusões.</p>
         </div>
         <DataAvailabilityBadge status={totais.documentos_analisados ? 'real' : 'pendente'} />
       </div>
