@@ -375,3 +375,19 @@ describe('credores-repo — tipos de empenho (fiscal-valores V2/V3/V7)', () => {
     expect(getCoberturaCredores()).toEqual({ primeiro: 2019, ultimo: 2026 });
   });
 });
+
+describe('credores-repo - perfil consolidado sem "pago" falso (fiscal-valores V2)', () => {
+  it('expoe total_valor_empenhado e nao total_valor_pago', () => {
+    mockConn.exec('DELETE FROM transparencia_despesas_classificacoes; DELETE FROM transparencia_despesas; DELETE FROM fornecedores_perfil;');
+    seq = 0;
+    seedDespesa({ nome: 'EMPRESA X LTDA', cnpj: '12345678000190', valor: 100 });
+    mockConn
+      .prepare("INSERT INTO fornecedores_perfil (cnpj, nome_canonico, total_valor_pago) VALUES ('12.345.678/0001-90', 'EMPRESA X', 100)")
+      .run();
+
+    const p = getCredorProfile('12345678000190');
+
+    expect(p.perfil_consolidado).toHaveProperty('total_valor_empenhado', 100);
+    expect(p.perfil_consolidado).not.toHaveProperty('total_valor_pago');
+  });
+});

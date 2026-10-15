@@ -44,13 +44,13 @@ export default function EvolucaoFuncoes({ dados }) {
   return (
     <SectionBlock
       title="B3 — Evolução de gastos por área funcional"
-      description="Despesas executadas por exercício e área de governo. Crescimento indica variação 2024→2025."
+      description="Empenhos ordinários por exercício e área de governo (ordens de pagamento e empenhos estimativos/globais ficam fora). Crescimento indica variação 2024→2025."
     >
       {/* Total por ano */}
       {total_por_ano?.length > 0 && (
         <div style={{ marginBottom: 20 }}>
           <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>
-            Total executado por ano
+            Empenhado ordinário por ano
           </p>
           {total_por_ano.map((r) => {
             const pct = Math.round((r.total / totalMax) * 100);

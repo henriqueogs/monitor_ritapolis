@@ -7,6 +7,11 @@
  */
 
 const { db } = require('./index');
+const { SQL_TIPO_ORDINARIO } = require('../transparencia/tipo-empenho');
+
+// Análises estatísticas olham gasto real: OP duplicaria o empenho e EE/EG são previsão.
+const ORDINARIO = SQL_TIPO_ORDINARIO;
+const ORDINARIO_TD = SQL_TIPO_ORDINARIO.split('tipo').join('td.tipo');
 
 // CNPJs que representam a própria Prefeitura/entidades governamentais obrigatórias
 // e não devem ser considerados "fornecedores privados" na análise de concentração.
@@ -51,11 +56,21 @@ function getConcentracaoCredores(exercicio) {
       COUNT(DISTINCT funcao) AS n_funcoes
     FROM transparencia_despesas
     WHERE exercicio_orcamento = ?
+      AND ${ORDINARIO}
       AND credor_cnpj IS NOT NULL
       AND credor_cnpj != ''
     GROUP BY credor_cnpj
     ORDER BY valor_total DESC
   `).all(exercicio);
+
+  // Linhas ordinárias sem CNPJ (folha etc.) ficam fora do ranking: expõe o total à parte
+  // para que total_geral + total_sem_cnpj feche com o total do exercício (evolução).
+  const semCnpj = db.prepare(`
+    SELECT ROUND(IFNULL(SUM(valor), 0), 2) AS total
+    FROM transparencia_despesas
+    WHERE exercicio_orcamento = ? AND ${ORDINARIO}
+      AND (credor_cnpj IS NULL OR credor_cnpj = '')
+  `).get(exercicio);
 
   // Filtrar entidades gov para o cálculo de concentração de mercado
   const privados = rows.filter((r) => !isEntidadeGov(r.credor_nome, r.credor_cnpj));
@@ -97,6 +112,7 @@ function getConcentracaoCredores(exercicio) {
   return {
     exercicio,
     total_geral: totalGeral,
+    total_sem_cnpj: semCnpj?.total || 0,
     total_privado: totalPrivado,
     pct_privado: totalGeral > 0 ? Math.round((totalPrivado / totalGeral) * 100) : 0,
     n_credores: rows.length,
@@ -156,7 +172,7 @@ function getEstatisticasPorFuncao(exercicio) {
       MAX(valor)           AS maximo,
       ROUND(SUM(valor), 2) AS total
     FROM transparencia_despesas
-    WHERE exercicio_orcamento = ? AND funcao IS NOT NULL AND valor > 0
+    WHERE exercicio_orcamento = ? AND funcao IS NOT NULL AND valor > 0 AND ${ORDINARIO}
     GROUP BY funcao
     HAVING COUNT(*) >= 5
     ORDER BY total DESC
@@ -181,7 +197,7 @@ function getEmpenhoAtipicos(exercicio) {
       d.titulo AS documento_titulo
     FROM transparencia_despesas td
     LEFT JOIN documentos d ON d.id = td.documento_id
-    WHERE td.exercicio_orcamento = ? AND td.funcao IS NOT NULL AND td.valor > 0
+    WHERE td.exercicio_orcamento = ? AND td.funcao IS NOT NULL AND td.valor > 0 AND ${ORDINARIO_TD}
     ORDER BY td.valor DESC
     LIMIT 500
   `).all(exercicio);
@@ -217,6 +233,7 @@ function getEmpenhoAtipicos(exercicio) {
       GROUP_CONCAT(empenho, ', ') AS empenhos_lista
     FROM transparencia_despesas
     WHERE exercicio_orcamento = ?
+      AND ${ORDINARIO}
       AND credor_cnpj IS NOT NULL
       AND valor > 0
       AND valor < ?
@@ -268,6 +285,7 @@ function getEvolucaoFuncoes({ anosMin = 2023, anosMax = 2026 } = {}) {
       COUNT(DISTINCT credor_cnpj) AS n_credores
     FROM transparencia_despesas
     WHERE funcao IS NOT NULL
+      AND ${ORDINARIO}
       AND exercicio_orcamento BETWEEN ? AND ?
     GROUP BY funcao, exercicio_orcamento
     ORDER BY funcao, exercicio_orcamento
@@ -304,7 +322,7 @@ function getEvolucaoFuncoes({ anosMin = 2023, anosMax = 2026 } = {}) {
   const totalPorAno = db.prepare(`
     SELECT exercicio_orcamento AS ano, ROUND(SUM(valor), 2) AS total
     FROM transparencia_despesas
-    WHERE exercicio_orcamento BETWEEN ? AND ?
+    WHERE exercicio_orcamento BETWEEN ? AND ? AND ${ORDINARIO}
     GROUP BY exercicio_orcamento ORDER BY ano
   `).all(anosMin, anosMax);
 
@@ -329,7 +347,7 @@ function getRankingPorFuncao(exercicio, topN = 5) {
   const totaisFuncao = db.prepare(`
     SELECT funcao, ROUND(SUM(valor), 2) AS total_funcao, COUNT(DISTINCT credor_cnpj) AS n_credores
     FROM transparencia_despesas
-    WHERE exercicio_orcamento = ? AND funcao IS NOT NULL
+    WHERE exercicio_orcamento = ? AND funcao IS NOT NULL AND ${ORDINARIO}
     GROUP BY funcao
     ORDER BY total_funcao DESC
   `).all(exercicio);
@@ -341,6 +359,7 @@ function getRankingPorFuncao(exercicio, topN = 5) {
       COUNT(*)              AS n_empenhos
     FROM transparencia_despesas
     WHERE exercicio_orcamento = ?
+      AND ${ORDINARIO}
       AND funcao IS NOT NULL
       AND credor_cnpj IS NOT NULL
     GROUP BY funcao, credor_cnpj

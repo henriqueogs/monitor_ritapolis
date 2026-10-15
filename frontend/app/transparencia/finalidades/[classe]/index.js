@@ -6,6 +6,7 @@ import PeriodoSelector from '../../../components/PeriodoSelector';
 import TransparenciaSubnav from '../../../components/TransparenciaSubnav';
 import FinalidadeBadge from '../../../components/FinalidadeBadge';
 import TabelaEmpenhos from '../../../components/TabelaEmpenhos';
+import NotaEstimadoGlobal from '../../components/NotaEstimadoGlobal';
 
 export async function generateMetadata({ params: paramsPromise }) {
   const params = await paramsPromise;
@@ -59,6 +60,7 @@ function TabelaAgregado({ titulo, rows, chaveNome, periodoLabel, limparPrefixo =
             </span>
             <span style={{ fontWeight: 600, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
               {formatMoney(r.valor_total)}
+              <NotaEstimadoGlobal valor={r.valor_estimado_global} />
             </span>
           </div>
         ))}
@@ -79,7 +81,10 @@ function SeriePorAno({ porAno, periodo }) {
             <span style={{ fontSize: 14, fontWeight: 500 }}>{row.exercicio}</span>
             <span style={{ display: 'flex', gap: 16, fontSize: 13 }}>
               <span style={{ color: 'var(--text-muted)' }}>{row.n.toLocaleString('pt-BR')} empenhos</span>
-              <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{formatMoney(row.valor_total)}</strong>
+              <strong style={{ fontVariantNumeric: 'tabular-nums' }}>
+                {formatMoney(row.valor_total)}
+                <NotaEstimadoGlobal valor={row.valor_estimado_global} />
+              </strong>
             </span>
           </div>
           <div style={{ height: 6, background: 'var(--surface-muted)', borderRadius: 3, overflow: 'hidden' }}>
@@ -141,8 +146,9 @@ export default async function FinalidadeDossiePage({
 
       <div className="admin-metric-grid" style={{ marginBottom: 20 }}>
         <div className="admin-metric-card">
-          <span>Valor ({periodoLabel})</span>
+          <span>Empenhado ordinário ({periodoLabel})</span>
           <strong>{formatMoney(resumo.valor_total)}</strong>
+          <NotaEstimadoGlobal valor={resumo.valor_estimado_global} align="left" />
         </div>
         <div className="admin-metric-card">
           <span>Empenhos</span>
@@ -194,6 +200,7 @@ export default async function FinalidadeDossiePage({
                 </span>
                 <span style={{ fontWeight: 600, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                   {formatMoney(credor.valor_total)}
+                  <NotaEstimadoGlobal valor={credor.valor_estimado_global} />
                 </span>
               </div>
             ))}

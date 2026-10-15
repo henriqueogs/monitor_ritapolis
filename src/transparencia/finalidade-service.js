@@ -15,6 +15,20 @@ const { FINALIDADES, getFinalidadeMeta } = require('./finalidade');
 const { comLinkPortal } = require('./portal-links');
 const { agruparPorMandato, mandatoInicio, mandatoLabel } = require('../utils/mandato');
 const { vinculoDocumentoExato } = require('../licitacoes/modalidade');
+const {
+  SQL_TIPO_ORDINARIO,
+  SQL_SUM_ORDINARIO,
+  SQL_SUM_ESTIMADO_GLOBAL,
+  SQL_COUNT_ORDINARIO,
+  SQL_SEM_ORDEM_PAGAMENTO,
+} = require('./tipo-empenho');
+
+// Convenção única: valor_total = só empenho ordinário; EE/EG em valor_estimado_global;
+// OP (pagamento) nunca soma. Colunas de valor/tipo não existem em tdc, então não há ambiguidade.
+const DISTINTOS_ORD = (expr) => `COUNT(DISTINCT CASE WHEN ${SQL_TIPO_ORDINARIO} THEN ${expr} END)`;
+const COLUNAS_VALOR = `${SQL_COUNT_ORDINARIO} AS n,
+           ${SQL_SUM_ORDINARIO} AS valor_total,
+           ${SQL_SUM_ESTIMADO_GLOBAL} AS valor_estimado_global`;
 
 const MANDATO_ANOS = 4;
 const LIMITE_CREDORES = 15;
@@ -117,10 +131,10 @@ function filtroExercicios(exercicios, alias = 'td') {
 function getFinalidadeTotalPorAno() {
   return db.prepare(`
     SELECT td.exercicio_orcamento AS exercicio,
-           COUNT(*) AS n,
-           ROUND(SUM(td.valor), 2) AS valor_total
+           ${COLUNAS_VALOR}
     FROM transparencia_despesas td
     JOIN transparencia_despesas_classificacoes tdc ON tdc.despesa_id = td.id
+    WHERE ${SQL_SEM_ORDEM_PAGAMENTO}
     GROUP BY td.exercicio_orcamento
     ORDER BY td.exercicio_orcamento ASC
   `).all();
@@ -129,11 +143,10 @@ function getFinalidadeTotalPorAno() {
 function getFinalidadePorAno(classe) {
   return db.prepare(`
     SELECT td.exercicio_orcamento AS exercicio,
-           COUNT(*) AS n,
-           ROUND(SUM(td.valor), 2) AS valor_total
+           ${COLUNAS_VALOR}
     FROM transparencia_despesas td
     JOIN transparencia_despesas_classificacoes tdc ON tdc.despesa_id = td.id
-    WHERE tdc.classe_principal = ?
+    WHERE tdc.classe_principal = ? AND ${SQL_SEM_ORDEM_PAGAMENTO}
     GROUP BY td.exercicio_orcamento
     ORDER BY td.exercicio_orcamento ASC
   `).all(classe);
@@ -146,12 +159,11 @@ function getFinalidadesResumo({ exercicio, mandato } = {}) {
 
   const rows = db.prepare(`
     SELECT tdc.classe_principal AS classe,
-           COUNT(*) AS n,
-           ROUND(SUM(td.valor), 2) AS valor_total,
-           COUNT(DISTINCT COALESCE(td.credor_chave, td.credor_nome)) AS n_credores
+           ${COLUNAS_VALOR},
+           ${DISTINTOS_ORD('COALESCE(td.credor_chave, td.credor_nome)')} AS n_credores
     FROM transparencia_despesas td
     JOIN transparencia_despesas_classificacoes tdc ON tdc.despesa_id = td.id
-    WHERE ${ex.sql}
+    WHERE ${ex.sql} AND ${SQL_SEM_ORDEM_PAGAMENTO}
     GROUP BY tdc.classe_principal
     ORDER BY valor_total DESC
   `).all(...ex.params);
@@ -159,6 +171,7 @@ function getFinalidadesResumo({ exercicio, mandato } = {}) {
   const finalidades = rows.map((row) => finalidadePublica(row.classe, {
     n: Number(row.n) || 0,
     valor_total: Number(row.valor_total) || 0,
+    valor_estimado_global: Number(row.valor_estimado_global) || 0,
     n_credores: Number(row.n_credores) || 0,
   }));
 
@@ -166,12 +179,13 @@ function getFinalidadesResumo({ exercicio, mandato } = {}) {
     periodo: montarPeriodo({ exercicio, mandato }, serieTotal),
     por_mandato: agruparPorMandato(serieTotal, {
       anoKey: 'exercicio',
-      camposSoma: ['n', 'valor_total'],
+      camposSoma: ['n', 'valor_total', 'valor_estimado_global'],
     }),
     finalidades,
     total: {
       n_empenhos: finalidades.reduce((acc, item) => acc + item.n, 0),
       valor_total: Math.round(finalidades.reduce((acc, item) => acc + item.valor_total, 0) * 100) / 100,
+      valor_estimado_global: Math.round(finalidades.reduce((acc, item) => acc + item.valor_estimado_global, 0) * 100) / 100,
       n_finalidades: finalidades.length,
     },
   };
@@ -180,14 +194,15 @@ function getFinalidadesResumo({ exercicio, mandato } = {}) {
 function getResumoClasse(classe, exercicios) {
   const ex = filtroExercicios(exercicios);
   return db.prepare(`
-    SELECT COUNT(*) AS n_empenhos,
-           ROUND(IFNULL(SUM(td.valor), 0), 2) AS valor_total,
-           COUNT(DISTINCT COALESCE(td.credor_chave, td.credor_nome)) AS n_credores,
-           COUNT(DISTINCT td.unidade) AS n_unidades,
-           COUNT(DISTINCT td.fonte_recurso) AS n_fontes
+    SELECT IFNULL(${SQL_COUNT_ORDINARIO}, 0) AS n_empenhos,
+           IFNULL(${SQL_SUM_ORDINARIO}, 0) AS valor_total,
+           IFNULL(${SQL_SUM_ESTIMADO_GLOBAL}, 0) AS valor_estimado_global,
+           ${DISTINTOS_ORD('COALESCE(td.credor_chave, td.credor_nome)')} AS n_credores,
+           ${DISTINTOS_ORD('td.unidade')} AS n_unidades,
+           ${DISTINTOS_ORD('td.fonte_recurso')} AS n_fontes
     FROM transparencia_despesas td
     JOIN transparencia_despesas_classificacoes tdc ON tdc.despesa_id = td.id
-    WHERE tdc.classe_principal = ? AND ${ex.sql}
+    WHERE tdc.classe_principal = ? AND ${ex.sql} AND ${SQL_SEM_ORDEM_PAGAMENTO}
   `).get(classe, ...ex.params);
 }
 
@@ -198,12 +213,12 @@ function getTopCredoresClasse(classe, exercicios, limite = LIMITE_CREDORES) {
            td.credor_cnpj,
            td.credor_chave,
            MAX(td.credor_cargo) AS credor_cargo,
-           COUNT(*) AS n,
-           ROUND(SUM(td.valor), 2) AS valor_total
+           ${COLUNAS_VALOR}
     FROM transparencia_despesas td
     JOIN transparencia_despesas_classificacoes tdc ON tdc.despesa_id = td.id
     WHERE tdc.classe_principal = ?
       AND ${ex.sql}
+      AND ${SQL_SEM_ORDEM_PAGAMENTO}
       AND td.credor_nome IS NOT NULL
     GROUP BY COALESCE(td.credor_chave, td.credor_nome)
     ORDER BY valor_total DESC
@@ -215,11 +230,10 @@ function getAgregadoClasse(classe, exercicios, coluna) {
   const ex = filtroExercicios(exercicios);
   return db.prepare(`
     SELECT td.${coluna} AS chave,
-           COUNT(*) AS n,
-           ROUND(SUM(td.valor), 2) AS valor_total
+           ${COLUNAS_VALOR}
     FROM transparencia_despesas td
     JOIN transparencia_despesas_classificacoes tdc ON tdc.despesa_id = td.id
-    WHERE tdc.classe_principal = ? AND ${ex.sql}
+    WHERE tdc.classe_principal = ? AND ${ex.sql} AND ${SQL_SEM_ORDEM_PAGAMENTO}
     GROUP BY td.${coluna}
     ORDER BY valor_total DESC
   `).all(classe, ...ex.params);
@@ -241,7 +255,7 @@ function getEmpenhosRecentesClasse(classe, exercicios, limite = LIMITE_EMPENHOS_
     FROM transparencia_despesas td
     ${CLASSIFICACAO_JOIN}
     LEFT JOIN documentos d ON d.id = td.documento_id
-    WHERE tdc.classe_principal = ? AND ${ex.sql}
+    WHERE tdc.classe_principal = ? AND ${ex.sql} AND COALESCE(td.tipo, '') NOT LIKE 'OP%'
     ORDER BY td.data_empenho DESC, td.id DESC
     LIMIT ?
   `).all(classe, ...ex.params, Number(limite))
@@ -269,6 +283,7 @@ function getFinalidadeDossie(classe, { exercicio, mandato } = {}) {
     resumo: {
       n_empenhos: Number(resumo?.n_empenhos) || 0,
       valor_total: Number(resumo?.valor_total) || 0,
+      valor_estimado_global: Number(resumo?.valor_estimado_global) || 0,
       n_credores: Number(resumo?.n_credores) || 0,
       n_unidades: Number(resumo?.n_unidades) || 0,
       n_fontes: Number(resumo?.n_fontes) || 0,
@@ -276,18 +291,20 @@ function getFinalidadeDossie(classe, { exercicio, mandato } = {}) {
     por_ano: porAno,
     por_mandato: agruparPorMandato(porAno, {
       anoKey: 'exercicio',
-      camposSoma: ['n', 'valor_total'],
+      camposSoma: ['n', 'valor_total', 'valor_estimado_global'],
     }),
     top_credores: getTopCredoresClasse(classe, exercicios),
     por_unidade: getAgregadoClasse(classe, exercicios, 'unidade').map((row) => ({
       unidade: row.chave,
       n: row.n,
       valor_total: row.valor_total,
+      valor_estimado_global: row.valor_estimado_global,
     })),
     por_fonte: getAgregadoClasse(classe, exercicios, 'fonte_recurso').map((row) => ({
       fonte_recurso: row.chave,
       n: row.n,
       valor_total: row.valor_total,
+      valor_estimado_global: row.valor_estimado_global,
     })),
     empenhos_recentes: getEmpenhosRecentesClasse(classe, exercicios),
   };

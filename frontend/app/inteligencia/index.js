@@ -242,7 +242,7 @@ export default async function InteligenciaPage() {
       {/* ── Link para análise financeira ── */}
       <SectionBlock
         title="Análise financeira (B1–B4)"
-        description="Concentração de fornecedores, empenhos atípicos, evolução de gastos e ranking por área — baseados nos empenhos executados."
+        description="Concentração de fornecedores, empenhos atípicos, evolução de gastos e ranking por área — baseados nos empenhos ordinários (sem ordens de pagamento nem estimativos/globais)."
         aside={
           <Link
             href="/inteligencia/financeira"
