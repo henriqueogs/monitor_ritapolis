@@ -36,7 +36,7 @@ const ALLOWED_PROXY_HOSTS = new Set([
 ]);
 const MAX_REDIRECTS = 5;
 
-// Mesmo allowlist do endpoint /api/source-preview do Render (src/api/server.js):
+// Mesmo allowlist do endpoint /api/source-preview da API (src/api/server.js):
 // só arquivos oficiais da prefeitura, servidos direto do Worker pro navegador
 // do cidadao. Antes o Render reencaminhava esses PDFs, consumindo a banda
 // gratuita do plano; aqui o byte nunca passa pelo Render.
