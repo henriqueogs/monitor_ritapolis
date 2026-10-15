@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import SectionBlock from '../../components/SectionBlock';
 import { formatMoney } from '../../lib/format';
+import NotaEstimadoGlobal from './NotaEstimadoGlobal';
 
 const MAX_CATEGORIAS = 12;
 
@@ -31,7 +32,10 @@ export default function GastosPorCategoria({ categorias, periodoLabel, queryPeri
               <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--accent)' }}>{c.rotulo}</span>
               <span style={{ display: 'flex', gap: 16, fontSize: 13 }}>
                 <span style={{ color: 'var(--text-muted)' }}>{c.n_empenhos.toLocaleString('pt-BR')} empenhos</span>
-                <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{formatMoney(c.valor_total)}</strong>
+                <strong style={{ fontVariantNumeric: 'tabular-nums' }}>
+                  {formatMoney(c.valor_total)}
+                  <NotaEstimadoGlobal valor={c.valor_estimado_global} />
+                </strong>
               </span>
             </span>
             <span style={{ display: 'block', height: 8, background: 'var(--surface-muted)', borderRadius: 4, overflow: 'hidden' }}>

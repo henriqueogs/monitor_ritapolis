@@ -37,7 +37,12 @@ function ResumoEmpenhos({ resumo }) {
       </span>
       {resumo.valor_empenhado != null ? (
         <span>
-          Total empenhado: <strong>{formatMoney(resumo.valor_empenhado)}</strong>
+          Empenhado (ordinário): <strong>{formatMoney(resumo.valor_empenhado)}</strong>
+        </span>
+      ) : null}
+      {resumo.valor_estimado_global > 0 ? (
+        <span style={{ color: 'var(--text-muted)' }}>
+          + {formatMoney(resumo.valor_estimado_global)} em empenhos estimativos/globais (previsão, fora do total)
         </span>
       ) : null}
       {resumo.primeiro_empenho ? (

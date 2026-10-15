@@ -14,6 +14,12 @@ const {
   decorarDespesaComFinalidade,
 } = require('./transparencia-classificacao-repo');
 const { vinculoDocumentoExato } = require('../licitacoes/modalidade');
+const {
+  SQL_SUM_ORDINARIO,
+  SQL_SUM_ESTIMADO_GLOBAL,
+  SQL_COUNT_ORDINARIO,
+  SQL_SEM_ORDEM_PAGAMENTO,
+} = require('../transparencia/tipo-empenho');
 
 const LIMITE_EXEMPLOS = 5;
 
@@ -51,8 +57,9 @@ function getResumoRelacionados({ credorCnpj, exercicio, exceptId }) {
   const params = [credorCnpj, Number(exercicio), Number(exceptId)];
 
   const total = db
-    .prepare(`SELECT COUNT(*) AS n, ROUND(SUM(valor), 2) AS valor_total
-              FROM transparencia_despesas WHERE ${filtro}`)
+    .prepare(`SELECT ${SQL_COUNT_ORDINARIO} AS n, ${SQL_SUM_ORDINARIO} AS valor_total,
+                     ${SQL_SUM_ESTIMADO_GLOBAL} AS valor_estimado_global
+              FROM transparencia_despesas WHERE ${filtro} AND ${SQL_SEM_ORDEM_PAGAMENTO}`)
     .get(...params);
 
   const exemplos = db
@@ -63,7 +70,12 @@ function getResumoRelacionados({ credorCnpj, exercicio, exceptId }) {
     )
     .all(...params);
 
-  return { n: total.n, valor_total: total.valor_total || 0, exemplos };
+  return {
+    n: total.n || 0,
+    valor_total: total.valor_total || 0,
+    valor_estimado_global: total.valor_estimado_global || 0,
+    exemplos,
+  };
 }
 
 /**
@@ -75,8 +87,9 @@ function getResumoCategoriaAno({ prefixos, exercicio, exceptId = 0 }) {
   const params = [...where.params, Number(exercicio), Number(exceptId)];
 
   const total = db
-    .prepare(`SELECT COUNT(*) AS n, ROUND(SUM(valor), 2) AS valor_total
-              FROM transparencia_despesas WHERE ${filtro}`)
+    .prepare(`SELECT ${SQL_COUNT_ORDINARIO} AS n, ${SQL_SUM_ORDINARIO} AS valor_total,
+                     ${SQL_SUM_ESTIMADO_GLOBAL} AS valor_estimado_global
+              FROM transparencia_despesas WHERE ${filtro} AND ${SQL_SEM_ORDEM_PAGAMENTO}`)
     .get(...params);
 
   const exemplos = db
@@ -87,7 +100,12 @@ function getResumoCategoriaAno({ prefixos, exercicio, exceptId = 0 }) {
     )
     .all(...params);
 
-  return { n: total.n, valor_total: total.valor_total || 0, exemplos };
+  return {
+    n: total.n || 0,
+    valor_total: total.valor_total || 0,
+    valor_estimado_global: total.valor_estimado_global || 0,
+    exemplos,
+  };
 }
 
 // ── Agregados para o painel "Pra onde vai o dinheiro" ────────────────────────
@@ -107,8 +125,9 @@ function getAgregadoPorCategoriaEconomica({ exercicios } = {}) {
   const ex = filtroExercicios(exercicios);
   return db
     .prepare(
-      `SELECT categoria_economica, COUNT(*) AS n, ROUND(SUM(valor), 2) AS valor_total
-       FROM transparencia_despesas WHERE ${ex.sql}
+      `SELECT categoria_economica, ${SQL_COUNT_ORDINARIO} AS n, ${SQL_SUM_ORDINARIO} AS valor_total,
+              ${SQL_SUM_ESTIMADO_GLOBAL} AS valor_estimado_global
+       FROM transparencia_despesas WHERE ${ex.sql} AND ${SQL_SEM_ORDEM_PAGAMENTO}
        GROUP BY categoria_economica ORDER BY valor_total DESC`
     )
     .all(...ex.params);
@@ -119,8 +138,9 @@ function getAgregadoPorUnidade({ exercicios, prefixos } = {}) {
   const cat = filtroCategoria(prefixos);
   return db
     .prepare(
-      `SELECT unidade, COUNT(*) AS n, ROUND(SUM(valor), 2) AS valor_total
-       FROM transparencia_despesas WHERE ${ex.sql} AND ${cat.sql}
+      `SELECT unidade, ${SQL_COUNT_ORDINARIO} AS n, ${SQL_SUM_ORDINARIO} AS valor_total,
+              ${SQL_SUM_ESTIMADO_GLOBAL} AS valor_estimado_global
+       FROM transparencia_despesas WHERE ${ex.sql} AND ${cat.sql} AND ${SQL_SEM_ORDEM_PAGAMENTO}
        GROUP BY unidade ORDER BY valor_total DESC`
     )
     .all(...ex.params, ...cat.params);
@@ -131,8 +151,9 @@ function getAgregadoPorFonteRecurso({ exercicios, prefixos } = {}) {
   const cat = filtroCategoria(prefixos);
   return db
     .prepare(
-      `SELECT fonte_recurso, COUNT(*) AS n, ROUND(SUM(valor), 2) AS valor_total
-       FROM transparencia_despesas WHERE ${ex.sql} AND ${cat.sql}
+      `SELECT fonte_recurso, ${SQL_COUNT_ORDINARIO} AS n, ${SQL_SUM_ORDINARIO} AS valor_total,
+              ${SQL_SUM_ESTIMADO_GLOBAL} AS valor_estimado_global
+       FROM transparencia_despesas WHERE ${ex.sql} AND ${cat.sql} AND ${SQL_SEM_ORDEM_PAGAMENTO}
        GROUP BY fonte_recurso ORDER BY valor_total DESC`
     )
     .all(...ex.params, ...cat.params);
@@ -165,9 +186,11 @@ function getRankingCredores({ prefixos, exercicios, limite = 15, busca } = {}) {
     .prepare(
       `SELECT credor_nome, credor_cnpj, credor_chave,
               MAX(credor_cargo) AS credor_cargo,
-              COUNT(*) AS n, ROUND(SUM(valor), 2) AS valor_total
+              ${SQL_COUNT_ORDINARIO} AS n, ${SQL_SUM_ORDINARIO} AS valor_total,
+              ${SQL_SUM_ESTIMADO_GLOBAL} AS valor_estimado_global
        FROM transparencia_despesas
        WHERE ${ex.sql} AND ${cat.sql} AND ${nome.sql} AND credor_nome IS NOT NULL
+         AND ${SQL_SEM_ORDEM_PAGAMENTO}
        GROUP BY COALESCE(credor_chave, credor_nome)
        ORDER BY valor_total DESC LIMIT ?`
     )
@@ -178,8 +201,9 @@ function getCategoriaPorAno({ prefixos } = {}) {
   const cat = filtroCategoria(prefixos);
   return db
     .prepare(
-      `SELECT exercicio_orcamento AS exercicio, COUNT(*) AS n, ROUND(SUM(valor), 2) AS valor_total
-       FROM transparencia_despesas WHERE ${cat.sql}
+      `SELECT exercicio_orcamento AS exercicio, ${SQL_COUNT_ORDINARIO} AS n, ${SQL_SUM_ORDINARIO} AS valor_total,
+              ${SQL_SUM_ESTIMADO_GLOBAL} AS valor_estimado_global
+       FROM transparencia_despesas WHERE ${cat.sql} AND ${SQL_SEM_ORDEM_PAGAMENTO}
        GROUP BY exercicio_orcamento ORDER BY exercicio_orcamento ASC`
     )
     .all(...cat.params);

@@ -78,7 +78,7 @@ export default function TabelaExercicios({ porAno, porMandato }) {
           <tr style={{ borderBottom: '2px solid var(--border)', textAlign: 'left' }}>
             <th style={th}>Exercício</th>
             <th style={thRight}>Receita prevista (LOA)</th>
-            <th style={thRight}>Despesa executada</th>
+            <th style={thRight}>Empenhado (EO+EE+EG)</th>
             <th style={thRight}>% execução</th>
             <th style={thRight}>Empenhos</th>
             <th style={thRight}>Vinculados</th>
@@ -92,7 +92,7 @@ export default function TabelaExercicios({ porAno, porMandato }) {
                   {labelMandato(m)}
                 </td>
                 <td style={{ padding: '8px', textAlign: 'right', fontSize: '0.82rem', fontWeight: 700 }}>
-                  {formatMoney(m.valor_total)}
+                  {formatMoney(m.valor_empenhado ?? m.valor_total)}
                 </td>
                 <td />
                 <td style={{ padding: '8px', textAlign: 'right', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>

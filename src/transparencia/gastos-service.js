@@ -75,9 +75,10 @@ function reclassificarPorSlug(rowsBrutas) {
   const porSlug = new Map();
   for (const row of rowsBrutas) {
     const cat = classificarCategoria(row.categoria_economica);
-    const atual = porSlug.get(cat.slug) || { ...cat, n_empenhos: 0, valor_total: 0 };
+    const atual = porSlug.get(cat.slug) || { ...cat, n_empenhos: 0, valor_total: 0, valor_estimado_global: 0 };
     atual.n_empenhos += row.n;
     atual.valor_total += row.valor_total || 0;
+    atual.valor_estimado_global += row.valor_estimado_global || 0;
     porSlug.set(cat.slug, atual);
   }
   return [...porSlug.values()]
@@ -93,7 +94,7 @@ function getGastosPanoramaSemCache({ exercicio, mandato } = {}) {
     periodo: montarPeriodo({ exercicio, mandato }, serieTotal),
     por_mandato: agruparPorMandato(serieTotal, {
       anoKey: 'exercicio',
-      camposSoma: ['n', 'valor_total'],
+      camposSoma: ['n', 'valor_total', 'valor_estimado_global'],
     }),
     categorias: reclassificarPorSlug(getAgregadoPorCategoriaEconomica({ exercicios })),
     por_unidade: getAgregadoPorUnidade({ exercicios }),
@@ -131,7 +132,7 @@ function getCategoriaDossie(slug, { exercicio, mandato, busca } = {}) {
     categoria: { slug: meta.slug, rotulo: meta.rotulo, grupo: meta.grupo },
     periodo: montarPeriodo({ exercicio, mandato }, porAno),
     por_ano: porAno,
-    por_mandato: agruparPorMandato(porAno, { anoKey: 'exercicio', camposSoma: ['n', 'valor_total'] }),
+    por_mandato: agruparPorMandato(porAno, { anoKey: 'exercicio', camposSoma: ['n', 'valor_total', 'valor_estimado_global'] }),
     busca: termo,
     top_credores: buscarCredores({ prefixos, exercicios, termo }),
     por_unidade: getAgregadoPorUnidade({ exercicios, prefixos }),

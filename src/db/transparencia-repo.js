@@ -9,6 +9,16 @@
 const crypto = require('crypto');
 const logger = require('../logger');
 const { db } = require('./index');
+const {
+  SQL_SUM_ORDINARIO,
+  SQL_SUM_ESTIMADO_GLOBAL,
+  SQL_COUNT_ORDINARIO,
+  SQL_COUNT_ESTIMADO_GLOBAL,
+  SQL_SEM_ORDEM_PAGAMENTO,
+  SQL_TIPO_ORDINARIO,
+  TIPOS_EMPENHO,
+  classificarTipoEmpenho,
+} = require('../transparencia/tipo-empenho');
 const { hasContentChanges } = require('../utils/persisted-content');
 const { ensureDespesasMigracoes } = require('./transparencia-migracoes');
 const {
@@ -615,11 +625,23 @@ function getDespesasPorDocumento(documentoId) {
     .map(decorarDespesaComFinalidade);
 }
 
+function somarValor(lista) {
+  return Math.round(lista.reduce((total, empenho) => total + (Number(empenho.valor) || 0), 0) * 100) / 100;
+}
+
+/**
+ * valor_empenhado = só ordinário; estimativo/global à parte; OP (pagamento) fora —
+ * mesma convenção de painel, gastos e credores.
+ */
 function getResumoFinanceiroPorDocumento(documentoId) {
   const empenhos = getDespesasPorDocumento(documentoId);
+  const porTipo = (tipo) => empenhos.filter((e) => classificarTipoEmpenho(e.tipo) === tipo);
+  const ordinarios = porTipo(TIPOS_EMPENHO.ORDINARIO);
+  const estimadoGlobal = [...porTipo(TIPOS_EMPENHO.ESTIMADO), ...porTipo(TIPOS_EMPENHO.GLOBAL)];
   return {
-    n_empenhos: empenhos.length,
-    valor_empenhado: empenhos.reduce((total, empenho) => total + (Number(empenho.valor) || 0), 0),
+    n_empenhos: ordinarios.length,
+    valor_empenhado: somarValor(ordinarios),
+    valor_estimado_global: somarValor(estimadoGlobal),
     primeiro_empenho: empenhos.map((e) => e.data_empenho).filter(Boolean).sort()[0] || null,
     ultimo_pagamento: empenhos.map((e) => e.data_pagamento).filter(Boolean).sort().slice(-1)[0] || null,
     credores_cnpj: [...new Set(empenhos.map((e) => e.credor_cnpj).filter(Boolean))].join(',') || null,
@@ -653,19 +675,22 @@ function getPainelResumo({ exercicio, exercicios } = {}) {
   const whereExercicio = temFiltro ? `WHERE exercicio_orcamento IN (${placeholders})` : '';
   const paramsExercicio = lista;
 
-  // valor_total = movimentação (empenhos + ordens de pagamento); valor_empenhado
-  // exclui OP — ordem de pagamento é caixa (paga empenho, inclusive restos a
-  // pagar de anos anteriores), não nova despesa empenhada. A % de execução da
-  // LOA compara previsto × EMPENHADO, senão o numerador infla.
+  // Convenção única (igual a credores e gastos): valor_total = só empenho
+  // ORDINÁRIO; EE/EG (estimativa/parcelas futuras) em valor_estimado_global;
+  // OP (caixa — paga empenho, inclusive restos a pagar) nunca entra.
+  // valor_empenhado = EO + EE + EG (sem OP) é a base orçamentária da % de
+  // execução da LOA (previsto × empenhado).
   const porAno = db.prepare(`
     SELECT
       exercicio_orcamento            AS exercicio,
-      COUNT(*)                       AS n_empenhos,
-      ROUND(SUM(valor), 2)           AS valor_total,
-      ROUND(SUM(CASE WHEN tipo NOT LIKE 'OP%' THEN valor ELSE 0 END), 2) AS valor_empenhado,
+      ${SQL_COUNT_ORDINARIO}          AS n_empenhos,
+      ${SQL_COUNT_ESTIMADO_GLOBAL}    AS n_empenhos_estimado_global,
+      ${SQL_SUM_ORDINARIO}            AS valor_total,
+      ${SQL_SUM_ESTIMADO_GLOBAL}      AS valor_estimado_global,
+      ROUND(SUM(CASE WHEN ${SQL_SEM_ORDEM_PAGAMENTO} THEN valor ELSE 0 END), 2) AS valor_empenhado,
       COUNT(DISTINCT credor_cnpj)    AS n_credores,
-      COUNT(DISTINCT documento_id)   AS n_vinculados,
-      COUNT(CASE WHEN documento_id IS NOT NULL THEN 1 END) AS n_empenhos_vinculados,
+      COUNT(DISTINCT CASE WHEN ${SQL_TIPO_ORDINARIO} THEN documento_id END) AS n_vinculados,
+      SUM(CASE WHEN ${SQL_TIPO_ORDINARIO} AND documento_id IS NOT NULL THEN 1 ELSE 0 END) AS n_empenhos_vinculados,
       MIN(data_empenho)              AS primeiro_empenho,
       MAX(data_empenho)              AS ultimo_empenho
     FROM transparencia_despesas
@@ -675,24 +700,32 @@ function getPainelResumo({ exercicio, exercicios } = {}) {
 
   const total = db.prepare(`
     SELECT
-      COUNT(*)                       AS n_empenhos,
-      ROUND(SUM(valor), 2)           AS valor_total,
+      ${SQL_COUNT_ORDINARIO}          AS n_empenhos,
+      ${SQL_COUNT_ESTIMADO_GLOBAL}    AS n_empenhos_estimado_global,
+      ${SQL_SUM_ORDINARIO}            AS valor_total,
+      ${SQL_SUM_ESTIMADO_GLOBAL}      AS valor_estimado_global,
       COUNT(DISTINCT credor_cnpj)    AS n_credores,
-      COUNT(DISTINCT documento_id)   AS n_licitacoes_vinculadas
+      COUNT(DISTINCT CASE WHEN ${SQL_TIPO_ORDINARIO} THEN documento_id END) AS n_licitacoes_vinculadas,
+      SUM(CASE WHEN ${SQL_TIPO_ORDINARIO} AND documento_id IS NOT NULL THEN 1 ELSE 0 END) AS n_empenhos_vinculados
     FROM transparencia_despesas
-    ${whereExercicio}
+    ${whereExercicio ? `${whereExercicio} AND ${SQL_SEM_ORDEM_PAGAMENTO}` : `WHERE ${SQL_SEM_ORDEM_PAGAMENTO}`}
   `).get(...paramsExercicio);
 
   const topCredores = db.prepare(`
     SELECT
-      credor_nome,
+      MAX(credor_nome) AS credor_nome,
       credor_cnpj,
-      COUNT(*)              AS n_empenhos,
-      ROUND(SUM(valor), 2)  AS valor_total,
+      ${SQL_COUNT_ORDINARIO} AS n_empenhos,
+      ${SQL_SUM_ORDINARIO}   AS valor_total,
+      ${SQL_SUM_ESTIMADO_GLOBAL} AS valor_estimado_global,
       MIN(exercicio_orcamento) AS primeiro_exercicio,
       MAX(exercicio_orcamento) AS ultimo_exercicio
     FROM transparencia_despesas
     WHERE credor_cnpj IS NOT NULL AND credor_cnpj != ''
+      AND ${SQL_SEM_ORDEM_PAGAMENTO}
+      AND UPPER(COALESCE(credor_nome, '')) NOT LIKE '%FOLHA%PAGAMENTO%'
+      AND UPPER(COALESCE(credor_nome, '')) NOT LIKE '%PAGAMENTO%FOLHA%'
+      AND UPPER(COALESCE(credor_nome, '')) NOT LIKE '%13%SALARIO%'
       ${temFiltro ? `AND exercicio_orcamento IN (${placeholders})` : ''}
     GROUP BY credor_cnpj
     ORDER BY valor_total DESC
@@ -736,7 +769,7 @@ function getPainelResumo({ exercicio, exercicios } = {}) {
     SELECT tdc.classe_principal, COUNT(*) AS n, ROUND(SUM(td.valor), 2) AS valor
     FROM transparencia_despesas td
     JOIN transparencia_despesas_classificacoes tdc ON tdc.despesa_id = td.id
-    ${whereExercicio}
+    ${whereExercicio ? `${whereExercicio} AND ${SQL_TIPO_ORDINARIO}` : `WHERE ${SQL_TIPO_ORDINARIO}`}
     GROUP BY tdc.classe_principal
     ORDER BY valor DESC
   `).all(...paramsExercicio);

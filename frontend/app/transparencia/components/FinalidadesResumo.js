@@ -209,7 +209,7 @@ export default function FinalidadesResumo({ finalidades, periodoLabel, queryPeri
             </strong>
             <p style={{ margin: '6px 0 0', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
               {Math.round((destaque.valor_total / total) * 100)}% do valor classificado no período,
-              em {destaque.n.toLocaleString('pt-BR')} empenhos.
+              em {destaque.n.toLocaleString('pt-BR')} empenhos ordinários (estimativos/globais ficam à parte).
             </p>
           </div>
 
