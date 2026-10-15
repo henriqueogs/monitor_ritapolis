@@ -16,9 +16,9 @@ const {
 const painelBase = {
   total: { n_empenhos: 4, valor_total: 150 },
   porAno: [
-    { exercicio: 2026, n_empenhos: 2, valor_total: 120, valor_estimado_global: 9, n_empenhos_vinculados: 1, valor_receita_previsto: 500 },
-    { exercicio: 2025, n_empenhos: 1, valor_total: 20, n_empenhos_vinculados: 0, valor_receita_previsto: 400 },
-    { exercicio: 2023, n_empenhos: 1, valor_total: 10, n_empenhos_vinculados: 0, valor_receita_previsto: 300 },
+    { exercicio: 2026, n_empenhos: 2, valor_total: 120, valor_estimado_global: 9, valor_empenhado: 129, n_empenhos_vinculados: 1, valor_receita_previsto: 500 },
+    { exercicio: 2025, n_empenhos: 1, valor_total: 20, valor_estimado_global: 0, valor_empenhado: 20, n_empenhos_vinculados: 0, valor_receita_previsto: 400 },
+    { exercicio: 2023, n_empenhos: 1, valor_total: 10, valor_estimado_global: 0, valor_empenhado: 10, n_empenhos_vinculados: 0, valor_receita_previsto: 300 },
   ],
   topCredores: [],
   ultimosEmpenhos: [
@@ -49,6 +49,32 @@ describe('painel-service', () => {
       expect(atual.anos).toEqual([2025, 2026]);
       expect(anterior.mandato).toBe('2021-2024');
       expect(anterior.anos).toEqual([2023]);
+    });
+
+    it('invariante: valor_empenhado do mandato == soma dos anos (subtotal fecha com as linhas)', () => {
+      const painel = getPainelTransparencia();
+
+      const [atual] = painel.porMandato;
+      const somaAnos = painelBase.porAno
+        .filter((r) => atual.anos.includes(r.exercicio))
+        .reduce((acc, r) => acc + r.valor_empenhado, 0);
+      expect(atual.valor_empenhado).toBe(somaAnos);
+    });
+
+    it('fronteira 2024/2025: ordinario e estimativo/global ficam em mandatos distintos', () => {
+      repo.getPainelResumo.mockReturnValue({
+        ...painelBase,
+        porAno: [
+          { exercicio: 2025, n_empenhos: 1, valor_total: 300, valor_estimado_global: 30, valor_empenhado: 330 },
+          { exercicio: 2024, n_empenhos: 1, valor_total: 700, valor_estimado_global: 70, valor_empenhado: 770 },
+        ],
+      });
+
+      const painel = getPainelTransparencia({ exercicio: 2025 });
+
+      const [atual, anterior] = painel.porMandato;
+      expect(atual).toMatchObject({ mandato: '2025-2028', valor_total: 300, valor_estimado_global: 30, valor_empenhado: 330 });
+      expect(anterior).toMatchObject({ mandato: '2021-2024', valor_total: 700, valor_estimado_global: 70, valor_empenhado: 770 });
     });
 
     it('monta periodo com exercicio e mandato quando filtrado', () => {

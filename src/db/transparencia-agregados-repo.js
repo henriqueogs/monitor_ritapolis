@@ -57,8 +57,9 @@ function getResumoRelacionados({ credorCnpj, exercicio, exceptId }) {
   const params = [credorCnpj, Number(exercicio), Number(exceptId)];
 
   const total = db
-    .prepare(`SELECT COUNT(*) AS n, ROUND(SUM(valor), 2) AS valor_total
-              FROM transparencia_despesas WHERE ${filtro}`)
+    .prepare(`SELECT ${SQL_COUNT_ORDINARIO} AS n, ${SQL_SUM_ORDINARIO} AS valor_total,
+                     ${SQL_SUM_ESTIMADO_GLOBAL} AS valor_estimado_global
+              FROM transparencia_despesas WHERE ${filtro} AND ${SQL_SEM_ORDEM_PAGAMENTO}`)
     .get(...params);
 
   const exemplos = db
@@ -69,7 +70,12 @@ function getResumoRelacionados({ credorCnpj, exercicio, exceptId }) {
     )
     .all(...params);
 
-  return { n: total.n, valor_total: total.valor_total || 0, exemplos };
+  return {
+    n: total.n || 0,
+    valor_total: total.valor_total || 0,
+    valor_estimado_global: total.valor_estimado_global || 0,
+    exemplos,
+  };
 }
 
 /**
@@ -81,8 +87,9 @@ function getResumoCategoriaAno({ prefixos, exercicio, exceptId = 0 }) {
   const params = [...where.params, Number(exercicio), Number(exceptId)];
 
   const total = db
-    .prepare(`SELECT COUNT(*) AS n, ROUND(SUM(valor), 2) AS valor_total
-              FROM transparencia_despesas WHERE ${filtro}`)
+    .prepare(`SELECT ${SQL_COUNT_ORDINARIO} AS n, ${SQL_SUM_ORDINARIO} AS valor_total,
+                     ${SQL_SUM_ESTIMADO_GLOBAL} AS valor_estimado_global
+              FROM transparencia_despesas WHERE ${filtro} AND ${SQL_SEM_ORDEM_PAGAMENTO}`)
     .get(...params);
 
   const exemplos = db
@@ -93,7 +100,12 @@ function getResumoCategoriaAno({ prefixos, exercicio, exceptId = 0 }) {
     )
     .all(...params);
 
-  return { n: total.n, valor_total: total.valor_total || 0, exemplos };
+  return {
+    n: total.n || 0,
+    valor_total: total.valor_total || 0,
+    valor_estimado_global: total.valor_estimado_global || 0,
+    exemplos,
+  };
 }
 
 // ── Agregados para o painel "Pra onde vai o dinheiro" ────────────────────────

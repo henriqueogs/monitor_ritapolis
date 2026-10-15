@@ -15,7 +15,7 @@ export default function TopCredores({ topCredores, periodoLabel }) {
   return (
     <SectionBlock
       title={`Principais credores (${periodoLabel})`}
-      description="Ordenado pelo valor empenhado (ordinário) no período; empenhos estimativos/globais aparecem à parte e ordens de pagamento ficam fora. Exclui registros sem CNPJ e a própria Prefeitura (transferências internas). Clique no credor para ver o perfil completo com todos os empenhos."
+      description="Ordenado pelo valor empenhado (ordinário) no período; empenhos estimativos/globais aparecem à parte e ordens de pagamento ficam fora. Exclui registros sem CNPJ e a folha de pagamento da Prefeitura. Clique no credor para ver o perfil completo com todos os empenhos."
       aside={
         <Link href="/credores" className="availability-badge is-gov" style={{ textDecoration: 'none' }}>
           Todos os fornecedores

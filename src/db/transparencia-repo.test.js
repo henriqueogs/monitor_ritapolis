@@ -530,3 +530,50 @@ describe('transparencia-repo — tipos de empenho no painel (fiscal-valores V2/V
     expect(tiposEmpenho.map((t) => t.tipo.slice(0, 2)).sort()).toEqual(['EE', 'EG', 'EO', 'OP']);
   });
 });
+
+describe('transparencia-repo - vinculados, resumo por documento e top credores (fiscal-valores)', () => {
+  const TIPO_EE = 'EE - Empenho Estimativo';
+  const TIPO_OP = 'OP - Ordem de Pagamento';
+
+  beforeEach(() => {
+    mockConn.exec('DELETE FROM transparencia_despesas_classificacoes; DELETE FROM transparencia_despesas; DELETE FROM documentos;');
+    seq = 0;
+    mockConn.prepare(
+      `INSERT INTO documentos (id, fonte, tipo, numero, ano, titulo, url_origem)
+       VALUES (1, 'site_prefeitura', 'edital', '1/2026', 2026, 'Pregão 1/2026', 'https://x/1'),
+              (2, 'site_prefeitura', 'edital', '2/2026', 2026, 'Pregão 2/2026', 'https://x/2')`
+    ).run();
+  });
+
+  it('vinculados contam so ordinarios (numerador e denominador no mesmo universo)', () => {
+    seedDespesa({ valor: 100, documentoId: 1, modalidade: 'Pregao - 00012026' });
+    seedDespesa({ valor: 50 });
+    seedDespesa({ valor: 900, documentoId: 2, tipo: TIPO_EE, modalidade: 'Pregao - 00022026' });
+
+    const { total, porAno } = repo.getPainelResumo({ exercicio: 2026 });
+
+    expect(total).toMatchObject({ n_empenhos: 2, n_empenhos_vinculados: 1, n_licitacoes_vinculadas: 1 });
+    expect(porAno[0]).toMatchObject({ n_empenhos: 2, n_empenhos_vinculados: 1, n_vinculados: 1 });
+    expect(total.n_empenhos_vinculados).toBeLessThanOrEqual(total.n_empenhos);
+  });
+
+  it('resumo por documento: ordinario em valor_empenhado, estimativo/global a parte, OP fora', () => {
+    const mod = 'Pregao - 00012026';
+    seedDespesa({ valor: 100, documentoId: 1, modalidade: mod });
+    seedDespesa({ valor: 300, documentoId: 1, modalidade: mod, tipo: TIPO_EE });
+    seedDespesa({ valor: 40, documentoId: 1, modalidade: mod, tipo: TIPO_OP });
+
+    const r = repo.getResumoFinanceiroPorDocumento(1);
+
+    expect(r).toMatchObject({ n_empenhos: 1, valor_empenhado: 100, valor_estimado_global: 300 });
+  });
+
+  it('top credores nao lista folha de pagamento (igual a lista /credores)', () => {
+    seedDespesa({ valor: 5000, credorCnpj: '18557553000105', credorNome: 'FOLHA DE PAGAMENTO - RITAPOLIS PREFEITURA' });
+    seedDespesa({ valor: 10, credorCnpj: '11111111111111', credorNome: 'FORNECEDOR REAL' });
+
+    const { topCredores } = repo.getPainelResumo({ exercicio: 2026 });
+
+    expect(topCredores.map((c) => c.credor_nome)).toEqual(['FORNECEDOR REAL']);
+  });
+});

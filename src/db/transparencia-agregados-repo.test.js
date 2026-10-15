@@ -329,12 +329,45 @@ describe('transparencia-agregados-repo — tipos de empenho (fiscal-valores V2/V
     expect(ranking[0]).toMatchObject({ n: 1, valor_total: 100, valor_estimado_global: 600 });
   });
 
-  it('série por ano: cada ano soma só ordinário (dois mandatos não se misturam)', () => {
+  it('série por ano: cada ano soma só ordinário e a fronteira 2024/2025 separa mandatos', () => {
+    seedDespesa({ valor: 11, tipo: TIPO_EE, exercicio: 2024, data: '2024-12-31' });
+
     const serie = repo.getCategoriaPorAno({});
 
     expect(serie).toEqual([
+      expect.objectContaining({ exercicio: 2024, valor_total: 0, valor_estimado_global: 11 }),
       expect.objectContaining({ exercicio: 2025, valor_total: 70, valor_estimado_global: 0 }),
       expect.objectContaining({ exercicio: 2026, valor_total: 100, valor_estimado_global: 600 }),
     ]);
+  });
+});
+
+describe('transparencia-agregados-repo - relacionados no empenho (fiscal-valores V3)', () => {
+  const CNPJ = '22222222222222';
+
+  beforeEach(() => {
+    mockConn.exec('DELETE FROM transparencia_despesas; DELETE FROM documentos;');
+    seq = 0;
+  });
+
+  it('outros empenhos do credor: so ordinario no valor; OP fora; estimativo/global a parte', () => {
+    const alvo = seedDespesa({ credorCnpj: CNPJ, valor: 10 });
+    seedDespesa({ credorCnpj: CNPJ, valor: 20 });
+    seedDespesa({ credorCnpj: CNPJ, valor: 500, tipo: 'EE - Empenho Estimativo' });
+    seedDespesa({ credorCnpj: CNPJ, valor: 7, tipo: 'OP - Ordem de Pagamento' });
+
+    const r = repo.getResumoRelacionados({ credorCnpj: CNPJ, exercicio: 2026, exceptId: alvo });
+
+    expect(r).toMatchObject({ n: 1, valor_total: 20, valor_estimado_global: 500 });
+  });
+
+  it('mesma categoria no ano: so ordinario no valor; OP fora; estimativo/global a parte', () => {
+    seedDespesa({ valor: 30 });
+    seedDespesa({ valor: 800, tipo: 'EG - Empenho Global' });
+    seedDespesa({ valor: 9, tipo: 'OP - Ordem de Pagamento' });
+
+    const r = repo.getResumoCategoriaAno({ prefixos: ['3.3.90.14'], exercicio: 2026 });
+
+    expect(r).toMatchObject({ n: 1, valor_total: 30, valor_estimado_global: 800 });
   });
 });

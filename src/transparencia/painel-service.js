@@ -22,6 +22,7 @@ const CAMPOS_SOMA_MANDATO = [
   'n_empenhos',
   'valor_total',
   'valor_estimado_global',
+  'valor_empenhado',
   'n_empenhos_vinculados',
   'valor_receita_previsto',
 ];
