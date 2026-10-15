@@ -288,7 +288,8 @@ provider de IA fresco e confirmar estabilidade antes de religar o flag.
 
 ```bash
 npm start              # API :3001 + frontend :3000
-npm test                # suíte completa (1041 testes em 18/09/2026)
+npm run setup-db        # 1x por clone/worktree: sem isso ~11 suites falham com "no such table: main.alertas"
+npm test                # suíte completa (1492 testes em 15/10/2026)
 ```
 
 Ordem de leitura pra retomar contexto: `QUICK_SUMMARY.md` → este arquivo →
