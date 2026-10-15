@@ -253,3 +253,71 @@ describe('orcamento historico: falhas nao queimam o orcamento de resumos', () =>
     old.close();
   });
 });
+
+test('migracao marca como falha as execucoes antigas cujo job guarda erro', () => {
+  const old = new DatabaseSync(':memory:');
+  createQueue(old);
+  old.exec('DROP TABLE pipeline_runs');
+  old.exec(`CREATE TABLE pipeline_runs (id INTEGER PRIMARY KEY, job_id INTEGER NOT NULL,
+    kind TEXT NOT NULL, entity TEXT NOT NULL, historical INTEGER NOT NULL,
+    finished_at TEXT NOT NULL, duration_ms INTEGER NOT NULL)`);
+  const job = old.prepare(`INSERT INTO pipeline_jobs
+    (id, identity, kind, entity, input_hash, version, payload, status, error, available_at, created_at)
+    VALUES (?, ?, 'items', '7', 'h', '1', '{}', ?, ?, 'x', 'x')`);
+  job.run(1, 'a', 'failed', 'contrato_rejeitado');
+  job.run(2, 'b', 'ok', null);
+  const run = old.prepare(
+    "INSERT INTO pipeline_runs (job_id, kind, entity, historical, finished_at, duration_ms) VALUES (?, 'items', '7', 1, 'x', 1000)"
+  );
+  run.run(1);
+  run.run(2);
+
+  createQueue(old);
+
+  const ok = old.prepare('SELECT job_id, ok FROM pipeline_runs ORDER BY job_id').all();
+  expect(ok.map(r => [r.job_id, r.ok])).toEqual([
+    [1, 0],
+    [2, 1],
+  ]);
+  old.close();
+});
+
+describe('teto diario de tempo para items historicos', () => {
+  const MIN = 60000;
+  const hist = { ...task, historical: true };
+  const gasta = (queue, kind, entity, minutos) => {
+    queue.enqueue({ ...hist, kind, entity, hash: `g${entity}` }, now);
+    const job = queue.claim(now);
+    queue.finish(job.id, { result: {} }, new Date(now.getTime() + minutos * MIN));
+  };
+
+  test('items historico para ao estourar o teto, summary historico segue', () => {
+    const fq = createQueue(db, {
+      historicalBudgetMs: 600 * MIN,
+      historicalItemsBudgetMs: 30 * MIN,
+    });
+    gasta(fq, 'items', 1, 31);
+    const fim = new Date(now.getTime() + 31 * MIN);
+    fq.enqueue({ ...hist, kind: 'items', entity: 2, hash: 'i2' }, now);
+    expect(fq.claim(fim)).toBeNull();
+    fq.enqueue({ ...hist, kind: 'summary', entity: 3, hash: 's3' }, now);
+    expect(fq.claim(fim).entity).toBe('3');
+  });
+
+  test('items recente nao tem teto', () => {
+    const fq = createQueue(db, {
+      historicalBudgetMs: 600 * MIN,
+      historicalItemsBudgetMs: 30 * MIN,
+    });
+    gasta(fq, 'items', 1, 31);
+    fq.enqueue({ ...task, kind: 'items', entity: 4, hash: 'i4', historical: false }, now);
+    expect(fq.claim(new Date(now.getTime() + 31 * MIN)).entity).toBe('4');
+  });
+
+  test('teto padrao de items e 25% do orcamento', () => {
+    const fq = createQueue(db, { historicalBudgetMs: 120 * MIN });
+    gasta(fq, 'items', 1, 31); // > 30 min = 25% de 120
+    fq.enqueue({ ...hist, kind: 'items', entity: 2, hash: 'i2' }, now);
+    expect(fq.claim(new Date(now.getTime() + 31 * MIN))).toBeNull();
+  });
+});

@@ -114,14 +114,32 @@ Obs.: `curl` na home dá 429 — é o Challenge do firewall Vercel, não queda.
      (retries já são limitados a 3, mas há >600 jobs failed).
   4. Testes em `queue.test.js`: falha não consome orçamento; falha acima do teto
      bloqueia histórico; recente (`historical = 0`) segue intocado.
+  **Backfill (15/10):** a migração marca `ok = 0` nas execuções antigas cujo job
+  guarda erro (senão as falhas de antes do deploy seguiam queimando o orçamento
+  do dia). Medido na produção em 15/10 desde 03:00Z: 148 min de sucesso + 91 min
+  de falha — com o teto padrão de falhas (25% de 240 = 60 min) o histórico
+  continua bloqueado até zerar o dia; para retomar antes, subir
+  `PIPELINE_HISTORICAL_FAIL_BUDGET_MS` no drop-in da VM (ex.: 7200000), ciente
+  de que `items` segue falhando 100% (A2).
   Variável nova: `PIPELINE_HISTORICAL_FAIL_BUDGET_MS` (opcional). Após o deploy,
   conferir em `consumo_24h` que `docs_24h` sobe e `min` de `items` deixa de dominar.
   Risco: o orçamento deixa de limitar tempo real de IA/dia (falhas somam por
   fora) — por isso o item 3. Não resolve a causa das falhas (A2–A4).
-- [ ] **A2. Taxa de falha de `anexo-summary` (49%) e `items` (79%)**: agrupar os
-  failed por `categoria`; separar o que é bug (contrato/JSON, `limite_tamanho`)
-  do que é revisão legítima (`revisao_fonte`). Teste primeiro (TDD) com os casos
-  reais reduzidos a fixtures.
+- [ ] **A2. `items` (79% failed no total)** — lido na produção (15/10, só leitura).
+  Causa de custo: `items` lê o PDF inteiro em fatias de 8 min e **um único
+  trecho que falha a evidência derruba o documento todo** (política de
+  fidelidade: não trunca nem omite linhas). Um doc (entity 229) gastou 15
+  fatias/117 min e terminou em "citacao nao encontrada; exige revisao"; dois
+  docs somaram 168 dos 188 min de `items` em 24 h. Erros por tipo (total
+  histórico, 217 failed): tabela contradiz linhas 68; citação não encontrada 23;
+  `too_big` (>700 chars) 20; campo string ausente (`invalid_type`) 13; demais
+  gates de evidência ~25; timeout 3. A maioria são gates funcionando — o
+  problema é o **custo antes de falhar**, não os gates.
+  **Feito:** teto diário para `items` histórico (`PIPELINE_HISTORICAL_ITEMS_BUDGET_MS`,
+  padrão 25% do orçamento; qualquer resultado conta) — `summary` deixa de
+  esperar atrás de `items`. **Em aberto (decisão de produto):** abortar cedo no
+  primeiro trecho irrecuperável em vez de ler o resto; tolerar `too_big`/campo
+  ausente (hoje contraria a regra "nunca truncar"); prompt para citações.
 - [ ] **A3. `limite_tamanho` em `collection`**: chunking/map-reduce em vez de
   rejeitar documentos grandes.
 - [ ] **A4. `contrato_rejeitado`**: ver prompts/schema; o modelo erra chave

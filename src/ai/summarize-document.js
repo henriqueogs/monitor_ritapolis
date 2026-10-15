@@ -37,6 +37,15 @@ function isRetriableAiError(error) {
   );
 }
 
+// Saída da IA com JSON quebrado (vírgula faltando, array mal fechado): com
+// temperature 0 repetir o mesmo prompt dá a mesma saída, então a nova tentativa
+// sobe a temperatura (tarefa 13039, 15/10/2026).
+const TEMPERATURA_RETRY_JSON = 0.2;
+
+function isJsonInvalidoError(error) {
+  return /nao retornou JSON valido/i.test(getErrorMessage(error));
+}
+
 function getRetryMaxAttempts() {
   return Math.max(1, Number(config.aiRetryMax || 0) + 1);
 }
@@ -361,13 +370,14 @@ async function generateValidatedSummary({
 }) {
   const attempts = Math.max(1, Number(maxAttempts || 1));
   let lastError = null;
+  let jsonRetries = 0;
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     progress?.checkTime();
     try {
       const rawResponse = await generateWithProgress(
         provider,
-        { prompt, temperature },
+        { prompt, temperature: temperature + jsonRetries * TEMPERATURA_RETRY_JSON },
         progress,
         config.aiRequestTimeoutMs
       );
@@ -381,8 +391,12 @@ async function generateValidatedSummary({
     } catch (error) {
       lastError = error;
 
-      if (!isRetriableAiError(error) || attempt === attempts) {
+      const isJsonInvalido = isJsonInvalidoError(error);
+      if (!(isRetriableAiError(error) || isJsonInvalido) || attempt === attempts) {
         throw error;
+      }
+      if (isJsonInvalido) {
+        jsonRetries += 1;
       }
 
       const waitMs = Math.min(5000, 750 * attempt);
