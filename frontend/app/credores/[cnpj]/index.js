@@ -257,10 +257,10 @@ export default async function CredorProfilePage({
             </p>
           </div>
         )}
-        {acumulado && resumo.valor_estimado_global > 0 && (
+        {acumulado && acumulado.valor_estimado_global > 0 && (
           <div className="admin-metric-card">
             <span>Estimativo/global acumulado ({acumulado.label})</span>
-            <strong style={{ fontSize: '1.1rem' }}>{formatMoney(resumo.valor_estimado_global)}</strong>
+            <strong style={{ fontSize: '1.1rem' }}>{formatMoney(acumulado.valor_estimado_global)}</strong>
             <p style={{ margin: '4px 0 0', fontSize: 12, opacity: 0.6 }}>
               Empenhos estimativos e globais são previsões/parcelas futuras, não valor recebido.
             </p>
