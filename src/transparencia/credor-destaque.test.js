@@ -33,6 +33,36 @@ describe('credor-destaque', () => {
       expect(r.acumulado.label).toBe('2000–2025');
     });
 
+    it('credor só estimativo/global: destaque e acumulado trazem o EE/EG separado do ordinário', () => {
+      // Arrange: EE de R$ 4.000 em 2026 (mandato em curso) e EG de R$ 1.000 em 2021
+      const porAno = [
+        { ano: 2021, n_empenhos: 0, valor_total: 0, valor_estimado_global: 1000 },
+        { ano: 2026, n_empenhos: 0, valor_total: 0, valor_estimado_global: 4000 },
+      ];
+      const porMandato = agruparPorMandato(porAno, {
+        camposSoma: ['n_empenhos', 'valor_total', 'valor_estimado_global'],
+        anoAtual: 2026,
+      });
+
+      // Act
+      const r = montarDestaqueCredor({ porAno, porMandato, anoAtual: 2026 });
+
+      // Assert
+      expect(r.destaque).toMatchObject({ mandato: '2025-2028', valor_total: 0, valor_estimado_global: 4000 });
+      expect(r.acumulado).toMatchObject({ valor_total: 0, valor_estimado_global: 5000 });
+      const somaPorAno = porAno.reduce((a, x) => a + x.valor_estimado_global, 0);
+      expect(r.acumulado.valor_estimado_global).toBe(somaPorAno);
+    });
+
+    it('sem campo estimativo no por_mandato o destaque traz zero, não undefined', () => {
+      const porAno = [{ ano: 2025, n_empenhos: 1, valor_total: 10 }];
+
+      const r = montarDestaqueCredor({ porAno, porMandato: mandatos(porAno, 2026), anoAtual: 2026 });
+
+      expect(r.destaque.valor_estimado_global).toBe(0);
+      expect(r.acumulado.valor_estimado_global).toBe(0);
+    });
+
     it('mantém zero explícito quando o credor não tem dados no mandato em curso', () => {
       const porAno = [{ ano: 2022, n_empenhos: 4, valor_total: 500 }];
 

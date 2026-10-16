@@ -76,6 +76,30 @@ describe('credor-service', () => {
     expect(dossie.por_mandato[0].valor_estimado_global).toBe(50);
   });
 
+  it('dossiê de credor só EE/EG: estimativo do mandato em curso em destaque, invariantes fecham', () => {
+    getCredorProfile.mockReturnValue({
+      cnpj: '67729178000220',
+      nome: 'EMPRESA X',
+      resumo: { n_empenhos: 0, valor_total: 0, valor_estimado_global: 5000 },
+      por_ano: [
+        { ano: 2021, n_empenhos: 0, valor_total: 0, valor_estimado_global: 1000 },
+        { ano: 2026, n_empenhos: 0, valor_total: 0, valor_estimado_global: 4000 },
+      ],
+      por_funcao: [],
+      empenhos_recentes: [],
+      licitacoes_ganhas: [],
+      perfil_consolidado: null,
+    });
+
+    const dossie = getCredorDossie('67729178000220', { anoAtual: 2026 });
+
+    expect(dossie.destaque).toMatchObject({ mandato: '2025-2028', valor_total: 0, valor_estimado_global: 4000 });
+    const somaMandatos = dossie.por_mandato.reduce((a, m) => a + m.valor_estimado_global, 0);
+    expect(somaMandatos).toBe(dossie.resumo.valor_estimado_global);
+    expect(dossie.acumulado.valor_estimado_global).toBe(dossie.resumo.valor_estimado_global);
+    expect(dossie.acumulado.valor_total).toBe(0);
+  });
+
   describe('listarCredoresDoPeriodo', () => {
     beforeEach(() => {
       listCredores.mockReturnValue({ total: 0, pagina: 1, limite: 50, dados: [] });
