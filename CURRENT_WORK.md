@@ -148,6 +148,13 @@ Obs.: `curl` na home dá 429 — é o Challenge do firewall Vercel, não queda.
   esperar atrás de `items`. **Em aberto (decisão de produto):** abortar cedo no
   primeiro trecho irrecuperável em vez de ler o resto; tolerar `too_big`/campo
   ausente (hoje contraria a regra "nunca truncar"); prompt para citações.
+- [x] **A2c. Extração de itens local** (`scripts/itens-local.js`,
+  `src/ai/itens-local.js`): para editais que o teto de 30 min mandou para
+  revisão. `exportar --revisao` (VM, leitura) → `gerar pacote.json resultado.json`
+  (sua máquina, sem teto de tempo) → `aplicar resultado.json [--apply]` (VM,
+  dry-run por padrão). Na aplicação a VM **revalida** texto, anexos, cobertura,
+  contrato e citações com `assessItemsResult`; arquivo adulterado ou fonte
+  alterada é recusado. Checkpoints da VM não são reaproveitados.
 - [x] **A2b. Cadeia por documento** (`planner.js`, `planDocument`): summary →
   anexos → (edital: items → integrated) → facts. Antes, `items` em revisão
   (`failed`) fazia `return` e **travava `facts` do edital para sempre** (10
