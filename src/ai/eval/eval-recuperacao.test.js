@@ -118,3 +118,26 @@ describe('formatarRelatorio', () => {
     expect(texto).toContain('q9');
   });
 });
+
+describe('verificarLimiares: máximos', () => {
+  const resumo = { citacao_valida_pct: 1, alucinacao_pct: 0.1, malformadas: 0 };
+
+  it('passa quando nenhum máximo é excedido', () => {
+    expect(
+      verificarLimiares(resumo, { citacao_valida_pct: 1 }, { alucinacao_pct: 0.1, malformadas: 0 })
+    ).toEqual({ passou: true, falhas: [] });
+  });
+
+  it('reprova quando uma métrica excede o máximo, e diz qual', () => {
+    const r = verificarLimiares(resumo, {}, { alucinacao_pct: 0.05 });
+
+    expect(r.passou).toBe(false);
+    expect(r.falhas[0]).toMatch(/alucinacao_pct.*>.*0.05/);
+  });
+
+  it('métrica de máximo ausente (null) também reprova: sem dado não há aprovação', () => {
+    expect(verificarLimiares({ alucinacao_pct: null }, {}, { alucinacao_pct: 0.05 }).passou).toBe(
+      false
+    );
+  });
+});
