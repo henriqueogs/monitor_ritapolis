@@ -85,4 +85,4 @@ function criarServicoPadrao({ config, logger, fabricas = {} }) {
   }
 }
 
-module.exports = { criarServicoPadrao };
+module.exports = { criarServicoPadrao, criarEmbeddingPadrao };

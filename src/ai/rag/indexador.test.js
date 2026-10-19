@@ -303,3 +303,17 @@ describe('estado de indexação em memória', () => {
     expect(await estado.obter(1)).toBeNull();
   });
 });
+
+describe('indexarIncremental: teto de tokens dentro da página', () => {
+  it('limiteTokens para de embedar assim que a estimativa atinge o teto', async () => {
+    const env = ambiente();
+    const textoLongo = 'palavra de teste ';
+    const documentos = [1, 2, 3, 4].map(id => doc(id, textoLongo.repeat(40)));
+
+    const r = await indexarIncremental({ ...env, documentos, chunker: pequeno, limiteTokens: 300 });
+
+    expect(r.indexados).toBeGreaterThan(0);
+    expect(r.indexados).toBeLessThan(4);
+    expect(r.pendentes).toBe(4 - r.indexados);
+  });
+});

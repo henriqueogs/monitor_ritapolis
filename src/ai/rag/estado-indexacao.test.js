@@ -20,3 +20,28 @@ describe('estado de indexação em SQLite', () => {
     expect(await reaberto.obter(1)).toBeNull();
   });
 });
+
+describe('estado de indexação somente leitura (dry-run)', () => {
+  it('sem a tabela não cria nada e se comporta como vazio', async () => {
+    const db = new DatabaseSync(':memory:');
+
+    const estado = criarEstadoIndexacaoSqlite(db, { somenteLeitura: true });
+
+    expect(await estado.obter(1)).toBeNull();
+    expect(
+      db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'ia_indexacao'").get()
+    ).toBeUndefined();
+  });
+
+  it('com a tabela lê os hashes existentes e recusa escrita', async () => {
+    const db = new DatabaseSync(':memory:');
+    await criarEstadoIndexacaoSqlite(db).gravar('documento:1', 'h1');
+
+    const estado = criarEstadoIndexacaoSqlite(db, { somenteLeitura: true });
+
+    expect(await estado.obter('documento:1')).toBe('h1');
+    expect(await estado.listarDocIds()).toEqual(['documento:1']);
+    await expect(estado.gravar('documento:2', 'h2')).rejects.toThrow(/somente leitura/);
+    await expect(estado.remover('documento:1')).rejects.toThrow(/somente leitura/);
+  });
+});

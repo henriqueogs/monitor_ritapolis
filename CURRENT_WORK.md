@@ -74,7 +74,7 @@ Plano completo em `docs/PLANO_IA_RAG.md`; decisões em `docs/adr/` (0001–0006,
 *proposto*). Fases: 0 fundações (portas, spikes `sqlite-vec` e custo, eval harness) →
 1 RAG sobre licitações → 2 ferramentas analíticas → 3 núcleo agnóstico → 4 multi-tenant.
 - [x] Plano + ADRs escritos (aguardando revisão/aceite)
-- [~] Fase 0 — spikes S1/S2 concluídos (`docs/spikes/S1-S2-sqlite-vec.md`): `sqlite-vec` ok na VM (x86_64, 954 MB RAM); `bge-m3` morto → `nemotron-3-embed-1b` (2048 dim); **pendente**: preço do modelo e `NVIDIA_EMBED_MODEL` no `.env` da VM; portas + testes de contrato (`src/ai/ports`) e eval harness de recuperação (`npm run eval:recuperacao`) prontos; runner de geração (`npm run eval:ia`, PR empilhado) pronto; falta dataset real de 30–50 perguntas; adaptador `sqlite-vec` do VectorStore pronto (PR empilhado)
+- [~] Fase 0 — spikes S1/S2 concluídos (`docs/spikes/S1-S2-sqlite-vec.md`): `sqlite-vec` ok na VM (x86_64, 954 MB RAM); `bge-m3` morto → `nemotron-3-embed-1b` (2048 dim); **pendente**: preço do modelo e `NVIDIA_EMBED_MODEL` no `.env` da VM; portas + testes de contrato (`src/ai/ports`) e eval harness de recuperação (`npm run eval:recuperacao`) prontos; runner de geração (`npm run eval:ia`, PR empilhado) pronto; falta dataset real de 30–50 perguntas; adaptador `sqlite-vec`, busca híbrida, `perguntar()`/rota (desligada) e job de indexação (`npm run ia:indexar`) prontos em PRs empilhados; falta instalar `sqlite-vec` na VM, indexar e ligar `AI_ASK_ENABLED`
 
 ## 🎯 Próximos passos (plano de 14/10/2026) — melhorar resumos primeiro
 

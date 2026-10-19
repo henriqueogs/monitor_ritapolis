@@ -11,6 +11,7 @@
 const { createHash } = require('node:crypto');
 const { TIPOS_EMBEDDING } = require('../ports/embedding-provider');
 const { splitTextIntoChunks } = require('../chunk-text');
+const { estimateTokensFromText } = require('../estimate-tokens');
 
 const CHUNK_PADRAO = Object.freeze({
   chunkSizeChars: 1200,
@@ -81,7 +82,13 @@ async function reindexarDocumento({ doc, hash, provider, store, estado, chunker 
     }))
   );
   await estado.gravar(chaveEstado(doc.docId), hash);
-  return textos.length;
+  return { chunks: textos.length, tokens: estimateTokensFromText(textos.join('')) };
+}
+
+/** Mesma contagem do reindex, sem embedar nem gravar: base do custo estimado (dry-run). */
+function simularDocumento({ doc, chunker }) {
+  const textos = chunker(doc.texto);
+  return { chunks: textos.length, tokens: estimateTokensFromText(textos.join('')) };
 }
 
 async function removerAusentes({ documentos, store, estado }) {
@@ -102,25 +109,43 @@ async function indexarIncremental({
   chunker = chunkerPadrao,
   versaoChunker,
   limite = Infinity,
+  limiteTokens = Infinity,
   removerAusentes: espelhar = false,
+  simular = false,
 }) {
   documentos.forEach(validarDocumento);
-  const resumo = { indexados: 0, ignorados: 0, removidos: 0, chunks: 0, pendentes: 0 };
+  const resumo = {
+    indexados: 0,
+    ignorados: 0,
+    removidos: 0,
+    chunks: 0,
+    pendentes: 0,
+    tokens_estimados: 0,
+  };
   for (const doc of documentos) {
     const hash = hashDocumento(doc, provider, versaoChunker);
     if ((await estado.obter(chaveEstado(doc.docId))) === hash) {
       resumo.ignorados += 1;
-    } else if (resumo.indexados >= limite) {
+    } else if (resumo.indexados >= limite || resumo.tokens_estimados >= limiteTokens) {
       resumo.pendentes += 1;
     } else {
-      resumo.chunks += await reindexarDocumento({ doc, hash, provider, store, estado, chunker });
+      const feito = simular
+        ? simularDocumento({ doc, chunker })
+        : await reindexarDocumento({ doc, hash, provider, store, estado, chunker });
+      resumo.chunks += feito.chunks;
+      resumo.tokens_estimados += feito.tokens;
       resumo.indexados += 1;
     }
   }
-  if (espelhar) {
+  if (espelhar && !simular) {
     resumo.removidos = await removerAusentes({ documentos, store, estado });
   }
   return resumo;
 }
 
-module.exports = { indexarIncremental, hashDocumento, CHUNK_PADRAO };
+module.exports = {
+  indexarIncremental,
+  removerAusentes,
+  hashDocumento,
+  CHUNK_PADRAO,
+};
