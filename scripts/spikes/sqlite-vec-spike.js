@@ -7,7 +7,8 @@
  * Pré-requisito (NÃO é dependência do projeto ainda):
  *   npm install --no-save sqlite-vec@0.1.9
  *
- * Uso (rode na máquina alvo, principalmente na VM Linux ARM de produção):
+ * Uso (rode na máquina alvo; a VM de produção é Linux x86_64 com ~950 MB de RAM, então use
+ * N pequeno lá, ex.: N=10000, e em pasta temporária):
  *   N=66000 node --no-warnings scripts/spikes/sqlite-vec-spike.js
  *
  * Saída: JSON com carregamento da extensão, tempos de inserção/KNN e comparação com a

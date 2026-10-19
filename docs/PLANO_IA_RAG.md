@@ -41,8 +41,8 @@ de mandato e de dupla contagem entram no dataset ouro (ADR 0006).
 ## Fase 0 — Fundações (sem feature visível)
 
 - [ ] ADRs 0001–0006 revisados e aceitos
-- [~] **Spike S1:** `sqlite-vec` carrega em `node:sqlite` no Windows (dev) ✅; **falta rodar na VM Linux ARM** (`scripts/spikes/sqlite-vec-spike.js`). Resultado em [`docs/spikes/S1-S2-sqlite-vec.md`](spikes/S1-S2-sqlite-vec.md)
-- [~] **Spike S2:** volume medido (~66 mil chunks, ~24,5 M tokens, ~2.060 chamadas em lotes de 32) ✅; **falta** medir o limite de taxa do endpoint de embedding e confirmar custo/crédito do `bge-m3` na NVIDIA
+- [x] **Spike S1:** `sqlite-vec` carrega em `node:sqlite` no Windows (dev) e na **VM de produção (Linux x86_64, não ARM)** ✅. Resultado em [`docs/spikes/S1-S2-sqlite-vec.md`](spikes/S1-S2-sqlite-vec.md)
+- [x] **Spike S2:** ~66 mil chunks, ~26 M tokens; `baai/bge-m3` está morto (410) → `nvidia/nemotron-3-embed-1b` (2048 dim); sem 429 até 3 em paralelo (~1.800–4.300 chunks/min). **Pendente**: preço/crédito do modelo e quantização (int8) para caber na RAM da VM
 - [ ] Portas `LLMProvider` / `EmbeddingProvider` / `VectorStore` + **testes de contrato** (suíte reutilizável)
 - [ ] `VectorStore` fake (em memória) para testes
 - [ ] Eval harness: formato do dataset ouro, runner de recuperação (offline), runner de geração, relatório
@@ -90,7 +90,9 @@ de mandato e de dupla contagem entram no dataset ouro (ADR 0006).
 
 | Risco | Mitigação |
 |---|---|
-| `sqlite-vec` não carrega em `node:sqlite` (experimental) ou no ARM | Spike S1; fallback exato em JS atrás da mesma porta |
+| `sqlite-vec` não carrega em `node:sqlite` (experimental) | Spike S1 provado em dev e na VM (x86_64); fallback em JS não serve na VM (RAM/CPU) |
+| VM com 954 MB de RAM (~253 MB livres) não comporta 540 MB de vetores float32 | int8/bit + rerank, pré-filtro lexical (FTS5), indexar só o necessário; medir no eval harness |
+| Modelo de embedding aposentado pelo provedor (`bge-m3` → 410) | `NVIDIA_EMBED_MODEL` configurável; porta `EmbeddingProvider` + teste de contrato que detecta modelo morto |
 | Cota NVIDIA já pressionada pela campanha histórica | Spike S2; orçamento separado; indexação incremental e em horário ocioso |
 | Prompt injection via documentos coletados | Dados delimitados, sem ferramentas de escrita, verificador (ADR 5) |
 | Alucinação / resposta sem fonte | Citação obrigatória + recusa; eval como gate (ADR 5, 6) |
