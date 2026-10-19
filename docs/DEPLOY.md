@@ -31,6 +31,31 @@ Todo merge em `master` dispara os dois lados sozinho — ver `.github/workflows/
 
 Ignora mudanças só em `frontend/**` ou `*.md` (não redeploya o backend à toa).
 
+### Janela de 502 durante o deploy do backend
+
+O deploy para a API, atualiza o código e reinicia. Nesse intervalo, o Caddy
+responde 502: em 15/10/2026 cada merge gerou dezenas de 502 na Vercel. Duas
+medidas reduzem isso:
+
+- `scripts/oracle-deploy.sh` pula o `npm ci` quando o `package-lock.json`
+  do deploy é o mesmo já instalado. O hash vai em
+  `node_modules/.deploy-lock-hash` e só é gravado depois de um `npm ci` bem
+  sucedido, então uma instalação que falhou é refeita no deploy seguinte.
+- O frontend (`frontend/lib/fetch-retry.js`) repete uma vez, após 2 s, as
+  leituras GET que recebem 502/503/504.
+
+**Instalação manual:** o `/opt/monitor-ritapolis/deploy.sh` da VM é uma
+cópia (ver `docs/DEPLOY_FILA_SEGURA_2026-10-01.md`). Mudanças em
+`scripts/oracle-deploy.sh` só valem depois de instaladas:
+
+```bash
+cd /opt/monitor-ritapolis && git pull
+sudo install -m 755 scripts/oracle-deploy.sh /opt/monitor-ritapolis/deploy.sh
+```
+
+O primeiro deploy depois disso ainda roda `npm ci`, porque o hash ainda não
+existe. Os seguintes só reinstalam quando o lockfile mudar.
+
 ## Verificação de capacidade da VM
 
 A VM roda em `VM.Standard.E2.1.Micro` (1 OCPU/1GB) — o shape maior
