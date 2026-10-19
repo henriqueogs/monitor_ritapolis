@@ -223,3 +223,70 @@ describe('edital com items em revisao nao trava as demais etapas', () => {
     ]);
   });
 });
+
+describe('historicos sem resumo entram antes dos que so precisam de etapas seguintes', () => {
+  const config = require('../config');
+  let original;
+  beforeEach(() => {
+    original = config.pipelineHistoricalDocsPerDay;
+    config.pipelineHistoricalDocsPerDay = 2;
+  });
+  afterEach(() => {
+    config.pipelineHistoricalDocsPerDay = original;
+  });
+
+  function comResumoOk(id) {
+    const signature = crypto.createHash('sha256').update(text).digest('hex');
+    db.prepare(
+      `INSERT INTO documentos_resumos_ai(documento_id, provider, modelo, contrato_versao, resumo_json, texto_hash, status)
+      VALUES (?,'nvidia','test','1.1','{}',?,'ok')`
+    ).run(id, signature);
+  }
+
+  test('vaga diaria vai para quem nao tem resumo, mesmo sendo mais antigo', () => {
+    document(1, 2026, '2026-02-02');
+    document(2, 2026, '2026-02-01');
+    document(3, 2025, '2025-12-02');
+    document(4, 2025, '2025-12-01');
+    comResumoOk(1);
+    comResumoOk(2);
+
+    planAi(q, now);
+
+    const jobs = db.prepare('SELECT kind, entity FROM pipeline_jobs ORDER BY entity').all();
+    expect(jobs).toEqual([
+      { kind: 'summary', entity: '3' },
+      { kind: 'summary', entity: '4' },
+    ]);
+  });
+
+  test('sobrando vaga, quem ja tem resumo segue para facts (nada deixa de ser planejado)', () => {
+    config.pipelineHistoricalDocsPerDay = 3;
+    document(1, 2026, '2026-02-02');
+    document(3, 2025, '2025-12-02');
+    document(4, 2025, '2025-12-01');
+    comResumoOk(1);
+
+    planAi(q, now);
+
+    const jobs = db.prepare('SELECT kind, entity FROM pipeline_jobs ORDER BY entity').all();
+    expect(jobs).toEqual([
+      { kind: 'facts', entity: '1' },
+      { kind: 'summary', entity: '3' },
+      { kind: 'summary', entity: '4' },
+    ]);
+  });
+
+  test('publicacao recente continua na frente de todos', () => {
+    document(1, 2026, '2026-09-29');
+    document(2, 2025, '2025-12-01');
+    config.pipelineHistoricalDocsPerDay = 1;
+
+    planAi(q, now);
+
+    expect(db.prepare('SELECT entity, historical FROM pipeline_jobs ORDER BY entity').all()).toEqual([
+      { entity: '1', historical: 0 },
+      { entity: '2', historical: 1 },
+    ]);
+  });
+});

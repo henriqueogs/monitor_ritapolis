@@ -196,6 +196,24 @@ function planDocument(queue, doc, now = new Date()) {
   });
   return task('facts', content, {}, 5);
 }
+// The daily slots for historical documents go first to those with no summary yet
+// (the campaign goal), then to the ones that only need later stages (facts, ...).
+// Without this, newest-first planning let cheap facts of 2025 documents fill every
+// slot while 2017-2022 documents waited for their summary. Order inside each group
+// stays newest-first; recent publications always come first.
+function ordenarParaPlanejamento(db, docs, now) {
+  const comResumo = new Set(
+    db
+      .prepare("SELECT DISTINCT documento_id FROM documentos_resumos_ai WHERE status = 'ok'")
+      .all()
+      .map(r => r.documento_id)
+  );
+  const grupo = doc => (isRecent(doc, now) ? 0 : comResumo.has(doc.id) ? 2 : 1);
+  return docs
+    .map((doc, indice) => ({ doc, indice, grupo: grupo(doc) }))
+    .sort((a, b) => a.grupo - b.grupo || a.indice - b.indice)
+    .map(({ doc }) => doc);
+}
 function planAi(queue, now = new Date()) {
   if (!config.aiSummaryEnabled || !config.aiSchedulerEnabled) {
     return;
@@ -219,7 +237,7 @@ function planAi(queue, now = new Date()) {
       .all(`${day}T03:00:00.000Z`)
       .map(r => Number(r.entity))
   );
-  for (const doc of docs) {
+  for (const doc of ordenarParaPlanejamento(queue.db, docs, now)) {
     const recent = isRecent(doc, now);
     if (!recent && !historicalIds.has(doc.id) && historicalIds.size >= config.pipelineHistoricalDocsPerDay) {
       continue;
