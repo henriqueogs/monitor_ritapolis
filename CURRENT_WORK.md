@@ -155,6 +155,16 @@ Obs.: `curl` na home dá 429 — é o Challenge do firewall Vercel, não queda.
   dry-run por padrão). Na aplicação a VM **revalida** texto, anexos, cobertura,
   contrato e citações com `assessItemsResult`; arquivo adulterado ou fonte
   alterada é recusado. Checkpoints da VM não são reaproveitados.
+- [x] **A10. JSON do resumo com aspas soltas** (jobs 6098/1022 e família): o
+  modelo copia trechos do texto oficial com `"` de OCR (`Programa... ...".: 1202`)
+  sem escapar e o JSON quebra — **determinístico**, retry com outra temperatura
+  não resolve (reproduzido localmente: 3 de 5 chamadas). `parseSummaryResponse`
+  agora escapa a aspa que fechou a string antes da hora (só em erro "after
+  property value/array element", nunca quando é aspa+aspa = vírgula faltando).
+  Saídas reais capturadas passam no parse e no contrato. Resumo de **anexo**
+  (`extractJsonObject`) e demais módulos com parse próprio ainda sem o reparo.
+  Job 6086 (decreto 992) é outro caso: latência do provedor (timeout 120 s em 2
+  de 3 chamadas; 61 s quando responde), não JSON.
 - [x] **A9. Vagas diárias priorizam quem não tem resumo** (`planAi`): medido em
   19/10 — `docs_24h` = 200 (teto), mas só 17–28 resumos/dia (`sem_resumo` 517→449
   em 4 dias): o planejador ia do mais novo ao mais antigo e os `facts` de docs de
