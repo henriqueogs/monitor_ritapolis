@@ -128,6 +128,7 @@
     "pdfjs-dist": "^6.2.108",
     "pg": "^8.23.0",
     "read-excel-file": "^9.3.10",
+    "sqlite-vec": "^0.1.9",
     "tesseract.js": "^7.0.0",
     "winston": "^3.17.0",
     "word-extractor": "^1.0.4",
