@@ -4,6 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { runVectorStoreContract } = require('../ports/contracts/vector-store.contract');
+const { runLexicalSearchContract } = require('../ports/contracts/lexical-search.contract');
 const { criarSqliteVecStore, abrirBancoVetorial } = require('./sqlite-vec-store');
 
 const DIMS = 8;
@@ -88,5 +89,44 @@ describe('SqliteVecStore: específicos do adaptador', () => {
     expect(() =>
       criarSqliteVecStore({ db: abrirBancoVetorial(':memory:'), dims: DIMS, quantizacao: 'bit' })
     ).toThrow(/quantiza/i);
+  });
+});
+
+runLexicalSearchContract(
+  'sqlite-vec',
+  ({ dims, quantizacao }) =>
+    criarSqliteVecStore({ db: abrirBancoVetorial(':memory:'), dims, quantizacao }),
+  { quantizacoes: ['float32', 'int8'] }
+);
+
+describe('SqliteVecStore: migração e falhas', () => {
+  it('chunks gravados antes do índice FTS existir passam a ser achados pelo ramo lexical (backfill)', async () => {
+    const db = abrirBancoVetorial(':memory:');
+    const store = criarSqliteVecStore({ db, dims: DIMS });
+    await store.upsert([chunk('A', 1, base(0), {})]);
+    db.exec(`
+      DROP TRIGGER ia_chunks_fts_ai; DROP TRIGGER ia_chunks_fts_ad; DROP TABLE ia_chunks_fts;
+    `);
+
+    const reaberto = criarSqliteVecStore({ db, dims: DIMS });
+
+    expect(
+      (await reaberto.searchLexical({ consulta: 'texto', vetor: base(0), k: 5 })).map(r => r.id)
+    ).toEqual(['A']);
+  });
+
+  it('falha dentro da transação não mascara a causa quando o SQLite já reverteu', async () => {
+    const db = abrirBancoVetorial(':memory:');
+    const store = criarSqliteVecStore({ db, dims: DIMS });
+    const original = db.exec.bind(db);
+    db.exec = sql => {
+      if (sql === 'COMMIT') {
+        original('ROLLBACK'); // simula auto-rollback do SQLite
+        throw new Error('disk I/O error');
+      }
+      return original(sql);
+    };
+
+    await expect(store.upsert([chunk('A', 1, base(0), {})])).rejects.toThrow(/disk I\/O error/);
   });
 });

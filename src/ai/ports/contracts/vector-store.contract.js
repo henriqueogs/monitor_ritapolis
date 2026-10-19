@@ -211,6 +211,35 @@ function contratoEscrita(obter) {
     expect(await store.count()).toBe(1);
   });
 
+  it('replaceByDoc troca todos os chunks do documento e não toca nos outros', async () => {
+    const store = obter();
+    await store.upsert([chunk('A', 1, base(0)), chunk('B', 1, base(1)), chunk('C', 2, base(2))]);
+
+    await store.replaceByDoc(1, [chunk('D', 1, base(3))]);
+
+    expect(await store.count()).toBe(2);
+    const todos = ids(await store.search({ vetor: base(3), k: 5 })).sort();
+    expect(todos).toEqual(['C', 'D']);
+  });
+
+  it('replaceByDoc com chunk inválido mantém o índice anterior do documento (atomicidade)', async () => {
+    const store = obter();
+    await store.upsert([chunk('A', 1, base(0))]);
+
+    await expect(
+      store.replaceByDoc(1, [chunk('B', 1, base(1)), chunk('C', 1, [1, 0, 0])])
+    ).rejects.toThrow();
+
+    expect(ids(await store.search({ vetor: base(0), k: 5 }))).toEqual(['A']);
+  });
+
+  it('docId é comparado como texto: deleteByDoc("1") remove o documento 1', async () => {
+    const store = obter();
+    await store.upsert([chunk('A', 1, base(0))]);
+
+    expect(await store.deleteByDoc('1')).toBe(1);
+  });
+
   it('upsert em lote com um chunk inválido não grava nenhum (atomicidade)', async () => {
     const store = obter();
 
