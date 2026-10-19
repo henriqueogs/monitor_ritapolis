@@ -155,6 +155,13 @@ Obs.: `curl` na home dá 429 — é o Challenge do firewall Vercel, não queda.
   dry-run por padrão). Na aplicação a VM **revalida** texto, anexos, cobertura,
   contrato e citações com `assessItemsResult`; arquivo adulterado ou fonte
   alterada é recusado. Checkpoints da VM não são reaproveitados.
+- [x] **A9. Vagas diárias priorizam quem não tem resumo** (`planAi`): medido em
+  19/10 — `docs_24h` = 200 (teto), mas só 17–28 resumos/dia (`sem_resumo` 517→449
+  em 4 dias): o planejador ia do mais novo ao mais antigo e os `facts` de docs de
+  2025 enchiam as 200 vagas, enquanto 2017–2022 esperavam o resumo. Agora a
+  ordem é: recentes → históricos **sem resumo ok** → históricos que só precisam
+  de etapas seguintes (cada grupo, mais novo primeiro). Conferir após o deploy:
+  resumos/dia > 50 e `sem_resumo_com_texto` caindo mais rápido.
 - [x] **A2b. Cadeia por documento** (`planner.js`, `planDocument`): summary →
   anexos → (edital: items → integrated) → facts. Antes, `items` em revisão
   (`failed`) fazia `return` e **travava `facts` do edital para sempre** (10
