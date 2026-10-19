@@ -231,7 +231,7 @@ export default async function CredorProfilePage({
       <div className="admin-metric-grid" style={{ marginBottom: 24 }}>
         <div className="admin-metric-card">
           <span>
-            Empenhado no mandato {String(destaque?.mandato || '').replace('-', '–')}
+            Empenhado ordinário no mandato {String(destaque?.mandato || '').replace('-', '–')}
             {destaque?.em_curso ? ` (em curso${destaque.anos?.length ? `, dados de ${destaque.anos[0]}–${destaque.anos[destaque.anos.length - 1]}` : ''})` : ''}
           </span>
           <strong>{formatMoney(destaque?.valor_total ?? 0)}</strong>
@@ -239,19 +239,28 @@ export default async function CredorProfilePage({
             {destaque?.n_empenhos ?? 0} empenho{destaque?.n_empenhos === 1 ? '' : 's'} ordinário{destaque?.n_empenhos === 1 ? '' : 's'} no mandato
           </p>
         </div>
+        {destaque?.valor_estimado_global > 0 && (
+          <div className="admin-metric-card">
+            <span>Estimativo/global no mandato {String(destaque.mandato || '').replace('-', '–')}</span>
+            <strong>{formatMoney(destaque.valor_estimado_global)}</strong>
+            <p style={{ margin: '4px 0 0', fontSize: 12, opacity: 0.6 }}>
+              Previsões/parcelas futuras, não valor recebido — fora do ordinário.
+            </p>
+          </div>
+        )}
         {acumulado && (
           <div className="admin-metric-card">
-            <span>Acumulado ({acumulado.label})</span>
+            <span>Empenhado ordinário acumulado ({acumulado.label})</span>
             <strong style={{ fontSize: '1.1rem' }}>{formatMoney(acumulado.valor_total)}</strong>
             <p style={{ margin: '4px 0 0', fontSize: 12, opacity: 0.6 }}>
               Soma de todos os mandatos — veja o histórico por mandato abaixo.
             </p>
           </div>
         )}
-        {acumulado && resumo.valor_estimado_global > 0 && (
+        {acumulado && acumulado.valor_estimado_global > 0 && (
           <div className="admin-metric-card">
-            <span>Estimativo/global ({acumulado.label})</span>
-            <strong style={{ fontSize: '1.1rem' }}>{formatMoney(resumo.valor_estimado_global)}</strong>
+            <span>Estimativo/global acumulado ({acumulado.label})</span>
+            <strong style={{ fontSize: '1.1rem' }}>{formatMoney(acumulado.valor_estimado_global)}</strong>
             <p style={{ margin: '4px 0 0', fontSize: 12, opacity: 0.6 }}>
               Empenhos estimativos e globais são previsões/parcelas futuras, não valor recebido.
             </p>

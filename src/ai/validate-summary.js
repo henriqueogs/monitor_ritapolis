@@ -42,6 +42,35 @@ function repararEscapesInvalidos(jsonText) {
   );
 }
 
+const MAX_REPAROS_ASPAS = 40;
+const ERRO_APOS_VALOR = /Expected ',' or '[}\]]' after (property value|array element)/;
+
+// O modelo copia trechos do texto oficial (OCR com aspas soltas, ex.: `Programa... ...".: 1202`)
+// sem escapar o `"` e o JSON fecha a string no meio (decretos 992/1022, 16/10/2026;
+// repetir com outra temperatura não adianta). A aspa que fechou a string antes da hora é
+// a última antes da posição do erro: escapá-la mantém o texto do modelo intacto. Recusa
+// quando o erro é aspa seguida de aspa (vírgula faltando) — aí é outro defeito.
+function repararAspasSoltas(jsonText) {
+  let texto = jsonText;
+  for (let tentativa = 0; tentativa < MAX_REPAROS_ASPAS; tentativa += 1) {
+    try {
+      JSON.parse(texto);
+      return texto;
+    } catch (error) {
+      const posicao = Number(/position (\d+)/.exec(error.message)?.[1]);
+      if (!ERRO_APOS_VALOR.test(error.message) || !Number.isInteger(posicao)) {
+        return null;
+      }
+      const aspa = texto.lastIndexOf('"', posicao - 1);
+      if (texto[posicao] === '"' || aspa < 0 || texto[aspa - 1] === '\\') {
+        return null;
+      }
+      texto = `${texto.slice(0, aspa)}\\${texto.slice(aspa)}`;
+    }
+  }
+  return null;
+}
+
 function parseSummaryResponse(rawContent) {
   const jsonText = extractJsonText(rawContent);
 
@@ -51,6 +80,10 @@ function parseSummaryResponse(rawContent) {
     try {
       return JSON.parse(repararEscapesInvalidos(jsonText));
     } catch {
+      const comAspasEscapadas = repararAspasSoltas(repararEscapesInvalidos(jsonText));
+      if (comAspasEscapadas) {
+        return JSON.parse(comAspasEscapadas);
+      }
       throw new Error(`Resposta da IA nao retornou JSON valido: ${error.message}`);
     }
   }
@@ -308,6 +341,7 @@ function validateSummary(summary) {
 
 module.exports = {
   extractJsonText,
+  repararAspasSoltas,
   parseSummaryResponse,
   validateSummary,
   normalizeEnumValue,

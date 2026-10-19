@@ -148,6 +148,36 @@ Obs.: `curl` na home dá 429 — é o Challenge do firewall Vercel, não queda.
   esperar atrás de `items`. **Em aberto (decisão de produto):** abortar cedo no
   primeiro trecho irrecuperável em vez de ler o resto; tolerar `too_big`/campo
   ausente (hoje contraria a regra "nunca truncar"); prompt para citações.
+- [x] **A2c. Extração de itens local** (`scripts/itens-local.js`,
+  `src/ai/itens-local.js`): para editais que o teto de 30 min mandou para
+  revisão. `exportar --revisao` (VM, leitura) → `gerar pacote.json resultado.json`
+  (sua máquina, sem teto de tempo) → `aplicar resultado.json [--apply]` (VM,
+  dry-run por padrão). Na aplicação a VM **revalida** texto, anexos, cobertura,
+  contrato e citações com `assessItemsResult`; arquivo adulterado ou fonte
+  alterada é recusado. Checkpoints da VM não são reaproveitados.
+- [x] **A10. JSON do resumo com aspas soltas** (jobs 6098/1022 e família): o
+  modelo copia trechos do texto oficial com `"` de OCR (`Programa... ...".: 1202`)
+  sem escapar e o JSON quebra — **determinístico**, retry com outra temperatura
+  não resolve (reproduzido localmente: 3 de 5 chamadas). `parseSummaryResponse`
+  agora escapa a aspa que fechou a string antes da hora (só em erro "after
+  property value/array element", nunca quando é aspa+aspa = vírgula faltando).
+  Saídas reais capturadas passam no parse e no contrato. Resumo de **anexo**
+  (`extractJsonObject`) e demais módulos com parse próprio ainda sem o reparo.
+  Job 6086 (decreto 992) é outro caso: latência do provedor (timeout 120 s em 2
+  de 3 chamadas; 61 s quando responde), não JSON.
+- [x] **A9. Vagas diárias priorizam quem não tem resumo** (`planAi`): medido em
+  19/10 — `docs_24h` = 200 (teto), mas só 17–28 resumos/dia (`sem_resumo` 517→449
+  em 4 dias): o planejador ia do mais novo ao mais antigo e os `facts` de docs de
+  2025 enchiam as 200 vagas, enquanto 2017–2022 esperavam o resumo. Agora a
+  ordem é: recentes → históricos **sem resumo ok** → históricos que só precisam
+  de etapas seguintes (cada grupo, mais novo primeiro). Conferir após o deploy:
+  resumos/dia > 50 e `sem_resumo_com_texto` caindo mais rápido.
+- [x] **A2b. Cadeia por documento** (`planner.js`, `planDocument`): summary →
+  anexos → (edital: items → integrated) → facts. Antes, `items` em revisão
+  (`failed`) fazia `return` e **travava `facts` do edital para sempre** (10
+  editais de 2026 sem facts/integrated em 15/10; o teto de 30 min por doc
+  aumentaria isso). Agora `facts` segue; `integrated` espera `items` válido.
+  Cobertura medida em 15/10: editais 2019–2025 com items 100%; 2026 73/83.
 - [ ] **A3. `limite_tamanho` em `collection`**: chunking/map-reduce em vez de
   rejeitar documentos grandes.
 - [ ] **A4. `contrato_rejeitado`**: ver prompts/schema; o modelo erra chave

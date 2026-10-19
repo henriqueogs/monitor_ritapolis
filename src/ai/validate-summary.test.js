@@ -64,6 +64,26 @@ describe('parseSummaryResponse', () => {
     expect(parseSummaryResponse(raw).a).toBe('linha1\nlinha2 "aspas" caminho C:\\pasta $');
   });
 
+  it('escapa aspas soltas copiadas do texto oficial (OCR) e preserva o conteudo', () => {
+    const raw = '{"trecho": "Programa... ...".: 1202 - TRANSPORTE ESCOLAR", "tipo_documento": "decreto"}';
+    const out = parseSummaryResponse(raw);
+    expect(out.trecho).toBe('Programa... ...".: 1202 - TRANSPORTE ESCOLAR');
+    expect(out.tipo_documento).toBe('decreto');
+  });
+
+  it('escapa varias aspas soltas em campos diferentes', () => {
+    const raw = '{"a": "x "y" z", "b": ["p "q" r", "ok"], "n": 1}';
+    const out = parseSummaryResponse(raw);
+    expect(out.a).toBe('x "y" z');
+    expect(out.b).toEqual(['p "q" r', 'ok']);
+    expect(out.n).toBe(1);
+  });
+
+  it('nao inventa conteudo: JSON quebrado por outro motivo continua falhando', () => {
+    expect(() => parseSummaryResponse('{"a": "x", "b": }')).toThrow('JSON valido');
+    expect(() => parseSummaryResponse('{"a": "x" "b": 1}')).toThrow('JSON valido');
+  });
+
   it('lança erro em JSON inválido', () => {
     expect(() => parseSummaryResponse('{"campo": broken}')).toThrow('JSON valido');
   });

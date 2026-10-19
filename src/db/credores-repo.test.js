@@ -275,6 +275,23 @@ describe('credores-repo — tipos de empenho (fiscal-valores V2/V3/V7)', () => {
     expect(p.resumo.n_empenhos).toBe(2);
   });
 
+  it('perfil: credor só com empenho estimativo/global existe (a lista linka para ele)', () => {
+    seedDespesa({ nome: 'EMPRESA X LTDA', cnpj: CNPJ, valor: 4000, exercicio: 2026, tipo: TIPO_EE });
+
+    const p = getCredorProfile(CNPJ);
+
+    expect(listCredores({}).dados.map((c) => c.credor_chave)).toContain(CNPJ);
+    expect(p).not.toBeNull();
+    expect(p.resumo.valor_total).toBe(0);
+    expect(p.resumo.valor_estimado_global).toBe(4000);
+  });
+
+  it('perfil: credor só com ordem de pagamento continua inexistente', () => {
+    seedDespesa({ nome: 'EMPRESA X LTDA', cnpj: CNPJ, valor: 300, exercicio: 2026, tipo: TIPO_OP });
+
+    expect(getCredorProfile(CNPJ)).toBeNull();
+  });
+
   it('perfil: "Pago" não é mais o valor empenhado — expõe total_empenhado', () => {
     seedMisto();
 
