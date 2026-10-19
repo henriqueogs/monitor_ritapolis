@@ -10,8 +10,9 @@ function labelMandato(m) {
 }
 
 /**
- * Barras de recebimento por ano agrupadas por mandato (§11.1 — todo valor
+ * Barras de empenho ordinário por ano agrupadas por mandato (§11.1 — todo valor
  * carrega o período; mandatos com anos faltando são rotulados como parciais).
+ * Estimativo/global (EE/EG) aparece ao lado, rotulado, nunca somado à barra.
  */
 export default function HistoricoPorMandato({ porAno, porMandato }) {
   if (!porAno?.length) return null;
@@ -19,13 +20,14 @@ export default function HistoricoPorMandato({ porAno, porMandato }) {
   const porAnoMap = new Map(porAno.map((r) => [r.ano, r]));
 
   return (
-    <SectionBlock title="Histórico de recebimentos" description="Valores empenhados por ano, agrupados por mandato municipal.">
+    <SectionBlock title="Histórico de empenhos" description="Empenhos ordinários por ano, agrupados por mandato municipal; estimativo/global (previsão) aparece à parte.">
       {(porMandato || []).map((m) => (
         <div key={m.mandato} style={{ marginBottom: 18 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8, paddingBottom: 4, borderBottom: '1px solid var(--border)' }}>
             <span style={{ fontSize: 13, fontWeight: 700 }}>{labelMandato(m)}</span>
             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
               {m.n_empenhos} empenhos · <strong style={{ color: 'inherit' }}>{formatMoney(m.valor_total)}</strong>
+              {m.valor_estimado_global > 0 && <> · estimativo/global {formatMoney(m.valor_estimado_global)}</>}
             </span>
           </div>
           {m.anos.slice().reverse().map((ano) => {
@@ -38,6 +40,9 @@ export default function HistoricoPorMandato({ porAno, porMandato }) {
                   <span style={{ fontSize: 14, fontWeight: 500 }}>{ano}</span>
                   <span style={{ display: 'flex', gap: 16, fontSize: 13 }}>
                     <span style={{ color: 'var(--text-muted)' }}>{r.n_empenhos} empenhos</span>
+                    {r.valor_estimado_global > 0 && (
+                      <span style={{ color: 'var(--text-muted)' }}>estimativo/global {formatMoney(r.valor_estimado_global)}</span>
+                    )}
                     <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{formatMoney(r.valor_total)}</strong>
                   </span>
                 </div>

@@ -23,6 +23,7 @@ function montarDestaque(porMandato, anoAtual) {
       anos: emCurso.anos,
       valor_total: emCurso.valor_total,
       n_empenhos: emCurso.n_empenhos,
+      valor_estimado_global: emCurso.valor_estimado_global || 0,
       em_curso: true,
     };
   }
@@ -34,6 +35,7 @@ function montarDestaque(porMandato, anoAtual) {
     anos: [],
     valor_total: 0,
     n_empenhos: 0,
+    valor_estimado_global: 0,
     em_curso: true,
   };
 }
@@ -45,6 +47,8 @@ function montarAcumulado(porAno, porMandato) {
     label: rotuloIntervalo(Math.min(...anos), Math.max(...anos)),
     valor_total: porMandato.reduce((acc, m) => acc + m.valor_total, 0),
     n_empenhos: porMandato.reduce((acc, m) => acc + m.n_empenhos, 0),
+    // EE/EG é previsão, não gasto: campo próprio, nunca somado ao ordinário.
+    valor_estimado_global: porMandato.reduce((acc, m) => acc + (m.valor_estimado_global || 0), 0),
   };
 }
 

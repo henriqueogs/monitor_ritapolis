@@ -320,7 +320,8 @@ function getCredorProfile(identificador) {
     WHERE credor_chave = ? AND NOT ${SQL_TIPO_ORDEM_PAGAMENTO}
   `).get(chave);
 
-  if (!identidade || !identidade.n_empenhos) {return null;}
+  // Só EE/EG também é credor: a listagem (que exclui só OP) linka para ele.
+  if (!identidade || !(identidade.n_empenhos || identidade.n_empenhos_estimado_global)) {return null;}
 
   // ── Histórico por ano ──
   const porAno = db.prepare(`
