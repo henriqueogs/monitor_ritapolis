@@ -82,6 +82,8 @@ const { correlateLicitation } = require('../ai/correlate-licitation');
 const { createAiProvider } = require('../ai/providers');
 const { scheduleResumoAiJobWorker } = require('../ai/summary-job-worker');
 const { getAiOperationPlan } = require('../ai/operation-policy');
+const { criarHandlerPerguntar } = require('./ia-perguntar');
+const { criarServicoPadrao } = require('../ai/rag/servico-padrao');
 const { extractEntitiesFromResumes } = require('../ai/extract-entities');
 const { gerarNarrativaAnomalias } = require('../ai/anomaly-narrative');
 const alertasRepo = require('../db/alertas-repo');
@@ -327,7 +329,7 @@ function validateBootstrapToken(token, env = process.env) {
   return { ok: true };
 }
 
-function createServer() {
+function createServer({ servicoPerguntar } = {}) {
   const app = express();
   app.set('trust proxy', 1);
   app.use(security.applySecurityHeaders);
@@ -678,6 +680,17 @@ function createServer() {
       })
     );
   });
+
+  // Perguntas do cidadão (RAG com citação obrigatória). O serviço é montado na primeira chamada;
+  // null (recurso desligado ou índice ausente) => 503. Reiniciar a API relê o estado.
+  let servicoIa;
+  const obterServicoIa = () => {
+    if (servicoIa === undefined) {
+      servicoIa = servicoPerguntar !== undefined ? servicoPerguntar : criarServicoPadrao({ config, logger });
+    }
+    return servicoIa;
+  };
+  app.post('/api/ia/perguntar', criarHandlerPerguntar({ obterServico: obterServicoIa }));
 
   app.get('/api/ia/health', (_req, res, next) => {
     try {

@@ -32,6 +32,20 @@ describe('numerosInventados (fiscal-valores V6: número só se estiver no contex
     expect(numerosInventados('Foram 1.500,00 reais.', contexto)).toEqual([]);
   });
 
+  it('valor sem marcador de moeda, singular, BRL e magnitude por extenso também são conferidos', () => {
+    expect(numerosInventados('Foram 2.500.000,00 no total.', contexto)).toEqual(['2.500.000,00']);
+    expect(numerosInventados('Custou 7,00 real.', contexto)).toEqual(['7,00 real']);
+    expect(numerosInventados('Pagou 3.000,00 BRL.', contexto)).toEqual(['3.000,00 BRL']);
+    expect(numerosInventados('Cerca de 2 milhões de reais.', contexto)).toEqual(['2 milhões']);
+    expect(numerosInventados('Foram 48.000,00 e R$ 1.500,00.', contexto)).toEqual([]);
+  });
+
+  it('magnitude por extenso só vale se o contexto traz a mesma expressão', () => {
+    const ctx = [{ texto: 'Contrato de 2 milhões de reais.' }];
+
+    expect(numerosInventados('Cerca de 2 milhões de reais.', ctx)).toEqual([]);
+  });
+
   it('sem valores na resposta, nada a conferir', () => {
     expect(numerosInventados('A empresa venceu.', contexto)).toEqual([]);
   });
@@ -53,6 +67,15 @@ describe('termosAcusatorios (fiscal-privacidade N1/N2)', () => {
     ]);
     expect(termosAcusatorios('Serviço de lavagem de veículos.')).toEqual([]);
     expect(termosAcusatorios('Lavagem de dinheiro.')).toEqual(['lavagem de dinheiro']);
+  });
+
+  it('cobre ilícito, improbidade, peculato, malversação, sobrepreço e irregular', () => {
+    expect(termosAcusatorios('ato ilícito de improbidade, peculato e malversação')).toEqual(
+      expect.arrayContaining(['ilicit', 'improbidade', 'peculato', 'malversa'])
+    );
+    expect(termosAcusatorios('sobrepreço irregular')).toEqual(
+      expect.arrayContaining(['sobrepre', 'irregular'])
+    );
   });
 
   it('texto neutro não aciona', () => {
