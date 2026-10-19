@@ -11,6 +11,7 @@ const { avaliarFundamentacao } = require('../eval/metricas');
 const { numerosInventados, termosAcusatorios } = require('../eval/metricas-geracao');
 const { estimateTokensFromText } = require('../estimate-tokens');
 const { RespostaNaoJsonError } = require('../ports/json-resposta');
+const { mascararCpf } = require('./privacidade');
 const { VERSAO_PROMPT } = require('../prompts/rag-resposta');
 const {
   responderComContexto,
@@ -28,8 +29,6 @@ const LIMIAR_EVIDENCIA_PADRAO = 0.2;
 const TETO_CONTEXTO_PADRAO = 12000;
 const FILTRO_LISTA_MAX = 20;
 const RESPOSTA_MAX = 1500;
-const CPF = /\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/g;
-const CPF_MASCARADO = '***.***.***-**';
 const CHAVES_FILTRO = ['ano', 'tipo', 'fonte'];
 const MOTIVO_FORA_DO_CONTRATO = 'fora_do_contrato';
 const MOTIVO_VALOR_INVENTADO = 'valor_inventado';
@@ -88,9 +87,6 @@ function validarFiltros(filtros) {
   }
   return filtros;
 }
-
-// fiscal-privacidade L1: CPF nunca entra no prompt nem sai na resposta
-const mascararCpf = texto => String(texto ?? '').replace(CPF, CPF_MASCARADO);
 
 function limitarContexto(recuperados, { limiar, teto }) {
   const contexto = [];
