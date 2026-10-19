@@ -3,15 +3,21 @@
 /**
  * Job que popula o índice vetorial a partir dos documentos e anexos reais.
  * Lê em páginas (cursor), mapeia para itens indexáveis (origem rastreável, CPF mascarado) e
- * delega ao indexador incremental. Orçamento por execução: documentos, tokens estimados e tempo,
- * checados ANTES de cada página (estouro máximo = uma página). Retomável pelo estado de indexação.
- * `removerAusentes` só age numa passada completa; `simular` só conta (dry-run, sem embedar/gravar).
+ * delega ao indexador incremental. O orçamento (documentos, tokens estimados, tempo) vira o
+ * `limite`/`limiteTokens` do indexador: com o orçamento esgotado o indexador só classifica o que
+ * é ignorado (hash igual) e o que fica pendente (mudou), sem embedar. Assim `pendentes` conta só
+ * trabalho real e `completo` só é falso quando ainda há o que indexar.
+ * O tempo conta a partir da primeira página que de fato indexou: varrer páginas já indexadas
+ * (leitura + hash, sem rede) não consome o orçamento — senão a varredura inicial impediria o
+ * progresso das execuções seguintes. O cursor não é persistido: cada execução relê desde o início.
+ * `removerAusentes` só age numa passada completa e nunca com leitura vazia; `simular` só conta.
  */
 
 const { indexarIncremental, removerAusentes: removerAusentesDoIndice } = require('./indexador');
 const { mapearDocumento, mapearAnexo } = require('./fontes-indexacao');
 
 const PAGINA_PADRAO = 10;
+const PAGINA_MAXIMA = 100; // texto_completo de cada linha vai para a RAM (VM de 954 MB)
 const FONTES = [
   { nome: 'documentos', listar: 'listarDocumentosParaIndexar', mapear: mapearDocumento },
   { nome: 'anexos', listar: 'listarAnexosParaIndexar', mapear: mapearAnexo },
@@ -20,20 +26,36 @@ const FONTES = [
 const dormirPadrao = ms => new Promise(resolve => setTimeout(resolve, ms));
 const zerado = () => ({ indexados: 0, ignorados: 0, descartados: 0 });
 
-function orcamentoEsgotado({ orcamento, resumo, inicio, agora }) {
-  const { maxDocumentos = Infinity, maxTokens = Infinity, maxMs = Infinity } = orcamento;
-  return (
-    resumo.indexados >= maxDocumentos ||
-    resumo.tokens_estimados >= maxTokens ||
-    agora() - inicio >= maxMs
-  );
+function validarPagina(tamanhoPagina) {
+  if (!Number.isInteger(tamanhoPagina) || tamanhoPagina < 1 || tamanhoPagina > PAGINA_MAXIMA) {
+    throw new RangeError(
+      `tamanhoPagina inválido: ${tamanhoPagina} (inteiro de 1 a ${PAGINA_MAXIMA})`
+    );
+  }
 }
 
-async function processarPagina({ itens, estadoJob, args }) {
-  const { orcamento = {}, ...indexacao } = args;
-  const restante = (orcamento.maxDocumentos ?? Infinity) - estadoJob.resumo.indexados;
-  const r = await indexarIncremental({ ...indexacao, documentos: itens, limite: restante });
-  const { resumo, porFonte } = estadoJob;
+/** Quanto ainda cabe no orçamento agora; 0 significa "só classificar, não embedar". */
+function calcularRestante({ orcamento, resumo, trabalho, agora }) {
+  const { maxDocumentos = Infinity, maxTokens = Infinity, maxMs = Infinity } = orcamento;
+  const esgotadoPorTempo = trabalho.inicio !== null && agora() - trabalho.inicio >= maxMs;
+  const documentos = esgotadoPorTempo ? 0 : Math.max(0, maxDocumentos - resumo.indexados);
+  const tokens = Math.max(0, maxTokens - resumo.tokens_estimados);
+  return { documentos, tokens };
+}
+
+async function processarPagina({ itens, ctx, resumo, porFonte, trabalho }) {
+  const { orcamento, agora, ...indexacao } = ctx;
+  const antes = agora();
+  const restante = calcularRestante({ orcamento, resumo, trabalho, agora: () => antes });
+  const r = await indexarIncremental({
+    ...indexacao,
+    documentos: itens,
+    limite: restante.documentos,
+    limiteTokens: restante.tokens,
+  });
+  if (r.indexados > 0 && trabalho.inicio === null) {
+    trabalho.inicio = antes;
+  }
   resumo.indexados += r.indexados;
   resumo.ignorados += r.ignorados;
   resumo.pendentes += r.pendentes;
@@ -44,8 +66,8 @@ async function processarPagina({ itens, estadoJob, args }) {
   return r;
 }
 
-async function percorrerFonte({ fonte, estadoJob, vistos, args }) {
-  const { leitor, tamanhoPagina, logger, pausaEntreLotesMs, dormir, agora, inicio } = args;
+async function percorrerFonte({ fonte, ctx, resumo, porFonte, trabalho, vistos }) {
+  const { leitor, tamanhoPagina, logger, pausaEntreLotesMs, dormir } = ctx;
   let cursor = 0;
   for (;;) {
     const linhas = leitor[fonte.listar]({ afterId: cursor, limite: tamanhoPagina });
@@ -54,22 +76,11 @@ async function percorrerFonte({ fonte, estadoJob, vistos, args }) {
     }
     cursor = linhas[linhas.length - 1].id;
     const itens = linhas.map(fonte.mapear).filter(Boolean);
-    estadoJob.resumo.descartados += linhas.length - itens.length;
-    estadoJob.porFonte.descartados += linhas.length - itens.length;
+    resumo.descartados += linhas.length - itens.length;
+    porFonte.descartados += linhas.length - itens.length;
     itens.forEach(i => vistos.push({ docId: i.docId }));
 
-    if (
-      orcamentoEsgotado({
-        orcamento: args.orcamento ?? {},
-        resumo: estadoJob.resumo,
-        inicio,
-        agora,
-      })
-    ) {
-      estadoJob.resumo.pendentes += itens.length;
-      return false;
-    }
-    const r = await processarPagina({ itens, estadoJob, args });
+    const r = await processarPagina({ itens, ctx, resumo, porFonte, trabalho });
     logger.info('ia.indexar: página', { fonte: fonte.nome, cursor, indexados: r.indexados });
     if (r.pendentes > 0) {
       return false;
@@ -78,6 +89,14 @@ async function percorrerFonte({ fonte, estadoJob, vistos, args }) {
       await dormir(pausaEntreLotesMs);
     }
   }
+}
+
+async function removerSeCompleto({ vistos, store, estado, logger }) {
+  if (!vistos.length) {
+    logger.warn('ia.indexar: leitura vazia; remoção de ausentes ignorada por segurança');
+    return 0;
+  }
+  return removerAusentesDoIndice({ documentos: vistos, store, estado });
 }
 
 async function rodarJobIndexacao({
@@ -96,6 +115,7 @@ async function rodarJobIndexacao({
   chunker,
   versaoChunker,
 }) {
+  validarPagina(tamanhoPagina);
   const resumo = {
     ...zerado(),
     pendentes: 0,
@@ -107,7 +127,8 @@ async function rodarJobIndexacao({
     por_fonte: {},
   };
   const vistos = [];
-  const args = {
+  const trabalho = { inicio: null };
+  const ctx = {
     leitor,
     provider,
     store,
@@ -121,13 +142,12 @@ async function rodarJobIndexacao({
     simular,
     chunker,
     versaoChunker,
-    inicio: agora(),
   };
 
   for (const fonte of FONTES) {
     const porFonte = zerado();
     resumo.por_fonte[fonte.nome] = porFonte;
-    const terminou = await percorrerFonte({ fonte, estadoJob: { resumo, porFonte }, vistos, args });
+    const terminou = await percorrerFonte({ fonte, ctx, resumo, porFonte, trabalho, vistos });
     if (!terminou) {
       resumo.completo = false;
       break;
@@ -135,9 +155,10 @@ async function rodarJobIndexacao({
   }
 
   if (removerAusentes && resumo.completo && !simular) {
-    resumo.removidos = await removerAusentesDoIndice({ documentos: vistos, store, estado });
+    resumo.removidos = await removerSeCompleto({ vistos, store, estado, logger });
   }
-  logger.info('ia.indexar: fim', { ...resumo, por_fonte: undefined });
+  const { por_fonte: porFonteResumo, ...sem } = resumo;
+  logger.info('ia.indexar: fim', { ...sem, fontes: Object.keys(porFonteResumo) });
   return resumo;
 }
 

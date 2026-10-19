@@ -10,6 +10,9 @@
 const { mascararCpf } = require('./privacidade');
 
 const TEXTO_MINIMO = 80;
+// O indexador aceita até 200 chunks por documento (passo de ~1050 caracteres): acima disso o
+// chunker lançaria. Textos maiores são truncados (o início identifica o objeto do documento).
+const TEXTO_MAXIMO = 200000;
 const PREFIXO = Object.freeze({ DOCUMENTO: 'documento', ANEXO: 'anexo' });
 
 const urlHttp = valor => {
@@ -20,7 +23,8 @@ const urlHttp = valor => {
 const temTextoUtil = texto => String(texto ?? '').trim().length >= TEXTO_MINIMO;
 
 function montarTexto(cabecalho, corpo) {
-  return mascararCpf([...cabecalho.filter(Boolean), String(corpo).trim()].join('\n'));
+  const juntos = [...cabecalho.filter(Boolean), String(corpo).trim()].join('\n');
+  return mascararCpf(juntos).slice(0, TEXTO_MAXIMO);
 }
 
 function semVazios(metadados) {
@@ -72,4 +76,4 @@ function mapearAnexo(linha) {
   };
 }
 
-module.exports = { mapearDocumento, mapearAnexo, TEXTO_MINIMO, PREFIXO };
+module.exports = { mapearDocumento, mapearAnexo, TEXTO_MINIMO, TEXTO_MAXIMO, PREFIXO };

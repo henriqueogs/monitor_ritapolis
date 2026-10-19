@@ -132,7 +132,7 @@ describe('rodarJobIndexacao', () => {
       ...env,
       leitor: fontes,
       orcamento: { maxMs: 1000 },
-      agora: () => (t += 600),
+      agora: () => (t += 1500),
     });
 
     expect(r.completo).toBe(false);
@@ -166,16 +166,99 @@ describe('rodarJobIndexacao', () => {
       leitor: leitor({ documentos: [linhaDoc(1), linhaDoc(2), linhaDoc(3)] }),
     });
 
+    const alterado = { ...linhaDoc(1), texto_completo: `${TEXTO} versão nova` };
+
     const r = await rodarJobIndexacao({
       ...base,
       ...env,
-      leitor: leitor({ documentos: [linhaDoc(1)] }),
+      leitor: leitor({ documentos: [alterado] }),
       removerAusentes: true,
       orcamento: { maxDocumentos: 0 },
     });
 
-    expect(r.removidos).toBe(0);
+    expect(r).toMatchObject({ completo: false, pendentes: 1, removidos: 0 });
     expect(await env.estado.obter('documento:2')).not.toBeNull();
+  });
+
+  it('orçamento esgotado sobre acervo todo indexado: pendentes 0 e passada completa (não é falso incompleto)', async () => {
+    const env = ambiente();
+    const fontes = leitor({ documentos: [1, 2, 3].map(linhaDoc) });
+    await rodarJobIndexacao({ ...base, ...env, leitor: fontes });
+
+    const r = await rodarJobIndexacao({
+      ...base,
+      ...env,
+      leitor: fontes,
+      orcamento: { maxDocumentos: 0 },
+    });
+
+    expect(r).toMatchObject({ completo: true, pendentes: 0, ignorados: 3 });
+  });
+
+  it('varrer páginas já indexadas não gasta o orçamento de tempo (o trabalho novo ainda acontece)', async () => {
+    const env = ambiente();
+    await rodarJobIndexacao({
+      ...base,
+      ...env,
+      leitor: leitor({ documentos: [1, 2, 3, 4].map(linhaDoc) }),
+    });
+    let t = 0;
+    const mais = leitor({ documentos: [1, 2, 3, 4, 5, 6].map(linhaDoc) });
+
+    const r = await rodarJobIndexacao({
+      ...base,
+      ...env,
+      leitor: mais,
+      orcamento: { maxMs: 1000 },
+      agora: () => (t += 700),
+    });
+
+    expect(r.indexados).toBeGreaterThan(0);
+    expect(r.ignorados).toBe(4);
+  });
+
+  it('removerAusentes com leitura vazia não apaga o índice inteiro', async () => {
+    const env = ambiente();
+    await rodarJobIndexacao({ ...base, ...env, leitor: leitor({ documentos: [linhaDoc(1)] }) });
+
+    const r = await rodarJobIndexacao({
+      ...base,
+      ...env,
+      leitor: leitor({}),
+      removerAusentes: true,
+    });
+
+    expect(r.removidos).toBe(0);
+    expect(await env.estado.obter('documento:1')).not.toBeNull();
+  });
+
+  it.each([0, -1, 1.5, NaN, 101])('tamanho de página inválido (%p) é rejeitado', async pagina => {
+    const env = ambiente();
+
+    await expect(
+      rodarJobIndexacao({
+        ...base,
+        ...env,
+        leitor: leitor({ documentos: [linhaDoc(1)] }),
+        tamanhoPagina: pagina,
+      })
+    ).rejects.toThrow(/tamanhoPagina/);
+  });
+
+  it('orçamento de tokens vale dentro da página: não embeda além do teto restante', async () => {
+    const env = ambiente();
+    const fontes = leitor({ documentos: [1, 2, 3, 4].map(linhaDoc) });
+
+    const r = await rodarJobIndexacao({
+      ...base,
+      ...env,
+      leitor: fontes,
+      tamanhoPagina: 10,
+      orcamento: { maxTokens: 100 },
+    });
+
+    expect(r.indexados).toBeLessThan(4);
+    expect(r.completo).toBe(false);
   });
 
   it('simular: conta o que seria indexado e estima tokens sem embedar nem gravar', async () => {

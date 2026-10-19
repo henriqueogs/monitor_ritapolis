@@ -17,7 +17,34 @@ function criarEstadoIndexacaoMemoria() {
   };
 }
 
-function criarEstadoIndexacaoSqlite(db) {
+/** Leitura sem criar tabela (dry-run): sem a tabela, nada foi indexado ainda. */
+function estadoSomenteLeitura(db) {
+  const existe = Boolean(
+    db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'ia_indexacao'").get()
+  );
+  if (!existe) {
+    return criarEstadoIndexacaoMemoria();
+  }
+  const bloqueado = async () => {
+    throw new Error('estado somente leitura');
+  };
+  return {
+    obter: async docId =>
+      db.prepare('SELECT hash FROM ia_indexacao WHERE doc_id = ?').get(docId)?.hash ?? null,
+    gravar: bloqueado,
+    remover: bloqueado,
+    listarDocIds: async () =>
+      db
+        .prepare('SELECT doc_id FROM ia_indexacao')
+        .all()
+        .map(r => r.doc_id),
+  };
+}
+
+function criarEstadoIndexacaoSqlite(db, { somenteLeitura = false } = {}) {
+  if (somenteLeitura) {
+    return estadoSomenteLeitura(db);
+  }
   db.exec(`
     CREATE TABLE IF NOT EXISTS ia_indexacao (
       doc_id PRIMARY KEY,

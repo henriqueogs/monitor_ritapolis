@@ -1,6 +1,6 @@
 'use strict';
 
-const { mapearDocumento, mapearAnexo, TEXTO_MINIMO } = require('./fontes-indexacao');
+const { mapearDocumento, mapearAnexo, TEXTO_MINIMO, TEXTO_MAXIMO } = require('./fontes-indexacao');
 
 const docBase = {
   id: 12,
@@ -58,6 +58,12 @@ describe('mapearDocumento', () => {
     });
 
     expect(m.texto).not.toMatch(/123\.456\.789-09/);
+  });
+
+  it('texto gigante é truncado para caber no limite de chunks do indexador', () => {
+    const m = mapearDocumento({ ...docBase, texto_completo: 'palavra '.repeat(100000) });
+
+    expect(m.texto.length).toBeLessThanOrEqual(TEXTO_MAXIMO);
   });
 
   it('metadados sem ano ficam sem a chave ano (não inventa período)', () => {

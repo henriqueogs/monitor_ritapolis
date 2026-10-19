@@ -17,8 +17,8 @@ const { validarK, validarVetor, vetorNulo, validarChunk } = require('./validacao
 const BYTES_FLOAT32 = 4;
 const CHAVE_SEGURA = /^[\w-]+$/;
 
-function abrirBancoVetorial(caminho) {
-  const db = new DatabaseSync(caminho, { allowExtension: true });
+function abrirBancoVetorial(caminho, { somenteLeitura = false } = {}) {
+  const db = new DatabaseSync(caminho, { allowExtension: true, readOnly: somenteLeitura });
   db.loadExtension(sqliteVec.getLoadablePath());
   return db;
 }

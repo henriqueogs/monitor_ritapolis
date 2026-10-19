@@ -109,6 +109,7 @@ async function indexarIncremental({
   chunker = chunkerPadrao,
   versaoChunker,
   limite = Infinity,
+  limiteTokens = Infinity,
   removerAusentes: espelhar = false,
   simular = false,
 }) {
@@ -125,7 +126,7 @@ async function indexarIncremental({
     const hash = hashDocumento(doc, provider, versaoChunker);
     if ((await estado.obter(chaveEstado(doc.docId))) === hash) {
       resumo.ignorados += 1;
-    } else if (resumo.indexados >= limite) {
+    } else if (resumo.indexados >= limite || resumo.tokens_estimados >= limiteTokens) {
       resumo.pendentes += 1;
     } else {
       const feito = simular

@@ -14,6 +14,21 @@ describe('mascararCpf (fiscal-privacidade L1)', () => {
     expect(mascararCpf(texto)).toBe(texto);
   });
 
+  it('mascara CPF sem pontuação quando rotulado, e-mail e telefone brasileiro', () => {
+    expect(mascararCpf('CPF: 12345678909')).toBe(`CPF: ${CPF_MASCARADO}`);
+    expect(mascararCpf('contato fulano.silva@exemplo.com.br agora')).toBe(
+      'contato [e-mail oculto] agora'
+    );
+    expect(mascararCpf('ligar (35) 99876-5432 ou 35 3333-4444')).toBe(
+      'ligar [telefone oculto] ou [telefone oculto]'
+    );
+  });
+
+  it('não confunde número de processo, empenho ou valor com telefone/CPF', () => {
+    const texto = 'Processo 2025/00123, empenho 2025NE000456, R$ 12345678909,00 e ano 2025';
+    expect(mascararCpf(texto)).toBe(texto);
+  });
+
   it('aceita null/undefined sem lançar', () => {
     expect(mascararCpf(null)).toBe('');
     expect(mascararCpf(undefined)).toBe('');

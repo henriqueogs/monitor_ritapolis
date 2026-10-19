@@ -9,11 +9,18 @@
 const { db } = require('./connection');
 
 const LIMITE_PADRAO = 25;
+// Teto de caracteres de texto_completo lidos por linha (RAM da VM); acompanha o limite do indexador.
+const MAX_CHARS_PADRAO = 200000;
 
-function listarDocumentosParaIndexar({ afterId = 0, limite = LIMITE_PADRAO, ano = null } = {}) {
+function listarDocumentosParaIndexar({
+  afterId = 0,
+  limite = LIMITE_PADRAO,
+  ano = null,
+  maxChars = MAX_CHARS_PADRAO,
+} = {}) {
   return db
     .prepare(
-      `SELECT id, fonte, tipo, numero, ano, titulo, texto_completo, url_origem, url_pdf, data_publicacao
+      `SELECT id, fonte, tipo, numero, ano, titulo, SUBSTR(texto_completo, 1, :maxChars) AS texto_completo, url_origem, url_pdf, data_publicacao
          FROM documentos
         WHERE id > :afterId
           AND texto_completo IS NOT NULL AND TRIM(texto_completo) <> ''
@@ -21,13 +28,18 @@ function listarDocumentosParaIndexar({ afterId = 0, limite = LIMITE_PADRAO, ano 
         ORDER BY id
         LIMIT :limite`
     )
-    .all({ afterId, limite, ano });
+    .all({ afterId, limite, ano, maxChars });
 }
 
-function listarAnexosParaIndexar({ afterId = 0, limite = LIMITE_PADRAO, ano = null } = {}) {
+function listarAnexosParaIndexar({
+  afterId = 0,
+  limite = LIMITE_PADRAO,
+  ano = null,
+  maxChars = MAX_CHARS_PADRAO,
+} = {}) {
   return db
     .prepare(
-      `SELECT a.id, a.documento_id, a.nome, a.tipo, a.url, a.texto_completo,
+      `SELECT a.id, a.documento_id, a.nome, a.tipo, a.url, SUBSTR(a.texto_completo, 1, :maxChars) AS texto_completo,
               d.ano AS doc_ano, d.tipo AS doc_tipo, d.fonte AS doc_fonte, d.titulo AS doc_titulo
          FROM documentos_anexos a
          JOIN documentos d ON d.id = a.documento_id
@@ -38,7 +50,7 @@ function listarAnexosParaIndexar({ afterId = 0, limite = LIMITE_PADRAO, ano = nu
         ORDER BY a.id
         LIMIT :limite`
     )
-    .all({ afterId, limite, ano });
+    .all({ afterId, limite, ano, maxChars });
 }
 
 module.exports = { listarDocumentosParaIndexar, listarAnexosParaIndexar };

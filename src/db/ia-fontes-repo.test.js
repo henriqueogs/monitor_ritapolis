@@ -66,6 +66,19 @@ describe('listarDocumentosParaIndexar', () => {
   });
 });
 
+describe('teto de texto por linha (RAM da VM)', () => {
+  it('documentos e anexos vêm com o texto limitado a maxChars', () => {
+    doc(1, { texto: 'a'.repeat(500) });
+    anexo(10, 1, { texto: 'b'.repeat(500) });
+
+    const [d] = repo.listarDocumentosParaIndexar({ afterId: 0, limite: 5, maxChars: 100 });
+    const [a] = repo.listarAnexosParaIndexar({ afterId: 0, limite: 5, maxChars: 100 });
+
+    expect(d.texto_completo).toHaveLength(100);
+    expect(a.texto_completo).toHaveLength(100);
+  });
+});
+
 describe('listarAnexosParaIndexar', () => {
   it('só anexos com extração ok e texto, com dados do documento pai (doc_*)', () => {
     doc(1);
