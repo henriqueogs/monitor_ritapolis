@@ -120,6 +120,17 @@ describe('identidade do ente fora da configuração', () => {
   });
 });
 
+describe('nome da cidade nos prompts de IA', () => {
+  it('src/ai não escreve o nome do município à mão (vem do ente)', () => {
+    const NOME = /rit(a|á)polis/i;
+    const violacoes = listarArquivos('src/ai').filter(arquivo =>
+      NOME.test(fs.readFileSync(path.join(RAIZ, arquivo), 'utf8'))
+    );
+
+    expect(violacoes).toEqual([]);
+  });
+});
+
 describe('frontend/lib/ente.js espelha o padrão do backend', () => {
   it('CNPJ da Prefeitura e código IBGE iguais aos padrões de src/config.js', () => {
     const guardado = {};

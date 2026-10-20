@@ -10,6 +10,7 @@
 
 const logger = require('../logger');
 const { createAiProvider } = require('./providers');
+const { descreverPrefeitura, nomePrefeitura } = require('./prompts/ente-texto');
 
 // Cache em memória: { [exercicio]: { gerado_em, narrativa } }
 const cache = new Map();
@@ -23,21 +24,38 @@ function formatMoney(valor) {
   return `R$ ${Number(valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 }
 
-function buildPrompt(anomalias) {
-  const { exercicio, outliers_valor, possivel_fracionamento, total_outliers, total_fracionamento, limiar_dispensa, limiar_dispensa_extrapolado, limiar_dispensa_fonte } = anomalias;
+function buildPrompt(anomalias, ente) {
+  const {
+    exercicio,
+    outliers_valor,
+    possivel_fracionamento,
+    total_outliers,
+    total_fracionamento,
+    limiar_dispensa,
+    limiar_dispensa_extrapolado,
+    limiar_dispensa_fonte,
+  } = anomalias;
   const ressalvaLimiar = limiar_dispensa_extrapolado
     ? ` (valor do último ano conferido — ${limiar_dispensa_fonte}; pode estar desatualizado para ${exercicio}. Mantenha essa ressalva no texto.)`
     : '';
 
-  const outliersStr = outliers_valor.slice(0, 5).map((o, i) =>
-    `${i + 1}. ${o.credor_nome} | ${o.funcao} | ${formatMoney(o.valor)} | z-score=${o.zscore}σ | empenho ${o.empenho} (${o.data_empenho})`
-  ).join('\n');
+  const outliersStr = outliers_valor
+    .slice(0, 5)
+    .map(
+      (o, i) =>
+        `${i + 1}. ${o.credor_nome} | ${o.funcao} | ${formatMoney(o.valor)} | z-score=${o.zscore}σ | empenho ${o.empenho} (${o.data_empenho})`
+    )
+    .join('\n');
 
-  const fracStr = possivel_fracionamento.slice(0, 5).map((f, i) =>
-    `${i + 1}. ${f.credor_nome} | ${f.n_empenhos} empenhos na semana ${f.semana} | total ${formatMoney(f.valor_semana)}`
-  ).join('\n');
+  const fracStr = possivel_fracionamento
+    .slice(0, 5)
+    .map(
+      (f, i) =>
+        `${i + 1}. ${f.credor_nome} | ${f.n_empenhos} empenhos na semana ${f.semana} | total ${formatMoney(f.valor_semana)}`
+    )
+    .join('\n');
 
-  return `Você é um analista de controle interno da Prefeitura de Ritápolis (MG).
+  return `Você é um analista de controle interno da ${descreverPrefeitura(ente)}.
 Analise os dados financeiros abaixo e escreva um relatório conciso em português, acessível para cidadãos.
 
 EXERCÍCIO: ${exercicio}
@@ -58,13 +76,17 @@ Escreva:
 Seja objetivo. Não invente dados além dos fornecidos. Máximo 350 palavras.`;
 }
 
+function montarNarrativaSemAnomalias(exercicio, ente) {
+  return `Nenhuma anomalia estatisticamente relevante foi detectada nos empenhos de ${exercicio}. Os gastos da ${nomePrefeitura(ente)} neste exercício apresentaram distribuição dentro dos padrões esperados por área funcional.`;
+}
+
 /**
  * Gera narrativa cidadã sobre as anomalias detectadas.
  * Usa cache de 6h por exercício.
  * @param {object} anomalias — retorno de getEmpenhoAtipicos()
  * @returns {Promise<{ narrativa: string, cached: boolean }>}
  */
-async function gerarNarrativaAnomalias(anomalias) {
+async function gerarNarrativaAnomalias(anomalias, { ente } = {}) {
   const key = String(anomalias.exercicio);
   const cached = cache.get(key);
 
@@ -74,12 +96,12 @@ async function gerarNarrativaAnomalias(anomalias) {
 
   const semAlertas = anomalias.total_outliers === 0 && anomalias.total_fracionamento === 0;
   if (semAlertas) {
-    const narrativa = `Nenhuma anomalia estatisticamente relevante foi detectada nos empenhos de ${anomalias.exercicio}. Os gastos da Prefeitura de Ritápolis neste exercício apresentaram distribuição dentro dos padrões esperados por área funcional.`;
+    const narrativa = montarNarrativaSemAnomalias(anomalias.exercicio, ente);
     cache.set(key, { gerado_em: Date.now(), narrativa });
     return { narrativa, cached: false };
   }
 
-  const prompt = buildPrompt(anomalias);
+  const prompt = buildPrompt(anomalias, ente);
   logger.info('anomaly-narrative: chamando IA', { exercicio: anomalias.exercicio });
 
   const provider = createAiProvider();
@@ -90,7 +112,8 @@ async function gerarNarrativaAnomalias(anomalias) {
     temperature: 0.3,
   });
 
-  const narrativa = response?.choices?.[0]?.message?.content?.trim() || 'Não foi possível gerar a narrativa.';
+  const narrativa =
+    response?.choices?.[0]?.message?.content?.trim() || 'Não foi possível gerar a narrativa.';
   cache.set(key, { gerado_em: Date.now(), narrativa });
 
   return { narrativa, cached: false };
@@ -100,8 +123,16 @@ async function gerarNarrativaAnomalias(anomalias) {
  * Invalida o cache para um exercício (útil após re-coleta de dados).
  */
 function invalidarCache(exercicio) {
-  if (exercicio) {cache.delete(String(exercicio));}
-  else {cache.clear();}
+  if (exercicio) {
+    cache.delete(String(exercicio));
+  } else {
+    cache.clear();
+  }
 }
 
-module.exports = { gerarNarrativaAnomalias, invalidarCache, buildPrompt };
+module.exports = {
+  gerarNarrativaAnomalias,
+  invalidarCache,
+  buildPrompt,
+  montarNarrativaSemAnomalias,
+};
