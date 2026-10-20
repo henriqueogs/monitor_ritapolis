@@ -9,7 +9,10 @@
  * texto para que um documento não consiga forjar blocos nem fechar o seu.
  */
 
-const VERSAO_PROMPT = 'rag-resposta-v1';
+const { descreverPrefeitura } = require('./ente-texto');
+
+// v2: o ente (nome/UF) passou a ser parâmetro; com o ente padrão o texto só muda na versão.
+const VERSAO_PROMPT = 'rag-resposta-v2';
 
 const BLOCO = /<<<DOC id=(\S+) url=(\S+)>>>\n([\s\S]*?)\n<<<FIM>>>/g;
 // remove todo < e > (não só <<< e >>>): remoção de uma passada pode emendar sobras em novos delimitadores
@@ -22,11 +25,11 @@ function blocoDoc(doc) {
   return `<<<DOC id=${semEspacos(doc.docId)} url=${semEspacos(doc.url_origem)}>>>\n${limpar(doc.texto)}\n<<<FIM>>>`;
 }
 
-function montarPromptResposta({ pergunta, contexto }) {
+function montarPromptResposta({ pergunta, contexto, ente }) {
   const documentos = contexto.length
     ? contexto.map(blocoDoc).join('\n')
     : '(nenhum documento recuperado)';
-  return `Você responde perguntas de cidadãos sobre documentos públicos da Prefeitura de Ritápolis (MG).
+  return `Você responde perguntas de cidadãos sobre documentos públicos da ${descreverPrefeitura(ente)}.
 Versão do prompt: ${VERSAO_PROMPT}
 
 REGRAS
