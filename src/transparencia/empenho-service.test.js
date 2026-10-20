@@ -6,7 +6,10 @@ jest.mock('../db/transparencia-agregados-repo', () => ({
   getResumoCategoriaAno: jest.fn(),
 }));
 
+jest.mock('../db/credores-repo', () => ({ credorTemPerfil: jest.fn() }));
+
 const repo = require('../db/transparencia-agregados-repo');
+const { credorTemPerfil } = require('../db/credores-repo');
 const { getEmpenhoDossie } = require('./empenho-service');
 
 const despesaBase = {
@@ -41,6 +44,23 @@ describe('empenho-service', () => {
     jest.clearAllMocks();
     repo.getResumoRelacionados.mockReturnValue({ n: 2, valor_total: 50, exemplos: [] });
     repo.getResumoCategoriaAno.mockReturnValue({ n: 5, valor_total: 900, exemplos: [] });
+    credorTemPerfil.mockReturnValue(true);
+  });
+
+  it('marca credor_tem_perfil (link do credor só aparece quando o perfil existe)', () => {
+    repo.getDespesaById.mockReturnValue({ ...despesaBase, credor_chave: '01991246000135' });
+    expect(getEmpenhoDossie(42).empenho.credor_tem_perfil).toBe(true);
+    expect(credorTemPerfil).toHaveBeenCalledWith('01991246000135');
+
+    credorTemPerfil.mockReturnValue(false);
+    expect(getEmpenhoDossie(42).empenho.credor_tem_perfil).toBe(false);
+  });
+
+  it('sem chave de credor não consulta perfil e marca false', () => {
+    repo.getDespesaById.mockReturnValue({ ...despesaBase, credor_chave: null, credor_cnpj: null });
+
+    expect(getEmpenhoDossie(42).empenho.credor_tem_perfil).toBe(false);
+    expect(credorTemPerfil).not.toHaveBeenCalled();
   });
 
   it('retorna null quando empenho não existe', () => {
