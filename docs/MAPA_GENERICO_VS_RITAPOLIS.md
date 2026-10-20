@@ -45,7 +45,9 @@ Valores de Ritápolis: CNPJ da Prefeitura `18557553000105`, CNPJ da Câmara `261
 | `src/integracoes/pncp.js` (2×) e `scripts/pncp-diagnostico.js` | `uf = 'MG'` | config do ente |
 | `frontend/app/_home/components/CityContext.js` | IBGE `3156106`, população 4.994 (Censo 2022), gentílico, link do IBGE | dados do ente |
 
-**Risco atual:** trocar `CNPJ_PREFEITURA` no `.env` muda o coletor genérico mas **não** a exclusão de
+> **Atualização (20/10/2026):** os literais desta tabela foram trocados por `src/ente.js` (PR #171, passo 1 da Fase 3), com a guarda `tests/ente-sem-literal.test.js`. A guarda achou um literal que este levantamento não tinha: o **regex do cabeçalho impresso dos PDFs** (endereço, CEP, telefone e CNPJ), duplicado com variantes em `src/parsers/licitacao-produtos.js` e `src/parsers/licitacao-resultados-itens.js`. Os dois ficam como exceções justificadas na guarda; consolidá-los é trabalho do passo 4 (contrato `Coletor`).
+
+**Risco (antes do passo 1):** trocar `CNPJ_PREFEITURA` no `.env` muda o coletor genérico mas **não** a exclusão de
 concentração, o parser de licitação nem a tela de credores. Em outra cidade, essas partes ficariam
 silenciosamente erradas (sem erro, só número errado).
 
@@ -177,6 +179,8 @@ Scripts históricos ou operacionais do projeto; ficam fora do núcleo e não dev
    (nacional, só CNPJ+UF).
 5. **Parâmetros dependentes de porte** (faixa de valores, limiares) por ente, com valor padrão e medição.
 6. Só então pensar em segundo município (e na Fase 4).
+
+**Andamento (20/10/2026):** passo 1 feito (#171); passo 2 feito (#172, prompts com o ente e `rag-resposta-v2`); passo 3 feito só nos pontos centrais do frontend (#175: metadados, layout, marca, disclaimer e links de fonte). Pendentes: textos de página do frontend (~30 arquivos), `CityContext`, `emendas`, contrato `Coletor` (passo 4) e parâmetros por porte (passo 5).
 
 ## 5. Regras para código novo (enquanto a Fase 3 não chega)
 
