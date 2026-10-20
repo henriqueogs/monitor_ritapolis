@@ -16,6 +16,9 @@ import RequestToaster from './components/RequestToaster';
 import { DISCLAIMER_RODAPE } from './lib/disclaimer';
 import { BRAND, BRAND_TAGLINE, SITE_URL } from './lib/brand';
 import { serializarJsonLd } from '../lib/json-ld';
+import { textosDoSite } from '../lib/site-metadata';
+
+const textos = textosDoSite();
 
 const inter = Inter({ subsets: ['latin'], display: 'swap', variable: '--font-inter' });
 
@@ -25,16 +28,14 @@ export const metadata = {
     default: `${BRAND} — ${BRAND_TAGLINE}`,
     template: `%s — ${BRAND}`,
   },
-  description:
-    'Licitações, gastos, empenhos e documentos oficiais de Ritápolis, Minas Gerais — organizados com IA e sempre com link pra fonte oficial.',
+  description: textos.descricao,
   alternates: { canonical: './' },
   openGraph: {
     type: 'website',
     locale: 'pt_BR',
     siteName: BRAND,
     title: `${BRAND} — ${BRAND_TAGLINE}`,
-    description:
-      'Licitações, gastos, empenhos e documentos oficiais de Ritápolis/MG, com fonte em cada dado.',
+    description: textos.descricaoOpenGraph,
   },
   twitter: { card: 'summary_large_image' },
   authors: [{ name: 'Henrique', url: 'https://github.com/henriqueogs' }],
@@ -45,9 +46,9 @@ const jsonLdWebSite = {
   '@context': 'https://schema.org',
   '@type': 'WebSite',
   name: BRAND,
-  alternateName: 'Ritápolis',
+  alternateName: textos.nomeAlternativo,
   url: SITE_URL,
-  description: 'A cidade de Ritápolis/MG em dados abertos.',
+  description: textos.descricaoJsonLd,
   inLanguage: 'pt-BR',
   creator: { '@type': 'Person', name: 'Henrique', url: 'https://github.com/henriqueogs' },
   potentialAction: {
