@@ -12,7 +12,7 @@
  *   node scripts/pncp-sincronizar.js --check --ano=2026
  *   node scripts/pncp-sincronizar.js --dry-run --ano=2026
  *   node scripts/pncp-sincronizar.js --ano=2026
- *   node scripts/pncp-sincronizar.js --ano=2026 --cnpj=18557553000105
+ *   node scripts/pncp-sincronizar.js --ano=2026 --cnpj=<cnpj do órgão>
  */
 
 process.loadEnvFile?.() || require('dotenv').config();

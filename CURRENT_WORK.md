@@ -333,3 +333,10 @@ npm test                # suíte completa (1492 testes em 15/10/2026)
 Ordem de leitura pra retomar contexto: `QUICK_SUMMARY.md` → este arquivo →
 `DEVELOPMENT_PLAN.md` (se precisar de histórico/arquitetura) →
 `CLAUDE.md` (padrões, obrigatório antes de codar).
+
+## Fase 3 (núcleo agnóstico) — passo 1: ente como configuração
+
+- [x] `src/ente.js` (nome, UF, IBGE, CNPJs, órgãos; valida na carga) lê `MUNICIPIO_NOME`, `UF_MUNICIPIO`, `IBGE_CODE`, `CNPJ_PREFEITURA`, `CNPJ_CAMARA`; `frontend/lib/ente.js` espelha CNPJ da Prefeitura e IBGE para o frontend.
+- [x] Literais trocados em: coletor do PNCP, exclusão de concentração, parsers de licitação, integração PNCP (UF), diagnóstico do PNCP, tela de credores e contexto da cidade.
+- [x] Guarda `tests/ente-sem-literal.test.js`: CNPJ/UF/IBGE literal fora da configuração derruba o teste. Exceções justificadas: 2 regex de cabeçalho de PDF (`licitacao-resultados-itens.js`, `licitacao-produtos.js`) e um script histórico de fornecedores.
+- [ ] Próximos passos da Fase 3: parametrizar os 3 prompts de IA com o ente; marca/textos do frontend via configuração; contrato `Coletor`; parâmetros por porte (ver mapa genérico vs. Ritápolis, PR #169).

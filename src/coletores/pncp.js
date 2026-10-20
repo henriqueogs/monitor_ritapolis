@@ -3,14 +3,12 @@
 const ColetorBase = require('./base');
 const logger = require('../logger');
 const { buildSourceUrl, resolvePncpIdentity } = require('./pncp-identity');
+const { ente } = require('../ente');
 
 const PNCP_API = 'https://pncp.gov.br/api/consulta/v1';
 
-// CNPJs dos órgãos do município de Ritápolis
-const ORGAOS = [
-  { cnpj: '18557553000105', nome: 'Prefeitura Municipal de Ritápolis' },
-  { cnpj: '26148056000181', nome: 'Câmara Municipal de Ritápolis' },
-];
+// Órgãos do município (CNPJs e nomes vêm da configuração do ente)
+const ORGAOS = ente.orgaos;
 
 const MODALIDADES = {
   1: 'Leilão Eletrônico',

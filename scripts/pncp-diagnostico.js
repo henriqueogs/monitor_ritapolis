@@ -4,6 +4,7 @@ const {
   upsertLicitacaoFonteRelacionada
 } = require('../src/db');
 const config = require('../src/config');
+const { ente } = require('../src/ente');
 const { compararLicitacaoComPncp } = require('../src/integracoes/correlacao');
 const {
   buscarCandidatosPncpEmCascata,
@@ -22,7 +23,7 @@ function parseArgs(argv) {
     maxPaginas: 2,
     tamanhoPagina: 50,
     timeoutMs: config.collectorTimeoutMs,
-    uf: 'MG',
+    uf: ente.uf,
     cnpj: null,
     usarCnpj: true,
     retrySemCnpj: true,
