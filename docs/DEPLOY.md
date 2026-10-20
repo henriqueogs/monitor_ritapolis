@@ -93,7 +93,10 @@ ciclo do scheduler e quantos documentos dos últimos 30 dias estão sem resumo.
 
 Se o motivo for `modelo_indisponivel`: o catálogo NVIDIA aposentou o modelo;
 trocar `NVIDIA_MODEL` no `.env` da VM (ver comentário em `src/config.js`) e
-reiniciar o serviço.
+reiniciar o serviço. Antes de trocar, confirme que a chave da VM tem acesso ao modelo
+(uma chamada de poucos tokens; `/v1/models` lista modelos sem acesso e devolve 404 na hora de usar) e rode
+um resumo real: `.github/workflows/pipeline-health.yml` e `scripts/ai-test.js` ajudam. Histórico das
+trocas e dos candidatos testados: comentário de `nvidiaModel` em `src/config.js`.
 
 ## Disjuntor de uso do R2
 

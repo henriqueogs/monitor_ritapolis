@@ -23,6 +23,11 @@ vigente). Aplicar: `sudo cp`, `sudo systemctl daemon-reload`,
 
 ## Limites do provedor (medidos em 06/10/2026, NVIDIA nemotron-3-super)
 
+> Atenção: o padrão passou a ser `nemotron-3-ultra-550b-a55b` em 20/10/2026 (o nemotron-3-super perdeu
+> acesso). Os números abaixo foram medidos no modelo antigo; medir de novo antes de confiar em tempo por
+> tarefa, taxa e orçamento da campanha. Em resumos reais o novo modelo levou 34–94 s (documentos de 2 a 10 mil
+> caracteres).
+
 Probe a partir da VM, sem retry: até 8 chamadas simultâneas (~53 req/min em rajada)
 sem erro; **429 a partir de ~116 req/min** (10 simultâneas). Uma chamada leva
 4–6 s; o `summary` do pipeline leva 20–50 s em documentos curtos (overhead de
