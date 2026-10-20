@@ -17,6 +17,7 @@ const {
   SQL_SEM_ORDEM_PAGAMENTO,
   SQL_TIPO_ORDINARIO,
   sqlTipoOrdinario,
+  sqlSemOrdemPagamento,
   TIPOS_EMPENHO,
   classificarTipoEmpenho,
 } = require('../transparencia/tipo-empenho');
@@ -889,6 +890,11 @@ function getDespesas({
         td.historico, td.modalidade, td.licitacao_ref,
         td.documento_id,
         d.titulo AS documento_titulo, d.numero AS documento_numero,
+        -- Mesmo critério de credorTemPerfil: credor só com OP não tem página.
+        EXISTS (
+          SELECT 1 FROM transparencia_despesas tp
+          WHERE tp.credor_chave = td.credor_chave AND ${sqlSemOrdemPagamento('tp')}
+        ) AS credor_tem_perfil,
         ${CLASSIFICACAO_SELECT}
       FROM transparencia_despesas td
       ${CLASSIFICACAO_JOIN}
@@ -897,6 +903,7 @@ function getDespesas({
       ORDER BY td.data_empenho DESC, td.id DESC
       LIMIT ? OFFSET ?
     `).all(...paramsFinais, limite, offset)
+      .map((row) => ({ ...row, credor_tem_perfil: Boolean(row.credor_tem_perfil) }))
       .map(ocultarVinculoDocumentoInexato)
       .map(decorarDespesaComFinalidade);
     return { total, pagina: Number(pagina), limite, dados };

@@ -13,7 +13,7 @@ function criarBancoMemoria() {
 const mockConn = criarBancoMemoria();
 jest.mock('./index', () => ({ db: mockConn }));
 
-const { listCredores, getCredorProfile, upsertCredorEnriquecimento, getCoberturaCredores } = require('./credores-repo');
+const { listCredores, getCredorProfile, upsertCredorEnriquecimento, getCoberturaCredores, credorTemPerfil } = require('./credores-repo');
 const { backfillClassificacoesDespesas } = require('./transparencia-classificacao-repo');
 const { buildCredorChave } = require('../transparencia/credor-chave');
 
@@ -284,6 +284,18 @@ describe('credores-repo — tipos de empenho (fiscal-valores V2/V3/V7)', () => {
     expect(p).not.toBeNull();
     expect(p.resumo.valor_total).toBe(0);
     expect(p.resumo.valor_estimado_global).toBe(4000);
+  });
+
+  it('credorTemPerfil espelha getCredorProfile (EE/EG sim, só OP não, inexistente não)', () => {
+    seedDespesa({ nome: 'EMPRESA EE', cnpj: CNPJ, valor: 10, tipo: TIPO_EE });
+    seedDespesa({ nome: 'EMPRESA OP', cnpj: '11111111000191', valor: 10, tipo: TIPO_OP });
+
+    expect(credorTemPerfil(CNPJ)).toBe(true);
+    expect(getCredorProfile(CNPJ)).not.toBeNull();
+    expect(credorTemPerfil('11111111000191')).toBe(false);
+    expect(getCredorProfile('11111111000191')).toBeNull();
+    expect(credorTemPerfil('22222222000191')).toBe(false);
+    expect(credorTemPerfil(null)).toBe(false);
   });
 
   it('perfil: credor só com ordem de pagamento continua inexistente', () => {

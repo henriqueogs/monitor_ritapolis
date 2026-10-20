@@ -92,6 +92,18 @@ describe('transparencia-repo', () => {
       expect(d.data_pagamento).toBeDefined();
     });
 
+    it('marca credor_tem_perfil por linha (credor só com OP não tem página)', () => {
+      seedDespesa({ credorCnpj: '11111111000191', credorNome: 'SO OP', tipo: 'OP - Ordem de Pagamento' });
+      seedDespesa({ credorCnpj: '22222222000191', credorNome: 'COM EO' });
+      seedDespesa({ credorCnpj: '22222222000191', credorNome: 'COM EO', tipo: 'OP - Ordem de Pagamento' });
+
+      const { dados } = repo.getDespesas({});
+
+      const porChave = (chave) => dados.filter((d) => d.credor_chave === chave).map((d) => d.credor_tem_perfil);
+      expect(porChave('11111111000191')).toEqual([false]);
+      expect(porChave('22222222000191')).toEqual([true, true]);
+    });
+
     it('oculta vinculo legado quando o documento nao corresponde a modalidade', () => {
       mockConn.prepare(`
         INSERT INTO documentos (id, fonte, tipo, numero, ano, titulo, url_origem)

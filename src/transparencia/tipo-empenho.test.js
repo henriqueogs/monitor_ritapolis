@@ -7,6 +7,8 @@ const {
   SQL_TIPO_ESTIMADO_GLOBAL,
   SQL_TIPO_ORDINARIO,
   sqlTipoOrdinario,
+  sqlSemOrdemPagamento,
+  SQL_SEM_ORDEM_PAGAMENTO,
 } = require('./tipo-empenho');
 
 describe('tipo-empenho', () => {
@@ -75,5 +77,10 @@ describe('sqlTipoOrdinario(alias)', () => {
 
   it('sem alias devolve o fragmento padrao', () => {
     expect(sqlTipoOrdinario()).toBe(SQL_TIPO_ORDINARIO);
+  });
+
+  it('sqlSemOrdemPagamento qualifica a coluna pelo alias', () => {
+    expect(sqlSemOrdemPagamento()).toBe(SQL_SEM_ORDEM_PAGAMENTO);
+    expect(sqlSemOrdemPagamento('tp')).toBe("NOT COALESCE(tp.tipo, '') LIKE 'OP%'");
   });
 });

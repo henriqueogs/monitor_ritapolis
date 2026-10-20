@@ -293,6 +293,22 @@ function getCoberturaCredores() {
 // ── Perfil completo ───────────────────────────────────────────────────────────
 
 /**
+ * Mesmo critério de existência de getCredorProfile (qualquer empenho que não
+ * seja OP), sem montar o perfil: serve para decidir se um link /credores/:x
+ * leva a uma página real ou a um 404 (credor só com ordens de pagamento).
+ */
+function credorTemPerfil(identificador) {
+  const parsed = parseCredorChave(identificador);
+  if (!parsed) {return false;}
+  const row = db.prepare(`
+    SELECT 1 FROM transparencia_despesas
+    WHERE credor_chave = ? AND NOT ${SQL_TIPO_ORDEM_PAGAMENTO}
+    LIMIT 1
+  `).get(parsed.chave);
+  return Boolean(row);
+}
+
+/**
  * Retorna perfil detalhado de um credor pela credor_chave (aceita também CNPJ
  * formatado). PF não tem seções de licitação (empresa vence licitação, não o
  * servidor que recebe diária).
@@ -469,6 +485,7 @@ module.exports = {
   listCredores,
   getCoberturaCredores,
   getCredorProfile,
+  credorTemPerfil,
   upsertCredorEnriquecimento,
   listCredorEnriquecimentos,
   listCnpjsParaEnriquecer,

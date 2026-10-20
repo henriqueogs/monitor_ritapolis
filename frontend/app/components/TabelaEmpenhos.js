@@ -16,7 +16,8 @@ function LinhaEmpenho({ emp, mostrarCredor }) {
   const area = emp.funcao?.replace(/^\d+\s*-\s*/, '');
   const unidade = emp.unidade?.replace(/^[\d.]+\s*-\s*/, '');
   const fonte = emp.fonte_recurso?.replace(/^[\d.]+\s*-\s*/, '');
-  const credorHref = emp.credor_chave || emp.credor_cnpj;
+  // credor_tem_perfil === false: credor só com ordens de pagamento, sem página.
+  const credorHref = emp.credor_tem_perfil === false ? null : emp.credor_chave || emp.credor_cnpj;
 
   return (
     <div className="table-row" style={{ display: 'grid', gridTemplateColumns: '92px 1fr 190px 120px', gap: 12, alignItems: 'start', padding: '10px 0' }}>

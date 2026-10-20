@@ -42,6 +42,12 @@ function sqlTipoOrdinario(alias = '') {
   return `NOT COALESCE(${col}, '') LIKE 'OP%' AND NOT (COALESCE(${col}, '') LIKE 'EE%' OR COALESCE(${col}, '') LIKE 'EG%')`;
 }
 
+/** Fragmento "não é OP" para uma coluna qualificada (ex.: 'tp' → tp.tipo). */
+function sqlSemOrdemPagamento(alias = '') {
+  if (!alias) {return SQL_SEM_ORDEM_PAGAMENTO;}
+  return `NOT COALESCE(${alias}.tipo, '') LIKE 'OP%'`;
+}
+
 function classificarTipoEmpenho(tipo) {
   const prefixo = String(tipo ?? '').trim().slice(0, 2).toUpperCase();
   if (prefixo === TIPOS_EMPENHO.ESTIMADO) {return TIPOS_EMPENHO.ESTIMADO;}
@@ -52,6 +58,7 @@ function classificarTipoEmpenho(tipo) {
 
 module.exports = {
   TIPOS_EMPENHO,
+  sqlSemOrdemPagamento,
   classificarTipoEmpenho,
   SQL_TIPO_ORDEM_PAGAMENTO,
   SQL_TIPO_ESTIMADO_GLOBAL,

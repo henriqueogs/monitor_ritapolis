@@ -10,6 +10,7 @@ const {
   getResumoRelacionados,
   getResumoCategoriaAno,
 } = require('../db/transparencia-agregados-repo');
+const { credorTemPerfil } = require('../db/credores-repo');
 const { classificarCategoria, slugParaPrefixos } = require('./categorias');
 const { buildPortalDespesaLink } = require('./portal-links');
 
@@ -32,6 +33,7 @@ function getEmpenhoDossie(id) {
   const categoria = classificarCategoria(despesa.categoria_economica);
   const exercicio = despesa.exercicio_orcamento;
   const { documento_titulo, documento_numero, ...colunas } = despesa;
+  const chaveCredor = despesa.credor_chave || despesa.credor_cnpj;
 
   const mesmoCredor = despesa.credor_cnpj
     ? {
@@ -58,6 +60,8 @@ function getEmpenhoDossie(id) {
       ...colunas,
       categoria_cidada: categoria,
       status_pagamento: statusPagamento(despesa),
+      // Credor só com ordens de pagamento não tem perfil: a tela não linka.
+      credor_tem_perfil: chaveCredor ? credorTemPerfil(chaveCredor) : false,
       portal: buildPortalDespesaLink({
         empenho: despesa.empenho,
         exercicio,
