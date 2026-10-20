@@ -26,7 +26,7 @@ export default function ResultadoLotes({ lotes, documento }) {
                   <h4 style={{ margin: '2px 0 4px', fontSize: 14 }}>{lote.objeto}</h4>
                   {lote.fornecedor_nome ? (
                     <span style={{ fontSize: 13 }}>
-                      Vencedor: <VencedorLink nome={lote.fornecedor_nome} cnpj={lote.fornecedor_cnpj} />
+                      Vencedor: <VencedorLink nome={lote.fornecedor_nome} cnpj={lote.fornecedor_cnpj} temPerfil={lote.fornecedor_tem_perfil} />
                     </span>
                   ) : null}
                 </div>

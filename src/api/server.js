@@ -9,7 +9,6 @@ const {
   listDocumentos,
   listLicitacoes,
   listLicitacaoProdutos,
-  getLicitacaoProdutosByDocumentoId,
   getLicitacaoAnaliseAnual,
   listLicitacaoFontesRelacionadas,
   listLicitacaoFontesRelacionadasByDocumentoId,
@@ -55,6 +54,7 @@ const {
   getInteligenciaPanorama,
   getCoberturaPorAno,
 } = require('../services/painel-cidadao-service');
+const { getLicitacaoProdutosComPerfil } = require('../services/licitacao-produtos-service');
 const { getSaudePipeline } = require('../services/pipeline-saude-service');
 const { getCredorDossie, listarCredoresDoPeriodo } = require('../transparencia/credor-service');
 const { parseCredorChave } = require('../transparencia/credor-chave');
@@ -611,7 +611,7 @@ function createServer({ servicoPerguntar } = {}) {
   });
 
   app.get('/api/licitacoes/:id/produtos', (req, res) => {
-    const data = getLicitacaoProdutosByDocumentoId(Number(req.params.id));
+    const data = getLicitacaoProdutosComPerfil(Number(req.params.id));
     res.json(data);
   });
 
