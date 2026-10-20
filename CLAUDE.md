@@ -400,6 +400,7 @@ module.exports = {
 8. **Hard-coded URLs, credenciais ou paths** — sempre via `src/config.js`
 9. **Modificar `src/db/index.js` sem considerar divisão** — verificar se a função nova pertence a um repositório específico
 10. **Testes que dependem de ordem de execução** — cada teste deve ser independente
+11. **CNPJ, UF ou código IBGE do município escritos à mão** — usar `src/ente.js` (backend) ou `frontend/lib/ente.js` (frontend); `tests/ente-sem-literal.test.js` falha se aparecer um literal fora da configuração
 
 ---
 

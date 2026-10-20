@@ -2,7 +2,8 @@ import Link from 'next/link';
 import SectionBlock from '../../components/SectionBlock';
 import { formatMoney } from '../../lib/format';
 
-const CNPJ_PREFEITURA = '18557553000105';
+import { CNPJ_PREFEITURA } from '../../../lib/ente';
+
 const th = { padding: '8px 6px', color: 'var(--text-secondary)', fontWeight: 600 };
 
 /**

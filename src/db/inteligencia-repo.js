@@ -8,6 +8,7 @@
 
 const { db } = require('./index');
 const config = require('../config');
+const { cnpjsDoEnte } = require('../ente');
 const { SQL_TIPO_ORDINARIO, sqlTipoOrdinario } = require('../transparencia/tipo-empenho');
 const { anosReferenciaYoY, janelaAnos, limiarDispensa } = require('../inteligencia/periodo-inteligencia');
 
@@ -30,10 +31,7 @@ const ORDINARIO_TD = sqlTipoOrdinario('td');
 
 // CNPJs que representam a própria Prefeitura/entidades governamentais obrigatórias
 // e não devem ser considerados "fornecedores privados" na análise de concentração.
-const CNPJS_EXCLUIR_CONCENTRACAO = [
-  '18557553000105', // CNPJ Prefeitura de Ritápolis
-  '26148056000181', // CNPJ Câmara Municipal
-];
+const CNPJS_EXCLUIR_CONCENTRACAO = cnpjsDoEnte();
 const NOMES_EXCLUIR_CONCENTRACAO = [
   'FOLHA DE PAGAMENTO',
   'INSS',

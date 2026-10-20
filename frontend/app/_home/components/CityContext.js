@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import styles from '../styles.module.css';
+import { IBGE_CODE } from '../../../lib/ente';
 
 export default function CityContext() {
   return (
@@ -8,7 +9,7 @@ export default function CityContext() {
       <p>
         Ritápolis é um município de Minas Gerais. No Censo 2022 do IBGE,
         a cidade tinha 4.994 habitantes. Quem nasce em Ritápolis é ritapolitano,
-        e seu código de município no IBGE é 3156106.
+        e seu código de município no IBGE é {IBGE_CODE}.
       </p>
       <p>
         No Ritápolis.com, você pode acompanhar os{' '}
