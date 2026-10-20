@@ -7,8 +7,8 @@
 # validada antes de qualquer comando.
 #
 # O repositório é PÚBLICO e os logs do Actions também: a saída é só resumo
-# agregado e saneado (sem IPs, URIs, e-mails, CPF/CNPJ, tokens ou linhas
-# brutas de log). Nada aqui altera a VM.
+# agregado e saneado (sem IPs v4/v6, URIs, chaves pf-, e-mails, CPF/CNPJ,
+# tokens ou linhas brutas de log). Nada aqui altera a VM.
 set -uo pipefail
 
 APP_DIR=/opt/monitor-ritapolis
@@ -42,16 +42,24 @@ fi
 
 # ── Saneamento (repositório público) ──────────────────────────────────────────
 sanear() {
+  # Ordem importa: segredos longos antes das regras de IP/números, senão uma
+  # chave hex é fatiada e metade escapa.
   sed -E \
-    -e 's/(nvapi|sk|gsk|AIza)[-_][A-Za-z0-9_-]+/[segredo]/g' \
+    -e 's/(nvapi|sk|gsk)[-_][A-Za-z0-9_-]+/[segredo]/g' \
+    -e 's/AIza[A-Za-z0-9_-]+/[segredo]/g' \
     -e 's/[Bb]earer [A-Za-z0-9._~+\/=-]+/Bearer [segredo]/g' \
+    -e 's/[Bb]asic [A-Za-z0-9+\/=]+/Basic [segredo]/g' \
     -e 's/(key|token|secret|senha|password)([=: ]+)[^ ,"]+/\1\2[segredo]/Ig' \
+    -e 's/[A-Za-z0-9_+\/=-]{32,}/[segredo]/g' \
     -e 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/[email]/g' \
+    -e 's#pf-[a-z0-9-]+#[pf]#g' \
+    -e 's#(/[^/ "]+){2,}#[uri]#g' \
+    -e 's/\[([0-9A-Fa-f]{0,4}:){2,7}[0-9A-Fa-f]{0,4}\](:[0-9]+)?/[ip]/g' \
+    -e 's/([0-9A-Fa-f]{0,4}:){3,7}[0-9A-Fa-f]{0,4}/[ip]/g' \
     -e 's/[0-9]{1,3}(\.[0-9]{1,3}){3}/[ip]/g' \
     -e 's/[0-9]{3}\.[0-9]{3}\.[0-9]{3}-[0-9]{2}/[cpf]/g' \
     -e 's/[0-9]{2}\.[0-9]{3}\.[0-9]{3}\/[0-9]{4}-[0-9]{2}/[cnpj]/g' \
-    -e 's/[0-9]{6,}/[n]/g' \
-    -e 's/[A-Za-z0-9_+\/=-]{32,}/[segredo]/g' |
+    -e 's/[0-9]{6,}/[n]/g' |
     cut -c1-"$TAMANHO_MENSAGEM"
 }
 
@@ -99,18 +107,30 @@ caddy_erros=$(jctl -u caddy -o cat | grep -E '"level":"(error|fatal)"')
 echo "caddy_erros_na_janela: $(printf '%s' "$caddy_erros" | grep -c .)"
 printf '%s\n' "$caddy_erros" | grep -o '"msg":"[^"]*"' | sed -E 's/^"msg":"|"$//g' | top_mensagens
 
-# ── Aplicação (service.log em JSON do winston) ───────────────────────────────
-echo '== service.log'
-na_janela=$(awk -v ini="$LOG_SINCE" -v fim="$LOG_UNTIL" '
-  match($0, /"timestamp":"[^"]+"/) {
-    ts = substr($0, RSTART + 13, RLENGTH - 14)
-    if (substr(ts, 1, 16) >= ini && substr(ts, 1, 16) <= fim) print
-  }' "$APP_DIR/logs/service.log" 2>/dev/null)
-niveis=$(printf '%s\n' "$na_janela" | grep -o '"level":"[a-z]*"' | sed -E 's/"level":"|"//g' |
-  sort | uniq -c | awk '{printf "%s=%s ", $2, $1}')
-echo "service_log_por_nivel: ${niveis:-nenhuma linha}"
-printf '%s\n' "$na_janela" | grep -E '"level":"(error|warn)"' |
-  grep -o '"message":"[^"]*"' | sed -E 's/^"message":"|"$//g' | top_mensagens
+# ── Aplicação (logs/app.log: JSON do winston, ver src/logger.js) ──────────────
+# Só os campos de topo level/message/timestamp; o meta (ip, path, chave...)
+# nunca sai. JSON.parse em vez de grep para não pegar "message" aninhado.
+echo '== app.log'
+APP_LOG_FILTRO='
+  const [ini, fim] = process.argv.slice(1);
+  const niveis = {}; const msgs = [];
+  for (const linha of require("fs").readFileSync(0, "utf8").split("\n")) {
+    let r; try { r = JSON.parse(linha); } catch { continue; }
+    const ts = String(r.timestamp || "").slice(0, 16);
+    if (!ts || ts < ini || ts > fim) continue;
+    niveis[r.level] = (niveis[r.level] || 0) + 1;
+    if ((r.level === "error" || r.level === "warn") && typeof r.message === "string") {
+      msgs.push(r.message.replace(/\s+/g, " "));
+    }
+  }
+  const resumo = Object.keys(niveis).sort().map((k) => k + "=" + niveis[k]).join(" ");
+  console.log("app_log_por_nivel: " + (resumo || "nenhuma linha"));
+  for (const m of msgs) console.log("MSG\t" + m);
+'
+saida_app=$(node -e "$APP_LOG_FILTRO" "$LOG_SINCE" "$LOG_UNTIL" < "$APP_DIR/logs/app.log" 2>/dev/null) ||
+  saida_app='app_log_por_nivel: indisponivel'
+printf '%s\n' "$saida_app" | grep -v $'^MSG\t'
+printf '%s\n' "$saida_app" | grep $'^MSG\t' | cut -f2- | top_mensagens
 
 # Seções sem ocorrência (grep sem match) não são falha do diagnóstico.
 exit 0

@@ -91,12 +91,13 @@ e devolve só leitura:
 - se o `deploy.sh` instalado é a versão nova e se o marcador do lockfile bate;
 - `NRestarts`, restarts e saídas do serviço na janela;
 - `free -m`, carga, disco e kills por falta de memória (OOM) do kernel;
-- erros do Caddy (só o campo `msg`) e do `service.log` (contagem por nível e
-  principais mensagens de erro/aviso).
+- erros do Caddy (só o campo `msg`) e do `logs/app.log` (JSON do winston:
+  contagem por nível e principais mensagens de erro/aviso, sem o meta).
 
 **O repositório é público e o log do Actions também.** Por isso o script
-(`scripts/vm-diagnostico.sh`) nunca imprime linhas brutas de log: remove IPs,
-URIs, e-mails, CPF/CNPJ, números longos e tokens, e mostra só agregados.
+(`scripts/vm-diagnostico.sh`) nunca imprime linhas brutas de log nem o meta
+(ip, path, chave) do winston, e mascara IPs v4/v6, URIs, chaves `pf-`,
+e-mails, CPF/CNPJ, números longos, tokens e Basic/Bearer.
 
 A chave SSH dele (`ORACLE_DIAG_SSH_KEY`) só executa esse script e não altera
 nada na VM. Instalação, uma vez:

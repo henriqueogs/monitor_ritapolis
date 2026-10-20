@@ -34,7 +34,7 @@ jobs:
           echo "$SSH_KEY" > ~/.ssh/diag_key
           chmod 600 ~/.ssh/diag_key
           # A VM revalida a janela; aqui só se repassa (via env, sem interpolar no script).
-          ssh -i ~/.ssh/diag_key -o StrictHostKeyChecking=accept-new "ubuntu@${SSH_HOST}" "${INICIO} ${FIM}"
+          ssh -i ~/.ssh/diag_key -o StrictHostKeyChecking=accept-new -o LogLevel=ERROR "ubuntu@${SSH_HOST}" "${INICIO} ${FIM}"
         env:
           SSH_KEY: ${{ secrets.ORACLE_DIAG_SSH_KEY }}
           SSH_HOST: ${{ secrets.ORACLE_DEPLOY_HOST }}

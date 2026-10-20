@@ -34,9 +34,10 @@ function runDiag(originalCommand, { marker = 'lockhash-atual', deployScript = 'x
   fs.writeFileSync(path.join(app, 'deploy.sh'), deployScript);
   fs.writeFileSync(path.join(app, 'scripts', 'oracle-deploy.sh'), deployScript);
   if (marker !== null) {fs.writeFileSync(path.join(app, 'node_modules', '.deploy-lock-hash'), marker);}
-  fs.writeFileSync(path.join(app, 'logs', 'service.log'), [
+  fs.writeFileSync(path.join(app, 'logs', 'app.log'), [
     '{"level":"error","message":"API key nvapi-AbCdEf0123456789xyz invalida para joao@exemplo.com","timestamp":"2026-10-18T11:44:30.000Z"}',
     '{"level":"warn","message":"fetch lento de 10.0.0.5 cpf 123.456.789-09","timestamp":"2026-10-18T11:45:00.000Z"}',
+    '{"level":"error","message":"falha em GET /api/credores/pf-ana-lima de [2804:14c::1]:443 Basic dXNlcjpzZW5oYQ== chave a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8123456a1b2c3d4e5f6a7b8c9d0e1f2","meta":{"message":"meta aninhado nao sai"},"timestamp":"2026-10-18T11:46:00.000Z"}',
     '{"level":"info","message":"fora da janela","timestamp":"2026-10-18T09:00:00.000Z"}',
   ].join('\n'));
   const log = path.join(temp, 'calls.log');
@@ -50,7 +51,7 @@ function runDiag(originalCommand, { marker = 'lockhash-atual', deployScript = 'x
 }
 
 describe('vm-diagnostico.sh', () => {
-  it('aceita janela ISO e resume deploy, systemd, memória, kernel, caddy e service.log', () => {
+  it('aceita janela ISO e resume deploy, systemd, memória, kernel, caddy e app.log', () => {
     const r = runDiag('2026-10-18T11:40 2026-10-18T11:50');
 
     expect(r.status).toBe(0);
@@ -63,7 +64,7 @@ describe('vm-diagnostico.sh', () => {
     expect(r.stdout).toContain('restarts_agendados_na_janela: 1');
     expect(r.stdout).toMatch(/caddy_erros_na_janela: 1/);
     expect(r.stdout).toContain('connection refused');
-    expect(r.stdout).toMatch(/service_log_por_nivel: .*error=1.*warn=1/);
+    expect(r.stdout).toMatch(/app_log_por_nivel: .*error=2.*warn=1/);
     expect(r.stdout).not.toContain('fora da janela');
     expect(r.calls).toContain('--since 2026-10-18 11:40');
   });
@@ -77,6 +78,8 @@ describe('vm-diagnostico.sh', () => {
     expect(r.stdout).not.toMatch(/123\.456\.789-09|12345678000190/);
     expect(r.stdout).not.toContain('remote_ip');
     expect(r.stdout).not.toContain('/api/credores');
+    expect(r.stdout).not.toMatch(/pf-ana-lima|2804:14c|dXNlcjpzZW5oYQ|a1b2c3d4e5f6a7b8c9d0e1f2/);
+    expect(r.stdout).not.toContain('meta aninhado');
   });
 
   it('recusa parâmetro fora do formato sem executar nada (injeção pelo SSH_ORIGINAL_COMMAND)', () => {
