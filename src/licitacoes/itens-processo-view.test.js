@@ -1,6 +1,6 @@
 'use strict';
 
-const { montarItensProcesso, montarItensProcessoDeIA } = require('./itens-processo-view');
+const { montarItensProcesso, montarItensProcessoDeIA, marcarPerfilFornecedores } = require('./itens-processo-view');
 
 // Produto no shape do normalizeProdutoRow (produtos-repo)
 function prod(over = {}) {
@@ -155,5 +155,36 @@ describe('montarItensProcessoDeIA', () => {
 
     expect(v.resultado_global).toMatchObject({ descricao: 'Serviço único', valor: 50000, fornecedor_nome: 'X LTDA' });
     expect(v.resultado_global.trecho_fonte).toBe('Valor global R$ 50.000,00');
+  });
+});
+
+describe('marcarPerfilFornecedores', () => {
+  const estrutura = {
+    itens_solicitados: [],
+    resultado_lotes: [
+      { lote_numero: '1', fornecedor_nome: 'A', fornecedor_cnpj: '11.111.111/0001-91' },
+      { lote_numero: '2', fornecedor_nome: 'B', fornecedor_cnpj: null },
+    ],
+    resultado_global: { descricao: 'G', fornecedor_nome: 'C', fornecedor_cnpj: '22222222000191' },
+    cobertura: {},
+  };
+
+  it('marca fornecedor_tem_perfil pelo predicado e false sem CNPJ, sem mutar a entrada', () => {
+    // Arrange
+    const temPerfil = jest.fn((cnpj) => cnpj === '11.111.111/0001-91');
+
+    // Act
+    const r = marcarPerfilFornecedores(estrutura, temPerfil);
+
+    // Assert
+    expect(r.resultado_lotes.map((l) => l.fornecedor_tem_perfil)).toEqual([true, false]);
+    expect(r.resultado_global.fornecedor_tem_perfil).toBe(false);
+    expect(temPerfil).toHaveBeenCalledTimes(2);
+    expect(estrutura.resultado_lotes[0]).not.toHaveProperty('fornecedor_tem_perfil');
+  });
+
+  it('tolera estrutura sem resultado global ou ausente', () => {
+    expect(marcarPerfilFornecedores({ resultado_lotes: [], resultado_global: null }, () => true).resultado_global).toBeNull();
+    expect(marcarPerfilFornecedores(undefined, () => true)).toBeUndefined();
   });
 });

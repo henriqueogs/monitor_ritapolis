@@ -14,7 +14,7 @@ export default function ResultadoGlobal({ global, documento }) {
           <h4 style={{ margin: '0 0 4px', fontSize: 14 }}>{global.descricao || 'Valor global do processo'}</h4>
           {global.fornecedor_nome ? (
             <span style={{ fontSize: 13 }}>
-              Vencedor: <VencedorLink nome={global.fornecedor_nome} cnpj={global.fornecedor_cnpj} />
+              Vencedor: <VencedorLink nome={global.fornecedor_nome} cnpj={global.fornecedor_cnpj} temPerfil={global.fornecedor_tem_perfil} />
             </span>
           ) : null}
           <div style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
