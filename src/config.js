@@ -92,7 +92,16 @@ module.exports = {
   // 34-41s em resumo real, JSON limpo. Descartados no mesmo teste: glm-5.3
   // (rapido no trivial, travou no resumo real), deepseek-v4.1-flash e
   // glm-5.3-flash (timeout 150s), kimi-k2.6/mistral-large-2 (404 na conta).
-  nvidiaModel: process.env.NVIDIA_MODEL || 'nvidia/nemotron-3-super-120b-a12b',
+  // 20/10/2026: nemotron-3-super passou a responder 404 ("Function ... Not found for account") para
+  // a chave local E para a da VM; /v1/models ainda o listava (listagem != acesso). Ultima resposta
+  // boa em producao: 08:05Z. Teste com o prompt real de resumo (buildDocumentSummaryPrompt, 3 docs
+  // publicos de 2,4k a 10k caracteres, timeout 120s, sem retry): nemotron-3-ultra-550b-a55b 3/3
+  // validos (34/46/94s), nemotron-3.5-super-vl-120b-a12b 3/3 (31/80/107s, mais lento nos medios),
+  // nemotron-3.5-lightning-30b 1/3, gemma-4-31b-it 1/3, glm-5.3 0/3 (timeouts). 404 na conta:
+  // nemotron-nano-3-30b, kimi-k2.6, mistral-large(-2), llama-3.1-nemotron-70b/51b/ultra-253b,
+  // nemotron-4-340b. gpt-oss-20b responde 200 mas so com `reasoning` (quebra o parser). Os dois
+  // melhores levam ~94-107s no documento de 10k, perto do timeout de 120s: vigiar AI_REQUEST_TIMEOUT_MS.
+  nvidiaModel: process.env.NVIDIA_MODEL || 'nvidia/nemotron-3-ultra-550b-a55b',
   // Override opcional: modelo mais forte só para a investigação de
   // descobertas (menor volume, mais exige julgamento) — sem mexer no modelo
   // padrão usado por resumo/leitura simples/anexo. Vazio = usa nvidiaModel.
