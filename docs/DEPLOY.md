@@ -81,6 +81,48 @@ de novo depois; capacidade flutua ao longo do dia). Só migrar de verdade
 se a VM atual estiver sob pressão **e** a capacidade existir — nunca migrar
 só porque "seria melhor", isso já causou um retrabalho na primeira tentativa.
 
+## Diagnóstico da VM sob demanda
+
+`.github/workflows/vm-diagnostico.yml` é disparado manualmente (Actions → "VM
+diagnóstico" → Run workflow). Recebe uma janela opcional em UTC (`inicio` e
+`fim` no formato `AAAA-MM-DDTHH:MM`, até 24h; sem janela, usa a última hora)
+e devolve só leitura:
+
+- se o `deploy.sh` instalado é a versão nova e se o marcador do lockfile bate;
+- `NRestarts`, restarts e saídas do serviço na janela;
+- `free -m`, carga, disco e kills por falta de memória (OOM) do kernel;
+- erros do Caddy (só o campo `msg`) e do `service.log` (contagem por nível e
+  principais mensagens de erro/aviso).
+
+**O repositório é público e o log do Actions também.** Por isso o script
+(`scripts/vm-diagnostico.sh`) nunca imprime linhas brutas de log: remove IPs,
+URIs, e-mails, CPF/CNPJ, números longos e tokens, e mostra só agregados.
+
+A chave SSH dele (`ORACLE_DIAG_SSH_KEY`) só executa esse script e não altera
+nada na VM. Instalação, uma vez:
+
+```bash
+# 1. Na sua máquina: gerar o par (sem senha, uso exclusivo do workflow)
+ssh-keygen -t ed25519 -N '' -C 'monitor-ritapolis-diagnostico' -f ~/.ssh/monitor-ritapolis-diag
+
+# 2. Ainda na sua máquina: instalar o script na VM e autorizar a chave só para ele
+PUB=$(cat ~/.ssh/monitor-ritapolis-diag.pub)
+ssh -i ~/.ssh/monitor-ritapolis-oracle ubuntu@<IP-da-VM> "cd /opt/monitor-ritapolis && git pull &&
+  sudo install -m 755 scripts/vm-diagnostico.sh /opt/monitor-ritapolis/report-diagnostico.sh &&
+  echo 'command=\"/opt/monitor-ritapolis/report-diagnostico.sh\",restrict $PUB' >> ~/.ssh/authorized_keys"
+
+# 3. Conteúdo para o secret ORACLE_DIAG_SSH_KEY (chave privada)
+cat ~/.ssh/monitor-ritapolis-diag
+```
+
+No GitHub (Settings → Secrets and variables → Actions → New repository
+secret), crie `ORACLE_DIAG_SSH_KEY` com o conteúdo da chave **privada**.
+`ORACLE_DEPLOY_HOST` já existe e é reaproveitado.
+
+`journalctl` precisa que o usuário `ubuntu` esteja no grupo `adm` ou
+`systemd-journal` (padrão no Ubuntu da Oracle). Sem isso, as contagens do
+systemd, do kernel e do Caddy saem zeradas.
+
 ## Saúde do pipeline de IA
 
 `GET /api/saude/pipeline` (público: só contagens e categoria do erro) diz se a

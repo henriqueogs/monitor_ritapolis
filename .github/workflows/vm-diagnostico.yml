@@ -1,0 +1,42 @@
+name: VM diagnóstico
+
+# Diagnóstico somente leitura da VM (deploy.sh, systemd, memória, OOM, Caddy,
+# service.log) numa janela de até 24h. A chave ORACLE_DIAG_SSH_KEY só executa
+# /opt/monitor-ritapolis/report-diagnostico.sh (scripts/vm-diagnostico.sh).
+# O repositório é público: a saída é só resumo saneado. Ver docs/DEPLOY.md.
+on:
+  workflow_dispatch:
+    inputs:
+      inicio:
+        description: 'Início da janela em UTC (AAAA-MM-DDTHH:MM). Vazio = última hora.'
+        required: false
+        default: ''
+      fim:
+        description: 'Fim da janela em UTC (AAAA-MM-DDTHH:MM).'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vm-diagnostico
+  cancel-in-progress: false
+
+jobs:
+  diagnostico:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Diagnóstico via SSH (chave restrita, só roda report-diagnostico.sh)
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/diag_key
+          chmod 600 ~/.ssh/diag_key
+          # A VM revalida a janela; aqui só se repassa (via env, sem interpolar no script).
+          ssh -i ~/.ssh/diag_key -o StrictHostKeyChecking=accept-new "ubuntu@${SSH_HOST}" "${INICIO} ${FIM}"
+        env:
+          SSH_KEY: ${{ secrets.ORACLE_DIAG_SSH_KEY }}
+          SSH_HOST: ${{ secrets.ORACLE_DEPLOY_HOST }}
+          INICIO: ${{ inputs.inicio }}
+          FIM: ${{ inputs.fim }}
