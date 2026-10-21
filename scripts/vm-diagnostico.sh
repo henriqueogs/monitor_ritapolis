@@ -110,9 +110,18 @@ printf '%s\n' "$caddy_erros" | grep -o '"msg":"[^"]*"' | sed -E 's/^"msg":"|"$//
 # ── Aplicação (logs/app.log: JSON do winston, ver src/logger.js) ──────────────
 # Só os campos de topo level/message/timestamp; o meta (ip, path, chave...)
 # nunca sai. JSON.parse em vez de grep para não pegar "message" aninhado.
+# Avisos e erros levam a categoria do erro de IA (timeout, limite_provider...),
+# calculada do meta erro/error pelo classificador do app; o texto do erro não sai.
 echo '== app.log'
 APP_LOG_FILTRO='
-  const [ini, fim] = process.argv.slice(1);
+  const [ini, fim, appDir] = process.argv.slice(1);
+  let classificar = null;
+  try { ({ classifyAiError: classificar } = require(appDir + "/src/ai/classificar-erro-ia.js")); } catch {}
+  const categoria = (r) => {
+    const detalhe = r.erro ?? r.error;
+    if (!detalhe) return "sem_detalhe";
+    return classificar ? classificar(typeof detalhe === "string" ? detalhe : JSON.stringify(detalhe)) : "indisponivel";
+  };
   const niveis = {}; const msgs = [];
   for (const linha of require("fs").readFileSync(0, "utf8").split("\n")) {
     let r; try { r = JSON.parse(linha); } catch { continue; }
@@ -120,14 +129,14 @@ APP_LOG_FILTRO='
     if (!ts || ts < ini || ts > fim) continue;
     niveis[r.level] = (niveis[r.level] || 0) + 1;
     if ((r.level === "error" || r.level === "warn") && typeof r.message === "string") {
-      msgs.push(r.message.replace(/\s+/g, " "));
+      msgs.push(categoria(r) + " | " + r.message.replace(/\s+/g, " "));
     }
   }
   const resumo = Object.keys(niveis).sort().map((k) => k + "=" + niveis[k]).join(" ");
   console.log("app_log_por_nivel: " + (resumo || "nenhuma linha"));
   for (const m of msgs) console.log("MSG\t" + m);
 '
-saida_app=$(node -e "$APP_LOG_FILTRO" "$LOG_SINCE" "$LOG_UNTIL" < "$APP_DIR/logs/app.log" 2>/dev/null) ||
+saida_app=$(node -e "$APP_LOG_FILTRO" "$LOG_SINCE" "$LOG_UNTIL" "$APP_DIR" < "$APP_DIR/logs/app.log" 2>/dev/null) ||
   saida_app='app_log_por_nivel: indisponivel'
 printf '%s\n' "$saida_app" | grep -v $'^MSG\t'
 printf '%s\n' "$saida_app" | grep $'^MSG\t' | cut -f2- | top_mensagens

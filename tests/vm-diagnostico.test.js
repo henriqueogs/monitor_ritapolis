@@ -25,12 +25,21 @@ git() { echo "git $*" >> "$TEST_LOG"; echo "lockhash-atual"; }
 sha256sum() { echo "abc123  $1"; }
 `;
 
-function runDiag(originalCommand, { marker = 'lockhash-atual', deployScript = 'x deploy-lock-hash y' } = {}) {
+const CLASSIFICADOR = path.resolve(__dirname, '../src/ai/classificar-erro-ia.js');
+
+function runDiag(
+  originalCommand,
+  { marker = 'lockhash-atual', deployScript = 'x deploy-lock-hash y', comClassificador = true } = {}
+) {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'ritapolis-diag-test-'));
   const app = path.join(temp, 'app');
   fs.mkdirSync(path.join(app, 'node_modules'), { recursive: true });
   fs.mkdirSync(path.join(app, 'logs'));
   fs.mkdirSync(path.join(app, 'scripts'));
+  if (comClassificador) {
+    fs.mkdirSync(path.join(app, 'src', 'ai'), { recursive: true });
+    fs.copyFileSync(CLASSIFICADOR, path.join(app, 'src', 'ai', 'classificar-erro-ia.js'));
+  }
   fs.writeFileSync(path.join(app, 'deploy.sh'), deployScript);
   fs.writeFileSync(path.join(app, 'scripts', 'oracle-deploy.sh'), deployScript);
   if (marker !== null) {fs.writeFileSync(path.join(app, 'node_modules', '.deploy-lock-hash'), marker);}
@@ -38,6 +47,8 @@ function runDiag(originalCommand, { marker = 'lockhash-atual', deployScript = 'x
     '{"level":"error","message":"API key nvapi-AbCdEf0123456789xyz invalida para joao@exemplo.com","timestamp":"2026-10-18T11:44:30.000Z"}',
     '{"level":"warn","message":"fetch lento de 10.0.0.5 cpf 123.456.789-09","timestamp":"2026-10-18T11:45:00.000Z"}',
     '{"level":"error","message":"falha em GET /api/credores/pf-ana-lima de [2804:14c::1]:443 Basic dXNlcjpzZW5oYQ== chave a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8123456a1b2c3d4e5f6a7b8c9d0e1f2","meta":{"message":"meta aninhado nao sai"},"timestamp":"2026-10-18T11:46:00.000Z"}',
+    '{"level":"warn","message":"Chunk de resumo IA falhou; reprocessando em subchunks menores","erro":"Request timed out after 120000ms em 10.0.0.9","timestamp":"2026-10-18T11:47:00.000Z"}',
+    '{"level":"warn","message":"Pipeline: tarefa falhou","id":42,"kind":"summary","error":"429 Too Many Requests key nvapi-Zz9","timestamp":"2026-10-18T11:48:00.000Z"}',
     '{"level":"info","message":"fora da janela","timestamp":"2026-10-18T09:00:00.000Z"}',
   ].join('\n'));
   const log = path.join(temp, 'calls.log');
@@ -64,7 +75,7 @@ describe('vm-diagnostico.sh', () => {
     expect(r.stdout).toContain('restarts_agendados_na_janela: 1');
     expect(r.stdout).toMatch(/caddy_erros_na_janela: 1/);
     expect(r.stdout).toContain('connection refused');
-    expect(r.stdout).toMatch(/app_log_por_nivel: .*error=2.*warn=1/);
+    expect(r.stdout).toMatch(/app_log_por_nivel: .*error=2.*warn=3/);
     expect(r.stdout).not.toContain('fora da janela');
     expect(r.calls).toContain('--since 2026-10-18 11:40');
   });
@@ -80,6 +91,23 @@ describe('vm-diagnostico.sh', () => {
     expect(r.stdout).not.toContain('/api/credores');
     expect(r.stdout).not.toMatch(/pf-ana-lima|2804:14c|dXNlcjpzZW5oYQ|a1b2c3d4e5f6a7b8c9d0e1f2/);
     expect(r.stdout).not.toContain('meta aninhado');
+  });
+
+  it('conta falhas de IA por categoria do erro, sem o texto do erro', () => {
+    const r = runDiag('2026-10-18T11:40 2026-10-18T11:50');
+
+    expect(r.stdout).toMatch(/1 timeout \| Chunk de resumo IA falhou/);
+    expect(r.stdout).toMatch(/1 limite_provider \| Pipeline: tarefa falhou/);
+    expect(r.stdout).toMatch(/1 sem_detalhe \| API key \[segredo\]/);
+    expect(r.stdout).not.toMatch(/timed out after|Too Many Requests|10\.0\.0\.9|nvapi-Zz9/);
+  });
+
+  it('sem o classificador instalado, informa a categoria como indisponível', () => {
+    const r = runDiag('2026-10-18T11:40 2026-10-18T11:50', { comClassificador: false });
+
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain('app_log_por_nivel:');
+    expect(r.stdout).toMatch(/1 indisponivel \| Chunk de resumo IA falhou/);
   });
 
   it('recusa parâmetro fora do formato sem executar nada (injeção pelo SSH_ORIGINAL_COMMAND)', () => {
