@@ -17,9 +17,22 @@ const { validarK, validarVetor, vetorNulo, validarChunk } = require('./validacao
 const BYTES_FLOAT32 = 4;
 const CHAVE_SEGURA = /^[\w-]+$/;
 
+const ESPERA_LOCK_MS = 5000;
+
+/**
+ * Arquivo em WAL + espera por lock: o indexador (escritor) e a API (leitor) usam o mesmo arquivo.
+ * Sem isso, uma leitura simultânea derrubava a escrita com "database is locked" (visto em produção
+ * em 21/10/2026). Banco em memória não recebe pragma de arquivo.
+ */
 function abrirBancoVetorial(caminho, { somenteLeitura = false } = {}) {
   const db = new DatabaseSync(caminho, { allowExtension: true, readOnly: somenteLeitura });
   db.loadExtension(sqliteVec.getLoadablePath());
+  if (caminho !== ':memory:') {
+    db.exec(`PRAGMA busy_timeout = ${ESPERA_LOCK_MS}`);
+    if (!somenteLeitura) {
+      db.exec('PRAGMA journal_mode = WAL');
+    }
+  }
   return db;
 }
 
