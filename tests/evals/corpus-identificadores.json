@@ -198,5 +198,45 @@
       "tipo": "decreto"
     },
     "url_origem": "https://fonte.example/120"
+  },
+  {
+    "id": "d121-c1",
+    "docId": 121,
+    "texto": "Dispensa nº 3/2025 objeto",
+    "metadados": {
+      "ano": 2025,
+      "tipo": "dispensa"
+    },
+    "url_origem": "https://fonte.example/121"
+  },
+  {
+    "id": "d122-c1",
+    "docId": 122,
+    "texto": "Pregão nº 3/2025 objeto",
+    "metadados": {
+      "ano": 2025,
+      "tipo": "edital"
+    },
+    "url_origem": "https://fonte.example/122"
+  },
+  {
+    "id": "d123-c1",
+    "docId": 123,
+    "texto": "Inexigibilidade nº 3/2025 objeto",
+    "metadados": {
+      "ano": 2025,
+      "tipo": "inexigibilidade"
+    },
+    "url_origem": "https://fonte.example/123"
+  },
+  {
+    "id": "d124-c1",
+    "docId": 124,
+    "texto": "Adesão a ata nº 3/2025 objeto",
+    "metadados": {
+      "ano": 2025,
+      "tipo": "ata"
+    },
+    "url_origem": "https://fonte.example/124"
   }
 ]

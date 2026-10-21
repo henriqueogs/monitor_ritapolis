@@ -221,4 +221,32 @@ describe('criarRecuperadorHibrido: identificador de documento na pergunta (N/AAA
     expect(new Set(r.map(x => x.id)).size).toBe(4);
     expect(r[0].id).toBe('x');
   });
+
+  it('entre os que citam o identificador, quem casa mais termos da pergunta vem primeiro', async () => {
+    const provider = criarFakeEmbeddingProvider();
+    const dispensa = item('d1', 'Dispensa nº 3/2025 objeto');
+    const pregao = item('d2', 'Pregão nº 3/2025 objeto');
+    const decreto = item('d3', 'Decreto nº 3/2025 nomeia representantes', 0.3);
+    const store = {
+      search: async () => [dispensa, pregao],
+      searchLexical: async () => [dispensa, pregao, decreto],
+    };
+
+    const r = await criarRecuperadorHibrido({ provider, store })('O que diz o Decreto nº 3/2025?', {
+      k: 2,
+    });
+
+    expect(r[0].id).toBe('d3');
+  });
+
+  it('empate em termos casados preserva a ordem do RRF', async () => {
+    const provider = criarFakeEmbeddingProvider();
+    const a = item('e1', 'Dispensa nº 3/2025 objeto');
+    const b = item('e2', 'Pregão nº 3/2025 objeto');
+    const store = { search: async () => [a, b], searchLexical: async () => [b, a] };
+
+    const r = await criarRecuperadorHibrido({ provider, store })('Decreto 3/2025', { k: 2 });
+
+    expect(r.map(x => x.id)).toEqual(['e1', 'e2']);
+  });
 });
