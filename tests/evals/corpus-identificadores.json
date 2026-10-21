@@ -1,0 +1,202 @@
+[
+  {
+    "id": "d101-c1",
+    "docId": 101,
+    "texto": "Decreto nº 3/2025. o presente ato nomeia representantes da area governamental e da sociedade civil para compor o conselho municipal, define atribuicoes, prazos de mandato, forma de funcionamento, reunioes ordinarias, quorum, secretaria executiva e demais disposicoes regimentais aplicaveis ao colegiado.",
+    "metadados": {
+      "ano": 2025,
+      "tipo": "decreto"
+    },
+    "url_origem": "https://fonte.example/101"
+  },
+  {
+    "id": "d102-c1",
+    "docId": 102,
+    "texto": "Decreto nº 30/2025 diz",
+    "metadados": {
+      "ano": 2025,
+      "tipo": "decreto"
+    },
+    "url_origem": "https://fonte.example/102"
+  },
+  {
+    "id": "d103-c1",
+    "docId": 103,
+    "texto": "Decreto nº 23/2025 diz",
+    "metadados": {
+      "ano": 2025,
+      "tipo": "decreto"
+    },
+    "url_origem": "https://fonte.example/103"
+  },
+  {
+    "id": "d104-c1",
+    "docId": 104,
+    "texto": "Decreto nº 300/2025 diz",
+    "metadados": {
+      "ano": 2025,
+      "tipo": "decreto"
+    },
+    "url_origem": "https://fonte.example/104"
+  },
+  {
+    "id": "d105-c1",
+    "docId": 105,
+    "texto": "Decreto nº 203/2025 diz",
+    "metadados": {
+      "ano": 2025,
+      "tipo": "decreto"
+    },
+    "url_origem": "https://fonte.example/105"
+  },
+  {
+    "id": "d106-c1",
+    "docId": 106,
+    "texto": "Decreto nº 113/2025 diz",
+    "metadados": {
+      "ano": 2025,
+      "tipo": "decreto"
+    },
+    "url_origem": "https://fonte.example/106"
+  },
+  {
+    "id": "d107-c1",
+    "docId": 107,
+    "texto": "Decreto nº 3/2024. o presente ato nomeia representantes da area governamental e da sociedade civil para compor o conselho municipal, define atribuicoes, prazos de mandato, forma de funcionamento, reunioes ordinarias, quorum, secretaria executiva e demais disposicoes regimentais aplicaveis ao colegiado.",
+    "metadados": {
+      "ano": 2024,
+      "tipo": "decreto"
+    },
+    "url_origem": "https://fonte.example/107"
+  },
+  {
+    "id": "d108-c1",
+    "docId": 108,
+    "texto": "Decreto nº 3/2023 diz",
+    "metadados": {
+      "ano": 2023,
+      "tipo": "decreto"
+    },
+    "url_origem": "https://fonte.example/108"
+  },
+  {
+    "id": "d109-c1",
+    "docId": 109,
+    "texto": "Decreto nº 30/2024 diz",
+    "metadados": {
+      "ano": 2024,
+      "tipo": "decreto"
+    },
+    "url_origem": "https://fonte.example/109"
+  },
+  {
+    "id": "d110-c1",
+    "docId": 110,
+    "texto": "Decreto nº 13/2024 diz",
+    "metadados": {
+      "ano": 2024,
+      "tipo": "decreto"
+    },
+    "url_origem": "https://fonte.example/110"
+  },
+  {
+    "id": "d111-c1",
+    "docId": 111,
+    "texto": "Dispensa de licitação nº 034/2026. o presente ato nomeia representantes da area governamental e da sociedade civil para compor o conselho municipal, define atribuicoes, prazos de mandato, forma de funcionamento, reunioes ordinarias, quorum, secretaria executiva e demais disposicoes regimentais aplicaveis ao colegiado.",
+    "metadados": {
+      "ano": 2026,
+      "tipo": "dispensa"
+    },
+    "url_origem": "https://fonte.example/111"
+  },
+  {
+    "id": "d112-c1",
+    "docId": 112,
+    "texto": "Dispensa nº 134/2026 diz",
+    "metadados": {
+      "ano": 2026,
+      "tipo": "dispensa"
+    },
+    "url_origem": "https://fonte.example/112"
+  },
+  {
+    "id": "d113-c1",
+    "docId": 113,
+    "texto": "Dispensa nº 340/2026 diz",
+    "metadados": {
+      "ano": 2026,
+      "tipo": "dispensa"
+    },
+    "url_origem": "https://fonte.example/113"
+  },
+  {
+    "id": "d114-c1",
+    "docId": 114,
+    "texto": "Dispensa nº 035/2025 diz",
+    "metadados": {
+      "ano": 2025,
+      "tipo": "dispensa"
+    },
+    "url_origem": "https://fonte.example/114"
+  },
+  {
+    "id": "d115-c1",
+    "docId": 115,
+    "texto": "Dispensa nº 340/2025 diz",
+    "metadados": {
+      "ano": 2025,
+      "tipo": "dispensa"
+    },
+    "url_origem": "https://fonte.example/115"
+  },
+  {
+    "id": "d116-c1",
+    "docId": 116,
+    "texto": "Pregão eletrônico nº 000034/2025. o presente ato nomeia representantes da area governamental e da sociedade civil para compor o conselho municipal, define atribuicoes, prazos de mandato, forma de funcionamento, reunioes ordinarias, quorum, secretaria executiva e demais disposicoes regimentais aplicaveis ao colegiado.",
+    "metadados": {
+      "ano": 2025,
+      "tipo": "edital"
+    },
+    "url_origem": "https://fonte.example/116"
+  },
+  {
+    "id": "d117-c1",
+    "docId": 117,
+    "texto": "Pregão nº 134/2025 diz",
+    "metadados": {
+      "ano": 2025,
+      "tipo": "edital"
+    },
+    "url_origem": "https://fonte.example/117"
+  },
+  {
+    "id": "d118-c1",
+    "docId": 118,
+    "texto": "Pregão nº 340/2025 diz",
+    "metadados": {
+      "ano": 2025,
+      "tipo": "edital"
+    },
+    "url_origem": "https://fonte.example/118"
+  },
+  {
+    "id": "d119-c1",
+    "docId": 119,
+    "texto": "Pregão nº 34/2024 diz",
+    "metadados": {
+      "ano": 2024,
+      "tipo": "edital"
+    },
+    "url_origem": "https://fonte.example/119"
+  },
+  {
+    "id": "d120-c1",
+    "docId": 120,
+    "texto": "Decreto nº 013/2025. o presente ato nomeia representantes da area governamental e da sociedade civil para compor o conselho municipal, define atribuicoes, prazos de mandato, forma de funcionamento, reunioes ordinarias, quorum, secretaria executiva e demais disposicoes regimentais aplicaveis ao colegiado.",
+    "metadados": {
+      "ano": 2025,
+      "tipo": "decreto"
+    },
+    "url_origem": "https://fonte.example/120"
+  }
+]

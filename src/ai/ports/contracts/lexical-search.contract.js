@@ -150,6 +150,80 @@ function contratoFiltrosEEscrita(obter) {
   });
 }
 
+function contratoIdentificadores(obter) {
+  // ids com ordem inversa à do acerto: se o empate for decidido por id, o exato perde
+  const semear = store =>
+    store.upsert([
+      chunk('a1', 1, 'Decreto nº 202/2025 dispõe sobre ponto facultativo', base(0)),
+      chunk('a2', 2, 'Decreto nº 13/2025 abre crédito adicional suplementar', base(1)),
+      chunk('a3', 3, 'Decreto nº 30/2025 regulamenta o transporte escolar', base(2)),
+      chunk('a4', 4, 'Decreto nº 3/2024 nomeia representantes do conselho', base(3)),
+      chunk('zz', 5, 'Decreto nº 3/2025 nomeia representantes do conselho', base(4)),
+    ]);
+
+  it('número curto de documento (N/AAAA) acha o exato, não os vizinhos de mesmo ano', async () => {
+    const store = obter();
+    await semear(store);
+
+    const r = await store.searchLexical({
+      consulta: 'O que diz o Decreto nº 3/2025?',
+      vetor: base(0),
+      k: 5,
+    });
+
+    expect(ids(r)[0]).toBe('zz');
+  });
+
+  it('o mesmo número em outro ano não é confundido', async () => {
+    const store = obter();
+    await semear(store);
+
+    const r = await store.searchLexical({
+      consulta: 'Decreto 3/2024',
+      vetor: base(0),
+      k: 5,
+    });
+
+    expect(ids(r)[0]).toBe('a4');
+  });
+
+  it('com ou sem zeros à esquerda: 34/2026 acha 034/2026 e 000034/2026', async () => {
+    const store = obter();
+    await store.upsert([
+      chunk('a1', 1, 'Dispensa 134/2026 materiais de escritório', base(0)),
+      chunk('a2', 2, 'Dispensa 340/2026 serviços gerais', base(1)),
+      chunk('m1', 3, 'Dispensa 034/2026 distribuidor de esterco líquido', base(2)),
+      chunk('m2', 4, 'Pregão eletrônico 000034/2026 aquisição de pneus', base(3)),
+    ]);
+
+    const r = await store.searchLexical({
+      consulta: 'objeto do processo 34/2026',
+      vetor: base(0),
+      k: 5,
+    });
+
+    expect(ids(r).slice(0, 2).sort()).toEqual(['m1', 'm2']);
+  });
+
+  it('número de documento com espaços em volta da barra também vale ("3 / 2025")', async () => {
+    const store = obter();
+    await semear(store);
+
+    const r = await store.searchLexical({ consulta: 'Decreto 3 / 2025', vetor: base(0), k: 5 });
+
+    expect(ids(r)[0]).toBe('zz');
+  });
+
+  it('consulta sem identificador continua funcionando como antes', async () => {
+    const store = obter();
+    await semear(store);
+
+    const r = await store.searchLexical({ consulta: 'transporte escolar', vetor: base(0), k: 5 });
+
+    expect(ids(r)[0]).toBe('a3');
+  });
+}
+
 function runLexicalSearchContract(nome, criar, { quantizacoes = ['float32'] } = {}) {
   describe.each(quantizacoes)(`contrato ramo lexical: ${nome} [%s]`, quantizacao => {
     let store;
@@ -161,6 +235,7 @@ function runLexicalSearchContract(nome, criar, { quantizacoes = ['float32'] } = 
     describe('relevância', () => contratoRelevancia(obter));
     describe('formato', () => contratoFormato(obter));
     describe('filtros e escrita', () => contratoFiltrosEEscrita(obter));
+    describe('identificadores de documento', () => contratoIdentificadores(obter));
   });
 }
 

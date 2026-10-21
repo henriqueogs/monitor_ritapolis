@@ -7,7 +7,7 @@
  */
 
 const { validarK, validarVetor, vetorNulo, validarChunk } = require('./validacao');
-const { tokenizar } = require('./lexical');
+const { tokenizar, tokensBrutos, identificadoresDocumento, contemSequencia } = require('./lexical');
 const { normalizar, quantizarInt8, cosseno, cossenoInt8 } = require('./quantizacao');
 
 const QUANTIZACOES = Object.freeze({ FLOAT32: 'float32', INT8: 'int8' });
@@ -36,6 +36,7 @@ function resultado(entrada, score) {
 }
 
 const BM25_K1 = 1.2;
+const BONUS_IDENTIFICADOR = 20;
 const BM25_B = 0.75;
 
 /** BM25 sobre os textos (o mesmo princípio do FTS5 do adaptador SQLite). */
@@ -117,6 +118,15 @@ function criarMemoryVectorStore({ dims, quantizacao = QUANTIZACOES.FLOAT32 }) {
       consulta,
       todas.map(e => e.texto)
     );
+    const identificadores = identificadoresDocumento(consulta);
+    if (identificadores.length) {
+      todas.forEach((e, i) => {
+        const tokens = tokensBrutos(e.texto);
+        if (identificadores.some(seq => contemSequencia(tokens, seq))) {
+          pontos[i] += BONUS_IDENTIFICADOR; // equivale à frase do FTS5: identificador exato pesa mais que termos soltos
+        }
+      });
+    }
     const consultaVetor = vetorNulo(vetor) ? null : preparar(vetor);
     return todas
       .map((e, i) => ({ e, lexical: pontos[i] }))
