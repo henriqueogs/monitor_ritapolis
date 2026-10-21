@@ -130,3 +130,95 @@ describe('criarRecuperadorHibrido (FTS5/BM25 + vetor + RRF, ADR 0003)', () => {
     );
   });
 });
+
+describe('criarRecuperadorHibrido: identificador de documento na pergunta (N/AAAA)', () => {
+  const item = (id, texto, score = 0.4) => ({
+    id,
+    docId: id,
+    texto,
+    score,
+    url_origem: `https://f/${id}`,
+    origemGenerica: false,
+    metadados: {},
+  });
+  const vizinhos = [
+    item('a1', 'Decreto nº 202/2025 dispõe sobre ponto facultativo'),
+    item('a2', 'Decreto nº 13/2025 abre crédito suplementar'),
+    item('a3', 'Decreto nº 30/2025 regulamenta o transporte'),
+    item('a4', 'Decreto nº 3/2024 nomeia representantes'),
+    item('a5', 'Decreto nº 250/2025 trata de feriado'),
+  ];
+  const exato = item('x', 'Decreto nº 3/2025 nomeia representantes do conselho', 0.31);
+
+  // exato só no ramo lexical (fora do top do vetor): sem promoção o RRF o derruba para fora do top-k
+  function montarFalso() {
+    const provider = criarFakeEmbeddingProvider();
+    const store = {
+      search: async () => vizinhos,
+      searchLexical: async () => [exato, ...vizinhos.slice(0, 4)],
+    };
+    return criarRecuperadorHibrido({ provider, store });
+  }
+
+  it('chunk que cita o identificador vai para o topo, mesmo achado só pelo ramo lexical', async () => {
+    const r = await montarFalso()('O que diz o Decreto nº 3/2025?', { k: 3 });
+
+    expect(r[0].id).toBe('x');
+    expect(r).toHaveLength(3);
+  });
+
+  it('o promovido mantém ramos, scoreRrf e o cosseno (evidência) originais', async () => {
+    const [primeiro] = await montarFalso()('Decreto 3/2025', { k: 3 });
+
+    expect(primeiro).toMatchObject({ id: 'x', ramos: ['lexical'], score: 0.31 });
+    expect(primeiro.scoreRrf).toBeGreaterThan(0);
+  });
+
+  it('sem identificador na pergunta a ordem continua sendo a do RRF', async () => {
+    const r = await montarFalso()('O que diz o Decreto de nomeação?', { k: 3 });
+
+    expect(r.map(x => x.id)).not.toContain('x');
+    expect(r[0].id).toBe('a1');
+  });
+
+  it('não promove quem só tem número parecido (30/2025, 3/2024) nem tokens fora de ordem', async () => {
+    const provider = criarFakeEmbeddingProvider();
+    const store = {
+      search: async () => vizinhos,
+      searchLexical: async () => [vizinhos[2], vizinhos[3], item('p', 'Ano 2025 artigo 3 decreto')],
+    };
+    const recuperar = criarRecuperadorHibrido({ provider, store });
+
+    const comIdentificador = await recuperar('Decreto 3/2025', { k: 5 });
+    const semIdentificador = await recuperar('Decreto', { k: 5 }); // ordem pura do RRF
+
+    expect(comIdentificador.map(x => x.id)).toEqual(semIdentificador.map(x => x.id));
+  });
+
+  it('reconhece o identificador com zeros à esquerda no texto (003/2025, 000003/2025)', async () => {
+    const provider = criarFakeEmbeddingProvider();
+    const comZeros = item('z', 'Decreto nº 000003/2025 nomeia representantes', 0.33);
+    const store = {
+      search: async () => vizinhos,
+      searchLexical: async () => [vizinhos[0], vizinhos[1], comZeros],
+    };
+
+    const r = await criarRecuperadorHibrido({ provider, store })('Decreto nº 3/2025', { k: 3 });
+
+    expect(r[0].id).toBe('z');
+  });
+
+  it('sem duplicar: o promovido aparece uma vez e o total respeita k', async () => {
+    const provider = criarFakeEmbeddingProvider();
+    const store = {
+      search: async () => [exato, ...vizinhos],
+      searchLexical: async () => [exato, ...vizinhos],
+    };
+
+    const r = await criarRecuperadorHibrido({ provider, store })('Decreto 3/2025', { k: 4 });
+
+    expect(r).toHaveLength(4);
+    expect(new Set(r.map(x => x.id)).size).toBe(4);
+    expect(r[0].id).toBe('x');
+  });
+});
