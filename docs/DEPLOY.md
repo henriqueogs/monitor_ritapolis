@@ -92,7 +92,15 @@ e devolve só leitura:
 - `NRestarts`, restarts e saídas do serviço na janela;
 - `free -m`, carga, disco e kills por falta de memória (OOM) do kernel;
 - erros do Caddy (só o campo `msg`) e do `logs/app.log` (JSON do winston:
-  contagem por nível e principais mensagens de erro/aviso, sem o meta).
+  contagem por nível e principais mensagens de erro/aviso, sem o meta). Cada
+  mensagem vem com a categoria do erro de IA (`timeout`, `limite_provider`,
+  `rede`, `modelo_indisponivel`…), calculada por `src/ai/classificar-erro-ia.js`
+  a partir do meta `erro`/`error`; o texto do erro não sai. `sem_detalhe` =
+  linha sem esse meta; `indisponivel` = checkout da VM ainda sem o classificador.
+
+O script é uma cópia: mudanças em `scripts/vm-diagnostico.sh` só valem depois
+de reinstalar (`cd /opt/monitor-ritapolis && git pull && sudo install -m 755
+scripts/vm-diagnostico.sh /opt/monitor-ritapolis/report-diagnostico.sh`).
 
 **O repositório é público e o log do Actions também.** Por isso o script
 (`scripts/vm-diagnostico.sh`) nunca imprime linhas brutas de log nem o meta
