@@ -1,6 +1,7 @@
 'use strict';
 
 const ENV_PADRAO = {
+  MUNICIPIO: undefined,
   CNPJ_PREFEITURA: undefined,
   CNPJ_CAMARA: undefined,
   IBGE_CODE: undefined,
@@ -65,6 +66,23 @@ describe('ente (identidade do município como configuração)', () => {
       cnpjPrefeitura: '11222333000181',
       cnpjCamara: '44555666000199',
     });
+  });
+
+  it('MUNICIPIO escolhe a pasta em municipios/ (sem editar código)', () => {
+    const { ente } = carregarEnte({ MUNICIPIO: '_exemplo' });
+
+    expect(ente).toMatchObject({ nome: 'Cidade Exemplo', uf: 'SP', ibge: '3500000' });
+  });
+
+  it('variável de ambiente individual vence o arquivo do município', () => {
+    const { ente } = carregarEnte({ MUNICIPIO: '_exemplo', MUNICIPIO_NOME: 'Outro Nome' });
+
+    expect(ente.nome).toBe('Outro Nome');
+    expect(ente.uf).toBe('SP');
+  });
+
+  it('MUNICIPIO inexistente derruba o carregamento', () => {
+    expect(() => carregarEnte({ MUNICIPIO: 'nao-existe' })).toThrow(/município não encontrado/);
   });
 
   it('órgãos do ente levam o nome do município (usado pelo coletor do PNCP)', () => {

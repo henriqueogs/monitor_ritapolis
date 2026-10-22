@@ -1,0 +1,10 @@
+{
+  "$schema": "../municipio.schema.json",
+  "slug": "ritapolis",
+  "nome": "Ritápolis",
+  "uf": "MG",
+  "ufNome": "Minas Gerais",
+  "ibge": "3156106",
+  "cnpjPrefeitura": "18557553000105",
+  "cnpjCamara": "26148056000181"
+}
