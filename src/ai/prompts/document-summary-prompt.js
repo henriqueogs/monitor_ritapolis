@@ -79,6 +79,9 @@ Regras obrigatorias:
 - titulo_curto, resumo_cidadao e resumo_tecnico nunca podem ser strings vazias.
 - Se o trecho nao tiver informacao suficiente, explique isso nesses campos obrigatorios em linguagem simples.
 - Retorne somente JSON valido.
+- Datas sempre no formato AAAA-MM-DD; se o texto nao trouxer dia, mes e ano, use null em "data" e mantenha a descricao.
+- "valor" e numero JSON sem aspas, sem R$ e sem separador de milhar (ex.: 1234.56); sem valor numerico explicito, nao inclua o item em valores.
+- Campos de listas sao sempre arrays: use [] quando nao houver itens, nunca null nem texto.
 - Nao use markdown.
 - Nao inclua comentarios fora do JSON.
 - Para valores, datas, objeto e partes envolvidas, inclua trecho_fonte.
@@ -117,7 +120,23 @@ ${chunkSummariesJson}
 """`;
 }
 
+const MAX_CHARS_PROBLEMAS_CONTRATO = 800;
+
+// Anexada ao prompt na nova tentativa depois de "Resumo fora do contrato
+// esperado": repetir o mesmo prompt costuma repetir o mesmo defeito.
+function buildContractRetryNote(errorMessage) {
+  const problemas = String(errorMessage || '')
+    .replace(/^Resumo fora do contrato esperado:\s*/, '')
+    .slice(0, MAX_CHARS_PROBLEMAS_CONTRATO);
+  return `
+
+ATENCAO: a resposta anterior para este mesmo texto ficou fora do contrato de saida.
+Problemas encontrados: ${problemas}
+Corrija esses campos e responda somente o JSON no formato do contrato acima.`;
+}
+
 module.exports = {
   buildDocumentSummaryPrompt,
-  buildConsolidationPrompt
+  buildConsolidationPrompt,
+  buildContractRetryNote
 };

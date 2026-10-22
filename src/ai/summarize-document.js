@@ -7,6 +7,7 @@ const { createAiProvider } = require('./providers');
 const {
   buildDocumentSummaryPrompt,
   buildConsolidationPrompt,
+  buildContractRetryNote,
 } = require('./prompts/document-summary-prompt');
 const { splitTextIntoChunks } = require('./chunk-text');
 const { getAiDirectCharLimit } = require('./operation-policy');
@@ -44,6 +45,13 @@ const TEMPERATURA_RETRY_JSON = 0.2;
 
 function isJsonInvalidoError(error) {
   return /nao retornou JSON valido/i.test(getErrorMessage(error));
+}
+
+// Resposta que parseia mas fica fora do contrato (tarefa 25227, 22/10/2026)
+// não era repetida: a etapa falhava na primeira. A nova tentativa diz ao modelo
+// o que violou o contrato e sobe a temperatura, como no JSON quebrado.
+function isForaDoContratoError(error) {
+  return /Resumo fora do contrato esperado/i.test(getErrorMessage(error));
 }
 
 function getRetryMaxAttempts() {
@@ -371,13 +379,17 @@ async function generateValidatedSummary({
   const attempts = Math.max(1, Number(maxAttempts || 1));
   let lastError = null;
   let jsonRetries = 0;
+  let contractNote = '';
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     progress?.checkTime();
     try {
       const rawResponse = await generateWithProgress(
         provider,
-        { prompt, temperature: temperature + jsonRetries * TEMPERATURA_RETRY_JSON },
+        {
+          prompt: `${prompt}${contractNote}`,
+          temperature: temperature + jsonRetries * TEMPERATURA_RETRY_JSON,
+        },
         progress,
         config.aiRequestTimeoutMs
       );
@@ -391,13 +403,15 @@ async function generateValidatedSummary({
     } catch (error) {
       lastError = error;
 
-      const isJsonInvalido = isJsonInvalidoError(error);
-      if (!(isRetriableAiError(error) || isJsonInvalido) || attempt === attempts) {
+      const isForaDoContrato = isForaDoContratoError(error);
+      const isSaidaInvalida = isJsonInvalidoError(error) || isForaDoContrato;
+      if (!(isRetriableAiError(error) || isSaidaInvalida) || attempt === attempts) {
         throw error;
       }
-      if (isJsonInvalido) {
+      if (isSaidaInvalida) {
         jsonRetries += 1;
       }
+      contractNote = isForaDoContrato ? buildContractRetryNote(getErrorMessage(error)) : '';
 
       const waitMs = Math.min(5000, 750 * attempt);
       logger.warn('Tentativa de resumo IA falhou; tentando novamente', {

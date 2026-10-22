@@ -234,3 +234,35 @@ describe('JSON malformado da IA', () => {
     expect(provider.generateJson).toHaveBeenCalledTimes(3);
   });
 });
+describe('resumo fora do contrato (tarefa 25227)', () => {
+  const restaurar = {};
+  beforeEach(() => {
+    for (const k of ['aiMaxCharsDirect', 'aiChunkSizeChars', 'aiRetryMax']) {
+      restaurar[k] = config[k];
+    }
+    Object.assign(config, { aiMaxCharsDirect: 5000, aiChunkSizeChars: 5000, aiRetryMax: 2 });
+  });
+  afterEach(() => Object.assign(config, restaurar));
+
+  test('tenta de novo dizendo ao modelo o que violou o contrato', async () => {
+    provider.generateJson
+      .mockResolvedValueOnce('null')
+      .mockResolvedValueOnce(JSON.stringify(summary));
+
+    await summarizeDocument(7, { provider });
+
+    expect(provider.generateJson).toHaveBeenCalledTimes(2);
+    expect(provider.generateJson.mock.calls[0][0].prompt).not.toContain('fora do contrato');
+    const segundaChamada = provider.generateJson.mock.calls[1][0];
+    expect(segundaChamada.prompt).toContain('fora do contrato');
+    expect(segundaChamada.temperature).toBeGreaterThan(0);
+    expect(api.saveResumoAi).toHaveBeenCalled();
+  });
+
+  test('desiste depois de esgotar as tentativas e propaga o erro de contrato', async () => {
+    provider.generateJson.mockResolvedValue('null');
+
+    await expect(summarizeDocument(7, { provider })).rejects.toThrow('contrato esperado');
+    expect(provider.generateJson).toHaveBeenCalledTimes(3);
+  });
+});
