@@ -88,6 +88,7 @@ export default function RootLayout({ children }) {
             <p className="site-footer-disclaimer">{DISCLAIMER_RODAPE}</p>
           </footer>
         </div>
+        {/* Vercel Web Analytics (plano Hobby): script e envio em /_vercel/insights, same-origin. */}
         <Analytics />
       </body>
     </html>

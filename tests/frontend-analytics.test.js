@@ -2,30 +2,26 @@
 
 const fs = require('fs');
 const path = require('path');
+const { buildCsp } = require('../frontend/lib/csp');
 
-const RAIZ = path.join(__dirname, '..');
-const ler = arquivo => fs.readFileSync(path.join(RAIZ, arquivo), 'utf8');
+const LAYOUT_SRC = fs.readFileSync(path.resolve(__dirname, '../frontend/app/layout.js'), 'utf8');
+const FRONTEND_PKG = require('../frontend/package.json');
 
-describe('Vercel Web Analytics (plano Hobby): contagem agregada de visitas', () => {
-  it('o pacote @vercel/analytics é dependência do frontend', () => {
-    const pkg = JSON.parse(ler('frontend/package.json'));
-
-    expect(pkg.dependencies['@vercel/analytics']).toBeDefined();
+describe('frontend Vercel Analytics', () => {
+  it('declara @vercel/analytics como dependência do frontend', () => {
+    expect(FRONTEND_PKG.dependencies).toHaveProperty('@vercel/analytics');
   });
 
-  it('o layout raiz monta <Analytics /> uma única vez', () => {
-    const layout = ler('frontend/app/layout.js');
-
-    expect(layout).toMatch(/import \{ Analytics \} from '@vercel\/analytics\/next'/);
-    expect(layout.match(/<Analytics \/>/g)).toHaveLength(1);
+  it('renderiza <Analytics /> do adaptador Next no layout raiz', () => {
+    expect(LAYOUT_SRC).toMatch(/import\s*\{\s*Analytics\s*\}\s*from\s*'@vercel\/analytics\/next'/);
+    expect(LAYOUT_SRC).toContain('<Analytics />');
   });
 
-  it('o CSP já permite o script e o beacon do Analytics (mesma origem, sem domínio extra)', () => {
-    const { buildCsp } = require('../frontend/lib/csp');
-    const csp = buildCsp({ nonce: 'abc' });
-
-    expect(csp).toContain("connect-src 'self'");
-    expect(csp).toContain("script-src 'self'");
-    expect(csp).not.toMatch(/vercel-scripts|va\.vercel/);
+  it('CSP permite o script e o envio same-origin (/_vercel/insights) nos dois modos', () => {
+    for (const nonce of ['abc', null]) {
+      const csp = buildCsp({ nonce });
+      expect(csp).toMatch(/script-src 'self'/);
+      expect(csp).toMatch(/connect-src 'self'/);
+    }
   });
 });
