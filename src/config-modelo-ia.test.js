@@ -46,3 +46,17 @@ describe('modelo de IA padrão (config.nvidiaModel)', () => {
     expect(c.nvidiaEmbedModel).toBe('nvidia/nemotron-3-embed-1b');
   });
 });
+
+describe('timeout de chamada de IA (config.aiRequestTimeoutMs)', () => {
+  it('sem AI_REQUEST_TIMEOUT_MS, usa 180 s (nemotron-3-ultra leva até ~107 s; 22/10/2026: 17 timeouts em 120 s)', () => {
+    const c = carregarConfig({ AI_REQUEST_TIMEOUT_MS: undefined });
+
+    expect(c.aiRequestTimeoutMs).toBe(180000);
+  });
+
+  it('AI_REQUEST_TIMEOUT_MS do ambiente continua tendo precedência', () => {
+    const c = carregarConfig({ AI_REQUEST_TIMEOUT_MS: '90000' });
+
+    expect(c.aiRequestTimeoutMs).toBe(90000);
+  });
+});

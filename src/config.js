@@ -72,7 +72,10 @@ module.exports = {
   aiMinChunkSizeChars: Number(process.env.AI_MIN_CHUNK_SIZE_CHARS || 3000),
   aiChunkOverlapChars: Number(process.env.AI_CHUNK_OVERLAP_CHARS || 600),
   aiMaxChunksPerDocument: Number(process.env.AI_MAX_CHUNKS_PER_DOCUMENT || 40),
-  aiRequestTimeoutMs: Number(process.env.AI_REQUEST_TIMEOUT_MS || 120000),
+  // 180s desde 22/10/2026: com nemotron-3-ultra (ver nvidiaModel) a campanha teve 17 timeouts em
+  // 5,5h com 120s, contra 1 erro 429. Cabe na fatia de 8 min do pipeline (src/pipeline/progress.js),
+  // que corta a chamada no tempo restante e retoma na fatia seguinte.
+  aiRequestTimeoutMs: Number(process.env.AI_REQUEST_TIMEOUT_MS || 180000),
   aiRetryMax: Number(process.env.AI_RETRY_MAX || 2),
   aiSaveRawResponse: String(process.env.AI_SAVE_RAW_RESPONSE || 'false').toLowerCase() === 'true',
   nvidiaApiKey: process.env.NVIDIA_API_KEY || '',
@@ -103,7 +106,7 @@ module.exports = {
   // nemotron-3.5-lightning-30b 1/3, gemma-4-31b-it 1/3, glm-5.3 0/3 (timeouts). 404 na conta:
   // nemotron-nano-3-30b, kimi-k2.6, mistral-large(-2), llama-3.1-nemotron-70b/51b/ultra-253b,
   // nemotron-4-340b. gpt-oss-20b responde 200 mas so com `reasoning` (quebra o parser). Os dois
-  // melhores levam ~94-107s no documento de 10k, perto do timeout de 120s: vigiar AI_REQUEST_TIMEOUT_MS.
+  // melhores levam ~94-107s no documento de 10k, perto do timeout de 120s (subiu para 180s em 22/10).
   nvidiaModel: process.env.NVIDIA_MODEL || 'nvidia/nemotron-3-ultra-550b-a55b',
   // Override opcional: modelo mais forte só para a investigação de
   // descobertas (menor volume, mais exige julgamento) — sem mexer no modelo
