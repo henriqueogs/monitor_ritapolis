@@ -29,6 +29,8 @@ const HOSTS_PREFEITURA = [DOMINIO_PREFEITURA, `www.${DOMINIO_PREFEITURA}`];
 const ORIGEM_PREFEITURA = `https://${DOMINIO_PREFEITURA}`;
 const HOST_SAPL = `sapl.${DOMINIO_CAMARA}`;
 const HOST_CAMARA_PT = `pt.${DOMINIO_CAMARA}`;
+const HOST_SGC = `sgc.${DOMINIO_CAMARA}`;
+const ORIGEM_SGC = `https://${HOST_SGC}`;
 
 // Forma agrupada, usada para parametrizar textos (funções puras recebem o ente como argumento).
 const ente = Object.freeze({
@@ -55,5 +57,7 @@ module.exports = {
   ORIGEM_PREFEITURA,
   HOST_SAPL,
   HOST_CAMARA_PT,
+  HOST_SGC,
+  ORIGEM_SGC,
   ente,
 };
