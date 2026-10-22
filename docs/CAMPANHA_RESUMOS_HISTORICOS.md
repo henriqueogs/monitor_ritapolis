@@ -27,6 +27,10 @@ vigente). Aplicar: `sudo cp`, `sudo systemctl daemon-reload`,
 > acesso). Os números abaixo foram medidos no modelo antigo; medir de novo antes de confiar em tempo por
 > tarefa, taxa e orçamento da campanha. Em resumos reais o novo modelo levou 34–94 s (documentos de 2 a 10 mil
 > caracteres).
+>
+> 22/10/2026: a campanha (03:00–08:30 UTC) teve 17 falhas por `timeout` e 1 por `limite_provider`
+> (diagnóstico da VM por categoria). O padrão de `AI_REQUEST_TIMEOUT_MS` subiu de 120000 para 180000.
+> Se o `.env` da VM definir a variável, ele prevalece sobre o padrão: ajuste lá também.
 
 Probe a partir da VM, sem retry: até 8 chamadas simultâneas (~53 req/min em rajada)
 sem erro; **429 a partir de ~116 req/min** (10 simultâneas). Uma chamada leva
