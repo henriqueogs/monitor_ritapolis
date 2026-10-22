@@ -11,6 +11,7 @@ import './globals.css';
 // proprio layout com force-dynamic proprio, nao depende deste.
 import Link from 'next/link';
 import { Inter } from 'next/font/google';
+import { Analytics } from '@vercel/analytics/next';
 import TopNav from './components/TopNav';
 import RequestToaster from './components/RequestToaster';
 import { DISCLAIMER_RODAPE } from './lib/disclaimer';
@@ -87,6 +88,7 @@ export default function RootLayout({ children }) {
             <p className="site-footer-disclaimer">{DISCLAIMER_RODAPE}</p>
           </footer>
         </div>
+        <Analytics />
       </body>
     </html>
   );
