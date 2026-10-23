@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import SectionBlock from './SectionBlock';
-import { formatMoney } from '../lib/format';
+import { formatarMetricaAlerta } from '../../lib/alerta-revisao';
 import { nivelLabel } from '../lib/descobertas';
 import styles from '../na-lupa/styles.module.css';
 
@@ -43,9 +43,9 @@ export default function AlertasDestaque({
               <h3 className={styles.cardTitle}>{alerta.titulo}</h3>
               {alerta.narrativa ? <p className={styles.cardSummary}>{alerta.narrativa}</p> : null}
               <div className={styles.cardFooter}>
-                {alerta.valor_total ? (
+                {formatarMetricaAlerta(alerta) ? (
                   <span className={styles.value}>
-                    {formatMoney(alerta.valor_total)}
+                    {formatarMetricaAlerta(alerta).texto}
                     {alerta.valor_periodo_label ? (
                       <span className={styles.valuePeriod}> · {alerta.valor_periodo_label}</span>
                     ) : null}
