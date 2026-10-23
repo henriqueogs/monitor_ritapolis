@@ -19,6 +19,7 @@
     "format": "prettier --write \"src/**/*.js\" \"scripts/**/*.js\"",
     "format:check": "prettier --check \"src/**/*.js\" \"scripts/**/*.js\"",
     "setup-db": "node scripts/setup-db.js",
+    "seed:exemplo": "node scripts/seed-exemplo.js",
     "coletar": "node scripts/coletar-agora.js",
     "coletar:prefeitura": "node scripts/coletar-prefeitura.js",
     "coletar:legislacao": "node scripts/coletar-legislacao-prefeitura.js",

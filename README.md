@@ -17,6 +17,18 @@ Plataforma de inteligência pública verificável para o município de Ritápoli
 
 **Não é um repositório de PDFs.** É uma leitura do poder público local: o que está sendo contratado, por quem, a que preço, onde os dados estão incompletos e o que a IA consegue inferir com segurança.
 
+## Início rápido com Docker (sem chave de IA)
+
+```bash
+docker compose up --build
+```
+
+Sobe a API (http://localhost:3001/api) e o site (http://localhost:3000) com o município de exemplo
+(`municipios/_exemplo/`) e 9 documentos fictícios, todos marcados `[EXEMPLO]`. Coleta, IA, alertas e
+backup ficam desligados, então nada sai para a internet. Para um município de verdade, veja
+[`municipios/README.md`](municipios/README.md). Observação: o site ainda mostra a marca de Ritápolis,
+que hoje está fixa em `frontend/lib/ente.js`.
+
 ## Requisitos
 
 - Node.js 24 ou superior
