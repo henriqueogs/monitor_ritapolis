@@ -75,6 +75,11 @@ Pontos de atenção:
 
 ### 2.3 Hosts e URLs no código (contagem de literais)
 
+> **Atualização (23/10/2026):** em `src/`, `scripts/`, `frontend/app`, `frontend/lib` e `frontend/next.config.js`
+> os domínios abaixo passaram a vir de `municipios/<slug>/municipio.json` (`src/fontes.js` no backend,
+> `frontend/lib/ente.js` no frontend), com a guarda `tests/fontes-sem-host.test.js`. Continuam fixos: workflows
+> em `.github/`, `deploy/`, `infrastructure/` (Worker) e a URL do Worker `*.workers.dev`, que é da instalação.
+
 Ocorrências **aproximadas** de URL (a contagem inclui comentários e docs; fixtures fora) em `src/ scripts/ frontend/ deploy/ infrastructure/ .github/`:
 
 | Host | ~Ocorrências | Arquivos principais |

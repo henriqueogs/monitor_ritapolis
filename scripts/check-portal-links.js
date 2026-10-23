@@ -9,7 +9,11 @@
  *   node scripts/check-portal-links.js [apiUrl]    # sai com 1 se algum link falhar
  */
 
-const API = process.argv[2] || 'https://api.ritapolis.com/api';
+// Lê o municipio.json direto (sem src/config): o workflow roda sem npm ci, só com o Node.
+const { lerMunicipio, SLUG_PADRAO } = require('../src/municipio');
+
+const { dominioSite } = lerMunicipio({ slug: process.env.MUNICIPIO || SLUG_PADRAO });
+const API = process.argv[2] || `https://api.${dominioSite}/api`;
 const AMOSTRA = 6;
 const PAUSA_MS = 800;
 const TIMEOUT_MS = 20000;

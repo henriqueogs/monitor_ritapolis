@@ -18,8 +18,9 @@ const { extractOfficialFileText, inferFileExtension } = require('../parsers/docu
 const { naoFutura } = require('../utils/datas');
 const { arquivoExtraidoExistente } = require('../utils/documento-merge');
 const { normalizarTipo, normalizeSpaces } = require('./legislacao-tipos');
+const { fontes } = require('../fontes');
 
-const BASE_URL = 'https://ritapolis.mg.leg.br';
+const BASE_URL = fontes.siteCamara;
 const SEARCH_URL = `${BASE_URL}/ws_consulta/sgc/buscarLegislacoes.php`;
 
 /**

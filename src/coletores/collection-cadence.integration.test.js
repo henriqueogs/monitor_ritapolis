@@ -1,6 +1,7 @@
 'use strict';
 jest.mock('../config', () => ({ transparenciaAnoInicio: 2019, folhaAnoInicio: 2013,
   dailySchedulerTransparenciaIntervalHoras: 24 }));
+jest.mock('../fontes', () => ({ fontes: { portalTransparencia: 'https://pt.exemplo.invalid' } }));
 jest.mock('../logger', () => ({ info: jest.fn(), debug: jest.fn(), warn: jest.fn() }));
 jest.mock('./base', () => class {
   constructor() { this.http = { defaults: {} }; }

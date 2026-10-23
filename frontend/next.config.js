@@ -1,6 +1,7 @@
 const { PHASE_DEVELOPMENT_SERVER } = require('next/constants');
 const path = require('path');
 const { buildCsp, originDe, CSP_ISR_SOURCES } = require('./lib/csp');
+const { DOMINIO_SITE, SITE_URL } = require('./lib/ente');
 
 const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
@@ -37,8 +38,8 @@ module.exports = (phase) => ({
     return [
       {
         source: '/:path*',
-        has: [{ type: 'host', value: 'www.ritapolis.com' }],
-        destination: 'https://ritapolis.com/:path*',
+        has: [{ type: 'host', value: `www.${DOMINIO_SITE}` }],
+        destination: `${SITE_URL}/:path*`,
         permanent: true,
       },
       {

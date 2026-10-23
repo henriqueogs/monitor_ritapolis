@@ -17,7 +17,9 @@
  * mais educado com o servidor deles do que não fazer nada).
  */
 
-const BASE_URL = 'https://pt.ritapolis.mg.gov.br';
+const { fontes } = require('../fontes');
+
+const BASE_URL = fontes.portalTransparencia;
 
 // ---------------------------------------------------------------------------
 // Parsing puro — sem I/O, o que garante a maior parte dos testes

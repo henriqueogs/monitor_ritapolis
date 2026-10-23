@@ -31,6 +31,7 @@ const CAMPOS_OBRIGATORIOS = Object.freeze([
   'dominioSite',
   'dominioPrefeitura',
   'dominioCamara',
+  'portalTransparencia',
 ]);
 
 function exigirSlug(slug) {

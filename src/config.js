@@ -64,6 +64,11 @@ module.exports = {
   ibgeCode: process.env.IBGE_CODE || municipio.ibge,
   cnpjPrefeitura: process.env.CNPJ_PREFEITURA || municipio.cnpjPrefeitura,
   cnpjCamara: process.env.CNPJ_CAMARA || municipio.cnpjCamara,
+  // Endereços das fontes oficiais e do site público; acesso no código de produção: src/fontes.js.
+  dominioSite: municipio.dominioSite,
+  dominioPrefeitura: municipio.dominioPrefeitura,
+  dominioCamara: municipio.dominioCamara,
+  portalTransparencia: municipio.portalTransparencia,
   pncpBaseUrl: process.env.PNCP_BASE_URL || 'https://pncp.gov.br/api/consulta',
   pncpOrgaosUrl: process.env.PNCP_ORGAOS_URL || 'https://pncp.gov.br/pncp-api/v1',
   receitaCnpjBaseUrl: process.env.RECEITA_CNPJ_BASE_URL || 'https://brasilapi.com.br/api/cnpj/v1',

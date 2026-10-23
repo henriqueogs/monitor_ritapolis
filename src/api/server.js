@@ -3,6 +3,7 @@ const cors = require('cors');
 const crypto = require('crypto');
 const { Readable } = require('stream');
 const config = require('../config');
+const { fontes } = require('../fontes');
 const logger = require('../logger');
 const security = require('./security');
 const {
@@ -135,7 +136,9 @@ const {
   getPrefeituraAreas
 } = require('../cobertura/prefeitura');
 
-const SOURCE_PREVIEW_HOSTS = new Set(['ritapolis.mg.gov.br', 'www.ritapolis.mg.gov.br']);
+const SOURCE_PREVIEW_HOSTS = new Set(fontes.hostsPrefeitura);
+const SOURCE_PREVIEW_USER_AGENT = `Monitor-${config.municipio}/1.0 (+${fontes.site})`;
+const SOURCE_PREVIEW_FRAME_ANCESTORS = `frame-ancestors ${fontes.hostsSite.map(host => `https://${host}`).join(' ')}`;
 const SOURCE_PREVIEW_REDIRECTS = new Set([301, 302, 303, 307, 308]);
 const SOURCE_PREVIEW_MAX_REDIRECTS = 3;
 
@@ -168,7 +171,7 @@ async function fetchSourcePreview(url) {
       headers: {
         Accept: 'application/pdf',
         Authorization: `Bearer ${proxyToken}`,
-        'User-Agent': 'Ritapolis-com/1.0 (+https://ritapolis.com)',
+        'User-Agent': SOURCE_PREVIEW_USER_AGENT,
         'X-Target-Url': url.toString(),
       },
       redirect: 'manual',
@@ -180,7 +183,7 @@ async function fetchSourcePreview(url) {
     const response = await fetch(currentUrl, {
       headers: {
         Accept: 'application/pdf',
-        'User-Agent': 'Ritapolis-com/1.0 (+https://ritapolis.com)',
+        'User-Agent': SOURCE_PREVIEW_USER_AGENT,
       },
       redirect: 'manual',
     });
@@ -384,7 +387,7 @@ function createServer({ servicoPerguntar } = {}) {
     // Esse endpoint é usado exclusivamente como iframe do site público.
     // Sobrescrevemos os defaults globais (DENY/same-site) apenas aqui.
     res.removeHeader('X-Frame-Options');
-    res.setHeader('Content-Security-Policy', 'frame-ancestors https://ritapolis.com https://www.ritapolis.com');
+    res.setHeader('Content-Security-Policy', SOURCE_PREVIEW_FRAME_ANCESTORS);
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=86400, stale-while-revalidate=3600');
     res.setHeader('Content-Disposition', 'inline; filename="fonte-oficial.pdf"');
