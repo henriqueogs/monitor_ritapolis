@@ -14,9 +14,9 @@ const PASTAS = ['src', 'scripts', 'frontend/app', 'frontend/lib'];
 const IGNORAR_DIRS = new Set(['node_modules', '.next', '.next-dev', '__fixtures__', 'coverage']);
 const EXTENSOES = new Set(['.js', '.mjs', '.cjs', '.jsx']);
 
-// Onde a configuração do ente mora de verdade. O backend lê de municipios/<slug>/municipio.json
-// (JSON, fora da varredura); o frontend ainda espelha os valores à mão (conferido no fim deste arquivo).
-const CONFIGURACAO = new Set(['frontend/lib/ente.js']);
+// A configuração do ente mora em JSON (fora da varredura): municipios/<slug>/municipio.json no backend
+// e a cópia frontend/lib/municipios.json no frontend (tests/frontend-municipios.test.js).
+const CONFIGURACAO = new Set();
 
 // Exceções conhecidas, com motivo.
 const EXCECOES = {
@@ -177,5 +177,16 @@ describe('frontend/lib/ente.js espelha municipios/<padrão>/municipio.json', () 
       cnpjPrefeitura: municipio.cnpjPrefeitura,
       ibge: municipio.ibge,
     });
+  });
+});
+
+describe('package.json sem CNPJ do ente nos scripts', () => {
+  it('os atalhos npm escolhem o órgão por nome (--orgao), não por CNPJ escrito à mão', () => {
+    const { scripts } = require('../package.json');
+    const violacoes = Object.entries(scripts).filter(([, comando]) =>
+      encontrarLiterais(comando).some(a => a.tipo === 'cnpj')
+    );
+
+    expect(violacoes).toEqual([]);
   });
 });

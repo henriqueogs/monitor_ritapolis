@@ -27,6 +27,10 @@ const CAMPOS_OBRIGATORIOS = Object.freeze([
   'ibge',
   'cnpjPrefeitura',
   'cnpjCamara',
+  'marca',
+  'dominioSite',
+  'dominioPrefeitura',
+  'dominioCamara',
 ]);
 
 function exigirSlug(slug) {
@@ -78,9 +82,23 @@ function listarMunicipios({ raiz = RAIZ_MUNICIPIOS } = {}) {
     .sort();
 }
 
+/**
+ * Todos os municípios por slug, sem o campo `$schema`: é a cópia que o frontend lê
+ * (frontend/lib/municipios.json, gerada por `npm run municipio:frontend`).
+ */
+function exportarMunicipios({ raiz = RAIZ_MUNICIPIOS } = {}) {
+  return Object.fromEntries(
+    listarMunicipios({ raiz }).map(slug => {
+      const { $schema: _schema, ...dados } = lerMunicipio({ slug, raiz });
+      return [slug, dados];
+    })
+  );
+}
+
 module.exports = {
   lerMunicipio,
   listarMunicipios,
+  exportarMunicipios,
   SLUG_PADRAO,
   RAIZ_MUNICIPIOS,
   CAMPOS_OBRIGATORIOS,

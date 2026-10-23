@@ -184,6 +184,7 @@ describe('textos do layout (textosDoSite)', () => {
 
 describe('guarda: o nome da cidade não é escrito à mão nos pontos centrais', () => {
   const CENTRAIS = [
+    'frontend/lib/ente.js',
     'frontend/lib/page-metadata.js',
     'frontend/lib/site-metadata.js',
     'frontend/app/layout.js',
@@ -203,8 +204,8 @@ describe('guarda: o nome da cidade não é escrito à mão nos pontos centrais',
     expect(linhas.map(l => `${arquivo}:${l.n}: ${l.texto.trim().slice(0, 80)}`)).toEqual([]);
   });
 
-  it('frontend/lib/ente.js é o lugar do nome (a guarda não está olhando o arquivo errado)', () => {
-    const conteudo = fs.readFileSync(path.join(RAIZ, 'frontend/lib/ente.js'), 'utf8');
+  it('frontend/lib/municipios.json é o lugar do nome (a guarda não está olhando o arquivo errado)', () => {
+    const conteudo = fs.readFileSync(path.join(RAIZ, 'frontend/lib/municipios.json'), 'utf8');
 
     expect(NOME.test(conteudo)).toBe(true);
   });

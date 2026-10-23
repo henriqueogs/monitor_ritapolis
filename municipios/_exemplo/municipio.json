@@ -6,5 +6,9 @@
   "ufNome": "São Paulo",
   "ibge": "3500000",
   "cnpjPrefeitura": "00000000000000",
-  "cnpjCamara": "00000000000000"
+  "cnpjCamara": "00000000000000",
+  "marca": "CidadeExemplo.org",
+  "dominioSite": "cidade-exemplo.invalid",
+  "dominioPrefeitura": "prefeitura.exemplo.invalid",
+  "dominioCamara": "camara.exemplo.invalid"
 }

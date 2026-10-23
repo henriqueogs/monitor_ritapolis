@@ -22,6 +22,7 @@ Henrique escolheu **transformar este repositório**.
 ## Consequências
 + Trocar de município passa a ser trocar uma pasta e uma variável, não editar código.
 + A guarda `tests/ente-sem-literal.test.js` deixa de aceitar literal em `src/config.js`.
-− O frontend (`frontend/lib/ente.js`) ainda espelha os valores à mão; um teste confere que bate com
-  o `municipio.json` padrão. Ler o arquivo no build do Next é o próximo passo.
++ O frontend lê `frontend/lib/municipios.json`, cópia gerada por `npm run municipio:frontend` (a Vercel
+  usa `frontend/` como raiz e não enxerga `municipios/`); `NEXT_PUBLIC_MUNICIPIO` escolhe no build e
+  `tests/frontend-municipios.test.js` falha se a cópia envelhecer.
 − Hosts das fontes, textos de página e scripts históricos ainda citam Ritápolis (mapa, seções 2.2–2.8).

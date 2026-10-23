@@ -1,0 +1,31 @@
+{
+  "padrao": "ritapolis",
+  "municipios": {
+    "_exemplo": {
+      "slug": "_exemplo",
+      "nome": "Cidade Exemplo",
+      "uf": "SP",
+      "ufNome": "São Paulo",
+      "ibge": "3500000",
+      "cnpjPrefeitura": "00000000000000",
+      "cnpjCamara": "00000000000000",
+      "marca": "CidadeExemplo.org",
+      "dominioSite": "cidade-exemplo.invalid",
+      "dominioPrefeitura": "prefeitura.exemplo.invalid",
+      "dominioCamara": "camara.exemplo.invalid"
+    },
+    "ritapolis": {
+      "slug": "ritapolis",
+      "nome": "Ritápolis",
+      "uf": "MG",
+      "ufNome": "Minas Gerais",
+      "ibge": "3156106",
+      "cnpjPrefeitura": "18557553000105",
+      "cnpjCamara": "26148056000181",
+      "marca": "Ritápolis.com",
+      "dominioSite": "ritapolis.com",
+      "dominioPrefeitura": "ritapolis.mg.gov.br",
+      "dominioCamara": "ritapolis.mg.leg.br"
+    }
+  }
+}

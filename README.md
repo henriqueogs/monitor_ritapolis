@@ -26,8 +26,8 @@ docker compose up --build
 Sobe a API (http://localhost:3001/api) e o site (http://localhost:3000) com o município de exemplo
 (`municipios/_exemplo/`) e 9 documentos fictícios, todos marcados `[EXEMPLO]`. Coleta, IA, alertas e
 backup ficam desligados, então nada sai para a internet. Para um município de verdade, veja
-[`municipios/README.md`](municipios/README.md). Observação: o site ainda mostra a marca de Ritápolis,
-que hoje está fixa em `frontend/lib/ente.js`.
+[`municipios/README.md`](municipios/README.md). O título, a marca e os metadados já mudam para a
+Cidade Exemplo; alguns textos de página (destaque da home, contexto da cidade) ainda citam Ritápolis.
 
 ## Requisitos
 
