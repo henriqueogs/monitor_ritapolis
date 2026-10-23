@@ -31,7 +31,7 @@ describe('GateDeterministico', () => {
     it('não se aplica a alerta não determinístico', () => {
       const r = avaliarGateDeterministico(alerta({ qualidade_versao: null }), SEM_PENDENCIA);
 
-      expect(r).toEqual({ aplicavel: false, podePublicar: false, campos: [], faltando: [], bloqueio: null });
+      expect(r).toEqual({ aplicavel: false, somenteAdmin: false, podePublicar: false, campos: [], faltando: [], bloqueio: null });
     });
 
     it('libera quando a revalidação não tem pendência e o revisor conferiu todos os campos', () => {
@@ -71,6 +71,28 @@ describe('GateDeterministico', () => {
       const semCampos = alerta({ metadados: {} });
 
       expect(avaliarGateDeterministico(semCampos, SEM_PENDENCIA).campos).toEqual(['achado conferido nas fontes']);
+    });
+  });
+
+  describe('alerta somente admin (dados pessoais)', () => {
+    const interno = alerta({ qualidade_versao: 'socio-servidor-v1', metadados: { somente_admin: true, campos_a_verificar: CAMPOS } });
+
+    it('é determinístico, mas nunca pode ser publicado', () => {
+      const r = avaliarGateDeterministico(interno, SEM_PENDENCIA, { conferidos: CAMPOS });
+
+      expect(ehDeterministico(interno)).toBe(true);
+      expect(r).toMatchObject({ aplicavel: true, somenteAdmin: true, podePublicar: false });
+      expect(r.bloqueio).toMatch(/interno/i);
+    });
+
+    it('a marca somente_admin basta para cair no gate (mesmo sem versão conhecida)', () => {
+      expect(ehDeterministico({ metadados: { somente_admin: true } })).toBe(true);
+    });
+
+    it('a marca somente_admin bloqueia qualquer versão', () => {
+      const marcado = alerta({ metadados: { somente_admin: true, campos_a_verificar: CAMPOS } });
+
+      expect(avaliarGateDeterministico(marcado, SEM_PENDENCIA, { conferidos: CAMPOS }).podePublicar).toBe(false);
     });
   });
 

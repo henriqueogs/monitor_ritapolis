@@ -61,7 +61,7 @@ export default function DecisaoEditorial({ alerta, gate }) {
         <textarea value={nota} maxLength={500} rows={2} onChange={(e) => setNota(e.target.value)} />
       </label>
 
-      {gate.deterministico ? (
+      {gate.deterministico && !gate.somenteAdmin ? (
         <fieldset className={styles.conferencia}>
           <legend>Conferi nas fontes oficiais (obrigatório para publicar)</legend>
           {gate.campos.map((campo) => (
