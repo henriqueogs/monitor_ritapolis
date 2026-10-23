@@ -3,6 +3,7 @@
 jest.mock('../db/execucao-contratual-repo', () => ({
   listarProcessosComTextoContrato: jest.fn(),
   listarEmpenhosQueCitamProcesso: jest.fn(),
+  listarAnexosDeContrato: jest.fn(),
 }));
 jest.mock('../db/transparencia-agregados-repo', () => ({ getDespesasPorIds: jest.fn() }));
 jest.mock('../db/alertas-repo', () => ({ upsertAlerta: jest.fn() }));
@@ -74,8 +75,12 @@ describe('execucao-contratual-runner', () => {
           titulo: 'Processo 0019/2026 - Adesão nº 005/2026',
           vencedor_cnpj: '23162312000105',
           url_origem: 'https://prefeitura.example/editais',
-          texto: 'valor total de R$ 9.184,00 (nove mil)',
+          texto: '',
         },
+      ]);
+      repo.listarAnexosDeContrato.mockReturnValue([
+        { documento_id: 12, anexo_id: 77, nome: 'Contrato.pdf', texto: 'valor total de R$ 9.184,00 (nove mil)' },
+        { documento_id: 99, anexo_id: 88, nome: 'Outro.pdf', texto: 'valor total de R$ 1,00' },
       ]);
       repo.listarEmpenhosQueCitamProcesso.mockReturnValue([
         { id: 1, empenho: '01446-000', credor_nome: 'VERDAM LTDA', credor_cnpj: '23162312000105', valor: 9184, tipo: 'EO', exercicio_orcamento: 2026, historico: 'PROCESSO LICITATÓRIO N°19/2026' },
@@ -93,6 +98,8 @@ describe('execucao-contratual-runner', () => {
       expect(r.gravados).toBe(1);
       const [alerta, documentos, evidencias] = upsertAlerta.mock.calls[0];
       expect(documentos[0]).toMatchObject({ documento_id: 12, papel: 'contrato' });
+      expect(evidencias[0]).toMatchObject({ documento_id: 12, anexo_id: 77, papel: 'contrato' });
+      expect(evidencias[0].metadados.descricao).toMatch(/Contrato\.pdf/);
       expect(evidencias.map((e) => e.papel)).toEqual(['contrato', 'empenho', 'empenho']);
       expect(evidencias[1].metadados.portal_url).toMatch(/^https?:\/\//);
 

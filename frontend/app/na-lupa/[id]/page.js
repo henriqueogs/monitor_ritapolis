@@ -231,7 +231,7 @@ export default async function NaLupaDetalhePage(props) {
                   {ev.fato_descricao ||
                     (ev.metadados?.empenho
                       ? `Empenho ${ev.metadados.empenho}/${ev.metadados.exercicio}${ev.metadados.credor_nome ? ` — ${ev.metadados.credor_nome}` : ''}`
-                      : `Evidencia ${ev.id}`)}
+                      : ev.metadados?.descricao || ev.documento_titulo || `Evidência ${ev.id}`)}
                 </h3>
                 {ev.trecho_fonte ? (
                   <p className={styles.evidenceText}>

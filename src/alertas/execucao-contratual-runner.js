@@ -33,12 +33,28 @@ function formatarRazao(razao) {
 }
 
 function evidenciaContrato(sinal) {
+  const onde = sinal.anexo_nome ? ` (lido em ${sinal.anexo_nome})` : '';
   return {
     documento_id: sinal.documento_id,
+    anexo_id: sinal.anexo_id || null,
     papel: 'contrato',
     trecho_fonte: sinal.trecho_contrato,
-    metadados: { descricao: `Valor do contrato publicado: ${formatBRL(sinal.valor_contrato)}` },
+    metadados: { descricao: `Valor do contrato publicado: ${formatBRL(sinal.valor_contrato)}${onde}` },
   };
+}
+
+// Junta a cada processo os anexos de contrato dele (fontes do valor).
+function processosComFontes() {
+  const anexosPorDocumento = new Map();
+  for (const anexo of repo.listarAnexosDeContrato()) {
+    const lista = anexosPorDocumento.get(anexo.documento_id) || [];
+    lista.push(anexo);
+    anexosPorDocumento.set(anexo.documento_id, lista);
+  }
+  return repo.listarProcessosComTextoContrato().map((processo) => ({
+    ...processo,
+    fontes: anexosPorDocumento.get(processo.documento_id) || [],
+  }));
 }
 
 // O hash padrão do repo usa documento/papel/trecho; empenhos com o mesmo histórico
@@ -110,14 +126,17 @@ function sinalParaAlerta(sinal) {
         cnpj: sinal.credor_cnpj,
       },
       campos_a_verificar: ['valor do contrato', 'aditivos', 'número do processo citado nos empenhos'],
-      lacunas_deterministicas: ['aditivos e apostilamentos nem sempre estão publicados no acervo'],
+      lacunas_deterministicas: [
+        'aditivos e apostilamentos nem sempre estão publicados no acervo',
+        'em adesão a ata de registro de preços, pode haver mais de uma compra (e contrato) no mesmo processo',
+      ],
     },
   };
 }
 
 function gerarDescobertasExecucao({ dryRun = false } = {}) {
   const sinais = detectarEmpenhadoAcimaContratado({
-    processos: repo.listarProcessosComTextoContrato(),
+    processos: processosComFontes(),
     empenhos: repo.listarEmpenhosQueCitamProcesso(),
   });
   let gravados = 0;

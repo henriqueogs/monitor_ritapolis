@@ -8,6 +8,7 @@ const {
   rotuloMotivo,
   tituloEvidencia,
   formatarPar,
+  liberadoParaPublicar,
   MOTIVOS_DESCARTE_OPCOES,
 } = require('../frontend/lib/alerta-revisao');
 
@@ -195,6 +196,45 @@ describe('alerta-revisao', () => {
       expect(formatarPar('x', null)).toBe('—');
       expect(formatarPar('x', ['a', 'b'])).toBe('a, b');
       expect(formatarPar('cnpj', '123')).toBe('123');
+    });
+  });
+  describe('gate determinístico na tela', () => {
+    const GATE_DET = { aplicavel: true, campos: ['valor do contrato', 'aditivos'] };
+
+    function deterministico(pendencias = []) {
+      return { metadados: {}, gate_deterministico: GATE_DET, revalidacao: { pendencias } };
+    }
+
+    it('situacaoGate reconhece alerta determinístico e não pede a IA', () => {
+      const situacao = situacaoGate(deterministico());
+
+      expect(situacao.deterministico).toBe(true);
+      expect(situacao.campos).toEqual(GATE_DET.campos);
+      expect(situacao.bloqueio).not.toMatch(/IA/);
+    });
+
+    it('libera só com todos os campos marcados e sem pendência', () => {
+      const situacao = situacaoGate(deterministico());
+
+      expect(liberadoParaPublicar(situacao, new Set(['aditivos']))).toBe(false);
+      expect(liberadoParaPublicar(situacao, new Set(GATE_DET.campos))).toBe(true);
+    });
+
+    it('pendência da revalidação bloqueia mesmo com tudo marcado', () => {
+      const situacao = situacaoGate(deterministico([{ codigo: 'SEM_FONTE', mensagem: 'sem link' }]));
+
+      expect(liberadoParaPublicar(situacao, new Set(GATE_DET.campos))).toBe(false);
+      expect(situacao.bloqueio).toMatch(/sem link/);
+    });
+
+    it('alerta da IA segue o gate factual', () => {
+      const alerta = { metadados: { discovery_v3: { qualidade: { factual_status: 'aprovado' } } } };
+
+      expect(liberadoParaPublicar(situacaoGate(alerta), new Set())).toBe(true);
+    });
+
+    it('rotula a conferência no histórico', () => {
+      expect(rotuloMotivo('CONFERIDO: aditivos')).toBe('Conferido pelo revisor: aditivos');
     });
   });
 });
