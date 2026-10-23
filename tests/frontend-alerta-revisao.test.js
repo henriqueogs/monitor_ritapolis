@@ -6,6 +6,8 @@ const {
   linksDaEvidencia,
   situacaoGate,
   rotuloMotivo,
+  tituloEvidencia,
+  formatarPar,
   MOTIVOS_DESCARTE_OPCOES,
 } = require('../frontend/lib/alerta-revisao');
 
@@ -69,6 +71,12 @@ describe('alerta-revisao', () => {
       const regra = descreverRegra({ tipo: 'gasto_atipico', subcategoria: 'gasto_atipico_salto' });
 
       expect(regra.codigo).toBe('gasto_atipico_salto');
+    });
+
+    it('explica o empenhado acima do contratado pela subcategoria', () => {
+      const regra = descreverRegra({ tipo: 'execucao_contratual', subcategoria: 'empenhado_acima_contratado' });
+
+      expect(regra.nome).toBe('Empenhado acima do contratado');
     });
 
     it('lista os sinais do detector antigo', () => {
@@ -154,6 +162,39 @@ describe('alerta-revisao', () => {
       for (const opcao of MOTIVOS_DESCARTE_OPCOES) {
         expect(rotuloMotivo(opcao.codigo)).not.toBe(opcao.codigo);
       }
+    });
+  });
+  describe('tituloEvidencia', () => {
+    it('usa o título do documento quando existe', () => {
+      expect(tituloEvidencia({ id: 3, documento_titulo: 'Processo 19/2026' })).toBe('Processo 19/2026');
+    });
+
+    it('nomeia o empenho com número e exercício', () => {
+      const e = { id: 4, papel: 'empenho', metadados: { empenho: '01588-000', exercicio: 2026 } };
+
+      expect(tituloEvidencia(e)).toBe('Empenho 01588-000 (2026)');
+    });
+
+    it('cai no id quando não há nada melhor', () => {
+      expect(tituloEvidencia({ id: 9 })).toBe('Evidência #9');
+    });
+  });
+
+  describe('formatarPar', () => {
+    it('formata chaves de valor e excesso em reais', () => {
+      expect(formatarPar('valor_contrato', 9184)).toMatch(/R\$\s?9\.184,00/);
+      expect(formatarPar('excesso', 46848.83)).toMatch(/R\$\s?46\.848,83/);
+    });
+
+    it('mantém razão e contagem como número', () => {
+      expect(formatarPar('razao', 6.1)).toBe('6,1');
+      expect(formatarPar('empenhos', 2)).toBe('2');
+    });
+
+    it('trata vazio, lista e texto', () => {
+      expect(formatarPar('x', null)).toBe('—');
+      expect(formatarPar('x', ['a', 'b'])).toBe('a, b');
+      expect(formatarPar('cnpj', '123')).toBe('123');
     });
   });
 });

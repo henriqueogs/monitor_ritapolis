@@ -165,12 +165,16 @@ function enriquecerDocumento(row) {
 }
 
 function lerConfig() {
+  // Detectores temáticos antigos desligados por padrão (23/10/2026): contavam
+  // processos por categoria e repetiam alertas do resumo da IA, sem regra
+  // conferível — tudo caía em revisão e era descartado. Reativáveis em
+  // alertas:gatilhos_ativos.
   const gatilhosDefault = {
-    repeticao_tematica: true,
-    risco_alto: true,
-    valor_relevante: true,
-    anomalia_temporal: true,
-    questionamentos: true,
+    repeticao_tematica: false,
+    risco_alto: false,
+    valor_relevante: false,
+    anomalia_temporal: false,
+    questionamentos: false,
     fatos_agregados: true,
   };
   return {

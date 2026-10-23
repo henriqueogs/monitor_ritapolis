@@ -4,6 +4,7 @@ import { nivelLabel, qualidadeMotivoLabel } from '../../../lib/descobertas';
 import {
   descreverRegra,
   formatarMetricaAlerta,
+  formatarPar,
   situacaoGate,
   ROTULO_PENDENCIA,
   ROTULO_RECOMENDACAO,
@@ -11,14 +12,6 @@ import {
 import EvidenciasLista from './EvidenciasLista';
 import DecisaoEditorial from './DecisaoEditorial';
 import styles from './styles.module.css';
-
-function formatarValor(valor) {
-  if (valor === null || valor === undefined) return '—';
-  if (typeof valor === 'number') return valor.toLocaleString('pt-BR');
-  if (Array.isArray(valor)) return valor.join(', ');
-  if (typeof valor === 'object') return JSON.stringify(valor);
-  return String(valor);
-}
 
 function Pares({ dados }) {
   const entradas = Object.entries(dados || {});
@@ -28,7 +21,7 @@ function Pares({ dados }) {
       {entradas.map(([chave, valor]) => (
         <div key={chave}>
           <dt>{chave.replace(/_/g, ' ')}</dt>
-          <dd>{formatarValor(valor)}</dd>
+          <dd>{formatarPar(chave, valor)}</dd>
         </div>
       ))}
     </dl>
@@ -42,7 +35,7 @@ function Lista({ titulo, itens }) {
       <h3>{titulo}</h3>
       <ul>
         {itens.map((item, i) => (
-          <li key={i}>{typeof item === 'string' ? item : formatarValor(item)}</li>
+          <li key={i}>{typeof item === 'string' ? item : formatarPar('', item)}</li>
         ))}
       </ul>
     </div>
