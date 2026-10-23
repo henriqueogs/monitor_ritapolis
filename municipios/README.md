@@ -18,6 +18,9 @@ um pela variável de ambiente `MUNICIPIO` (padrão: `ritapolis`).
 3. No `.env`, defina `MUNICIPIO=<slug>`.
 4. Rode `npm test`: `src/municipio.test.js` confere todas as pastas daqui contra o schema.
 
+Para ver o projeto funcionando antes de configurar uma cidade, `docker compose up --build` sobe o
+`_exemplo/` com documentos fictícios (`npm run seed:exemplo`, que recusa rodar em município real).
+
 Valor inválido derruba a API na subida, com o nome do campo: um CNPJ errado nunca vira número errado em
 silêncio.
 
