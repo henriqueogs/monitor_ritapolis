@@ -82,6 +82,8 @@
     "alertas:empenhos:dry": "node scripts/gerar-descobertas-empenhos.js --dry-run",
     "alertas:execucao": "node scripts/gerar-descobertas-execucao.js",
     "alertas:execucao:dry": "node scripts/gerar-descobertas-execucao.js --dry-run",
+    "alertas:socio-servidor": "node scripts/gerar-descobertas-socio-servidor.js",
+    "alertas:socio-servidor:dry": "node scripts/gerar-descobertas-socio-servidor.js --dry-run",
     "descobertas:investigar": "node scripts/investigar-descobertas-pendentes.js",
     "descobertas:processar": "node scripts/investigar-descobertas-pendentes.js",
     "descobertas:migrar-v3": "node scripts/migrar-descobertas-editorial-v3.js",

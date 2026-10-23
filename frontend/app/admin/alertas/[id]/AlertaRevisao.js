@@ -128,6 +128,11 @@ export default function AlertaRevisao({ alerta }) {
           {alerta.categoria || 'sem categoria'}
         </span>
         <h1>{alerta.titulo}</h1>
+        {gate.somenteAdmin ? (
+          <p className={styles.interno} role="note">
+            Alerta interno: cruza dados pessoais (LGPD). Serve para conferência no admin e não pode ser publicado.
+          </p>
+        ) : null}
         {alerta.narrativa ? <p>{alerta.narrativa}</p> : null}
         {metrica ? (
           <p className={styles.metrica}>

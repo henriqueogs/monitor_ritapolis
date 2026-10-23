@@ -176,6 +176,11 @@ describe('alerta-revisao', () => {
       expect(tituloEvidencia(e)).toBe('Empenho 01588-000 (2026)');
     });
 
+    it('nomeia evidência de quadro societário e de folha pelo papel', () => {
+      expect(tituloEvidencia({ id: 5, papel: 'quadro_societario' })).toBe('Quadro societário (Receita Federal)');
+      expect(tituloEvidencia({ id: 6, papel: 'folha' })).toBe('Folha de pagamento da Prefeitura');
+    });
+
     it('cai no id quando não há nada melhor', () => {
       expect(tituloEvidencia({ id: 9 })).toBe('Evidência #9');
     });
@@ -231,6 +236,28 @@ describe('alerta-revisao', () => {
       const alerta = { metadados: { discovery_v3: { qualidade: { factual_status: 'aprovado' } } } };
 
       expect(liberadoParaPublicar(situacaoGate(alerta), new Set())).toBe(true);
+    });
+
+    it('alerta interno nunca libera publicação e não pede conferência', () => {
+      const alerta = {
+        metadados: {},
+        gate_deterministico: { aplicavel: true, somenteAdmin: true, campos: [], bloqueio: 'Alerta interno: não pode ser publicado.' },
+        revalidacao: { pendencias: [] },
+      };
+
+      const situacao = situacaoGate(alerta);
+
+      expect(situacao.somenteAdmin).toBe(true);
+      expect(situacao.campos).toEqual([]);
+      expect(situacao.bloqueio).toMatch(/interno/);
+      expect(liberadoParaPublicar(situacao, new Set())).toBe(false);
+    });
+
+    it('descreve a regra do sócio que é servidor', () => {
+      const regra = descreverRegra({ tipo: 'conflito_interesse', subcategoria: 'socio_servidor', metadados: {} });
+
+      expect(regra.nome).toMatch(/Sócio/);
+      expect(regra.explicacao).toMatch(/homônimo/);
     });
 
     it('rotula a conferência no histórico', () => {

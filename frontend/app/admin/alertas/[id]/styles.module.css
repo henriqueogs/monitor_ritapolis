@@ -221,3 +221,12 @@
   align-items: center;
   gap: 0.4rem;
 }
+
+.interno {
+  margin: 0.5rem 0;
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid #b45309;
+  background: #fffbeb;
+  color: #78350f;
+  font-size: 0.9rem;
+}
