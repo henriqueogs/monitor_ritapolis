@@ -1,7 +1,7 @@
 # Sobe o projeto local com dados fictícios, sem coleta e sem chave de IA:
 #   docker compose up --build
 # Site em http://localhost:3000 · API em http://localhost:3001/api
-# Para usar outro município, troque MUNICIPIO (pasta em municipios/) e retire o seed.
+# Para usar outro município, troque MUNICIPIO e NEXT_PUBLIC_MUNICIPIO (pasta em municipios/) e retire o seed.
 
 services:
   api:
@@ -32,6 +32,7 @@ services:
       context: ./frontend
       args:
         NEXT_PUBLIC_API_URL: http://localhost:3001/api
+        NEXT_PUBLIC_MUNICIPIO: _exemplo
     # Mesma rede da API: "localhost:3001" vale tanto no navegador quanto na renderização do servidor.
     network_mode: 'service:api'
     depends_on:

@@ -4,7 +4,13 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const { lerMunicipio, listarMunicipios, SLUG_PADRAO, RAIZ_MUNICIPIOS } = require('./municipio');
+const {
+  lerMunicipio,
+  listarMunicipios,
+  exportarMunicipios,
+  SLUG_PADRAO,
+  RAIZ_MUNICIPIOS,
+} = require('./municipio');
 
 const SCHEMA = JSON.parse(
   fs.readFileSync(path.join(RAIZ_MUNICIPIOS, 'municipio.schema.json'), 'utf8')
@@ -82,6 +88,16 @@ describe('municipio (configuração do município em arquivo)', () => {
   describe('listarMunicipios', () => {
     it('lista as pastas com municipio.json, incluindo o exemplo', () => {
       expect(listarMunicipios()).toEqual(expect.arrayContaining(['ritapolis', '_exemplo']));
+    });
+  });
+
+  describe('exportarMunicipios', () => {
+    it('devolve todos os municípios por slug, sem o campo $schema', () => {
+      const todos = exportarMunicipios();
+
+      expect(Object.keys(todos).sort()).toEqual(listarMunicipios());
+      expect(todos.ritapolis.nome).toBe('Ritápolis');
+      expect(Object.values(todos).some(m => '$schema' in m)).toBe(false);
     });
   });
 

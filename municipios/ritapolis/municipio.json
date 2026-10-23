@@ -6,5 +6,9 @@
   "ufNome": "Minas Gerais",
   "ibge": "3156106",
   "cnpjPrefeitura": "18557553000105",
-  "cnpjCamara": "26148056000181"
+  "cnpjCamara": "26148056000181",
+  "marca": "Ritápolis.com",
+  "dominioSite": "ritapolis.com",
+  "dominioPrefeitura": "ritapolis.mg.gov.br",
+  "dominioCamara": "ritapolis.mg.leg.br"
 }
