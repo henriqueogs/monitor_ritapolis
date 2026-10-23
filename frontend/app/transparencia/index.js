@@ -25,6 +25,7 @@ import TopCredores from './components/TopCredores';
 import EmpenhosRecentes from './components/EmpenhosRecentes';
 import TiposEmpenho from './components/TiposEmpenho';
 import StatusColeta from './components/StatusColeta';
+import { HOST_PORTAL_TRANSPARENCIA, PORTAL_TRANSPARENCIA_DESPESAS } from '../../lib/ente';
 
 export const metadata = {
   title: 'Dinheiro público',
@@ -32,7 +33,7 @@ export const metadata = {
     'Orçamento, empenhos, pagamentos e fornecedores da Prefeitura de Ritápolis, por mandato e exercício.',
 };
 
-const PORTAL_URL = 'https://pt.ritapolis.mg.gov.br/Tempo_Real_Despesa';
+const PORTAL_URL = PORTAL_TRANSPARENCIA_DESPESAS;
 
 function resolverFiltro(searchParams) {
   if (searchParams?.exercicio) {
@@ -114,7 +115,7 @@ export default async function TransparenciaPage({ searchParams: searchParamsProm
         <p className="page-hero-sub">
           Orçamento, empenhos, pagamentos e fornecedores da Prefeitura de Ritápolis — fonte:{' '}
           <a href={PORTAL_URL} target="_blank" rel="noopener noreferrer">
-            pt.ritapolis.mg.gov.br
+            {HOST_PORTAL_TRANSPARENCIA}
           </a>
           , cruzado com o acervo de licitações.
         </p>

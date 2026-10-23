@@ -15,7 +15,8 @@
     "marca",
     "dominioSite",
     "dominioPrefeitura",
-    "dominioCamara"
+    "dominioCamara",
+    "portalTransparencia"
   ],
   "properties": {
     "$schema": {
@@ -75,6 +76,11 @@
       "description": "Domínio oficial da Câmara (ex.: ritapolis.mg.leg.br).",
       "type": "string",
       "pattern": "^[a-z0-9.-]+$"
+    },
+    "portalTransparencia": {
+      "description": "Origem do Portal da Transparência da Prefeitura, com https:// e sem barra final (ex.: https://pt.ritapolis.mg.gov.br). Fica separado porque cada fornecedor usa um endereço próprio.",
+      "type": "string",
+      "pattern": "^https://[a-z0-9.-]+$"
     }
   },
   "additionalProperties": false

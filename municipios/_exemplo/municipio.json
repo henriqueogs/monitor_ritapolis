@@ -10,5 +10,6 @@
   "marca": "CidadeExemplo.org",
   "dominioSite": "cidade-exemplo.invalid",
   "dominioPrefeitura": "prefeitura.exemplo.invalid",
-  "dominioCamara": "camara.exemplo.invalid"
+  "dominioCamara": "camara.exemplo.invalid",
+  "portalTransparencia": "https://transparencia.exemplo.invalid"
 }

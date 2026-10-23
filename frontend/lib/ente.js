@@ -37,6 +37,11 @@ const DOMINIO_PREFEITURA = MUNICIPIO.dominioPrefeitura;
 const DOMINIO_CAMARA = MUNICIPIO.dominioCamara;
 const HOSTS_PREFEITURA = [DOMINIO_PREFEITURA, `www.${DOMINIO_PREFEITURA}`];
 const ORIGEM_PREFEITURA = `https://${DOMINIO_PREFEITURA}`;
+const ORIGENS_PREFEITURA = HOSTS_PREFEITURA.map(host => `https://${host}`);
+// Portal da Transparência: origem própria, porque cada fornecedor usa um endereço (municipio.json).
+const PORTAL_TRANSPARENCIA = MUNICIPIO.portalTransparencia;
+const HOST_PORTAL_TRANSPARENCIA = new URL(PORTAL_TRANSPARENCIA).hostname;
+const PORTAL_TRANSPARENCIA_DESPESAS = `${PORTAL_TRANSPARENCIA}/Tempo_Real_Despesa`;
 const HOST_SAPL = `sapl.${DOMINIO_CAMARA}`;
 const HOST_CAMARA_PT = `pt.${DOMINIO_CAMARA}`;
 const HOST_SGC = `sgc.${DOMINIO_CAMARA}`;
@@ -65,6 +70,10 @@ module.exports = {
   DOMINIO_CAMARA,
   HOSTS_PREFEITURA,
   ORIGEM_PREFEITURA,
+  ORIGENS_PREFEITURA,
+  PORTAL_TRANSPARENCIA,
+  HOST_PORTAL_TRANSPARENCIA,
+  PORTAL_TRANSPARENCIA_DESPESAS,
   HOST_SAPL,
   HOST_CAMARA_PT,
   HOST_SGC,

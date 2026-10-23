@@ -6,6 +6,7 @@ const { parseLicitacao } = require('../parsers/licitacao');
 const { parseDecreto } = require('../parsers/decreto');
 const { parseDataBrasileira, naoFutura } = require('../utils/datas');
 const { arquivoExtraidoExistente } = require('../utils/documento-merge');
+const { fontes } = require('../fontes');
 const {
   decodeHttpBody,
   normalizeText,
@@ -14,7 +15,7 @@ const {
   deepRepairStrings
 } = require('../utils/text');
 
-const BASE_URL = 'https://ritapolis.mg.gov.br';
+const BASE_URL = fontes.sitePrefeitura;
 const PREFEITURA_AREAS = [
   {
     id: 'editais',

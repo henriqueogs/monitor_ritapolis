@@ -1,7 +1,8 @@
 import SectionBlock from '../../components/SectionBlock';
 import { formatDate } from '../../lib/format';
+import { HOST_PORTAL_TRANSPARENCIA, PORTAL_TRANSPARENCIA_DESPESAS } from '../../../lib/ente';
 
-const PORTAL_URL = 'https://pt.ritapolis.mg.gov.br/Tempo_Real_Despesa';
+const PORTAL_URL = PORTAL_TRANSPARENCIA_DESPESAS;
 
 export default function StatusColeta({ logs }) {
   return (
@@ -34,7 +35,7 @@ export default function StatusColeta({ logs }) {
       <p style={{ marginTop: 16, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
         Fonte:{' '}
         <a href={PORTAL_URL} target="_blank" rel="noopener noreferrer">
-          pt.ritapolis.mg.gov.br/Tempo_Real_Despesa
+          {HOST_PORTAL_TRANSPARENCIA}/Tempo_Real_Despesa
         </a>{' '}
         — Sistema SH3 Informática, API pública, sem autenticação.
       </p>

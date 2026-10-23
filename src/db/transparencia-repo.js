@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Repositório: dados do Portal da Transparência (SH3 — pt.ritapolis.mg.gov.br).
+ * Repositório: dados do Portal da Transparência (SH3; origem em municipio.json, `portalTransparencia`).
  * Armazena despesas (empenhos/liquidações/pagamentos) e licitações do portal
  * de transparência, separados dos documentos coletados do site principal.
  */

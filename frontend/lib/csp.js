@@ -6,11 +6,10 @@
 // O portal oficial pode responder pelo domínio canônico ou pelo alias www.
 // Mantemos a lista explícita para que a política de frames não vire um proxy
 // aberto para origens arbitrárias.
-const { ORIGEM_SGC } = require('./ente');
+const { ORIGENS_PREFEITURA, ORIGEM_SGC } = require('./ente');
 
 const OFFICIAL_SOURCE_FRAME_ORIGINS = [
-  'https://ritapolis.mg.gov.br',
-  'https://www.ritapolis.mg.gov.br',
+  ...ORIGENS_PREFEITURA,
   // SGC da Câmara: PDFs de leis/projetos (?Download=N) servidos inline, sem X-Frame-Options.
   ORIGEM_SGC,
   // Worker Cloudflare que serve o preview do PDF oficial (substitui o antigo
