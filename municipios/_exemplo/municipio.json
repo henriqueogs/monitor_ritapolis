@@ -1,0 +1,10 @@
+{
+  "$schema": "../municipio.schema.json",
+  "slug": "_exemplo",
+  "nome": "Cidade Exemplo",
+  "uf": "SP",
+  "ufNome": "São Paulo",
+  "ibge": "3500000",
+  "cnpjPrefeitura": "00000000000000",
+  "cnpjCamara": "00000000000000"
+}

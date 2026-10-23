@@ -11,3 +11,4 @@ Status: `proposto` (aguarda revisão) · `aceito` · `substituído`.
 | [0004](0004-ferramentas-analiticas-tipadas.md) | Ferramentas analíticas tipadas, não text-to-SQL | proposto |
 | [0005](0005-respostas-fundamentadas.md) | Respostas fundamentadas: citação obrigatória e recusa | proposto |
 | [0006](0006-avaliacao-como-gate.md) | Avaliação (evals) como gate de qualidade | proposto |
+| [0007](0007-repositorio-modelo.md) | Este repositório vira o modelo; município em `municipios/<slug>/` | aceito |
