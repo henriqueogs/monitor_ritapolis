@@ -69,7 +69,12 @@ function InvestigacaoIa({ alerta, gate }) {
   return (
     <section className={styles.section}>
       <h2>Investigação da IA</h2>
-      {!d ? <p className={styles.muted}>{gate.bloqueio}</p> : null}
+      {gate.deterministico ? (
+        <p className={styles.muted}>
+          Não se aplica: o achado é uma conta sobre dados oficiais (regra determinística), sem leitura da IA.
+        </p>
+      ) : null}
+      {!d && !gate.deterministico ? <p className={styles.muted}>{gate.bloqueio}</p> : null}
       {d ? (
         <>
           <p className={styles.muted}>

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { updateAlertaEditorial, reprocessarAlerta } from '../../../lib/api';
-import { MOTIVOS_DESCARTE_OPCOES } from '../../../../lib/alerta-revisao';
+import { MOTIVOS_DESCARTE_OPCOES, liberadoParaPublicar } from '../../../../lib/alerta-revisao';
 import styles from './styles.module.css';
 
 const ESTADO = { PUBLICADO: 'publicado', REVISAO: 'revisao', REJEITADO: 'rejeitado' };
@@ -14,6 +14,16 @@ export default function DecisaoEditorial({ alerta, gate }) {
   const [nota, setNota] = useState('');
   const [carregando, setCarregando] = useState(null);
   const [mensagem, setMensagem] = useState(null);
+  const [marcados, setMarcados] = useState(() => new Set());
+
+  function alternar(campo) {
+    setMarcados((atual) => {
+      const novo = new Set(atual);
+      if (novo.has(campo)) novo.delete(campo);
+      else novo.add(campo);
+      return novo;
+    });
+  }
 
   async function executar(chave, acao, sucesso) {
     setCarregando(chave);
@@ -31,12 +41,17 @@ export default function DecisaoEditorial({ alerta, gate }) {
   }
 
   const decidir = (estado, motivos = []) =>
-    executar(estado, () => updateAlertaEditorial(alerta.id, estado, motivos, nota), `Descoberta → ${estado}`);
+    executar(
+      estado,
+      () => updateAlertaEditorial(alerta.id, estado, { motivos, nota, conferidos: [...marcados] }),
+      `Descoberta → ${estado}`
+    );
 
   const reprocessar = () =>
     executar('reprocessar', () => reprocessarAlerta(alerta.id), 'Investigação da IA enviada; recarregue em instantes.');
 
   const ocupado = carregando !== null;
+  const liberado = liberadoParaPublicar(gate, marcados);
 
   return (
     <section className={styles.section}>
@@ -46,10 +61,21 @@ export default function DecisaoEditorial({ alerta, gate }) {
         <textarea value={nota} maxLength={500} rows={2} onChange={(e) => setNota(e.target.value)} />
       </label>
 
+      {gate.deterministico ? (
+        <fieldset className={styles.conferencia}>
+          <legend>Conferi nas fontes oficiais (obrigatório para publicar)</legend>
+          {gate.campos.map((campo) => (
+            <label key={campo}>
+              <input type="checkbox" checked={marcados.has(campo)} onChange={() => alternar(campo)} /> {campo}
+            </label>
+          ))}
+        </fieldset>
+      ) : null}
+
       <div className={styles.acoes}>
         <button
           className="button"
-          disabled={ocupado || !gate.podePublicar || alerta.estado_editorial === ESTADO.PUBLICADO}
+          disabled={ocupado || !liberado || alerta.estado_editorial === ESTADO.PUBLICADO}
           title={gate.bloqueio || ''}
           onClick={() => decidir(ESTADO.PUBLICADO)}
         >
@@ -58,11 +84,13 @@ export default function DecisaoEditorial({ alerta, gate }) {
         <button className="button button-secondary" disabled={ocupado} onClick={() => decidir(ESTADO.REVISAO)}>
           Manter em revisão
         </button>
-        <button className="button button-secondary" disabled={ocupado} onClick={reprocessar}>
-          {carregando === 'reprocessar' ? 'Enviando…' : 'Reprocessar com IA'}
-        </button>
+        {gate.deterministico ? null : (
+          <button className="button button-secondary" disabled={ocupado} onClick={reprocessar}>
+            {carregando === 'reprocessar' ? 'Enviando…' : 'Reprocessar com IA'}
+          </button>
+        )}
       </div>
-      {!gate.podePublicar && gate.bloqueio ? <p className={styles.muted}>Publicar bloqueado: {gate.bloqueio}</p> : null}
+      {!liberado && gate.bloqueio ? <p className={styles.muted}>Publicar bloqueado: {gate.bloqueio}</p> : null}
 
       <div className={styles.descarte}>
         <label className={styles.campo}>

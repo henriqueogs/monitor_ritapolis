@@ -8,8 +8,10 @@
 
 const repo = require('../db/alertas-repo');
 const { avaliarAlerta } = require('../alertas/revalidacao');
+const { avaliarGateDeterministico, ehDeterministico, PREFIXO_CONFERIDO } = require('../alertas/gate-deterministico');
 
 const ESTADO_REJEITADO = 'rejeitado';
+const ESTADO_PUBLICADO = 'publicado';
 const PREFIXO_NOTA = 'NOTA: ';
 const NOTA_MAX = 500;
 
@@ -53,8 +55,10 @@ function detalharParaRevisao(id) {
   if (!alerta) {
     return null;
   }
+  const revisado = comRevalidacao(alerta);
   return {
-    ...comRevalidacao(alerta),
+    ...revisado,
+    gate_deterministico: avaliarGateDeterministico(alerta, revisado.revalidacao),
     historico_editorial: repo.listarHistoricoEditorial(id),
   };
 }
@@ -64,7 +68,21 @@ function normalizarNota(nota) {
   return texto ? `${PREFIXO_NOTA}${texto}` : null;
 }
 
-function decidirEditorial(id, { estado, motivos = [], nota } = {}) {
+// Publicação de alerta determinístico: não há gate da IA; vale o gate próprio
+// (revalidação limpa + campos conferidos pelo revisor), registrado no histórico.
+function publicarDeterministico(alerta, { conferidos, extras }) {
+  const gate = avaliarGateDeterministico(alerta, avaliarAlerta(alerta), { conferidos });
+  if (!gate.podePublicar) {
+    throw new DecisaoInvalidaError(`publicação bloqueada: ${gate.bloqueio}`);
+  }
+  return repo.setEstadoEditorial(alerta.id, ESTADO_PUBLICADO, {
+    origem: 'admin',
+    exigirGateFactual: false,
+    motivos: [...gate.campos.map((campo) => `${PREFIXO_CONFERIDO}${campo}`), ...extras],
+  });
+}
+
+function decidirEditorial(id, { estado, motivos = [], nota, conferidos = [] } = {}) {
   const codigos = Array.isArray(motivos) ? motivos.map(String) : [];
   const invalidos = codigos.filter((codigo) => !MOTIVOS_VALIDOS.has(codigo));
   if (invalidos.length) {
@@ -74,10 +92,14 @@ function decidirEditorial(id, { estado, motivos = [], nota } = {}) {
     throw new DecisaoInvalidaError('descartar exige ao menos um motivo');
   }
   const notaNormalizada = normalizarNota(nota);
-  return repo.setEstadoEditorial(id, estado, {
-    origem: 'admin',
-    motivos: notaNormalizada ? [...codigos, notaNormalizada] : codigos,
-  });
+  const extras = notaNormalizada ? [...codigos, notaNormalizada] : codigos;
+  if (estado === ESTADO_PUBLICADO) {
+    const alerta = repo.getAlerta(id);
+    if (alerta && ehDeterministico(alerta)) {
+      return publicarDeterministico(alerta, { conferidos, extras });
+    }
+  }
+  return repo.setEstadoEditorial(id, estado, { origem: 'admin', motivos: extras });
 }
 
 module.exports = {

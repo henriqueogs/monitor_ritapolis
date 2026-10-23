@@ -116,6 +116,7 @@ const ROTULO_RECOMENDACAO = Object.freeze({
 
 const PREFIXO_NOTA = 'NOTA: ';
 const PREFIXO_REVALIDACAO = 'REVALIDACAO_';
+const PREFIXO_CONFERIDO = 'CONFERIDO: ';
 
 const ehUrlHttp = (valor) => /^https?:\/\//i.test(String(valor ?? '').trim());
 
@@ -185,7 +186,27 @@ function linksDaEvidencia(evidencia, documentosPorId) {
   return links;
 }
 
+// Alerta de regra determinística (sem IA): o servidor manda `gate_deterministico`
+// com os campos que o revisor precisa marcar; a revalidação não pode ter pendência.
+function situacaoDeterministica(alerta) {
+  const pendencias = alerta.revalidacao?.pendencias || [];
+  return {
+    deterministico: true,
+    investigado: false,
+    podePublicar: false,
+    campos: alerta.gate_deterministico.campos || [],
+    pendente: pendencias.length > 0,
+    motivos: [],
+    bloqueio: pendencias.length
+      ? `Revalidação apontou: ${pendencias.map((p) => p.mensagem || p.codigo).join('; ')}`
+      : 'Regra determinística: marque cada item conferido nas fontes para publicar.',
+  };
+}
+
 function situacaoGate(alerta) {
+  if (alerta?.gate_deterministico?.aplicavel) {
+    return situacaoDeterministica(alerta);
+  }
   const metadados = alerta?.metadados || {};
   const qualidade = metadados.discovery_v3?.qualidade;
   if (!qualidade) {
@@ -210,8 +231,18 @@ function situacaoGate(alerta) {
   };
 }
 
+function liberadoParaPublicar(gate, marcados) {
+  if (!gate?.deterministico) {
+    return Boolean(gate?.podePublicar);
+  }
+  return !gate.pendente && gate.campos.every((campo) => marcados.has(campo));
+}
+
 function rotuloMotivo(codigo) {
   const texto = String(codigo ?? '');
+  if (texto.startsWith(PREFIXO_CONFERIDO)) {
+    return `Conferido pelo revisor: ${texto.slice(PREFIXO_CONFERIDO.length)}`;
+  }
   if (texto.startsWith(PREFIXO_NOTA)) {
     return `Nota do revisor: ${texto.slice(PREFIXO_NOTA.length)}`;
   }
@@ -255,6 +286,7 @@ module.exports = {
   descreverRegra,
   linksDaEvidencia,
   situacaoGate,
+  liberadoParaPublicar,
   rotuloMotivo,
   MOTIVOS_DESCARTE_OPCOES,
   ROTULO_PENDENCIA,

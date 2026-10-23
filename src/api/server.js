@@ -1101,12 +1101,12 @@ function createServer({ servicoPerguntar } = {}) {
 
   app.patch('/api/admin/alertas/:id/editorial', (req, res) => {
     const id = Number(req.params.id);
-    const { estado, motivos, nota } = req.body || {};
+    const { estado, motivos, nota, conferidos } = req.body || {};
     if (!Number.isInteger(id)) {
       return res.status(400).json({ error: 'id invalido' });
     }
     try {
-      const ok = alertasRevisao.decidirEditorial(id, { estado, motivos, nota });
+      const ok = alertasRevisao.decidirEditorial(id, { estado, motivos, nota, conferidos });
       if (!ok) {
         return res.status(404).json({ error: 'Alerta nao encontrado' });
       }

@@ -5,6 +5,7 @@ const {
   processoDoTitulo,
   extrairValorContrato,
   trechoDoValor,
+  localizarValorContrato,
   detectarEmpenhadoAcimaContratado,
 } = require('./empenhado-acima-contratado');
 
@@ -82,6 +83,19 @@ describe('EmpenhadoAcimaContratado', () => {
       expect(extrairValorContrato(texto)).toBeNull();
     });
 
+    it('lê "Valor Global – R$" e "Preço Global: R$"', () => {
+      expect(extrairValorContrato('Empresa X – CNPJ nº 1 – Valor Global – R$ 182.843,19 (Cento e oitenta)')).toBe(182843.19);
+      expect(extrairValorContrato('3.1. Preço Global: R$ 394.619,20 (Trezentos e noventa)')).toBe(394619.2);
+    });
+
+    it('descarta preço global seguido de "anual"', () => {
+      expect(extrairValorContrato('3.1 . Preço Global: R$ 64.800,00 (Sessenta e quatro mil) anual')).toBeNull();
+    });
+
+    it('descarta valor por unidade de medida', () => {
+      expect(extrairValorContrato('valor total de R$ 4,35 (quatro reais) por ponto de iluminação')).toBeNull();
+    });
+
     it('aceita o mesmo valor repetido', () => {
       const texto = 'Valor do contrato: R$ 38.500,00. Valor do contrato: R$ 38.500,00.';
 
@@ -89,9 +103,49 @@ describe('EmpenhadoAcimaContratado', () => {
     });
   });
 
+  describe('localizarValorContrato', () => {
+    it('aponta o anexo de onde o valor foi lido', () => {
+      const fontes = [
+        { anexo_id: null, nome: null, texto: 'Processo sem valor' },
+        { anexo_id: 55, nome: 'Extrato do contrato.pdf', texto: 'Valor do contrato: R$ 38.500,00 (trinta e oito mil).' },
+      ];
+
+      expect(localizarValorContrato(fontes)).toMatchObject({
+        valor: 38500,
+        anexo_id: 55,
+        anexo_nome: 'Extrato do contrato.pdf',
+        trecho: expect.stringContaining('R$ 38.500,00'),
+      });
+    });
+
+    it('é ambíguo quando anexos trazem valores diferentes', () => {
+      const fontes = [
+        { anexo_id: 1, texto: 'Valor do contrato: R$ 10.000,00.' },
+        { anexo_id: 2, texto: 'Valor do contrato: R$ 20.000,00.' },
+      ];
+
+      expect(localizarValorContrato(fontes)).toBeNull();
+    });
+
+    it('um valor periódico em qualquer anexo anula a leitura', () => {
+      const fontes = [
+        { anexo_id: 1, texto: 'Valor do contrato: R$ 24.000,00.' },
+        { anexo_id: 2, texto: 'Valor total de R$ 24.000,00 por ano.' },
+      ];
+
+      expect(localizarValorContrato(fontes)).toBeNull();
+    });
+  });
+
   describe('trechoDoValor', () => {
     it('devolve o trecho literal em volta do valor', () => {
       expect(trechoDoValor(processoVerdam().texto)).toMatch(/valor total de R\$ 9\.184,00/);
+    });
+
+    it('mascara CPF no trecho (sai no payload público)', () => {
+      const texto = 'Signatário CPF 123.456.789-09, valor total de R$ 9.184,00.';
+
+      expect(trechoDoValor(texto)).not.toMatch(/123\.456\.789-09/);
     });
 
     it('devolve null sem valor', () => {
@@ -161,6 +215,15 @@ describe('EmpenhadoAcimaContratado', () => {
       const processos = [processoVerdam({ vencedor_cnpj: null })];
 
       expect(detectarEmpenhadoAcimaContratado({ processos, empenhos })).toEqual([]);
+    });
+
+    it('leva o anexo do contrato para o sinal', () => {
+      const processos = [processoVerdam({ texto: '', fontes: [{ anexo_id: 77, nome: 'Contrato.pdf', texto: processoVerdam().texto }] })];
+      const empenhos = [empenho(), empenho({ id: 2, valor: 46848.83 })];
+
+      const [sinal] = detectarEmpenhadoAcimaContratado({ processos, empenhos });
+
+      expect(sinal).toMatchObject({ valor_contrato: 9184, anexo_id: 77, anexo_nome: 'Contrato.pdf' });
     });
 
     it('ignora processo sem valor de contrato legível', () => {

@@ -17,6 +17,8 @@
 //  - margem de 25% (limite de acréscimo do art. 125 da Lei 14.133) e excesso
 //    mínimo em reais.
 
+const { mascararCpf } = require('../../ai/rag/privacidade');
+
 const FATOR_LIMITE_PADRAO = 1.25;
 const EXCESSO_MINIMO_PADRAO = 10000;
 const SECULO = 2000;
@@ -26,8 +28,9 @@ const DIGITOS_CNPJ = 14;
 const RE_PROCESSO_CITADO = /PROCESSO\s+LICITAT[OÓ]RIO\s*(?:N[°ºO.]*)?\s*0*(\d{1,4})\s*\/\s*(\d{2}(?:\d{2})?)\b/i;
 const RE_PROCESSO_TITULO = /^Processo\s+0*(\d{1,4})\/(\d{4})/i;
 const RE_VALOR_CONTRATO =
-  /valor\s+(?:total\s+)?(?:do\s+contrato|global|total)\s*(?:de|:|é)?\s*(?:de\s+)?R\$\s*([\d.]+,\d{2})([^.;]{0,80})/gi;
-const RE_PERIODICO = /m[eê]s|mensa|por\s+ano|anual|unit[aá]ri/i;
+  /(?:valor\s+(?:total\s+)?(?:do\s+contrato|global|total)|pre[cç]o\s+global)\s*(?:de|:|é|–|-)?\s*(?:de\s+)?R\$\s*([\d.]+,\d{2})([^.;]{0,80})/gi;
+const RE_PERIODICO =
+  /m[eê]s|mensa|por\s+ano|anual|unit[aá]ri|por\s+(?:ponto|unidade|item|hora|km|quil[oô]metro|litro|metro|di[aá]ria)/i;
 const RE_CONSORCIO = /\bCONS[.\s]|CONS[OÓ]RCIO/i;
 const RE_ORDEM_PAGAMENTO = /^OP/i;
 
@@ -51,43 +54,85 @@ function processoDoTitulo(titulo) {
 
 const chaveProcesso = ({ numero, ano }) => `${numero}/${ano}`;
 
-function extrairValorContrato(texto) {
+// Valores do contrato num texto: { valores: Set, periodico }.
+function lerValores(texto) {
   const valores = new Set();
   for (const [, valor, contexto] of String(texto ?? '').matchAll(RE_VALOR_CONTRATO)) {
     if (RE_PERIODICO.test(contexto)) {
-      return null;
+      return { valores, periodico: true };
     }
     valores.add(valorBrl(valor));
   }
-  return valores.size === 1 ? [...valores][0] : null;
+  return { valores, periodico: false };
+}
+
+function extrairValorContrato(texto) {
+  const { valores, periodico } = lerValores(texto);
+  return !periodico && valores.size === 1 ? [...valores][0] : null;
 }
 
 const TRECHO_ANTES = 80;
 const TRECHO_DEPOIS = 160;
 
 // Trecho literal do texto oficial em volta do valor do contrato (evidência §11.3).
+// CPF de signatário eventualmente no trecho é mascarado (LGPD).
 function trechoDoValor(texto) {
   const alvo = String(texto ?? '');
   const m = new RegExp(RE_VALOR_CONTRATO.source, 'i').exec(alvo);
   if (!m) {
     return null;
   }
-  return alvo.slice(Math.max(0, m.index - TRECHO_ANTES), m.index + TRECHO_DEPOIS).replace(/\s+/g, ' ').trim();
+  const trecho = alvo.slice(Math.max(0, m.index - TRECHO_ANTES), m.index + TRECHO_DEPOIS);
+  return mascararCpf(trecho).replace(/\s+/g, ' ').trim();
+}
+
+// Lê o valor em todas as fontes do processo (trecho do detalhe e anexos de
+// contrato/extrato). Só aceita um valor único e não periódico entre todas; a
+// citação aponta a primeira fonte onde ele aparece.
+function localizarValorContrato(fontes) {
+  const valores = new Set();
+  let origem = null;
+  for (const fonte of fontes || []) {
+    const lido = lerValores(fonte.texto);
+    if (lido.periodico) {
+      return null;
+    }
+    lido.valores.forEach((v) => valores.add(v));
+    if (!origem && lido.valores.size) {
+      origem = fonte;
+    }
+  }
+  if (valores.size !== 1) {
+    return null;
+  }
+  return {
+    valor: [...valores][0],
+    anexo_id: origem.anexo_id ?? null,
+    anexo_nome: origem.nome ?? null,
+    trecho: trechoDoValor(origem.texto),
+  };
+}
+
+function fontesDoProcesso(processo) {
+  const fontes = Array.isArray(processo.fontes) ? processo.fontes : [];
+  return processo.texto ? [{ anexo_id: null, nome: null, texto: processo.texto }, ...fontes] : fontes;
 }
 
 function indexarProcessos(processos) {
   const porChave = new Map();
   for (const processo of processos) {
     const id = processoDoTitulo(processo.titulo);
-    const valor = id ? extrairValorContrato(processo.texto) : null;
-    if (!valor) {
+    const lido = id ? localizarValorContrato(fontesDoProcesso(processo)) : null;
+    if (!lido) {
       continue;
     }
     porChave.set(chaveProcesso(id), {
       ...processo,
       processo: chaveProcesso(id),
-      valor_contrato: valor,
-      trecho_contrato: trechoDoValor(processo.texto),
+      valor_contrato: lido.valor,
+      trecho_contrato: lido.trecho,
+      anexo_id: lido.anexo_id,
+      anexo_nome: lido.anexo_nome,
     });
   }
   return porChave;
@@ -138,6 +183,8 @@ function montarSinal(processo, empenhos) {
     documento_id: processo.documento_id,
     titulo_processo: processo.titulo,
     trecho_contrato: processo.trecho_contrato,
+    anexo_id: processo.anexo_id,
+    anexo_nome: processo.anexo_nome,
     url_origem: processo.url_origem || null,
     url_pdf: processo.url_pdf || null,
     processo: processo.processo,
@@ -178,6 +225,7 @@ module.exports = {
   processoDoTitulo,
   extrairValorContrato,
   trechoDoValor,
+  localizarValorContrato,
   detectarEmpenhadoAcimaContratado,
   FATOR_LIMITE_PADRAO,
   EXCESSO_MINIMO_PADRAO,

@@ -112,10 +112,62 @@ describe('alertas-revisao-service', () => {
 
     it('não exige motivo para publicar ou manter em revisão', () => {
       repo.setEstadoEditorial.mockReturnValue(true);
+      repo.getAlerta.mockReturnValue(alertaCompleto());
 
       decidirEditorial(7, { estado: 'publicado' });
 
       expect(repo.setEstadoEditorial).toHaveBeenCalledWith(7, 'publicado', { origem: 'admin', motivos: [] });
+    });
+  });
+  describe('alerta determinístico (sem IA)', () => {
+    const CAMPOS = ['valor do contrato', 'aditivos'];
+
+    function deterministico(extra = {}) {
+      return alertaCompleto({
+        qualidade_versao: 'execucao-contratual-v1',
+        metadados: { campos_a_verificar: CAMPOS },
+        evidencias: [{ documento_id: 1, trecho_fonte: 'x', metadados: {} }],
+        ...extra,
+      });
+    }
+
+    it('o detalhe traz o gate determinístico com os campos a conferir', () => {
+      repo.getAlerta.mockReturnValue(deterministico());
+      repo.listarHistoricoEditorial.mockReturnValue([]);
+
+      const detalhe = detalharParaRevisao(7);
+
+      expect(detalhe.gate_deterministico).toMatchObject({ aplicavel: true, campos: CAMPOS });
+    });
+
+    it('publica sem gate da IA quando o revisor conferiu tudo, e registra o que conferiu', () => {
+      // Arrange
+      repo.getAlerta.mockReturnValue(deterministico());
+      repo.setEstadoEditorial.mockReturnValue(true);
+
+      // Act
+      const ok = decidirEditorial(7, { estado: 'publicado', conferidos: CAMPOS, nota: 'ok' });
+
+      // Assert
+      expect(ok).toBe(true);
+      expect(repo.setEstadoEditorial).toHaveBeenCalledWith(7, 'publicado', {
+        origem: 'admin',
+        exigirGateFactual: false,
+        motivos: ['CONFERIDO: valor do contrato', 'CONFERIDO: aditivos', 'NOTA: ok'],
+      });
+    });
+
+    it('recusa publicar com campo não conferido', () => {
+      repo.getAlerta.mockReturnValue(deterministico());
+
+      expect(() => decidirEditorial(7, { estado: 'publicado', conferidos: ['aditivos'] })).toThrow(/valor do contrato/);
+      expect(repo.setEstadoEditorial).not.toHaveBeenCalled();
+    });
+
+    it('recusa publicar quando a revalidação tem pendência', () => {
+      repo.getAlerta.mockReturnValue(deterministico({ documentos: [], evidencias: [] }));
+
+      expect(() => decidirEditorial(7, { estado: 'publicado', conferidos: CAMPOS })).toThrow(DecisaoInvalidaError);
     });
   });
 });
