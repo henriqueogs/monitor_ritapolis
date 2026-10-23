@@ -9,7 +9,8 @@
 const UNIDADE_REAIS = 'R$';
 const KIND_FACTUAL = 'investigacao_factual';
 const STATUS_APROVADO = 'aprovado';
-const TIPO_GASTO_ATIPICO = 'gasto_atipico';
+// Tipos cuja regra vem da subcategoria (detectores sobre empenhos).
+const TIPOS_REGRA_NA_SUBCATEGORIA = new Set(['gasto_atipico', 'execucao_contratual']);
 
 const ROTULO_UNIDADE = Object.freeze({
   arvores: 'árvores',
@@ -52,6 +53,14 @@ const REGRAS = Object.freeze({
     explicacao:
       'Vem da leitura da IA sobre o resumo do documento, não de um trecho literal do PDF. ' +
       'Precisa ser conferido no documento oficial antes de qualquer publicação.',
+  },
+  empenhado_acima_contratado: {
+    nome: 'Empenhado acima do contratado',
+    explicacao:
+      'Soma os empenhos do fornecedor que citam o processo no histórico (sem ordens de pagamento) e compara ' +
+      'com o valor do contrato lido no extrato ou contrato publicado. Dispara acima de 125% (limite de ' +
+      'acréscimo do art. 125 da Lei 14.133) e com excesso de ao menos R$ 10.000. Aditivo não publicado ' +
+      'ou empenho citando o processo errado também explicam a diferença.',
   },
   gasto_atipico_credor: {
     nome: 'Um recebedor concentra a categoria',
@@ -135,7 +144,7 @@ function descreverLegado(sinais) {
 function descreverRegra(alerta) {
   const metadados = alerta?.metadados || {};
   const bruto =
-    alerta?.tipo === TIPO_GASTO_ATIPICO ? alerta.subcategoria : metadados.investigacao_tipo || metadados.tipo_fato;
+    TIPOS_REGRA_NA_SUBCATEGORIA.has(alerta?.tipo) ? alerta.subcategoria : metadados.investigacao_tipo || metadados.tipo_fato;
   if (!bruto && Array.isArray(metadados.sinais) && metadados.sinais.length) {
     return descreverLegado(metadados.sinais);
   }
@@ -214,8 +223,35 @@ function rotuloMotivo(codigo) {
   return opcao ? `Descartado: ${opcao.rotulo}` : texto;
 }
 
+// Chaves de métricas determinísticas que são valores em reais (exibidas como R$).
+const RE_CHAVE_MONETARIA = /^valor_|^excesso$/;
+const PAPEL_EMPENHO = 'empenho';
+
+function tituloEvidencia(evidencia) {
+  if (evidencia?.documento_titulo || evidencia?.anexo_nome) {
+    return evidencia.documento_titulo || evidencia.anexo_nome;
+  }
+  const metadados = evidencia?.metadados || {};
+  if (evidencia?.papel === PAPEL_EMPENHO && metadados.empenho) {
+    return `Empenho ${metadados.empenho}${metadados.exercicio ? ` (${metadados.exercicio})` : ''}`;
+  }
+  return `Evidência #${evidencia?.id}`;
+}
+
+function formatarPar(chave, valor) {
+  if (valor === null || valor === undefined) return '—';
+  if (typeof valor === 'number') {
+    return RE_CHAVE_MONETARIA.test(chave) ? FORMATO_REAIS.format(valor) : valor.toLocaleString('pt-BR');
+  }
+  if (Array.isArray(valor)) return valor.join(', ');
+  if (typeof valor === 'object') return JSON.stringify(valor);
+  return String(valor);
+}
+
 module.exports = {
   formatarMetricaAlerta,
+  tituloEvidencia,
+  formatarPar,
   descreverRegra,
   linksDaEvidencia,
   situacaoGate,

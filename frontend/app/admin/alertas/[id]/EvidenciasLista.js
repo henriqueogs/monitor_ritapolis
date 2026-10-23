@@ -1,6 +1,6 @@
 import { formatDate, formatMoney } from '../../../lib/format';
 import { isGenericPrefeituraSourcePage } from '../../../lib/source-links';
-import { linksDaEvidencia } from '../../../../lib/alerta-revisao';
+import { linksDaEvidencia, tituloEvidencia } from '../../../../lib/alerta-revisao';
 import styles from './styles.module.css';
 
 function rotuloLink(link) {
@@ -57,7 +57,7 @@ export default function EvidenciasLista({ evidencias = [], documentos = [] }) {
         {evidencias.map((e) => (
           <li key={e.id}>
             <div className={styles.evidenciaTopo}>
-              <strong>{e.documento_titulo || e.anexo_nome || `Evidência #${e.id}`}</strong>
+              <strong>{tituloEvidencia(e)}</strong>
               <span className={styles.muted}>
                 {[e.documento_tipo, e.documento_data_publicacao ? formatDate(e.documento_data_publicacao) : null, e.anexo_nome, e.papel]
                   .filter(Boolean)

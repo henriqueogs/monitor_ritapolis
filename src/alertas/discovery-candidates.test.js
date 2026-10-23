@@ -45,8 +45,15 @@ describe('gerarCandidatosInvestigativos', () => {
     expect(tipos).toContain('supressao_arvores');
     expect(tipos).toContain('compras.precos_itens');
     expect(tipos).toContain('contratos.recorrencia_fornecedor_objeto');
-    expect(tipos).toContain('eventos.gastos_eventos_publicos');
+    // Eventos ficam desligados por padrão: só contam contratações, sem apontar nada conferível.
+    expect(tipos).not.toContain('eventos.gastos_eventos_publicos');
     expect(new Set(candidatos.map((c) => c.chave_unica)).size).toBe(candidatos.length);
+
+    const comEventos = gerarCandidatosInvestigativos(fatos, {
+      thresholdArvores: 20,
+      temasAtivos: { 'eventos.gastos_eventos_publicos': true },
+    });
+    expect(comEventos.map((c) => c.metadados.investigacao_tipo)).toContain('eventos.gastos_eventos_publicos');
   });
 
   it('nao cria recorrencia sem o mesmo CNPJ e objeto equivalente', () => {
@@ -132,12 +139,29 @@ describe('candidatosRiscosResumo', () => {
     expect(candidatos).toHaveLength(0);
   });
 
-  it('gerarCandidatosInvestigativos inclui riscos junto com os outros temas', () => {
-    const candidatos = gerarCandidatosInvestigativos([
+  it('gerarCandidatosInvestigativos só inclui riscos da IA quando o tema é ligado', () => {
+    const fatos = [
       fato(1, 'riscos_resumo', 'risco_alto', 10, 2026, {
         descricao: 'D', origem_hash: 'h1', metadados: { nivel: 'alto', motivo: 'M' },
       }),
+    ];
+    const ehRisco = (c) => c.metadados.investigacao_tipo === 'riscos.alerta_resumo_ia';
+
+    expect(gerarCandidatosInvestigativos(fatos).some(ehRisco)).toBe(false);
+    expect(
+      gerarCandidatosInvestigativos(fatos, { temasAtivos: { 'riscos.alerta_resumo_ia': true } }).some(ehRisco)
+    ).toBe(true);
+  });
+
+  it('não usa lacuna de modelo de contrato como nome do fornecedor', () => {
+    const base = { vencedor_cnpj: '18557553000105', vencedor_nome: 'Empresa _________' };
+    const candidatos = gerarCandidatosInvestigativos([
+      fato(1, 'contratos', 'servico_recorrente', 10, 2018, { ...base, titulo: 'Aquisição de veículo zero km para a saúde' }),
+      fato(2, 'contratos', 'servico_recorrente', 11, 2018, { ...base, titulo: 'Aquisição de veículo zero km para a saúde' }),
     ]);
-    expect(candidatos.some((c) => c.metadados.investigacao_tipo === 'riscos.alerta_resumo_ia')).toBe(true);
+    const recorrencia = candidatos.find((c) => c.metadados.investigacao_tipo === 'contratos.recorrencia_fornecedor_objeto');
+
+    expect(recorrencia.titulo).not.toMatch(/_{3,}/);
+    expect(recorrencia.titulo).toMatch(/^CNPJ 18557553000105/);
   });
 });
