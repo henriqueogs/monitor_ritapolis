@@ -3,6 +3,7 @@ import SectionBlock from '../components/SectionBlock';
 import CategoriaBadge from '../components/CategoriaBadge';
 import { fetchInteligenciaPanorama, fetchCoberturaPorAno, fetchAlertasDestaques } from '../lib/api';
 import { formatMoney } from '../lib/format';
+import { formatarMetricaAlerta } from '../../lib/alerta-revisao';
 import FornecedoresRanking from '../estatisticas/components/FornecedoresRanking';
 
 export const metadata = {
@@ -144,6 +145,7 @@ export default async function InteligenciaPage() {
         >
           {alertasInteligencia.map((a) => {
             const cor = a.severidade === 'critico' ? 'var(--error)' : a.severidade === 'atencao' ? 'var(--warning)' : 'var(--accent)';
+            const metrica = formatarMetricaAlerta(a);
             return (
               <Link
                 key={a.id}
@@ -156,12 +158,12 @@ export default async function InteligenciaPage() {
                   <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
                     <span style={{ color: cor, fontWeight: 600 }}>{a.severidade}</span>
                     {a.categoria ? ` · ${a.categoria}` : ''}
-                    {a.valor_total ? ` · ${a.valor_periodo_label || formatMoney(a.valor_total)}` : ''}
+                    {metrica && a.valor_periodo_label ? ` · ${a.valor_periodo_label}` : ''}
                   </p>
                 </div>
-                {a.valor_total ? (
+                {metrica ? (
                   <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 700, flexShrink: 0 }}>
-                    {formatMoney(a.valor_total)}
+                    {metrica.texto}
                   </span>
                 ) : null}
               </Link>

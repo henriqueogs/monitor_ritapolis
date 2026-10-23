@@ -88,6 +88,7 @@ const { extractEntitiesFromResumes } = require('../ai/extract-entities');
 const { gerarNarrativaAnomalias } = require('../ai/anomaly-narrative');
 const alertasRepo = require('../db/alertas-repo');
 const { generateAlerts, getAlertasStatus } = require('../alertas/alert-generator');
+const alertasRevisao = require('../services/alertas-revisao-service');
 const { extrairFatosInteligencia } = require('../inteligencia/fatos-runner');
 const {
   createAnexoResumoJob,
@@ -1063,10 +1064,10 @@ function createServer({ servicoPerguntar } = {}) {
     }
   });
 
-  // GET /api/alertas/:id — detalhe com documentos vinculados
+  // GET /api/admin/alertas — fila editorial, cada item com a revalidação automática
   app.get('/api/admin/alertas', (req, res) => {
     const { tipo, categoria, severidade, status, estadoEditorial, periodoInicio, periodoFim, pagina, limite } = req.query;
-    return res.json(alertasRepo.listarAlertas({
+    return res.json(alertasRevisao.listarParaRevisao({
       tipo: tipo || undefined,
       categoria: categoria || undefined,
       severidade: severidade || undefined,
@@ -1091,27 +1092,21 @@ function createServer({ servicoPerguntar } = {}) {
     if (!Number.isInteger(id)) {
       return res.status(400).json({ error: 'id invalido' });
     }
-    const alerta = alertasRepo.getAlerta(id);
+    const alerta = alertasRevisao.detalharParaRevisao(id);
     if (!alerta) {
       return res.status(404).json({ error: 'Alerta nao encontrado' });
     }
-    return res.json({
-      ...alerta,
-      historico_editorial: alertasRepo.listarHistoricoEditorial(id),
-    });
+    return res.json(alerta);
   });
 
   app.patch('/api/admin/alertas/:id/editorial', (req, res) => {
     const id = Number(req.params.id);
-    const { estado, motivos } = req.body || {};
+    const { estado, motivos, nota } = req.body || {};
     if (!Number.isInteger(id)) {
       return res.status(400).json({ error: 'id invalido' });
     }
     try {
-      const ok = alertasRepo.setEstadoEditorial(id, estado, {
-        origem: 'admin',
-        motivos: Array.isArray(motivos) ? motivos : [],
-      });
+      const ok = alertasRevisao.decidirEditorial(id, { estado, motivos, nota });
       if (!ok) {
         return res.status(404).json({ error: 'Alerta nao encontrado' });
       }

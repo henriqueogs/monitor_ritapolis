@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { fetchAlerta } from '../../lib/api';
 import { formatMoney, formatDate, labelTipo } from '../../lib/format';
 import { nivelLabel } from '../../lib/descobertas';
+import { formatarMetricaAlerta } from '../../../lib/alerta-revisao';
 import { DISCLAIMER_DESCOBERTAS } from '../../lib/disclaimer';
 import styles from '../styles.module.css';
 import { BRAND, SITE_URL } from '../../lib/brand';
@@ -13,15 +14,9 @@ const BADGE_NIVEL = {
   info: styles.badgeNeutral,
 };
 
+// Contagem (árvores, documentos) nunca vira "R$" — mesma regra dos cards.
 function metricLabel(alerta) {
-  const unidade = alerta?.metadados?.unidade;
-  if (unidade === 'R$' && alerta.valor_total != null) {
-    return formatMoney(alerta.valor_total);
-  }
-  if (unidade && alerta.valor_total != null) {
-    return `${Number(alerta.valor_total).toLocaleString('pt-BR')} ${unidade}`;
-  }
-  return alerta.valor_total ? formatMoney(alerta.valor_total) : null;
+  return formatarMetricaAlerta(alerta)?.texto ?? null;
 }
 
 // Título/resposta que o cidadão lê. Prefere os campos novos (pergunta_cidada,

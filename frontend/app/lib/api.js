@@ -619,8 +619,8 @@ export async function updateAlertaStatus(id, status) {
   return patchJson(`/alertas/${id}`, { status });
 }
 
-export async function updateAlertaEditorial(id, estado, motivos = []) {
-  return patchJson(`/admin/alertas/${id}/editorial`, { estado, motivos });
+export async function updateAlertaEditorial(id, estado, motivos = [], nota = '') {
+  return patchJson(`/admin/alertas/${id}/editorial`, { estado, motivos, nota });
 }
 
 export async function reprocessarAlerta(id, { dryRun = false } = {}) {
