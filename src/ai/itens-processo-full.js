@@ -1,5 +1,6 @@
 'use strict';
 
+const config = require('../config');
 const { buildItensProcessoPrompt } = require('./prompts/itens-processo-prompt');
 const { validateItensProcessoStrict, MAX_LINHAS } = require('./contracts/itens-processo-contract');
 const { validateLeafEvidence, completeCoverage } = require('./itens-processo-evidence');
@@ -187,11 +188,11 @@ async function extractAllItems(documento, fontes, provider, progress) {
         {
           prompt: buildItensProcessoPrompt({ documento, trechos: group }),
           temperature: 0.1,
-          timeoutMs: 120000,
+          timeoutMs: config.aiRequestTimeoutMs,
           maxRetries: 0,
         },
         progress,
-        120000
+        config.aiRequestTimeoutMs
       );
       data = validateItensProcessoStrict(parseJson(raw));
       if (
