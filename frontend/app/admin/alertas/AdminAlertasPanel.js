@@ -1,19 +1,21 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import Link from 'next/link';
 import {
   fetchAlertasAdmin,
   fetchAlertasAdminStats,
   updateAlertaStatus,
-  updateAlertaEditorial,
   reprocessarAlerta,
   updateAlertaConfig,
   gerarAlertasManual,
 } from '../../lib/api';
 import { nivelLabel, qualidadeMotivoLabel } from '../../lib/descobertas';
+import { ROTULO_PENDENCIA, ROTULO_RECOMENDACAO } from '../../../lib/alerta-revisao';
 import styles from './styles.module.css';
 
 const SEV_COR = { critico: '#d97706', atencao: '#2563eb', info: '#64748b' };
+const REC_COR = { nao_publicar: '#dc2626', conferir: '#d97706', ok: '#16a34a' };
 
 // Agrupa as ~18 chaves de config em seções — a lista solta misturava
 // detectores legados, investigação factual, scheduler e gasto atípico sem
@@ -36,6 +38,13 @@ function agruparConfig(config) {
   return grupos.filter((g) => g.itens.length > 0);
 }
 
+function rotulosPendencias(revalidacao, filtro, prefixo = ': ') {
+  const rotulos = revalidacao.pendencias
+    .filter((p) => filtro(p.gravidade))
+    .map((p) => ROTULO_PENDENCIA[p.codigo] || p.codigo);
+  return rotulos.length ? `${prefixo}${rotulos.join(', ')}` : '';
+}
+
 function valorParaInput(valor) {
   if (typeof valor === 'boolean') return valor;
   if (valor && typeof valor === 'object') return JSON.stringify(valor);
@@ -53,6 +62,7 @@ export default function AdminAlertasPanel({ initialStats, initialConfig, initial
   // foram públicos, não precisam de atenção. Sem isso, a fila de 90 mostra 81
   // itens mortos por padrão. 'todos' continua disponível pra quem quiser ver.
   const [filtroEditorial, setFiltroEditorial] = useState('nao_rejeitado');
+  const [filtroRevalidacao, setFiltroRevalidacao] = useState('todos');
 
   const registrar = useCallback((msg, erro = false) => {
     setLog((prev) => [{ msg, erro, ts: new Date() }, ...prev.slice(0, 5)]);
@@ -90,19 +100,6 @@ export default function AdminAlertasPanel({ initialStats, initialConfig, initial
       await recarregar();
     } catch (e) {
       registrar(`Erro no alerta #${id}: ${e.message}`, true);
-    } finally {
-      setLoading(null);
-    }
-  }, [recarregar, registrar]);
-
-  const handleEditorial = useCallback(async (id, estado) => {
-    setLoading(`editorial-${id}`);
-    try {
-      await updateAlertaEditorial(id, estado);
-      registrar(`Descoberta #${id} → ${estado}`);
-      await recarregar();
-    } catch (e) {
-      registrar(`Erro editorial #${id}: ${e.message}`, true);
     } finally {
       setLoading(null);
     }
@@ -147,7 +144,8 @@ export default function AdminAlertasPanel({ initialStats, initialConfig, initial
       : filtroEditorial === 'nao_rejeitado'
         ? a.estado_editorial !== 'rejeitado'
         : a.estado_editorial === filtroEditorial;
-    return (filtroTema === 'todos' || tema === filtroTema) && passaEditorial;
+    const passaRevalidacao = filtroRevalidacao === 'todos' || a.revalidacao?.recomendacao === filtroRevalidacao;
+    return (filtroTema === 'todos' || tema === filtroTema) && passaEditorial && passaRevalidacao;
   });
   const temas = [...new Set(alertas
     .map((a) => (a.metadados?.discovery_v3 || a.metadados?.discovery_v2)?.tipo_investigacao || a.metadados?.investigacao_tipo)
@@ -215,38 +213,43 @@ export default function AdminAlertasPanel({ initialStats, initialConfig, initial
               {estadosEditoriais.map((estado) => <option key={estado} value={estado}>{estado}</option>)}
             </select>
           </label>
+          <label className={styles.configRow}>
+            <span className={styles.configChave}>Revalidação automática</span>
+            <select value={filtroRevalidacao} onChange={(e) => setFiltroRevalidacao(e.target.value)}>
+              <option value="todos">todas</option>
+              {Object.entries(ROTULO_RECOMENDACAO).map(([valor, rotulo]) => (
+                <option key={valor} value={valor}>{rotulo}</option>
+              ))}
+            </select>
+          </label>
         </div>
         {alertas.length === 0 && <p className="empty-state">Nenhuma descoberta ativa.</p>}
         <div className={styles.lista}>
           {alertasFiltrados.map((a) => (
             <div key={a.id} className={styles.alertaRow} style={{ borderLeftColor: SEV_COR[a.severidade] }}>
               <div className={styles.alertaInfo}>
-                <strong>{a.titulo}</strong>
+                <Link href={`/admin/alertas/${a.id}`} className={styles.alertaTitulo}>{a.titulo}</Link>
                 <span className={styles.alertaMeta}>
                   #{a.id} · {a.estado_editorial || 'sem estado'} · {nivelLabel(a.severidade)} · {a.categoria || '—'} · {a.ultima_publicacao_documento || 's/ data'}
                 </span>
                 {a.qualidade_motivos?.length ? (
                   <span className={styles.alertaMotivos}>{a.qualidade_motivos.map(qualidadeMotivoLabel).join(' · ')}</span>
                 ) : null}
+                {a.revalidacao ? (
+                  <span className={styles.alertaMotivos} style={{ color: REC_COR[a.revalidacao.recomendacao] }}>
+                    {ROTULO_RECOMENDACAO[a.revalidacao.recomendacao]}
+                    {rotulosPendencias(a.revalidacao, (g) => g !== 'info')}
+                    <span style={{ color: '#64748b' }}>{rotulosPendencias(a.revalidacao, (g) => g === 'info', ' · ')}</span>
+                  </span>
+                ) : null}
               </div>
               <div className={styles.alertaAcoes}>
+                <Link className="button" href={`/admin/alertas/${a.id}`}>revisar</Link>
                 {a.estado_editorial === 'publicado' ? (
-                  <a className="button button-secondary" href={`/na-lupa/${a.id}`} target="_blank" rel="noreferrer">ver</a>
+                  <a className="button button-secondary" href={`/na-lupa/${a.id}`} target="_blank" rel="noreferrer">ver público</a>
                 ) : null}
                 <button className="button button-secondary" disabled={loading === `reprocessar-${a.id}`} onClick={() => handleReprocessar(a.id)}>
                   reprocessar
-                </button>
-                {a.estado_editorial !== 'publicado' ? (
-                  <button className="button button-secondary" disabled={loading === `editorial-${a.id}`} onClick={() => handleEditorial(a.id, 'publicado')}>
-                    publicar
-                  </button>
-                ) : (
-                  <button className="button button-secondary" disabled={loading === `editorial-${a.id}`} onClick={() => handleEditorial(a.id, 'revisao')}>
-                    revisar
-                  </button>
-                )}
-                <button className="button button-secondary" disabled={loading === `editorial-${a.id}`} onClick={() => handleEditorial(a.id, 'rejeitado')}>
-                  rejeitar
                 </button>
                 <button className="button button-secondary" disabled={loading === `alerta-${a.id}`} onClick={() => handleStatus(a.id, 'arquivado')}>
                   arquivar

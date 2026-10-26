@@ -7,6 +7,7 @@ data/*.db
 data/*.db-shm
 data/*.db-wal
 data/backups/*.db
+data/backups/*.json
 data/r2-export/
 data/migration-manifests/
 
@@ -30,7 +31,12 @@ Thumbs.db
 
 # Local tooling (não publicar)
 .wrangler/
-.claude/
+.claude/*
+# Fiscais do projeto (skills + agentes) são versionados — fazem parte do processo
+!.claude/agents/
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/fiscal-*/
 .agents/
 .gemini/
 .qodo/
@@ -51,3 +57,6 @@ test-results/
 
 # Artefatos de FS
 .fuse_hidden*
+
+# relatórios locais do eval de IA (podem conter respostas de modelo)
+relatorios/

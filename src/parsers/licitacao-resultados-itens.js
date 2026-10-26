@@ -2,11 +2,12 @@ const {
   detectarTipoValorEmTexto,
   extrairLoteNumero,
 } = require('../licitacoes/valor-final-tipo');
+const { ente, formatarCnpj } = require('../ente');
 
 const PREFEITURA_HEADER_PATTERN =
   /\b1854\s+1963\s+Prefeitura\s+Municipal\s+de\s+Rit\S*polis\s+Pra\S*a\s+Tiradentes,\s*340\s+[-–]\s+Centro\s+[-–]\s+CEP\s+36335-000\s+CNPJ:\s*18\.557\.553\/0001-05\s+[-–]\s+Tel\.\s*\(32\)\s*3356-1136\s+\d*\b/gi;
 
-const CNPJ_PREFEITURA = '18.557.553/0001-05';
+const CNPJ_PREFEITURA = formatarCnpj(ente.cnpjPrefeitura);
 const MONEY_RE = 'R\\$\\s*([\\d.]+,\\d{2})';
 const MONEY_OPTIONAL_SYMBOL_RE = '(?:R\\$\\s*)?([\\d.]+,\\d{2,4})';
 

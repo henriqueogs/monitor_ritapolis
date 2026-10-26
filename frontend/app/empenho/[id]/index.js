@@ -67,7 +67,9 @@ export default async function EmpenhoPage({ params: paramsPromise }) {
   const finalidadeHref = empenho.finalidade?.classe
     ? `/transparencia/finalidades/${empenho.finalidade.classe}`
     : '/transparencia/finalidades';
-  const credorHref = empenho.credor_chave || empenho.credor_cnpj;
+  // credor_tem_perfil === false: credor só com ordens de pagamento, sem página
+  // própria (o link daria 404). Ausente (API antiga) mantém o link.
+  const credorHref = empenho.credor_tem_perfil === false ? null : empenho.credor_chave || empenho.credor_cnpj;
 
   return (
     <main className="page-container">
@@ -221,7 +223,7 @@ export default async function EmpenhoPage({ params: paramsPromise }) {
       <EmpenhosRelacionados
         relacionados={relacionados}
         credorNome={empenho.credor_nome}
-        credorCnpj={empenho.credor_cnpj}
+        credorCnpj={empenho.credor_tem_perfil === false ? null : empenho.credor_cnpj}
         categoriaRotulo={empenho.categoria_cidada.rotulo}
         categoriaSlug={empenho.categoria_cidada.slug}
       />

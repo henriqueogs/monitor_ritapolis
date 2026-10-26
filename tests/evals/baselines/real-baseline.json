@@ -1,0 +1,99 @@
+{
+  "meta": {
+    "modelo": "nvidia/nemotron-3-super-120b-a12b",
+    "prompt_versao": "rag-resposta-v1",
+    "k": 5,
+    "limiarEvidencia": 0.2,
+    "data": "2026-10-15T22:55:19.658Z",
+    "modo": "real"
+  },
+  "resumo": {
+    "n": 5,
+    "n_respondidas": 4,
+    "n_com_fatos": 4,
+    "recusa_correta_pct": 1,
+    "fundamentacao_ok_pct": 1,
+    "citacao_valida_pct": 1,
+    "alucinacao_pct": 0,
+    "cobertura_fatos_medio": 1,
+    "linguagem_acusatoria_pct": 0,
+    "malformadas": 0
+  },
+  "perguntas": [
+    {
+      "id": "q1-merenda",
+      "malformada": false,
+      "recusou": false,
+      "recusa_correta": true,
+      "fundamentacao_ok": true,
+      "motivos": [],
+      "citacoes_validas": 1,
+      "citacoes_total": 1,
+      "numeros_inventados": [],
+      "termos_acusatorios": [],
+      "cobertura_fatos": 1,
+      "alucinou": false,
+      "resposta": "A empresa Alimentos Minas Ltda foi declarada vencedora do pregão eletrônico para fornecimento de gêneros alimentícios destinados à merenda escolar da rede municipal."
+    },
+    {
+      "id": "q2-limpeza",
+      "malformada": false,
+      "recusou": false,
+      "recusa_correta": true,
+      "fundamentacao_ok": true,
+      "motivos": [],
+      "citacoes_validas": 1,
+      "citacoes_total": 1,
+      "numeros_inventados": [],
+      "termos_acusatorios": [],
+      "cobertura_fatos": 1,
+      "alucinou": false,
+      "resposta": "A empresa que fornece o material de limpeza é a Limpa Bem ME."
+    },
+    {
+      "id": "q3-ambulancia",
+      "malformada": false,
+      "recusou": false,
+      "recusa_correta": true,
+      "fundamentacao_ok": true,
+      "motivos": [],
+      "citacoes_validas": 1,
+      "citacoes_total": 1,
+      "numeros_inventados": [],
+      "termos_acusatorios": [],
+      "cobertura_fatos": 1,
+      "alucinou": false,
+      "resposta": "Sim, houve dispensa de licitação para o conserto do motor da ambulância."
+    },
+    {
+      "id": "q4-pavimentacao-2026",
+      "malformada": false,
+      "recusou": false,
+      "recusa_correta": true,
+      "fundamentacao_ok": true,
+      "motivos": [],
+      "citacoes_validas": 1,
+      "citacoes_total": 1,
+      "numeros_inventados": [],
+      "termos_acusatorios": [],
+      "cobertura_fatos": 1,
+      "alucinou": false,
+      "resposta": "Foi contratada a obra de pavimentação asfáltica da rua principal do distrito, com recursos de convênio estadual."
+    },
+    {
+      "id": "q5-sem-evidencia",
+      "malformada": false,
+      "recusou": true,
+      "recusa_correta": true,
+      "fundamentacao_ok": true,
+      "motivos": [],
+      "citacoes_validas": 0,
+      "citacoes_total": 0,
+      "numeros_inventados": [],
+      "termos_acusatorios": [],
+      "cobertura_fatos": null,
+      "alucinou": false,
+      "resposta": "Não encontrei nos documentos coletados evidência suficiente para responder a esta pergunta."
+    }
+  ]
+}

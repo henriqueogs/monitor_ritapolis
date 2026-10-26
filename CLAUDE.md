@@ -400,6 +400,7 @@ module.exports = {
 8. **Hard-coded URLs, credenciais ou paths** — sempre via `src/config.js`
 9. **Modificar `src/db/index.js` sem considerar divisão** — verificar se a função nova pertence a um repositório específico
 10. **Testes que dependem de ordem de execução** — cada teste deve ser independente
+11. **CNPJ, UF ou código IBGE do município escritos à mão** — usar `src/ente.js` (backend) ou `frontend/lib/ente.js` (frontend); `tests/ente-sem-literal.test.js` falha se aparecer um literal fora da configuração
 
 ---
 
@@ -416,6 +417,7 @@ Antes de qualquer commit, a IA deve verificar:
 - [ ] **Sem console.log?** Usar `logger`
 - [ ] **Export explícito?** `module.exports = { ... }` com nomes específicos
 - [ ] **Docs?** README ou DEVELOPMENT_PLAN atualizado se comportamento externo mudou
+- [ ] **Fiscais?** Se o diff exibe dados ao cidadão, rodar os agentes de §12 aplicáveis
 
 ---
 
@@ -508,3 +510,20 @@ Na home e em qualquer listagem de "novidades/atualizações", o usuário quer os
 - ❌ Ordenar por `coletado_em` / `atualizado_em` (datas internas do sistema).
 - Documentos sem data real vão para o **fim**, nunca ao topo via data de sistema.
 - `coletado_em`/`atualizado_em` servem só para diagnóstico interno (admin), não para o feed público.
+
+---
+
+## 12. Fiscais (skills + agentes de auditoria)
+
+Protocolos rígidos em `.claude/skills/fiscal-*/SKILL.md`, executados por agentes somente-leitura
+em `.claude/agents/`. Rodar **antes de commit/PR** quando o diff exibir dados ao cidadão.
+O fiscal reporta; quem implementa corrige. Veredito FAIL em regra "bloqueia merge" impede o PR.
+
+| Agente | Quando rodar | Garante |
+|---|---|---|
+| `fiscal-datas` | período, mandato, ano, folha, diárias, "recentes" | Nada de um mandato contamina outro; destaque = período corrente, acumulado só secundário |
+| `fiscal-valores` | SUM/agregados, joins, dossiês, cards de R$, números de IA | Sem dupla contagem, sem somar estágios/períodos, invariantes testadas |
+| `fiscal-proveniencia` | telas, links de fonte, "recentes", respostas de IA | Origem visível (§11.3), recência por publicação, citações válidas |
+| `fiscal-privacidade` | folha, credores PF, alertas, prompts, índice de IA | LGPD e linguagem não acusatória (fato + fonte + critério) |
+
+Mandato tem fonte única em `src/utils/mandato.js`; mandato ≠ gestor (prevê reeleição).

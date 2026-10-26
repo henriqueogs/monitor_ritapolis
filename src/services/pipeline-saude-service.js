@@ -26,7 +26,9 @@ function dataIso(date) {
 function montarCampanha(agora) {
   const limite = config.pipelineHistoricalDocsPerDay;
   if (!(limite > LIMITE_HISTORICO_PADRAO)) { return null; }
-  const dados = repo.getCampanhaHistorica({ desde: new Date(agora.getTime() - DIA_MS).toISOString() });
+  const desde = new Date(agora.getTime() - DIA_MS).toISOString();
+  const dados = repo.getCampanhaHistorica({ desde });
+  const consumo = repo.getConsumoHistorico({ desde });
   const errosLimiteProvider = dados.errosRecentes.filter(
     (e) => classifyAiError(e) === 'limite_provider'
   ).length;
@@ -47,6 +49,13 @@ function montarCampanha(agora) {
       sem_resumo_com_texto: dados.semResumoComTexto,
       ultima_execucao: dados.ultimaExecucaoEm,
       erros_limite_provider_24h: errosLimiteProvider,
+      consumo_24h: consumo.map((c) => ({
+        kind: c.kind,
+        execucoes: c.execucoes,
+        docs: c.docs,
+        erros: c.erros,
+        min: Math.round(c.ms / 60000),
+      })),
     },
   };
 }

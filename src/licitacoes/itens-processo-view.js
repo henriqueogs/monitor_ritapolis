@@ -213,4 +213,22 @@ function montarItensProcessoDeIA(itensJson, { valorFinalProcesso = null, valorFi
   };
 }
 
-module.exports = { montarItensProcesso, montarItensProcessoDeIA };
+/**
+ * Marca `fornecedor_tem_perfil` no vencedor de cada lote e do resultado
+ * global: a tela só linka /credores/:cnpj quando o perfil existe (vencedor
+ * pode não ter empenho não-OP no município). Pura: o predicado vem de fora.
+ */
+function marcarPerfilFornecedores(estrutura, temPerfil) {
+  if (!estrutura) {return estrutura;}
+  const marcar = (vencedor) => ({
+    ...vencedor,
+    fornecedor_tem_perfil: vencedor.fornecedor_cnpj ? Boolean(temPerfil(vencedor.fornecedor_cnpj)) : false,
+  });
+  return {
+    ...estrutura,
+    resultado_lotes: (estrutura.resultado_lotes || []).map(marcar),
+    resultado_global: estrutura.resultado_global ? marcar(estrutura.resultado_global) : null,
+  };
+}
+
+module.exports = { montarItensProcesso, montarItensProcessoDeIA, marcarPerfilFornecedores };

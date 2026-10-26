@@ -13,10 +13,28 @@
 const TENTATIVAS_PADRAO = 2;
 const ESPERA_PADRAO_MS = 300;
 
+// Achado 22-26/10/2026: as falhas de rede seguiram e cresceram (de ~9 para ~60
+// "other side closed" em 7 dias), quase sempre em rajada nas 4 leituras da home
+// ao mesmo tempo. A função da Vercel volta do congelamento com vários sockets
+// keep-alive mortos no pool; uma só repetição pode pegar outro socket morto.
+// Cada falha descarta o socket, então erro de rede ganha uma tentativa a mais.
+const TENTATIVAS_REDE = 3;
+
+// Achado 16/10/2026: cada deploy do backend reinicia a API na VM e o Caddy
+// responde 502 por alguns segundos (dezenas de erros por merge). Uma nova
+// tentativa após uma espera maior atravessa o reinício. 500/4xx são erros da
+// própria aplicação e não são repetidos.
+const STATUS_GATEWAY_REPETIVEIS = new Set([502, 503, 504]);
+const ESPERA_GATEWAY_MS = 2000;
+
 // O undici sinaliza falha de rede com TypeError('fetch failed'); abort e
 // erros de parsing têm outros tipos e não devem ser repetidos.
 function isErroDeRede(error) {
   return error?.name === 'TypeError' && error.message === 'fetch failed';
+}
+
+function isRespostaDeGateway(response) {
+  return STATUS_GATEWAY_REPETIVEIS.has(response?.status);
 }
 
 function descreverErroDeRede(error) {
@@ -33,15 +51,25 @@ function esperar(ms) {
 async function fetchComRetry(
   url,
   init,
-  { fetchImpl = fetch, tentativas = TENTATIVAS_PADRAO, esperaMs = ESPERA_PADRAO_MS } = {}
+  {
+    fetchImpl = fetch,
+    tentativas = TENTATIVAS_PADRAO,
+    tentativasRede = TENTATIVAS_REDE,
+    esperaMs = ESPERA_PADRAO_MS,
+    esperaGatewayMs = ESPERA_GATEWAY_MS,
+  } = {}
 ) {
   for (let tentativa = 1; ; tentativa += 1) {
+    let response;
     try {
-      return await fetchImpl(url, init);
+      response = await fetchImpl(url, init);
     } catch (error) {
-      if (!isErroDeRede(error) || tentativa >= tentativas) throw error;
+      if (!isErroDeRede(error) || tentativa >= tentativasRede) throw error;
       await esperar(esperaMs);
+      continue;
     }
+    if (!isRespostaDeGateway(response) || tentativa >= tentativas) return response;
+    await esperar(esperaGatewayMs);
   }
 }
 
@@ -49,4 +77,5 @@ module.exports = {
   fetchComRetry,
   descreverErroDeRede,
   isErroDeRede,
+  isRespostaDeGateway,
 };

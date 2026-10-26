@@ -1,0 +1,42 @@
+# Sobe o projeto local com dados fictícios, sem coleta e sem chave de IA:
+#   docker compose up --build
+# Site em http://localhost:3000 · API em http://localhost:3001/api
+# Para usar outro município, troque MUNICIPIO e NEXT_PUBLIC_MUNICIPIO (pasta em municipios/) e retire o seed.
+
+services:
+  api:
+    build: .
+    command: ['sh', '-c', 'node scripts/seed-exemplo.js && node scripts/api.js']
+    environment:
+      MUNICIPIO: _exemplo
+      # Nada sai para a internet: coleta, IA, alertas e backup desligados.
+      PIPELINE_ENABLED: 'false'
+      COLLECTION_SCHEDULER_ENABLED: 'false'
+      DAILY_SCHEDULER_ENABLED: 'false'
+      AI_SCHEDULER_ENABLED: 'false'
+      AI_SUMMARY_ENABLED: 'false'
+      AI_ASK_ENABLED: 'false'
+      ALERTAS_SCHEDULER_ENABLED: 'false'
+      DESCOBERTAS_SCHEDULER_ENABLED: 'false'
+      DESCOBERTAS_INVESTIGACAO_SCHEDULER_ENABLED: 'false'
+      R2_FULL_BACKUP_ENABLED: 'false'
+    volumes:
+      - dados:/data
+    # O site divide a rede com a API (abaixo), então as duas portas saem daqui.
+    ports:
+      - '3000:3000'
+      - '3001:3001'
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:3001/api
+        NEXT_PUBLIC_MUNICIPIO: _exemplo
+    # Mesma rede da API: "localhost:3001" vale tanto no navegador quanto na renderização do servidor.
+    network_mode: 'service:api'
+    depends_on:
+      - api
+
+volumes:
+  dados:

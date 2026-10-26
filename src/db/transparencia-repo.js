@@ -9,6 +9,18 @@
 const crypto = require('crypto');
 const logger = require('../logger');
 const { db } = require('./index');
+const {
+  SQL_SUM_ORDINARIO,
+  SQL_SUM_ESTIMADO_GLOBAL,
+  SQL_COUNT_ORDINARIO,
+  SQL_COUNT_ESTIMADO_GLOBAL,
+  SQL_SEM_ORDEM_PAGAMENTO,
+  SQL_TIPO_ORDINARIO,
+  sqlTipoOrdinario,
+  sqlSemOrdemPagamento,
+  TIPOS_EMPENHO,
+  classificarTipoEmpenho,
+} = require('../transparencia/tipo-empenho');
 const { hasContentChanges } = require('../utils/persisted-content');
 const { ensureDespesasMigracoes } = require('./transparencia-migracoes');
 const {
@@ -425,61 +437,64 @@ function crosswalkDespesasDocumentos({ relink = false } = {}) {
 // ---------------------------------------------------------------------------
 
 /**
- * Para cada documento vinculado, atualiza licitacoes_detalhes com
- * vencedor e valor final se ainda não tiver dados de boa qualidade.
+ * Para cada documento vinculado SEM vencedor, identifica o provável vencedor: o
+ * credor com maior valor de empenho ORDINÁRIO (OP e EE/EG não decidem) em
+ * vínculos exatos com o documento.
+ *
+ * NÃO grava valor_final: soma de empenho é gasto empenhado, não valor
+ * homologado — gravá-lo contaminava alertas, IA e totais de "licitado". O
+ * rótulo `empenho_agregado` fica em origem_detalhe para auditoria.
  * @returns {number} quantidade de detalhes enriquecidos
  */
 function enriquecerDetalhesComEmpenhos() {
-  // Agrupar empenhos por documento_id para encontrar credor principal
-  const grupos = db.prepare(`
+  const candidatos = db.prepare(`
     SELECT
-      documento_id,
-      credor_nome,
-      credor_cnpj,
-      SUM(valor) as valor_total,
-      COUNT(*) as n_empenhos
-    FROM transparencia_despesas
-    WHERE documento_id IS NOT NULL
-      AND credor_cnpj IS NOT NULL
-      AND credor_cnpj != ''
-      AND tipo NOT LIKE '%INSS%'
-      AND tipo NOT LIKE '%Extra%'
-    GROUP BY documento_id, credor_cnpj
-    ORDER BY valor_total DESC
-  `).all();
+      td.documento_id, td.credor_nome, td.credor_cnpj, td.valor, td.modalidade,
+      d.titulo AS documento_titulo
+    FROM transparencia_despesas td
+    JOIN documentos d ON d.id = td.documento_id
+    WHERE td.documento_id IS NOT NULL
+      AND td.credor_cnpj IS NOT NULL
+      AND td.credor_cnpj != ''
+      AND ${sqlTipoOrdinario('td')}
+      AND td.tipo NOT LIKE '%INSS%'
+      AND td.tipo NOT LIKE '%Extra%'
+  `).all().filter((c) => vinculoDocumentoExato(c.modalidade, c.documento_titulo));
 
-  // Manter apenas o credor com maior valor por documento
-  const melhorPorDoc = new Map();
-  for (const g of grupos) {
-    const key = g.documento_id;
-    if (!melhorPorDoc.has(key) || g.valor_total > melhorPorDoc.get(key).valor_total) {
-      melhorPorDoc.set(key, g);
-    }
+  // Soma por (documento, credor) e mantém só o credor de maior valor por documento
+  const porCredor = new Map();
+  for (const c of candidatos) {
+    const chave = `${c.documento_id}|${c.credor_cnpj}`;
+    const atual = porCredor.get(chave) || { ...c, valor_total: 0 };
+    atual.valor_total += Number(c.valor) || 0;
+    porCredor.set(chave, atual);
   }
+  const melhorPorDoc = new Map();
+  for (const g of porCredor.values()) {
+    const melhor = melhorPorDoc.get(g.documento_id);
+    if (!melhor || g.valor_total > melhor.valor_total) {melhorPorDoc.set(g.documento_id, g);}
+  }
+
+  const buscarAtual = db.prepare('SELECT vencedor_cnpj FROM licitacoes_detalhes WHERE documento_id = ?');
+  const gravar = db.prepare(`
+    UPDATE licitacoes_detalhes
+    SET vencedor_nome = @nome,
+        vencedor_cnpj = @cnpj,
+        -- origem/origem_detalhe descrevem o valor_final: só mudam quando ele não existe;
+        -- com valor legítimo (IA, contrato) a origem é preservada e o vencedor é anotado.
+        origem = CASE WHEN valor_final IS NULL THEN 'portal_transparencia' ELSE origem END,
+        origem_detalhe = CASE WHEN valor_final IS NULL THEN 'empenho_agregado'
+                              ELSE TRIM(IFNULL(origem_detalhe, '') || ' | vencedor_empenho_agregado') END,
+        atualizado_em = CURRENT_TIMESTAMP
+    WHERE documento_id = @docId AND vencedor_cnpj IS NULL
+  `);
 
   let enriquecidos = 0;
   for (const [docId, grupo] of melhorPorDoc) {
-    // Só atualizar se o campo vencedor_cnpj ainda está vazio ou origem é 'ia_resumo'
-    const atual = db.prepare(
-      'SELECT vencedor_cnpj, origem FROM licitacoes_detalhes WHERE documento_id = ?'
-    ).get(docId);
-
-    if (!atual) {continue;}
-    // The SQL below never replaces an existing CNPJ. Do not update its
-    // timestamp (or report an enrichment) when nothing can change.
-    if (atual.vencedor_cnpj) {continue;}
-
-    db.prepare(`
-      INSERT INTO licitacoes_detalhes (documento_id, vencedor_nome, vencedor_cnpj, valor_final, origem, origem_detalhe)
-      VALUES (@docId, @nome, @cnpj, @valor, 'portal_transparencia', 'empenho_agregado')
-      ON CONFLICT (documento_id) DO UPDATE SET
-        vencedor_nome  = CASE WHEN excluded.vencedor_nome IS NOT NULL AND vencedor_cnpj IS NULL THEN excluded.vencedor_nome ELSE vencedor_nome END,
-        vencedor_cnpj  = CASE WHEN excluded.vencedor_cnpj IS NOT NULL AND vencedor_cnpj IS NULL THEN excluded.vencedor_cnpj ELSE vencedor_cnpj END,
-        valor_final    = CASE WHEN vencedor_cnpj IS NULL THEN excluded.valor_final ELSE valor_final END,
-        origem         = CASE WHEN vencedor_cnpj IS NULL THEN 'portal_transparencia' ELSE origem END,
-        atualizado_em  = CURRENT_TIMESTAMP
-    `).run({ docId, nome: grupo.credor_nome, cnpj: grupo.credor_cnpj, valor: grupo.valor_total });
-
+    const atual = buscarAtual.get(docId);
+    // Nunca substitui vencedor existente nem cria detalhe novo (sem linha, nada a enriquecer).
+    if (!atual || atual.vencedor_cnpj) {continue;}
+    gravar.run({ docId, nome: grupo.credor_nome, cnpj: grupo.credor_cnpj });
     enriquecidos++;
   }
 
@@ -615,11 +630,23 @@ function getDespesasPorDocumento(documentoId) {
     .map(decorarDespesaComFinalidade);
 }
 
+function somarValor(lista) {
+  return Math.round(lista.reduce((total, empenho) => total + (Number(empenho.valor) || 0), 0) * 100) / 100;
+}
+
+/**
+ * valor_empenhado = só ordinário; estimativo/global à parte; OP (pagamento) fora —
+ * mesma convenção de painel, gastos e credores.
+ */
 function getResumoFinanceiroPorDocumento(documentoId) {
   const empenhos = getDespesasPorDocumento(documentoId);
+  const porTipo = (tipo) => empenhos.filter((e) => classificarTipoEmpenho(e.tipo) === tipo);
+  const ordinarios = porTipo(TIPOS_EMPENHO.ORDINARIO);
+  const estimadoGlobal = [...porTipo(TIPOS_EMPENHO.ESTIMADO), ...porTipo(TIPOS_EMPENHO.GLOBAL)];
   return {
-    n_empenhos: empenhos.length,
-    valor_empenhado: empenhos.reduce((total, empenho) => total + (Number(empenho.valor) || 0), 0),
+    n_empenhos: ordinarios.length,
+    valor_empenhado: somarValor(ordinarios),
+    valor_estimado_global: somarValor(estimadoGlobal),
     primeiro_empenho: empenhos.map((e) => e.data_empenho).filter(Boolean).sort()[0] || null,
     ultimo_pagamento: empenhos.map((e) => e.data_pagamento).filter(Boolean).sort().slice(-1)[0] || null,
     credores_cnpj: [...new Set(empenhos.map((e) => e.credor_cnpj).filter(Boolean))].join(',') || null,
@@ -653,19 +680,22 @@ function getPainelResumo({ exercicio, exercicios } = {}) {
   const whereExercicio = temFiltro ? `WHERE exercicio_orcamento IN (${placeholders})` : '';
   const paramsExercicio = lista;
 
-  // valor_total = movimentação (empenhos + ordens de pagamento); valor_empenhado
-  // exclui OP — ordem de pagamento é caixa (paga empenho, inclusive restos a
-  // pagar de anos anteriores), não nova despesa empenhada. A % de execução da
-  // LOA compara previsto × EMPENHADO, senão o numerador infla.
+  // Convenção única (igual a credores e gastos): valor_total = só empenho
+  // ORDINÁRIO; EE/EG (estimativa/parcelas futuras) em valor_estimado_global;
+  // OP (caixa — paga empenho, inclusive restos a pagar) nunca entra.
+  // valor_empenhado = EO + EE + EG (sem OP) é a base orçamentária da % de
+  // execução da LOA (previsto × empenhado).
   const porAno = db.prepare(`
     SELECT
       exercicio_orcamento            AS exercicio,
-      COUNT(*)                       AS n_empenhos,
-      ROUND(SUM(valor), 2)           AS valor_total,
-      ROUND(SUM(CASE WHEN tipo NOT LIKE 'OP%' THEN valor ELSE 0 END), 2) AS valor_empenhado,
+      ${SQL_COUNT_ORDINARIO}          AS n_empenhos,
+      ${SQL_COUNT_ESTIMADO_GLOBAL}    AS n_empenhos_estimado_global,
+      ${SQL_SUM_ORDINARIO}            AS valor_total,
+      ${SQL_SUM_ESTIMADO_GLOBAL}      AS valor_estimado_global,
+      ROUND(SUM(CASE WHEN ${SQL_SEM_ORDEM_PAGAMENTO} THEN valor ELSE 0 END), 2) AS valor_empenhado,
       COUNT(DISTINCT credor_cnpj)    AS n_credores,
-      COUNT(DISTINCT documento_id)   AS n_vinculados,
-      COUNT(CASE WHEN documento_id IS NOT NULL THEN 1 END) AS n_empenhos_vinculados,
+      COUNT(DISTINCT CASE WHEN ${SQL_TIPO_ORDINARIO} THEN documento_id END) AS n_vinculados,
+      SUM(CASE WHEN ${SQL_TIPO_ORDINARIO} AND documento_id IS NOT NULL THEN 1 ELSE 0 END) AS n_empenhos_vinculados,
       MIN(data_empenho)              AS primeiro_empenho,
       MAX(data_empenho)              AS ultimo_empenho
     FROM transparencia_despesas
@@ -675,24 +705,32 @@ function getPainelResumo({ exercicio, exercicios } = {}) {
 
   const total = db.prepare(`
     SELECT
-      COUNT(*)                       AS n_empenhos,
-      ROUND(SUM(valor), 2)           AS valor_total,
+      ${SQL_COUNT_ORDINARIO}          AS n_empenhos,
+      ${SQL_COUNT_ESTIMADO_GLOBAL}    AS n_empenhos_estimado_global,
+      ${SQL_SUM_ORDINARIO}            AS valor_total,
+      ${SQL_SUM_ESTIMADO_GLOBAL}      AS valor_estimado_global,
       COUNT(DISTINCT credor_cnpj)    AS n_credores,
-      COUNT(DISTINCT documento_id)   AS n_licitacoes_vinculadas
+      COUNT(DISTINCT CASE WHEN ${SQL_TIPO_ORDINARIO} THEN documento_id END) AS n_licitacoes_vinculadas,
+      SUM(CASE WHEN ${SQL_TIPO_ORDINARIO} AND documento_id IS NOT NULL THEN 1 ELSE 0 END) AS n_empenhos_vinculados
     FROM transparencia_despesas
-    ${whereExercicio}
+    ${whereExercicio ? `${whereExercicio} AND ${SQL_SEM_ORDEM_PAGAMENTO}` : `WHERE ${SQL_SEM_ORDEM_PAGAMENTO}`}
   `).get(...paramsExercicio);
 
   const topCredores = db.prepare(`
     SELECT
-      credor_nome,
+      MAX(credor_nome) AS credor_nome,
       credor_cnpj,
-      COUNT(*)              AS n_empenhos,
-      ROUND(SUM(valor), 2)  AS valor_total,
+      ${SQL_COUNT_ORDINARIO} AS n_empenhos,
+      ${SQL_SUM_ORDINARIO}   AS valor_total,
+      ${SQL_SUM_ESTIMADO_GLOBAL} AS valor_estimado_global,
       MIN(exercicio_orcamento) AS primeiro_exercicio,
       MAX(exercicio_orcamento) AS ultimo_exercicio
     FROM transparencia_despesas
     WHERE credor_cnpj IS NOT NULL AND credor_cnpj != ''
+      AND ${SQL_SEM_ORDEM_PAGAMENTO}
+      AND UPPER(COALESCE(credor_nome, '')) NOT LIKE '%FOLHA%PAGAMENTO%'
+      AND UPPER(COALESCE(credor_nome, '')) NOT LIKE '%PAGAMENTO%FOLHA%'
+      AND UPPER(COALESCE(credor_nome, '')) NOT LIKE '%13%SALARIO%'
       ${temFiltro ? `AND exercicio_orcamento IN (${placeholders})` : ''}
     GROUP BY credor_cnpj
     ORDER BY valor_total DESC
@@ -736,7 +774,7 @@ function getPainelResumo({ exercicio, exercicios } = {}) {
     SELECT tdc.classe_principal, COUNT(*) AS n, ROUND(SUM(td.valor), 2) AS valor
     FROM transparencia_despesas td
     JOIN transparencia_despesas_classificacoes tdc ON tdc.despesa_id = td.id
-    ${whereExercicio}
+    ${whereExercicio ? `${whereExercicio} AND ${SQL_TIPO_ORDINARIO}` : `WHERE ${SQL_TIPO_ORDINARIO}`}
     GROUP BY tdc.classe_principal
     ORDER BY valor DESC
   `).all(...paramsExercicio);
@@ -852,6 +890,11 @@ function getDespesas({
         td.historico, td.modalidade, td.licitacao_ref,
         td.documento_id,
         d.titulo AS documento_titulo, d.numero AS documento_numero,
+        -- Mesmo critério de credorTemPerfil: credor só com OP não tem página.
+        EXISTS (
+          SELECT 1 FROM transparencia_despesas tp
+          WHERE tp.credor_chave = td.credor_chave AND ${sqlSemOrdemPagamento('tp')}
+        ) AS credor_tem_perfil,
         ${CLASSIFICACAO_SELECT}
       FROM transparencia_despesas td
       ${CLASSIFICACAO_JOIN}
@@ -860,6 +903,7 @@ function getDespesas({
       ORDER BY td.data_empenho DESC, td.id DESC
       LIMIT ? OFFSET ?
     `).all(...paramsFinais, limite, offset)
+      .map((row) => ({ ...row, credor_tem_perfil: Boolean(row.credor_tem_perfil) }))
       .map(ocultarVinculoDocumentoInexato)
       .map(decorarDespesaComFinalidade);
     return { total, pagina: Number(pagina), limite, dados };

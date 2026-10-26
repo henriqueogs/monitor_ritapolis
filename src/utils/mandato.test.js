@@ -114,4 +114,67 @@ describe('mandato', () => {
       expect(grupos[0].valor).toBe(3);
     });
   });
+
+describe('exerciciosDoMandato', () => {
+  const { exerciciosDoMandato } = require('./mandato');
+
+  it('devolve os 4 anos do mandato que contém o ano', () => {
+    expect(exerciciosDoMandato(2026)).toEqual([2025, 2026, 2027, 2028]);
+    expect(exerciciosDoMandato(2024)).toEqual([2021, 2022, 2023, 2024]);
+  });
+});
+});
+
+describe('resolverExercicios / montarPeriodo (fonte unica do periodo)', () => {
+  const { resolverExercicios, montarPeriodo, descreverMandato } = require('./mandato');
+
+  it('exercicio explicito tem precedencia sobre mandato', () => {
+    expect(resolverExercicios({ exercicio: 2024, mandato: 2026 })).toEqual([2024]);
+  });
+
+  it('mandato (qualquer ano dele) vira os 4 exercicios; fronteira 2024/2025', () => {
+    expect(resolverExercicios({ mandato: 2024 })).toEqual([2021, 2022, 2023, 2024]);
+    expect(resolverExercicios({ mandato: 2025 })).toEqual([2025, 2026, 2027, 2028]);
+  });
+
+  it('sem filtro ou filtro invalido devolve undefined (acumulado)', () => {
+    expect(resolverExercicios()).toBeUndefined();
+    expect(resolverExercicios({ mandato: 'abc', exercicio: -3 })).toBeUndefined();
+  });
+
+  it('montarPeriodo com exercicio invalido cai no mandato valido ou no acumulado', () => {
+    expect(montarPeriodo({ exercicio: -3, mandato: 2026 }, [])).toMatchObject({ exercicio: null, mandato: { label: '2025-2028' } });
+    expect(montarPeriodo({ exercicio: Number.NaN }, [])).toMatchObject({ exercicio: null, mandato: null });
+    expect(montarPeriodo({ exercicio: 'abc', mandato: 'x' }, [])).toMatchObject({ exercicio: null, mandato: null });
+  });
+
+  it('mandato aceita QUALQUER ano dentro do mandato (nao so o inicio)', () => {
+    expect(montarPeriodo({ mandato: 2027 }, []).mandato.label).toBe('2025-2028');
+    expect(resolverExercicios({ mandato: 2028 })).toEqual([2025, 2026, 2027, 2028]);
+  });
+
+  it('resolverFiltroPeriodo informa o tipo do filtro aplicado', () => {
+    const { resolverFiltroPeriodo } = require('./mandato');
+
+    expect(resolverFiltroPeriodo({ exercicio: 2024, mandato: 2026 })).toEqual({ tipo: 'exercicio', exercicios: [2024] });
+    expect(resolverFiltroPeriodo({ exercicio: -5, mandato: 2026 }).tipo).toBe('mandato');
+    expect(resolverFiltroPeriodo({})).toEqual({ tipo: 'acumulado', exercicios: undefined });
+  });
+
+  it('descreverMandato rotula inicio, fim e label', () => {
+    expect(descreverMandato(2025)).toEqual({ inicio: 2025, fim: 2028, label: '2025-2028' });
+  });
+
+  it('montarPeriodo: exercicio, mandato e acumulado, com anos cobertos pela serie', () => {
+    const serie = [{ exercicio: 2025 }, { exercicio: 2023 }];
+
+    expect(montarPeriodo({ exercicio: 2024 }, serie)).toEqual({
+      exercicio: 2024,
+      mandato: { inicio: 2021, fim: 2024, label: '2021-2024' },
+      anos_cobertos: [2023, 2025],
+    });
+    expect(montarPeriodo({ mandato: 2026 }, serie)).toMatchObject({ exercicio: null, mandato: { label: '2025-2028' } });
+    expect(montarPeriodo({}, serie)).toEqual({ exercicio: null, mandato: null, anos_cobertos: [2023, 2025] });
+    expect(montarPeriodo({}, [])).toMatchObject({ anos_cobertos: [] });
+  });
 });

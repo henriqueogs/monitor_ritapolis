@@ -104,7 +104,7 @@ export default async function TransparenciaPage({ searchParams: searchParamsProm
       Object.fromEntries(Object.entries(fetchParams).map(([k, v]) => [k, String(v)]))
     ).toString();
   const pctVinculado = total.n_empenhos
-    ? Math.round((total.n_licitacoes_vinculadas / total.n_empenhos) * 100)
+    ? Math.round(((total.n_empenhos_vinculados || 0) / total.n_empenhos) * 100)
     : 0;
 
   return (
@@ -185,7 +185,7 @@ export default async function TransparenciaPage({ searchParams: searchParamsProm
 
       <EmpenhosRecentes ultimosEmpenhos={ultimosEmpenhos} periodoLabel={periodoLabel} />
 
-      <TiposEmpenho tiposEmpenho={tiposEmpenho} valorTotal={total.valor_total} periodoLabel={periodoLabel} />
+      <TiposEmpenho tiposEmpenho={tiposEmpenho} periodoLabel={periodoLabel} />
 
       {/* Análises de preço vivem na Inteligência — aqui só o convite */}
       <SectionBlock

@@ -1,5 +1,10 @@
 const { ZodError } = require('zod');
 const { SummaryContract } = require('./contracts/summary-contract');
+const {
+  normalizeDateValue,
+  normalizeNumberValue,
+  normalizeListValue,
+} = require('./summary-field-normalizers');
 
 const enumValues = {
   tipo_documento: ['edital', 'decreto', 'portaria', 'lei', 'contrato', 'despesa', 'ata', 'outro'],
@@ -42,6 +47,35 @@ function repararEscapesInvalidos(jsonText) {
   );
 }
 
+const MAX_REPAROS_ASPAS = 40;
+const ERRO_APOS_VALOR = /Expected ',' or '[}\]]' after (property value|array element)/;
+
+// O modelo copia trechos do texto oficial (OCR com aspas soltas, ex.: `Programa... ...".: 1202`)
+// sem escapar o `"` e o JSON fecha a string no meio (decretos 992/1022, 16/10/2026;
+// repetir com outra temperatura não adianta). A aspa que fechou a string antes da hora é
+// a última antes da posição do erro: escapá-la mantém o texto do modelo intacto. Recusa
+// quando o erro é aspa seguida de aspa (vírgula faltando) — aí é outro defeito.
+function repararAspasSoltas(jsonText) {
+  let texto = jsonText;
+  for (let tentativa = 0; tentativa < MAX_REPAROS_ASPAS; tentativa += 1) {
+    try {
+      JSON.parse(texto);
+      return texto;
+    } catch (error) {
+      const posicao = Number(/position (\d+)/.exec(error.message)?.[1]);
+      if (!ERRO_APOS_VALOR.test(error.message) || !Number.isInteger(posicao)) {
+        return null;
+      }
+      const aspa = texto.lastIndexOf('"', posicao - 1);
+      if (texto[posicao] === '"' || aspa < 0 || texto[aspa - 1] === '\\') {
+        return null;
+      }
+      texto = `${texto.slice(0, aspa)}\\${texto.slice(aspa)}`;
+    }
+  }
+  return null;
+}
+
 function parseSummaryResponse(rawContent) {
   const jsonText = extractJsonText(rawContent);
 
@@ -51,6 +85,10 @@ function parseSummaryResponse(rawContent) {
     try {
       return JSON.parse(repararEscapesInvalidos(jsonText));
     } catch {
+      const comAspasEscapadas = repararAspasSoltas(repararEscapesInvalidos(jsonText));
+      if (comAspasEscapadas) {
+        return JSON.parse(comAspasEscapadas);
+      }
       throw new Error(`Resposta da IA nao retornou JSON valido: ${error.message}`);
     }
   }
@@ -122,31 +160,9 @@ function normalizeEnumValue(value, allowedValues, fallback = 'outro') {
   return fallback;
 }
 
-function normalizeDateValue(value) {
-  if (value === null || value === '') {
-    return null;
-  }
-
-  const text = String(value).trim();
-  if (!text || /^null|n\/a|nao informado|não informado|sem data$/i.test(text)) {
-    return null;
-  }
-
-  const isoMatch = text.match(/^(\d{4})[-/](\d{2})[-/](\d{2})$/);
-  if (isoMatch) {
-    return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
-  }
-
-  const brMatch = text.match(/^(\d{2})[-/](\d{2})[-/](\d{4})$/);
-  if (brMatch) {
-    return `${brMatch[3]}-${brMatch[2]}-${brMatch[1]}`;
-  }
-
-  return text;
-}
-
 function normalizeOptionalText(value) {
-  if (value === null) {return null;}
+  // undefined virava o texto "undefined" e item sem trecho_fonte passava no filtro.
+  if (value === null || value === undefined) {return null;}
 
   const text = String(value)
     .replace(/[\u200B-\u200D\uFEFF]/g, '')
@@ -157,24 +173,6 @@ function normalizeOptionalText(value) {
 
 function normalizeRequiredText(value) {
   return normalizeOptionalText(value) || '';
-}
-
-function normalizeNumberValue(value) {
-  if (value === null || value === '') {return null;}
-  if (typeof value === 'number') {return Number.isFinite(value) ? value : null;}
-
-  const text = String(value)
-    .replace(/[^\d,.-]/g, '')
-    .trim();
-
-  if (!text) {return null;}
-
-  const normalized = text.includes(',')
-    ? text.replace(/\./g, '').replace(',', '.')
-    : text;
-  const parsed = Number(normalized);
-
-  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function normalizePositiveNumberValue(value) {
@@ -189,9 +187,9 @@ function normalizeSummaryBeforeValidation(summary) {
 
   const hasSourceExcerpt = (item) => Boolean(normalizeOptionalText(item?.trecho_fonte));
   const hasRequiredText = (value) => Boolean(normalizeOptionalText(value));
-  const pontosPrincipais = Array.isArray(summary.pontos_principais)
-    ? summary.pontos_principais.map(normalizeOptionalText).filter(Boolean)
-    : summary.pontos_principais;
+  const pontosPrincipais = normalizeListValue(summary.pontos_principais)
+    .map(normalizeOptionalText)
+    .filter(Boolean);
   const normalizedObject =
     summary.objeto && typeof summary.objeto === 'object'
       ? {
@@ -219,74 +217,66 @@ function normalizeSummaryBeforeValidation(summary) {
     resumo_cidadao: citizenSummary || fallbackText,
     resumo_tecnico: technicalSummary || fallbackText,
     pontos_principais: pontosPrincipais,
-    datas_relevantes: Array.isArray(summary.datas_relevantes)
-      ? summary.datas_relevantes
-          .filter((item) => hasSourceExcerpt(item) && hasRequiredText(item?.descricao))
-          .map((item) => ({
-            ...item,
-            tipo: normalizeEnumValue(item?.tipo, enumValues.data_tipo),
-            data: normalizeDateValue(item?.data),
-            descricao: normalizeRequiredText(item?.descricao),
-            trecho_fonte: normalizeRequiredText(item?.trecho_fonte)
-          }))
-      : summary.datas_relevantes,
-    valores: Array.isArray(summary.valores)
-      ? summary.valores
-          .filter((item) => hasSourceExcerpt(item) && hasRequiredText(item?.descricao))
-          .map((item) => ({
-            ...item,
-            tipo: normalizeEnumValue(item?.tipo, enumValues.valor_tipo),
-            moeda: normalizeRequiredText(item?.moeda || 'BRL'),
-            descricao: normalizeRequiredText(item?.descricao),
-            trecho_fonte: normalizeRequiredText(item?.trecho_fonte)
-          }))
-      : summary.valores,
-    partes_envolvidas: Array.isArray(summary.partes_envolvidas)
-      ? summary.partes_envolvidas
-          .filter((item) => hasSourceExcerpt(item) && hasRequiredText(item?.nome))
-          .map((item) => ({
-            ...item,
-            nome: normalizeRequiredText(item?.nome),
-            papel: normalizeEnumValue(item?.papel, enumValues.papel),
-            documento: normalizeOptionalText(item?.documento),
-            trecho_fonte: normalizeRequiredText(item?.trecho_fonte)
-          }))
-      : summary.partes_envolvidas,
-    itens_licitados: Array.isArray(summary.itens_licitados)
-      ? summary.itens_licitados
-          .filter((item) => hasSourceExcerpt(item) && hasRequiredText(item?.descricao))
-          .map((item) => ({
-            item_numero: normalizeOptionalText(item?.item_numero),
-            lote_numero: normalizeOptionalText(item?.lote_numero),
-            descricao: normalizeRequiredText(item?.descricao),
-            unidade: normalizeOptionalText(item?.unidade),
-            quantidade: normalizePositiveNumberValue(item?.quantidade),
-            valor_unitario_estimado: normalizePositiveNumberValue(item?.valor_unitario_estimado),
-            valor_total_estimado: normalizePositiveNumberValue(item?.valor_total_estimado),
-            valor_unitario_final: normalizePositiveNumberValue(item?.valor_unitario_final),
-            valor_total_final: normalizePositiveNumberValue(item?.valor_total_final),
-            valor_final_tipo: normalizeEnumValue(item?.valor_final_tipo, enumValues.valor_final_tipo, null),
-            valor_lote_final: normalizePositiveNumberValue(item?.valor_lote_final),
-            valor_global_final: normalizePositiveNumberValue(item?.valor_global_final),
-            fornecedor_nome: normalizeOptionalText(item?.fornecedor_nome),
-            fornecedor_cnpj: normalizeOptionalText(item?.fornecedor_cnpj),
-            trecho_fonte: normalizeRequiredText(item?.trecho_fonte)
-          }))
-      : [],
+    datas_relevantes: normalizeListValue(summary.datas_relevantes)
+      .filter((item) => hasSourceExcerpt(item) && hasRequiredText(item?.descricao))
+      .map((item) => ({
+        ...item,
+        tipo: normalizeEnumValue(item?.tipo, enumValues.data_tipo),
+        data: normalizeDateValue(item?.data),
+        descricao: normalizeRequiredText(item?.descricao),
+        trecho_fonte: normalizeRequiredText(item?.trecho_fonte)
+      })),
+    valores: normalizeListValue(summary.valores)
+      .filter((item) => hasSourceExcerpt(item) && hasRequiredText(item?.descricao))
+      .map((item) => ({
+        ...item,
+        tipo: normalizeEnumValue(item?.tipo, enumValues.valor_tipo),
+        valor: normalizeNumberValue(item?.valor),
+        moeda: normalizeRequiredText(item?.moeda || 'BRL'),
+        descricao: normalizeRequiredText(item?.descricao),
+        trecho_fonte: normalizeRequiredText(item?.trecho_fonte)
+      }))
+      .filter((item) => item.valor !== null),
+    partes_envolvidas: normalizeListValue(summary.partes_envolvidas)
+      .filter((item) => hasSourceExcerpt(item) && hasRequiredText(item?.nome))
+      .map((item) => ({
+        ...item,
+        nome: normalizeRequiredText(item?.nome),
+        papel: normalizeEnumValue(item?.papel, enumValues.papel),
+        documento: normalizeOptionalText(item?.documento),
+        trecho_fonte: normalizeRequiredText(item?.trecho_fonte)
+      })),
+    itens_licitados: normalizeListValue(summary.itens_licitados)
+      .filter((item) => hasSourceExcerpt(item) && hasRequiredText(item?.descricao))
+      .map((item) => ({
+        item_numero: normalizeOptionalText(item?.item_numero),
+        lote_numero: normalizeOptionalText(item?.lote_numero),
+        descricao: normalizeRequiredText(item?.descricao),
+        unidade: normalizeOptionalText(item?.unidade),
+        quantidade: normalizePositiveNumberValue(item?.quantidade),
+        valor_unitario_estimado: normalizePositiveNumberValue(item?.valor_unitario_estimado),
+        valor_total_estimado: normalizePositiveNumberValue(item?.valor_total_estimado),
+        valor_unitario_final: normalizePositiveNumberValue(item?.valor_unitario_final),
+        valor_total_final: normalizePositiveNumberValue(item?.valor_total_final),
+        valor_final_tipo: normalizeEnumValue(item?.valor_final_tipo, enumValues.valor_final_tipo, null),
+        valor_lote_final: normalizePositiveNumberValue(item?.valor_lote_final),
+        valor_global_final: normalizePositiveNumberValue(item?.valor_global_final),
+        fornecedor_nome: normalizeOptionalText(item?.fornecedor_nome),
+        fornecedor_cnpj: normalizeOptionalText(item?.fornecedor_cnpj),
+        trecho_fonte: normalizeRequiredText(item?.trecho_fonte)
+      })),
     objeto: normalizedObject,
-    riscos_ou_alertas: Array.isArray(summary.riscos_ou_alertas)
-      ? summary.riscos_ou_alertas
-          .filter((item) => hasRequiredText(item?.descricao) && hasRequiredText(item?.motivo))
-          .map((item) => ({
-            ...item,
-            nivel: normalizeEnumValue(item?.nivel, enumValues.nivel_risco, 'baixo'),
-            descricao: normalizeRequiredText(item?.descricao),
-            motivo: normalizeRequiredText(item?.motivo)
-          }))
-      : summary.riscos_ou_alertas,
-    campos_nao_encontrados: Array.isArray(summary.campos_nao_encontrados)
-      ? summary.campos_nao_encontrados.map(normalizeOptionalText).filter(Boolean)
-      : summary.campos_nao_encontrados,
+    riscos_ou_alertas: normalizeListValue(summary.riscos_ou_alertas)
+      .filter((item) => hasRequiredText(item?.descricao) && hasRequiredText(item?.motivo))
+      .map((item) => ({
+        ...item,
+        nivel: normalizeEnumValue(item?.nivel, enumValues.nivel_risco, 'baixo'),
+        descricao: normalizeRequiredText(item?.descricao),
+        motivo: normalizeRequiredText(item?.motivo)
+      })),
+    campos_nao_encontrados: normalizeListValue(summary.campos_nao_encontrados)
+      .map(normalizeOptionalText)
+      .filter(Boolean),
     confianca: usedFallback ? Math.min(confidence, 0.35) : confidence
   };
 }
@@ -308,6 +298,7 @@ function validateSummary(summary) {
 
 module.exports = {
   extractJsonText,
+  repararAspasSoltas,
   parseSummaryResponse,
   validateSummary,
   normalizeEnumValue,

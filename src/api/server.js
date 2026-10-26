@@ -9,7 +9,6 @@ const {
   listDocumentos,
   listLicitacoes,
   listLicitacaoProdutos,
-  getLicitacaoProdutosByDocumentoId,
   getLicitacaoAnaliseAnual,
   listLicitacaoFontesRelacionadas,
   listLicitacaoFontesRelacionadasByDocumentoId,
@@ -55,13 +54,15 @@ const {
   getInteligenciaPanorama,
   getCoberturaPorAno,
 } = require('../services/painel-cidadao-service');
+const { getLicitacaoProdutosComPerfil } = require('../services/licitacao-produtos-service');
 const { getSaudePipeline } = require('../services/pipeline-saude-service');
-const { getCredorDossie } = require('../transparencia/credor-service');
+const { getCredorDossie, listarCredoresDoPeriodo } = require('../transparencia/credor-service');
 const { parseCredorChave } = require('../transparencia/credor-chave');
 const { buscaUnificada } = require('../busca/busca-unificada');
 const { getEmpenhoDossie } = require('../transparencia/empenho-service');
 const { getGastosPanorama, getCategoriaDossie } = require('../transparencia/gastos-service');
-const { getFinalidadesResumo, getFinalidadeDossie, resolverExercicios } = require('../transparencia/finalidade-service');
+const { getFinalidadesResumo, getFinalidadeDossie } = require('../transparencia/finalidade-service');
+const { resolverExercicios } = require('../utils/mandato');
 const { listarServidores, getServidorDossie, getResumoSecretarias } = require('../transparencia/folha-service');
 const { getProjetos, getProjetoDossie, getVereadores, getVereadorDossie } = require('../db/camara-repo');
 const { slugParaPrefixos } = require('../transparencia/categorias');
@@ -73,16 +74,21 @@ const {
   getEvolucaoFuncoes,
   getRankingPorFuncao,
   getPainelInteligencia,
+  getExercicioPadrao,
 } = require('../db/inteligencia-repo');
+const { parseExercicio } = require('../inteligencia/periodo-inteligencia');
 const { summarizeDocument, buildTextoHash } = require('../ai/summarize-document');
 const { correlateLicitation } = require('../ai/correlate-licitation');
 const { createAiProvider } = require('../ai/providers');
 const { scheduleResumoAiJobWorker } = require('../ai/summary-job-worker');
 const { getAiOperationPlan } = require('../ai/operation-policy');
+const { criarHandlerPerguntar } = require('./ia-perguntar');
+const { criarServicoPadrao } = require('../ai/rag/servico-padrao');
 const { extractEntitiesFromResumes } = require('../ai/extract-entities');
 const { gerarNarrativaAnomalias } = require('../ai/anomaly-narrative');
 const alertasRepo = require('../db/alertas-repo');
 const { generateAlerts, getAlertasStatus } = require('../alertas/alert-generator');
+const alertasRevisao = require('../services/alertas-revisao-service');
 const { extrairFatosInteligencia } = require('../inteligencia/fatos-runner');
 const {
   createAnexoResumoJob,
@@ -98,7 +104,6 @@ const {
   getItensEstruturacaoJobById,
 } = require('../db/itens-estruturacao-jobs-repo');
 const { getCollectionUpdateStatus, startCollectionUpdate } = require('../coletas/update-runner');
-const { listCredores } = require('../db/credores-repo');
 const { searchDocumentos, ensureFtsIndex, rebuildFtsIndex } = require('../db/fts-repo');
 const { ensureDespesasFtsIndex } = require('../db/fts-despesas-repo');
 const {
@@ -325,7 +330,7 @@ function validateBootstrapToken(token, env = process.env) {
   return { ok: true };
 }
 
-function createServer() {
+function createServer({ servicoPerguntar } = {}) {
   const app = express();
   app.set('trust proxy', 1);
   app.use(security.applySecurityHeaders);
@@ -607,7 +612,7 @@ function createServer() {
   });
 
   app.get('/api/licitacoes/:id/produtos', (req, res) => {
-    const data = getLicitacaoProdutosByDocumentoId(Number(req.params.id));
+    const data = getLicitacaoProdutosComPerfil(Number(req.params.id));
     res.json(data);
   });
 
@@ -676,6 +681,17 @@ function createServer() {
       })
     );
   });
+
+  // Perguntas do cidadão (RAG com citação obrigatória). O serviço é montado na primeira chamada;
+  // null (recurso desligado ou índice ausente) => 503. Reiniciar a API relê o estado.
+  let servicoIa;
+  const obterServicoIa = () => {
+    if (servicoIa === undefined) {
+      servicoIa = servicoPerguntar !== undefined ? servicoPerguntar : criarServicoPadrao({ config, logger });
+    }
+    return servicoIa;
+  };
+  app.post('/api/ia/perguntar', criarHandlerPerguntar({ obterServico: obterServicoIa }));
 
   app.get('/api/ia/health', (_req, res, next) => {
     try {
@@ -917,9 +933,25 @@ function createServer() {
     return res.json(getConcentracaoHistorico());
   });
 
+  // Exercício da query validado; ausente = último ano com dados. null = resposta já enviada.
+  function resolverExercicioInteligencia(req, res) {
+    const parsed = parseExercicio(req.query.exercicio);
+    if (!parsed.valido) {
+      res.status(400).json({ error: 'exercicio inválido' });
+      return null;
+    }
+    const exercicio = parsed.valor ?? getExercicioPadrao();
+    if (!exercicio) {
+      res.json({ sem_dados: true });
+      return null;
+    }
+    return exercicio;
+  }
+
   // GET /api/inteligencia/anomalias?exercicio=2025 — B2 anomalias
   app.get('/api/inteligencia/anomalias', (req, res) => {
-    const exercicio = Number(req.query.exercicio || 2025);
+    const exercicio = resolverExercicioInteligencia(req, res);
+    if (!exercicio) { return undefined; }
     return res.json(getEmpenhoAtipicos(exercicio));
   });
 
@@ -930,7 +962,8 @@ function createServer() {
 
   // GET /api/inteligencia/ranking?exercicio=2025 — B4 ranking por funcao
   app.get('/api/inteligencia/ranking', (req, res) => {
-    const exercicio = Number(req.query.exercicio || 2025);
+    const exercicio = resolverExercicioInteligencia(req, res);
+    if (!exercicio) { return undefined; }
     const topN = req.query.topN ? Number(req.query.topN) : 5;
     return res.json(getRankingPorFuncao(exercicio, topN));
   });
@@ -939,7 +972,8 @@ function createServer() {
 
   // POST /api/inteligencia/anomalias/narrativa?exercicio=2025
   app.post('/api/inteligencia/anomalias/narrativa', async (req, res) => {
-    const exercicio = Number(req.query.exercicio || 2025);
+    const exercicio = resolverExercicioInteligencia(req, res);
+    if (!exercicio) { return undefined; }
     const pipeline = require('../pipeline/coordinator');
     if (pipeline.enabled()) {
       const input = getEmpenhoAtipicos(exercicio);
@@ -1030,10 +1064,10 @@ function createServer() {
     }
   });
 
-  // GET /api/alertas/:id — detalhe com documentos vinculados
+  // GET /api/admin/alertas — fila editorial, cada item com a revalidação automática
   app.get('/api/admin/alertas', (req, res) => {
     const { tipo, categoria, severidade, status, estadoEditorial, periodoInicio, periodoFim, pagina, limite } = req.query;
-    return res.json(alertasRepo.listarAlertas({
+    return res.json(alertasRevisao.listarParaRevisao({
       tipo: tipo || undefined,
       categoria: categoria || undefined,
       severidade: severidade || undefined,
@@ -1058,27 +1092,21 @@ function createServer() {
     if (!Number.isInteger(id)) {
       return res.status(400).json({ error: 'id invalido' });
     }
-    const alerta = alertasRepo.getAlerta(id);
+    const alerta = alertasRevisao.detalharParaRevisao(id);
     if (!alerta) {
       return res.status(404).json({ error: 'Alerta nao encontrado' });
     }
-    return res.json({
-      ...alerta,
-      historico_editorial: alertasRepo.listarHistoricoEditorial(id),
-    });
+    return res.json(alerta);
   });
 
   app.patch('/api/admin/alertas/:id/editorial', (req, res) => {
     const id = Number(req.params.id);
-    const { estado, motivos } = req.body || {};
+    const { estado, motivos, nota, conferidos } = req.body || {};
     if (!Number.isInteger(id)) {
       return res.status(400).json({ error: 'id invalido' });
     }
     try {
-      const ok = alertasRepo.setEstadoEditorial(id, estado, {
-        origem: 'admin',
-        motivos: Array.isArray(motivos) ? motivos : [],
-      });
+      const ok = alertasRevisao.decidirEditorial(id, { estado, motivos, nota, conferidos });
       if (!ok) {
         return res.status(404).json({ error: 'Alerta nao encontrado' });
       }
@@ -1146,14 +1174,13 @@ function createServer() {
   // GET /api/credores — lista de credores
   app.get('/api/credores', (req, res) => {
     const { limite, pagina, busca, exercicio, mandato, finalidade } = req.query;
-    const exercicios = !exercicio && mandato ? resolverExercicios({ mandato: Number(mandato) }) : undefined;
     if (finalidade && !FINALIDADES[finalidade]) { return res.status(400).json({ error: 'Finalidade desconhecida' }); }
-    return res.json(listCredores({
+    return res.json(listarCredoresDoPeriodo({
       limite: limite ? Number(limite) : 50,
       pagina: pagina ? Number(pagina) : 1,
       busca: busca || undefined,
       exercicio: exercicio ? Number(exercicio) : undefined,
-      exercicios,
+      mandato: mandato ? Number(mandato) : undefined,
       finalidade: finalidade || undefined,
     }));
   });

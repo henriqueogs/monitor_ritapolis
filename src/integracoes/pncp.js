@@ -1,5 +1,6 @@
 const axios = require('axios');
 const config = require('../config');
+const { ente } = require('../ente');
 const { normalizeNumeroPncpChave } = require('../licitacoes/processo');
 const { normalizeText } = require('../utils/text');
 
@@ -195,7 +196,7 @@ async function consultarContratacoesPublicacao({
   codigoModalidadeContratacao,
   codigoMunicipioIbge = config.ibgeCode,
   cnpj,
-  uf = 'MG',
+  uf = ente.uf,
   pagina = 1,
   tamanhoPagina = 50,
   timeoutMs = config.collectorTimeoutMs
@@ -452,7 +453,7 @@ async function buscarCandidatosPncpEmCascata(local, options = {}) {
 async function buscarCandidatosPncp(local, {
   dias = 90,
   cnpj,
-  uf = 'MG',
+  uf = ente.uf,
   codigoMunicipioIbge = config.ibgeCode,
   maxPaginas = 2,
   tamanhoPagina = 50,

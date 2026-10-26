@@ -53,13 +53,30 @@ describe('frontend fetch-retry', () => {
       expect(fetchImpl).toHaveBeenCalledTimes(2);
     });
 
-    it('propaga o erro quando a segunda tentativa também falha', async () => {
+    it('repete até a terceira tentativa em erro de rede (vários sockets velhos no pool)', async () => {
+      // Arrange: função da Vercel descongelada com mais de um socket keep-alive morto
+      const resposta = { ok: true };
+      const fetchImpl = jest
+        .fn()
+        .mockRejectedValueOnce(erroFetchFailed('UND_ERR_SOCKET'))
+        .mockRejectedValueOnce(erroFetchFailed('ETIMEDOUT'))
+        .mockResolvedValueOnce(resposta);
+
+      // Act
+      const resultado = await fetchComRetry('http://api/x', {}, { fetchImpl, esperaMs: 0 });
+
+      // Assert
+      expect(resultado).toBe(resposta);
+      expect(fetchImpl).toHaveBeenCalledTimes(3);
+    });
+
+    it('propaga o erro quando a terceira tentativa também falha', async () => {
       const fetchImpl = jest.fn().mockRejectedValue(erroFetchFailed('ECONNRESET'));
 
       await expect(fetchComRetry('http://api/x', {}, { fetchImpl, esperaMs: 0 })).rejects.toThrow(
         'fetch failed'
       );
-      expect(fetchImpl).toHaveBeenCalledTimes(2);
+      expect(fetchImpl).toHaveBeenCalledTimes(3);
     });
 
     it('não repete erros que não são de rede', async () => {
@@ -71,14 +88,37 @@ describe('frontend fetch-retry', () => {
       expect(fetchImpl).toHaveBeenCalledTimes(1);
     });
 
-    it('não repete respostas HTTP de erro', async () => {
-      const resposta = { ok: false, status: 502 };
+    it('não repete respostas HTTP de erro da aplicação (4xx/500)', async () => {
+      const resposta = { ok: false, status: 500 };
       const fetchImpl = jest.fn().mockResolvedValue(resposta);
 
       const resultado = await fetchComRetry('http://api/x', {}, { fetchImpl, esperaMs: 0 });
 
       expect(resultado).toBe(resposta);
       expect(fetchImpl).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([502, 503, 504])('repete uma vez quando o proxy responde %i (API reiniciando)', async (status) => {
+      // Arrange
+      const ok = { ok: true, status: 200 };
+      const fetchImpl = jest.fn().mockResolvedValueOnce({ ok: false, status }).mockResolvedValueOnce(ok);
+
+      // Act
+      const resultado = await fetchComRetry('http://api/x', {}, { fetchImpl, esperaMs: 0, esperaGatewayMs: 0 });
+
+      // Assert
+      expect(resultado).toBe(ok);
+      expect(fetchImpl).toHaveBeenCalledTimes(2);
+    });
+
+    it('devolve a última resposta 502 quando a repetição também falha', async () => {
+      const resposta = { ok: false, status: 502 };
+      const fetchImpl = jest.fn().mockResolvedValue(resposta);
+
+      const resultado = await fetchComRetry('http://api/x', {}, { fetchImpl, esperaMs: 0, esperaGatewayMs: 0 });
+
+      expect(resultado).toBe(resposta);
+      expect(fetchImpl).toHaveBeenCalledTimes(2);
     });
   });
 });

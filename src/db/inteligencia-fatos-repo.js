@@ -2,6 +2,7 @@
 
 const crypto = require('crypto');
 const { db } = require('./connection');
+const { sqlValorFinalHomologado } = require('../transparencia/valor-final-empenho');
 
 function nowIso() {
   return new Date().toISOString();
@@ -320,7 +321,7 @@ function listarFatosParaAlertas({ tipo, subtipo, ano, limite = 5000 } = {}) {
     .prepare(
       `SELECT f.*, d.titulo, d.numero AS documento_numero, d.ano, d.data_publicacao,
               d.url_origem, d.valor_estimado AS documento_valor_estimado,
-              ld.vencedor_nome, ld.vencedor_cnpj, ld.valor_final AS documento_valor_final,
+              ld.vencedor_nome, ld.vencedor_cnpj, ${sqlValorFinalHomologado('ld')} AS documento_valor_final,
               a.nome AS anexo_nome, a.url AS anexo_url
          FROM inteligencia_fatos f
          JOIN documentos d ON d.id = f.documento_id

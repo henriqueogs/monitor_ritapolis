@@ -11,6 +11,24 @@ const { db } = require('./index');
 const { vinculoDocumentoExato } = require('../licitacoes/modalidade');
 const { parseCredorChave } = require('../transparencia/credor-chave');
 const { getFinalidadeMeta } = require('../transparencia/finalidade');
+const { sqlValorFinalDeEmpenho } = require('../transparencia/valor-final-empenho');
+const {
+  SQL_TIPO_ORDEM_PAGAMENTO,
+  SQL_TIPO_ORDINARIO,
+  SQL_SUM_ORDINARIO,
+  SQL_SUM_ESTIMADO_GLOBAL,
+  SQL_COUNT_ORDINARIO,
+  SQL_COUNT_ESTIMADO_GLOBAL,
+} = require('../transparencia/tipo-empenho');
+
+// Semântica dos totais de credor (fiscal-valores V2/V3):
+//  - valor_total          = só empenho ordinário (EO), sem OP — o gasto comprometido;
+//  - valor_estimado_global = EE + EG (estimativa/parcelas futuras), campo à parte;
+//  - OP (ordem de pagamento) fica fora de tudo: pagar um empenho não é novo gasto.
+const SUM_ORDINARIO = SQL_SUM_ORDINARIO;
+const SUM_ESTIMADO_GLOBAL = SQL_SUM_ESTIMADO_GLOBAL;
+const COUNT_ORDINARIO = SQL_COUNT_ORDINARIO;
+const COUNT_ESTIMADO_GLOBAL = SQL_COUNT_ESTIMADO_GLOBAL;
 
 const FONTES_EXTERNAS_CREDORES = Object.freeze({
   receita_cnpj: {
@@ -159,7 +177,7 @@ function listFinalidadesCredor(credorChave) {
            ROUND(SUM(td.valor), 2) AS valor_total
     FROM transparencia_despesas td
     JOIN transparencia_despesas_classificacoes tdc ON tdc.despesa_id = td.id
-    WHERE td.credor_chave = ?
+    WHERE td.credor_chave = ? AND ${SQL_TIPO_ORDINARIO}
     GROUP BY tdc.classe_principal
     ORDER BY valor_total DESC
   `).all(credorChave).map((row) => {
@@ -188,6 +206,7 @@ function listCredores({ limite = 50, pagina = 1, busca, exercicio, exercicios, f
     "UPPER(credor_nome) NOT LIKE '%FOLHA%PAGAMENTO%'",
     "UPPER(credor_nome) NOT LIKE '%PAGAMENTO%FOLHA%'",
     "UPPER(credor_nome) NOT LIKE '%13%SALARIO%'",
+    `NOT ${SQL_TIPO_ORDEM_PAGAMENTO}`,
   ];
   const params = [];
   const listaExercicios = (Array.isArray(exercicios) ? exercicios : [])
@@ -225,9 +244,11 @@ function listCredores({ limite = 50, pagina = 1, busca, exercicio, exercicios, f
     SELECT
       credor_chave,
       MAX(credor_cnpj)                    AS credor_cnpj,
-      credor_nome,
-      COUNT(*)                            AS n_empenhos,
-      ROUND(SUM(valor), 2)                AS valor_total,
+      MAX(credor_nome)                    AS credor_nome,
+      ${COUNT_ORDINARIO}                    AS n_empenhos,
+      ${COUNT_ESTIMADO_GLOBAL}              AS n_empenhos_estimado_global,
+      ${SUM_ORDINARIO}                     AS valor_total,
+      ${SUM_ESTIMADO_GLOBAL}               AS valor_estimado_global,
       COUNT(DISTINCT exercicio_orcamento) AS n_anos,
       MIN(exercicio_orcamento)            AS primeiro_ano,
       MAX(exercicio_orcamento)            AS ultimo_ano,
@@ -241,7 +262,7 @@ function listCredores({ limite = 50, pagina = 1, busca, exercicio, exercicios, f
             ROUND(SUM(b2.valor), 2) AS valor
           FROM base b2
           JOIN transparencia_despesas_classificacoes tdc ON tdc.despesa_id = b2.id
-          WHERE b2.credor_chave = base.credor_chave
+          WHERE b2.credor_chave = base.credor_chave AND ${SQL_TIPO_ORDINARIO}
           GROUP BY tdc.classe_principal
           ORDER BY valor DESC
           LIMIT 3
@@ -260,7 +281,32 @@ function listCredores({ limite = 50, pagina = 1, busca, exercicio, exercicios, f
   return { total, pagina, limite, dados };
 }
 
+/** Primeiro e último exercício com despesa de credor (rótulo de período). */
+function getCoberturaCredores() {
+  const row = db.prepare(`
+    SELECT MIN(exercicio_orcamento) AS primeiro, MAX(exercicio_orcamento) AS ultimo
+    FROM transparencia_despesas WHERE credor_chave IS NOT NULL AND credor_chave != ''
+  `).get();
+  return { primeiro: row?.primeiro ?? null, ultimo: row?.ultimo ?? null };
+}
+
 // ── Perfil completo ───────────────────────────────────────────────────────────
+
+/**
+ * Mesmo critério de existência de getCredorProfile (qualquer empenho que não
+ * seja OP), sem montar o perfil: serve para decidir se um link /credores/:x
+ * leva a uma página real ou a um 404 (credor só com ordens de pagamento).
+ */
+function credorTemPerfil(identificador) {
+  const parsed = parseCredorChave(identificador);
+  if (!parsed) {return false;}
+  const row = db.prepare(`
+    SELECT 1 FROM transparencia_despesas
+    WHERE credor_chave = ? AND NOT ${SQL_TIPO_ORDEM_PAGAMENTO}
+    LIMIT 1
+  `).get(parsed.chave);
+  return Boolean(row);
+}
 
 /**
  * Retorna perfil detalhado de um credor pela credor_chave (aceita também CNPJ
@@ -276,8 +322,10 @@ function getCredorProfile(identificador) {
   const identidade = db.prepare(`
     SELECT credor_cnpj, credor_nome,
       MAX(credor_cargo)                   AS cargo,
-      COUNT(*)                            AS n_empenhos,
-      ROUND(SUM(valor), 2)                AS valor_total,
+      ${COUNT_ORDINARIO}                    AS n_empenhos,
+      ${COUNT_ESTIMADO_GLOBAL}              AS n_empenhos_estimado_global,
+      ${SUM_ORDINARIO}                     AS valor_total,
+      ${SUM_ESTIMADO_GLOBAL}               AS valor_estimado_global,
       MIN(data_empenho)                   AS primeiro_empenho,
       MAX(data_empenho)                   AS ultimo_empenho,
       MIN(exercicio_orcamento)            AS primeiro_ano,
@@ -285,31 +333,33 @@ function getCredorProfile(identificador) {
       COUNT(DISTINCT exercicio_orcamento) AS n_anos,
       COUNT(DISTINCT funcao)              AS n_funcoes
     FROM transparencia_despesas
-    WHERE credor_chave = ?
+    WHERE credor_chave = ? AND NOT ${SQL_TIPO_ORDEM_PAGAMENTO}
   `).get(chave);
 
-  if (!identidade || !identidade.n_empenhos) {return null;}
+  // Só EE/EG também é credor: a listagem (que exclui só OP) linka para ele.
+  if (!identidade || !(identidade.n_empenhos || identidade.n_empenhos_estimado_global)) {return null;}
 
   // ── Histórico por ano ──
   const porAno = db.prepare(`
     SELECT
       exercicio_orcamento  AS ano,
-      COUNT(*)             AS n_empenhos,
-      ROUND(SUM(valor), 2) AS valor_total
+      ${COUNT_ORDINARIO}     AS n_empenhos,
+      ${SUM_ORDINARIO}      AS valor_total,
+      ${SUM_ESTIMADO_GLOBAL} AS valor_estimado_global
     FROM transparencia_despesas
-    WHERE credor_chave = ?
+    WHERE credor_chave = ? AND NOT ${SQL_TIPO_ORDEM_PAGAMENTO}
     GROUP BY ano ORDER BY ano
   `).all(chave);
 
   // ── Por área funcional ──
   const porFuncao = db.prepare(`
     SELECT
-      funcao,
+      COALESCE(funcao, 'Sem função informada') AS funcao,
       COUNT(*)             AS n_empenhos,
       ROUND(SUM(valor), 2) AS valor_total
     FROM transparencia_despesas
-    WHERE credor_chave = ? AND funcao IS NOT NULL
-    GROUP BY funcao ORDER BY valor_total DESC
+    WHERE credor_chave = ? AND ${SQL_TIPO_ORDINARIO}
+    GROUP BY COALESCE(funcao, 'Sem função informada') ORDER BY valor_total DESC
   `).all(chave);
 
   // ── Empenhos recentes ──
@@ -322,7 +372,7 @@ function getCredorProfile(identificador) {
       d.id                   AS documento_id
     FROM transparencia_despesas td
     LEFT JOIN documentos d ON d.id = td.documento_id
-    WHERE td.credor_chave = ?
+    WHERE td.credor_chave = ? AND COALESCE(td.tipo, '') NOT LIKE 'OP%'
     ORDER BY td.data_empenho DESC, td.valor DESC
     LIMIT 20
   `).all(chave).map((empenho) => {
@@ -340,7 +390,9 @@ function getCredorProfile(identificador) {
     ? db.prepare(`
         SELECT
           ld.documento_id, ld.vencedor_nome, ld.vencedor_cnpj,
-          d.valor_estimado, ld.valor_final, ld.data_homologacao, ld.modalidade,
+          d.valor_estimado,
+          CASE WHEN ${sqlValorFinalDeEmpenho('ld')} THEN NULL ELSE ld.valor_final END AS valor_final,
+          ld.data_homologacao, ld.modalidade,
           d.titulo, d.ano, d.numero
         FROM licitacoes_detalhes ld
         JOIN documentos d ON d.id = ld.documento_id
@@ -352,7 +404,8 @@ function getCredorProfile(identificador) {
 
   const perfil = tipo === 'cnpj'
     ? db.prepare(`
-        SELECT nome_canonico, total_valor_vencedor, total_valor_produtos, total_valor_pago,
+        SELECT nome_canonico, total_valor_vencedor, total_valor_produtos,
+               total_valor_pago AS total_valor_empenhado,
                n_vitorias, n_itens_produtos, n_licitacoes_vencedor, anos_ativos
         FROM fornecedores_perfil WHERE ${cnpjNorm('cnpj')} = ?
       `).get(chave)
@@ -375,6 +428,8 @@ function getCredorProfile(identificador) {
     resumo: {
       n_empenhos: identidade.n_empenhos,
       valor_total: identidade.valor_total,
+      valor_estimado_global: identidade.valor_estimado_global,
+      n_empenhos_estimado_global: identidade.n_empenhos_estimado_global,
       n_anos: identidade.n_anos,
       primeiro_ano: identidade.primeiro_ano,
       ultimo_ano: identidade.ultimo_ano,
@@ -382,9 +437,10 @@ function getCredorProfile(identificador) {
       primeiro_empenho: identidade.primeiro_empenho,
       ultimo_empenho: identidade.ultimo_empenho,
       crescimento_yoy,
-      // Licitado vs pago: valor homologado em licitações vencidas (quando há perfil)
+      // Licitado vs empenhado: não há valor "pago" por empenho na fonte (só a
+      // data de pagamento), então o comparativo usa o empenhado ordinário.
       total_licitado: perfil?.total_valor_vencedor || 0,
-      total_pago: identidade.valor_total,
+      total_empenhado: identidade.valor_total,
       n_licitacoes_vencidas: perfil?.n_licitacoes_vencedor || licitacoesGanhas.length,
     },
     por_ano: porAno,
@@ -427,7 +483,9 @@ function listCnpjsParaEnriquecer({ limite = 100, maxIdadeDias = 90, force = fals
 
 module.exports = {
   listCredores,
+  getCoberturaCredores,
   getCredorProfile,
+  credorTemPerfil,
   upsertCredorEnriquecimento,
   listCredorEnriquecimentos,
   listCnpjsParaEnriquecer,

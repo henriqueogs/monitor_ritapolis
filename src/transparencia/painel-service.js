@@ -11,58 +11,29 @@ const {
   getDespesas,
   getDespesasPorDocumento,
 } = require('../db/transparencia-repo');
-const { agruparPorMandato, mandatoInicio, mandatoLabel } = require('../utils/mandato');
+const { agruparPorMandato, resolverExercicios, montarPeriodo } = require('../utils/mandato');
 const { comLinkPortal } = require('./portal-links');
 const { memoTtl } = require('../utils/memo-ttl');
 const { registrar } = require('../services/cache-registry');
 
 const TTL_MS = 10 * 60 * 1000;
 
-const CAMPOS_SOMA_MANDATO = ['n_empenhos', 'valor_total', 'n_empenhos_vinculados', 'valor_receita_previsto'];
-
-const MANDATO_ANOS = 4;
-
-function descreverMandato(inicio) {
-  return { inicio, fim: inicio + MANDATO_ANOS - 1, label: mandatoLabel(inicio) };
-}
-
-function montarPeriodo({ exercicio, mandato }, porAno) {
-  const anos = (porAno || []).map((row) => Number(row.exercicio)).filter(Number.isInteger);
-  const anosCobertos = anos.length ? [Math.min(...anos), Math.max(...anos)] : [];
-
-  const anoFiltro = Number(exercicio);
-  if (Number.isInteger(anoFiltro) && anoFiltro > 0) {
-    return {
-      exercicio: anoFiltro,
-      mandato: descreverMandato(mandatoInicio(anoFiltro)),
-      anos_cobertos: anosCobertos,
-    };
-  }
-
-  const inicioMandato = Number(mandato);
-  if (Number.isInteger(inicioMandato) && inicioMandato > 0) {
-    return {
-      exercicio: null,
-      mandato: descreverMandato(mandatoInicio(inicioMandato)),
-      anos_cobertos: anosCobertos,
-    };
-  }
-
-  return { exercicio: null, mandato: null, anos_cobertos: anosCobertos };
-}
+const CAMPOS_SOMA_MANDATO = [
+  'n_empenhos',
+  'valor_total',
+  'valor_estimado_global',
+  'valor_empenhado',
+  'n_empenhos_vinculados',
+  'valor_receita_previsto',
+];
 
 /**
- * @param {{ exercicio?: number, mandato?: number }} filtro — `mandato` é o ano
- * de início do mandato; escopa pelos 4 exercícios correspondentes.
+ * @param {{ exercicio?: number, mandato?: number }} filtro — `mandato` é QUALQUER ano
+ * dentro do mandato (ver utils/mandato); escopa pelos 4 exercícios correspondentes.
  */
 function getPainelTransparenciaSemCache({ exercicio, mandato } = {}) {
-  const inicioMandato = Number(mandato);
-  const filtroRepo =
-    Number.isInteger(inicioMandato) && inicioMandato > 0 && !exercicio
-      ? {
-          exercicios: Array.from({ length: MANDATO_ANOS }, (_, i) => mandatoInicio(inicioMandato) + i),
-        }
-      : { exercicio };
+  const exercicios = exercicio ? undefined : resolverExercicios({ mandato });
+  const filtroRepo = exercicios ? { exercicios } : { exercicio };
 
   const painel = getPainelResumo(filtroRepo);
   return {

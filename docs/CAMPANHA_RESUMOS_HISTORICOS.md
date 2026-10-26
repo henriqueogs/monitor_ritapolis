@@ -13,7 +13,8 @@ O pipeline roda uma tarefa por vez. O trabalho em documentos **históricos**
 | Variável (drop-in systemd) | Padrão | Significado |
 |---|---|---|
 | `PIPELINE_HISTORICAL_DOCS_PER_DAY` | 10 | documentos históricos distintos por dia |
-| `PIPELINE_HISTORICAL_BUDGET_MS` | 3000000 | tempo de IA histórica por dia (ms) |
+| `PIPELINE_HISTORICAL_BUDGET_MS` | 3000000 | tempo de IA histórica **bem-sucedida** por dia (ms) |
+| `PIPELINE_HISTORICAL_FAIL_BUDGET_MS` | 25% do orçamento | teto do tempo gasto em execuções que falharam (não consomem o orçamento nem a vaga de doc, mas esse teto bloqueia o histórico se estourar) |
 
 Drop-in na VM: `/etc/systemd/system/monitor-ritapolis.service.d/historico-campanha.conf`
 (cópia versionada em `deploy/systemd/.../historico-campanha.conf`, valores da etapa
@@ -21,6 +22,15 @@ vigente). Aplicar: `sudo cp`, `sudo systemctl daemon-reload`,
 `sudo systemctl restart monitor-ritapolis` (faça sem tarefa em execução).
 
 ## Limites do provedor (medidos em 06/10/2026, NVIDIA nemotron-3-super)
+
+> Atenção: o padrão passou a ser `nemotron-3-ultra-550b-a55b` em 20/10/2026 (o nemotron-3-super perdeu
+> acesso). Os números abaixo foram medidos no modelo antigo; medir de novo antes de confiar em tempo por
+> tarefa, taxa e orçamento da campanha. Em resumos reais o novo modelo levou 34–94 s (documentos de 2 a 10 mil
+> caracteres).
+>
+> 22/10/2026: a campanha (03:00–08:30 UTC) teve 17 falhas por `timeout` e 1 por `limite_provider`
+> (diagnóstico da VM por categoria). O padrão de `AI_REQUEST_TIMEOUT_MS` subiu de 120000 para 180000.
+> Se o `.env` da VM definir a variável, ele prevalece sobre o padrão: ajuste lá também.
 
 Probe a partir da VM, sem retry: até 8 chamadas simultâneas (~53 req/min em rajada)
 sem erro; **429 a partir de ~116 req/min** (10 simultâneas). Uma chamada leva

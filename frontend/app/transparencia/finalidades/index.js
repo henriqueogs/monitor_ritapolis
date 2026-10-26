@@ -5,6 +5,7 @@ import SectionBlock from '../../components/SectionBlock';
 import FinalidadeBadge from '../../components/FinalidadeBadge';
 import PeriodoSelector from '../../components/PeriodoSelector';
 import TransparenciaSubnav from '../../components/TransparenciaSubnav';
+import NotaEstimadoGlobal from '../components/NotaEstimadoGlobal';
 
 export const metadata = {
   title: 'Finalidades - Dinheiro publico',
@@ -67,8 +68,9 @@ export default async function FinalidadesPage({ searchParams: searchParamsPromis
           <strong>{total.n_empenhos.toLocaleString('pt-BR')}</strong>
         </div>
         <div className="admin-metric-card">
-          <span>Valor movimentado</span>
+          <span>Empenhado ordinário ({periodoLabel})</span>
           <strong>{formatMoney(total.valor_total)}</strong>
+          <NotaEstimadoGlobal valor={total.valor_estimado_global} align="left" />
         </div>
         <div className="admin-metric-card">
           <span>Finalidades com movimento</span>
@@ -122,6 +124,7 @@ export default async function FinalidadesPage({ searchParams: searchParamsPromis
                   <div className="document-row-field">
                     <span>Valor</span>
                     <strong>{formatMoney(item.valor_total)}</strong>
+                    <NotaEstimadoGlobal valor={item.valor_estimado_global} />
                   </div>
                 </div>
               </article>

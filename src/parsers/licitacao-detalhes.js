@@ -1,4 +1,6 @@
-const PREFEITURA_CNPJ = '18.557.553/0001-05';
+const { ente, formatarCnpj } = require('../ente');
+
+const PREFEITURA_CNPJ = formatarCnpj(ente.cnpjPrefeitura);
 
 const MONTHS = {
   janeiro: '01',
@@ -64,8 +66,8 @@ function cleanName(value) {
 function isMunicipalityName(value) {
   const normalized = normalizeKey(value);
   return normalized.includes('prefeitura municipal') ||
-    normalized.includes('municipio de ritapolis') ||
-    normalized.includes('municipal de ritapolis');
+    normalized.includes(`municipio de ${ente.nomeChave}`) ||
+    normalized.includes(`municipal de ${ente.nomeChave}`);
 }
 
 function isInvalidFornecedorName(value) {

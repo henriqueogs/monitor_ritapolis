@@ -31,6 +31,33 @@ Todo merge em `master` dispara os dois lados sozinho — ver `.github/workflows/
 
 Ignora mudanças só em `frontend/**` ou `*.md` (não redeploya o backend à toa).
 
+### Janela de 502 durante o deploy do backend
+
+O deploy para a API, atualiza o código e reinicia. Nesse intervalo, o Caddy
+responde 502: em 15/10/2026 cada merge gerou dezenas de 502 na Vercel. Duas
+medidas reduzem isso:
+
+- `scripts/oracle-deploy.sh` pula o `npm ci` quando o `package-lock.json`
+  do deploy é o mesmo já instalado. O hash vai em
+  `node_modules/.deploy-lock-hash` e só é gravado depois de um `npm ci` bem
+  sucedido, então uma instalação que falhou é refeita no deploy seguinte.
+- O frontend (`frontend/lib/fetch-retry.js`) repete uma vez, após 2 s, as
+  leituras GET que recebem 502/503/504. Falha de rede (`fetch failed`: socket
+  keep-alive morto depois que a função da Vercel ficou congelada) tem até 3
+  tentativas.
+
+**Instalação manual:** o `/opt/monitor-ritapolis/deploy.sh` da VM é uma
+cópia (ver `docs/DEPLOY_FILA_SEGURA_2026-10-01.md`). Mudanças em
+`scripts/oracle-deploy.sh` só valem depois de instaladas:
+
+```bash
+cd /opt/monitor-ritapolis && git pull
+sudo install -m 755 scripts/oracle-deploy.sh /opt/monitor-ritapolis/deploy.sh
+```
+
+O primeiro deploy depois disso ainda roda `npm ci`, porque o hash ainda não
+existe. Os seguintes só reinstalam quando o lockfile mudar.
+
 ## Verificação de capacidade da VM
 
 A VM roda em `VM.Standard.E2.1.Micro` (1 OCPU/1GB) — o shape maior
@@ -56,6 +83,59 @@ de novo depois; capacidade flutua ao longo do dia). Só migrar de verdade
 se a VM atual estiver sob pressão **e** a capacidade existir — nunca migrar
 só porque "seria melhor", isso já causou um retrabalho na primeira tentativa.
 
+## Diagnóstico da VM sob demanda
+
+`.github/workflows/vm-diagnostico.yml` é disparado manualmente (Actions → "VM
+diagnóstico" → Run workflow). Recebe uma janela opcional em UTC (`inicio` e
+`fim` no formato `AAAA-MM-DDTHH:MM`, até 24h; sem janela, usa a última hora)
+e devolve só leitura:
+
+- se o `deploy.sh` instalado é a versão nova e se o marcador do lockfile bate;
+- `NRestarts`, restarts e saídas do serviço na janela;
+- `free -m`, carga, disco e kills por falta de memória (OOM) do kernel;
+- erros do Caddy (só o campo `msg`) e do `logs/app.log` (JSON do winston:
+  contagem por nível e principais mensagens de erro/aviso, sem o meta). Cada
+  mensagem vem com a categoria do erro de IA (`timeout`, `limite_provider`,
+  `rede`, `modelo_indisponivel`…), calculada por `src/ai/classificar-erro-ia.js`
+  a partir do meta `erro`/`error`; o texto do erro não sai. Estouro do rate
+  limit da API aparece como `Rate limit excedido (<classe>)`, uma linha por
+  janela estourada. `sem_detalhe` =
+  linha sem esse meta; `indisponivel` = checkout da VM ainda sem o classificador.
+
+O script é uma cópia: mudanças em `scripts/vm-diagnostico.sh` só valem depois
+de reinstalar (`cd /opt/monitor-ritapolis && git pull && sudo install -m 755
+scripts/vm-diagnostico.sh /opt/monitor-ritapolis/report-diagnostico.sh`).
+
+**O repositório é público e o log do Actions também.** Por isso o script
+(`scripts/vm-diagnostico.sh`) nunca imprime linhas brutas de log nem o meta
+(ip, path, chave) do winston, e mascara IPs v4/v6, URIs, chaves `pf-`,
+e-mails, CPF/CNPJ, números longos, tokens e Basic/Bearer.
+
+A chave SSH dele (`ORACLE_DIAG_SSH_KEY`) só executa esse script e não altera
+nada na VM. Instalação, uma vez:
+
+```bash
+# 1. Na sua máquina: gerar o par (sem senha, uso exclusivo do workflow)
+ssh-keygen -t ed25519 -N '' -C 'monitor-ritapolis-diagnostico' -f ~/.ssh/monitor-ritapolis-diag
+
+# 2. Ainda na sua máquina: instalar o script na VM e autorizar a chave só para ele
+PUB=$(cat ~/.ssh/monitor-ritapolis-diag.pub)
+ssh -i ~/.ssh/monitor-ritapolis-oracle ubuntu@<IP-da-VM> "cd /opt/monitor-ritapolis && git pull &&
+  sudo install -m 755 scripts/vm-diagnostico.sh /opt/monitor-ritapolis/report-diagnostico.sh &&
+  echo 'command=\"/opt/monitor-ritapolis/report-diagnostico.sh\",restrict $PUB' >> ~/.ssh/authorized_keys"
+
+# 3. Conteúdo para o secret ORACLE_DIAG_SSH_KEY (chave privada)
+cat ~/.ssh/monitor-ritapolis-diag
+```
+
+No GitHub (Settings → Secrets and variables → Actions → New repository
+secret), crie `ORACLE_DIAG_SSH_KEY` com o conteúdo da chave **privada**.
+`ORACLE_DEPLOY_HOST` já existe e é reaproveitado.
+
+`journalctl` precisa que o usuário `ubuntu` esteja no grupo `adm` ou
+`systemd-journal` (padrão no Ubuntu da Oracle). Sem isso, as contagens do
+systemd, do kernel e do Caddy saem zeradas.
+
 ## Saúde do pipeline de IA
 
 `GET /api/saude/pipeline` (público: só contagens e categoria do erro) diz se a
@@ -68,7 +148,10 @@ ciclo do scheduler e quantos documentos dos últimos 30 dias estão sem resumo.
 
 Se o motivo for `modelo_indisponivel`: o catálogo NVIDIA aposentou o modelo;
 trocar `NVIDIA_MODEL` no `.env` da VM (ver comentário em `src/config.js`) e
-reiniciar o serviço.
+reiniciar o serviço. Antes de trocar, confirme que a chave da VM tem acesso ao modelo
+(uma chamada de poucos tokens; `/v1/models` lista modelos sem acesso e devolve 404 na hora de usar) e rode
+um resumo real: `.github/workflows/pipeline-health.yml` e `scripts/ai-test.js` ajudam. Histórico das
+trocas e dos candidatos testados: comentário de `nvidiaModel` em `src/config.js`.
 
 ## Disjuntor de uso do R2
 

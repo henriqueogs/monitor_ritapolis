@@ -1,3 +1,5 @@
+import { rotuloMotivo } from '../../lib/alerta-revisao';
+
 // Apresentação das "Descobertas" (antes "Alertas"). Reenquadra a severidade
 // técnica do banco (critico/atencao/info) num tom de curiosidade/insight, sem
 // sensacionalismo — a maioria dos padrões é normal e válida.
@@ -55,5 +57,6 @@ export const QUALIDADE_MOTIVO_LABEL = {
 };
 
 export function qualidadeMotivoLabel(codigo) {
-  return QUALIDADE_MOTIVO_LABEL[codigo] || codigo;
+  // Decisões do revisor (ADMIN_*, NOTA:) e da revalidação (REVALIDACAO_*).
+  return QUALIDADE_MOTIVO_LABEL[codigo] || rotuloMotivo(codigo);
 }

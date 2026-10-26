@@ -2,7 +2,8 @@ import Link from 'next/link';
 import SectionBlock from '../../components/SectionBlock';
 import { formatMoney } from '../../lib/format';
 
-const CNPJ_PREFEITURA = '18557553000105';
+import { CNPJ_PREFEITURA } from '../../../lib/ente';
+
 const th = { padding: '8px 6px', color: 'var(--text-secondary)', fontWeight: 600 };
 
 /**
@@ -15,7 +16,7 @@ export default function TopCredores({ topCredores, periodoLabel }) {
   return (
     <SectionBlock
       title={`Principais credores (${periodoLabel})`}
-      description="Ordenado por valor total empenhado no período. Exclui registros sem CNPJ e a própria Prefeitura (transferências internas). Clique no credor para ver o perfil completo com todos os empenhos."
+      description="Ordenado pelo valor empenhado (ordinário) no período; empenhos estimativos/globais aparecem à parte e ordens de pagamento ficam fora. Exclui registros sem CNPJ e a folha de pagamento da Prefeitura. Clique no credor para ver o perfil completo com todos os empenhos."
       aside={
         <Link href="/credores" className="availability-badge is-gov" style={{ textDecoration: 'none' }}>
           Todos os fornecedores
@@ -29,7 +30,7 @@ export default function TopCredores({ topCredores, periodoLabel }) {
             <th style={th}>Credor</th>
             <th style={th}>CNPJ</th>
             <th style={{ ...th, textAlign: 'right' }}>Empenhos</th>
-            <th style={{ ...th, textAlign: 'right' }}>Valor total</th>
+            <th style={{ ...th, textAlign: 'right' }}>Empenhado (ordinário)</th>
             <th style={th}>Exercícios</th>
           </tr>
         </thead>
@@ -56,7 +57,14 @@ export default function TopCredores({ topCredores, periodoLabel }) {
               <td style={{ padding: '10px 6px', textAlign: 'right', color: 'var(--text-secondary)' }}>
                 {c.n_empenhos?.toLocaleString('pt-BR')}
               </td>
-              <td style={{ padding: '10px 6px', textAlign: 'right', fontWeight: 600 }}>{formatMoney(c.valor_total)}</td>
+              <td style={{ padding: '10px 6px', textAlign: 'right', fontWeight: 600 }}>
+                {formatMoney(c.valor_total)}
+                {c.valor_estimado_global > 0 ? (
+                  <small style={{ display: 'block', fontWeight: 400, color: 'var(--text-muted)' }}>
+                    + {formatMoney(c.valor_estimado_global)} estim./global
+                  </small>
+                ) : null}
+              </td>
               <td style={{ padding: '10px 6px', color: 'var(--text-muted)', fontSize: '0.83rem' }}>
                 {c.primeiro_exercicio === c.ultimo_exercicio
                   ? c.primeiro_exercicio

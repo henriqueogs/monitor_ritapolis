@@ -1,0 +1,56 @@
+[
+  {
+    "id": "q1-merenda",
+    "pergunta": "Quem venceu o pregão da merenda escolar?",
+    "fontes_esperadas": [
+      1
+    ],
+    "fatos_obrigatorios": [
+      "Alimentos Minas"
+    ],
+    "resposta_referencia": "A empresa Alimentos Minas Ltda venceu o pregão da merenda escolar."
+  },
+  {
+    "id": "q2-limpeza",
+    "pergunta": "Qual empresa fornece o material de limpeza?",
+    "fontes_esperadas": [
+      2
+    ],
+    "fatos_obrigatorios": [
+      "Limpa Bem"
+    ],
+    "resposta_referencia": "A empresa Limpa Bem ME venceu o pregão de material de limpeza."
+  },
+  {
+    "id": "q3-ambulancia",
+    "pergunta": "Houve dispensa de licitação para o conserto da ambulância?",
+    "fontes_esperadas": [
+      3
+    ],
+    "fatos_obrigatorios": [
+      "ambulância"
+    ],
+    "resposta_referencia": "Sim, houve dispensa de licitação para o conserto do motor da ambulância."
+  },
+  {
+    "id": "q4-pavimentacao-2026",
+    "pergunta": "Que obra de pavimentação foi contratada?",
+    "fontes_esperadas": [
+      8
+    ],
+    "filtros": {
+      "ano": 2026
+    },
+    "fatos_obrigatorios": [
+      "pavimentação"
+    ],
+    "resposta_referencia": "Tomada de preços para a pavimentação asfáltica da rua principal do distrito (2026)."
+  },
+  {
+    "id": "q5-sem-evidencia",
+    "pergunta": "Qual foi a arrecadação do IPTU no ano passado?",
+    "fontes_esperadas": [],
+    "deve_recusar": true,
+    "resposta_referencia": "Não há informação suficiente nos documentos para responder."
+  }
+]

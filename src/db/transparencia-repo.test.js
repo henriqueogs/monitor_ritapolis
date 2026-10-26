@@ -92,6 +92,18 @@ describe('transparencia-repo', () => {
       expect(d.data_pagamento).toBeDefined();
     });
 
+    it('marca credor_tem_perfil por linha (credor só com OP não tem página)', () => {
+      seedDespesa({ credorCnpj: '11111111000191', credorNome: 'SO OP', tipo: 'OP - Ordem de Pagamento' });
+      seedDespesa({ credorCnpj: '22222222000191', credorNome: 'COM EO' });
+      seedDespesa({ credorCnpj: '22222222000191', credorNome: 'COM EO', tipo: 'OP - Ordem de Pagamento' });
+
+      const { dados } = repo.getDespesas({});
+
+      const porChave = (chave) => dados.filter((d) => d.credor_chave === chave).map((d) => d.credor_tem_perfil);
+      expect(porChave('11111111000191')).toEqual([false]);
+      expect(porChave('22222222000191')).toEqual([true, true]);
+    });
+
     it('oculta vinculo legado quando o documento nao corresponde a modalidade', () => {
       mockConn.prepare(`
         INSERT INTO documentos (id, fonte, tipo, numero, ano, titulo, url_origem)
@@ -191,8 +203,8 @@ describe('transparencia-repo', () => {
 
     it('sem filtro mantém comportamento atual (agregado completo)', () => {
       const painel = repo.getPainelResumo();
-      expect(painel.total.n_empenhos).toBe(4);
-      expect(painel.total.valor_total).toBe(150);
+      expect(painel.total.n_empenhos).toBe(3);
+      expect(painel.total.valor_total).toBe(70); // EO 10+20+40; OP 80 fora
       expect(painel.porAno).toHaveLength(2);
       expect(painel.topCredores).toHaveLength(2);
       expect(painel.ultimosEmpenhos).toHaveLength(4);
@@ -201,11 +213,11 @@ describe('transparencia-repo', () => {
     it('com exercicio escopa total, topCredores, ultimosEmpenhos e tiposEmpenho', () => {
       const painel = repo.getPainelResumo({ exercicio: 2026 });
 
-      expect(painel.total.n_empenhos).toBe(2);
-      expect(painel.total.valor_total).toBe(120);
+      expect(painel.total.n_empenhos).toBe(1);
+      expect(painel.total.valor_total).toBe(40);
 
-      expect(painel.topCredores).toHaveLength(2);
-      expect(painel.topCredores[0].valor_total).toBe(80);
+      expect(painel.topCredores).toHaveLength(1); // credor B só tem OP em 2026
+      expect(painel.topCredores[0].valor_total).toBe(40);
 
       expect(painel.ultimosEmpenhos).toHaveLength(2);
       expect(painel.ultimosEmpenhos.every((e) => e.exercicio_orcamento === 2026)).toBe(true);
@@ -221,13 +233,13 @@ describe('transparencia-repo', () => {
       expect(painel.porAno.map((r) => r.exercicio).sort()).toEqual([2025, 2026]);
     });
 
-    it('porAno separa valor_empenhado (sem OP) de valor_total (movimentação)', () => {
+    it('porAno: valor_total e valor_empenhado excluem OP (pagamento não é novo gasto)', () => {
       // OP paga empenho (caixa) — não é nova despesa empenhada (competência);
       // misturar os dois infla o numerador da % de execução da LOA.
       const painel = repo.getPainelResumo();
       const ano2026 = painel.porAno.find((r) => r.exercicio === 2026);
-      expect(ano2026.valor_total).toBe(120); // EO 40 + OP 80 (movimentação)
-      expect(ano2026.valor_empenhado).toBe(40); // só empenhos
+      expect(ano2026.valor_total).toBe(40); // só EO
+      expect(ano2026.valor_empenhado).toBe(40); // EO + EE + EG (base da % de execução)
     });
 
     it('valor_receita_previsto soma apenas categorias nível-1 (sem dupla contagem)', () => {
@@ -247,8 +259,8 @@ describe('transparencia-repo', () => {
       seedDespesa({ exercicio: 2023, data: '2023-05-01', valor: 5, credorCnpj: '11111111111111', credorNome: 'A' });
       const painel = repo.getPainelResumo({ exercicios: [2025, 2026] });
 
-      expect(painel.total.n_empenhos).toBe(4);
-      expect(painel.total.valor_total).toBe(150);
+      expect(painel.total.n_empenhos).toBe(3); // EO; a OP de 80 não conta
+      expect(painel.total.valor_total).toBe(70);
       expect(painel.ultimosEmpenhos.every((e) => [2025, 2026].includes(e.exercicio_orcamento))).toBe(true);
       expect(painel.porAno).toHaveLength(3);
     });
@@ -462,5 +474,203 @@ describe('transparencia-repo', () => {
       expect(repo.getFilaPagamentos({ exercicio: 2026 }).itens).toHaveLength(1);
       expect(repo.getFilaPagamentos().itens).toHaveLength(2);
     });
+  });
+});
+
+describe('transparencia-repo — tipos de empenho no painel (fiscal-valores V2/V3/V7)', () => {
+  const TIPO_EE = 'EE - Empenho Estimativo';
+  const TIPO_EG = 'EG - Empenho Global';
+  const TIPO_OP = 'OP - Ordem de Pagamento';
+  const A = { credorCnpj: '11111111111111', credorNome: 'A' };
+  const B = { credorCnpj: '22222222222222', credorNome: 'B' };
+
+  beforeEach(() => {
+    mockConn.exec('DELETE FROM transparencia_despesas_classificacoes; DELETE FROM transparencia_despesas; DELETE FROM documentos;');
+    seq = 0;
+    seedDespesa({ ...A, valor: 100 });
+    seedDespesa({ ...B, valor: 50 });
+    seedDespesa({ ...A, valor: 400, tipo: TIPO_EE });
+    seedDespesa({ ...B, valor: 200, tipo: TIPO_EG });
+    seedDespesa({ ...A, valor: 30, tipo: TIPO_OP });
+  });
+
+  it('total: valor_total só ordinário; estimativo/global à parte; OP fora', () => {
+    const { total } = repo.getPainelResumo({ exercicio: 2026 });
+
+    expect(total).toMatchObject({
+      valor_total: 150,
+      valor_estimado_global: 600,
+      n_empenhos: 2,
+      n_empenhos_estimado_global: 2,
+    });
+  });
+
+  it('invariante: valor_empenhado == valor_total + valor_estimado_global (sem OP)', () => {
+    const ano = repo.getPainelResumo().porAno.find((r) => r.exercicio === 2026);
+
+    expect(ano.valor_empenhado).toBe(750);
+    expect(ano.valor_total + ano.valor_estimado_global).toBe(ano.valor_empenhado);
+  });
+
+  it('invariante: Σ porAno == total no recorte sem filtro', () => {
+    seedDespesa({ ...A, valor: 25, exercicio: 2025, data: '2025-03-01' });
+
+    const { total, porAno } = repo.getPainelResumo();
+
+    expect(porAno.reduce((a, r) => a + r.valor_total, 0)).toBe(total.valor_total);
+    expect(porAno.reduce((a, r) => a + r.n_empenhos, 0)).toBe(total.n_empenhos);
+  });
+
+  it('topCredores: ordena por ordinário e traz estimativo/global separado', () => {
+    const { topCredores } = repo.getPainelResumo({ exercicio: 2026 });
+
+    expect(topCredores[0]).toMatchObject({ credor_cnpj: A.credorCnpj, valor_total: 100, valor_estimado_global: 400 });
+    expect(topCredores[1]).toMatchObject({ credor_cnpj: B.credorCnpj, valor_total: 50, valor_estimado_global: 200 });
+  });
+
+  it('invariante: Σ finalidadesEmpenho == total.valor_total', () => {
+    repo.backfillClassificacoesDespesas({ force: true });
+
+    const { total, finalidadesEmpenho } = repo.getPainelResumo({ exercicio: 2026 });
+
+    expect(finalidadesEmpenho.reduce((a, f) => a + f.valor, 0)).toBe(total.valor_total);
+  });
+
+  it('tiposEmpenho continua listando todos os tipos (composição informativa)', () => {
+    const { tiposEmpenho } = repo.getPainelResumo({ exercicio: 2026 });
+
+    expect(tiposEmpenho.map((t) => t.tipo.slice(0, 2)).sort()).toEqual(['EE', 'EG', 'EO', 'OP']);
+  });
+});
+
+describe('transparencia-repo - vinculados, resumo por documento e top credores (fiscal-valores)', () => {
+  const TIPO_EE = 'EE - Empenho Estimativo';
+  const TIPO_OP = 'OP - Ordem de Pagamento';
+
+  beforeEach(() => {
+    mockConn.exec('DELETE FROM transparencia_despesas_classificacoes; DELETE FROM transparencia_despesas; DELETE FROM documentos;');
+    seq = 0;
+    mockConn.prepare(
+      `INSERT INTO documentos (id, fonte, tipo, numero, ano, titulo, url_origem)
+       VALUES (1, 'site_prefeitura', 'edital', '1/2026', 2026, 'Pregão 1/2026', 'https://x/1'),
+              (2, 'site_prefeitura', 'edital', '2/2026', 2026, 'Pregão 2/2026', 'https://x/2')`
+    ).run();
+  });
+
+  it('vinculados contam so ordinarios (numerador e denominador no mesmo universo)', () => {
+    seedDespesa({ valor: 100, documentoId: 1, modalidade: 'Pregao - 00012026' });
+    seedDespesa({ valor: 50 });
+    seedDespesa({ valor: 900, documentoId: 2, tipo: TIPO_EE, modalidade: 'Pregao - 00022026' });
+
+    const { total, porAno } = repo.getPainelResumo({ exercicio: 2026 });
+
+    expect(total).toMatchObject({ n_empenhos: 2, n_empenhos_vinculados: 1, n_licitacoes_vinculadas: 1 });
+    expect(porAno[0]).toMatchObject({ n_empenhos: 2, n_empenhos_vinculados: 1, n_vinculados: 1 });
+    expect(total.n_empenhos_vinculados).toBeLessThanOrEqual(total.n_empenhos);
+  });
+
+  it('resumo por documento: ordinario em valor_empenhado, estimativo/global a parte, OP fora', () => {
+    const mod = 'Pregao - 00012026';
+    seedDespesa({ valor: 100, documentoId: 1, modalidade: mod });
+    seedDespesa({ valor: 300, documentoId: 1, modalidade: mod, tipo: TIPO_EE });
+    seedDespesa({ valor: 40, documentoId: 1, modalidade: mod, tipo: TIPO_OP });
+
+    const r = repo.getResumoFinanceiroPorDocumento(1);
+
+    expect(r).toMatchObject({ n_empenhos: 1, valor_empenhado: 100, valor_estimado_global: 300 });
+  });
+
+  it('top credores nao lista folha de pagamento (igual a lista /credores)', () => {
+    seedDespesa({ valor: 5000, credorCnpj: '18557553000105', credorNome: 'FOLHA DE PAGAMENTO - RITAPOLIS PREFEITURA' });
+    seedDespesa({ valor: 10, credorCnpj: '11111111111111', credorNome: 'FORNECEDOR REAL' });
+
+    const { topCredores } = repo.getPainelResumo({ exercicio: 2026 });
+
+    expect(topCredores.map((c) => c.credor_nome)).toEqual(['FORNECEDOR REAL']);
+  });
+});
+
+describe('transparencia-repo - enriquecerDetalhesComEmpenhos nao inventa valor final (fiscal-valores V2/V6)', () => {
+  const TIPO_EE = 'EE - Empenho Estimativo';
+  const TIPO_OP = 'OP - Ordem de Pagamento';
+  const MOD = 'Pregao - 00012026';
+  const A = { credorCnpj: '11111111111111', credorNome: 'EMPRESA A' };
+  const B = { credorCnpj: '22222222222222', credorNome: 'EMPRESA B' };
+
+  beforeEach(() => {
+    mockConn.exec('DELETE FROM licitacoes_detalhes; DELETE FROM transparencia_despesas_classificacoes; DELETE FROM transparencia_despesas; DELETE FROM documentos;');
+    seq = 0;
+    mockConn.prepare(
+      `INSERT INTO documentos (id, fonte, tipo, numero, ano, titulo, url_origem)
+       VALUES (1, 'site_prefeitura', 'edital', '1/2026', 2026, 'Pregão 1/2026', 'https://x/1')`
+    ).run();
+    mockConn.prepare('INSERT INTO licitacoes_detalhes (documento_id) VALUES (1)').run();
+  });
+
+  const detalhe = () => mockConn.prepare('SELECT * FROM licitacoes_detalhes WHERE documento_id = 1').get();
+
+  it('identifica o vencedor pelo maior valor ORDINARIO mas deixa valor_final vazio (empenhado nao e homologado)', () => {
+    seedDespesa({ ...A, valor: 100, documentoId: 1, modalidade: MOD });
+    seedDespesa({ ...B, valor: 40, documentoId: 1, modalidade: MOD });
+
+    const n = repo.enriquecerDetalhesComEmpenhos();
+
+    expect(n).toBe(1);
+    expect(detalhe()).toMatchObject({
+      vencedor_cnpj: A.credorCnpj,
+      valor_final: null,
+      origem: 'portal_transparencia',
+      origem_detalhe: 'empenho_agregado',
+    });
+  });
+
+  it('EE/EG e OP de outro credor nao decidem o vencedor', () => {
+    seedDespesa({ ...A, valor: 100, documentoId: 1, modalidade: MOD });
+    seedDespesa({ ...B, valor: 9000, documentoId: 1, modalidade: MOD, tipo: TIPO_EE });
+    seedDespesa({ ...B, valor: 8000, documentoId: 1, modalidade: MOD, tipo: TIPO_OP });
+
+    repo.enriquecerDetalhesComEmpenhos();
+
+    expect(detalhe().vencedor_cnpj).toBe(A.credorCnpj);
+  });
+
+  it('vinculo inexato (modalidade diferente do titulo) nao enriquece', () => {
+    seedDespesa({ ...A, valor: 100, documentoId: 1, modalidade: 'Dispensa - 00012026' });
+
+    expect(repo.enriquecerDetalhesComEmpenhos()).toBe(0);
+    expect(detalhe().vencedor_cnpj).toBeNull();
+  });
+
+  it('nao sobrescreve vencedor ja conhecido', () => {
+    mockConn.prepare("UPDATE licitacoes_detalhes SET vencedor_cnpj = '33333333333333', valor_final = 777 WHERE documento_id = 1").run();
+    seedDespesa({ ...A, valor: 100, documentoId: 1, modalidade: MOD });
+
+    expect(repo.enriquecerDetalhesComEmpenhos()).toBe(0);
+    expect(detalhe()).toMatchObject({ vencedor_cnpj: '33333333333333', valor_final: 777 });
+  });
+});
+
+describe('transparencia-repo - enriquecimento preserva valor_final legitimo (fiscal-valores V2/V6)', () => {
+  const MOD = 'Pregao - 00012026';
+
+  beforeEach(() => {
+    mockConn.exec('DELETE FROM licitacoes_detalhes; DELETE FROM transparencia_despesas_classificacoes; DELETE FROM transparencia_despesas; DELETE FROM documentos;');
+    seq = 0;
+    mockConn.prepare(
+      `INSERT INTO documentos (id, fonte, tipo, numero, ano, titulo, url_origem)
+       VALUES (1, 'site_prefeitura', 'edital', '1/2026', 2026, 'Pregão 1/2026', 'https://x/1')`
+    ).run();
+  });
+
+  it('doc sem vencedor mas com valor_final de resumo_ai: ganha vencedor, mantem origem e valor', () => {
+    mockConn.prepare("INSERT INTO licitacoes_detalhes (documento_id, valor_final, origem) VALUES (1, 1234, 'resumo_ai')").run();
+    seedDespesa({ credorCnpj: '11111111111111', credorNome: 'EMPRESA A', valor: 100, documentoId: 1, modalidade: MOD });
+
+    expect(repo.enriquecerDetalhesComEmpenhos()).toBe(1);
+
+    const d = mockConn.prepare('SELECT * FROM licitacoes_detalhes WHERE documento_id = 1').get();
+    expect(d).toMatchObject({ vencedor_cnpj: '11111111111111', valor_final: 1234, origem: 'resumo_ai' });
+    expect(d.origem_detalhe).toContain('vencedor_empenho_agregado');
+    expect(d.origem_detalhe).not.toMatch(/^empenho_agregado/);
   });
 });

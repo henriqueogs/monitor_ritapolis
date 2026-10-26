@@ -285,3 +285,131 @@ describe('transparencia-agregados-repo', () => {
     });
   });
 });
+
+describe('transparencia-agregados-repo — tipos de empenho (fiscal-valores V2/V3/V7)', () => {
+  const TIPO_EE = 'EE - Empenho Estimativo';
+  const TIPO_EG = 'EG - Empenho Global';
+  const TIPO_OP = 'OP - Ordem de Pagamento';
+
+  beforeEach(() => {
+    mockConn.exec('DELETE FROM transparencia_despesas; DELETE FROM documentos;');
+    seq = 0;
+    seedDespesa({ valor: 100 });
+    seedDespesa({ valor: 400, tipo: TIPO_EE });
+    seedDespesa({ valor: 200, tipo: TIPO_EG });
+    seedDespesa({ valor: 30, tipo: TIPO_OP });
+    seedDespesa({ valor: 70, exercicio: 2025, data: '2025-02-01' });
+  });
+
+  it('categoria econômica: ordinário em valor_total, estimativo/global à parte, OP fora', () => {
+    const [cat] = repo.getAgregadoPorCategoriaEconomica({ exercicios: [2026] });
+
+    expect(cat).toMatchObject({ n: 1, valor_total: 100, valor_estimado_global: 600 });
+  });
+
+  it('invariante: Σ categoria == Σ unidade == Σ fonte (mesmo universo)', () => {
+    const soma = (rows) => rows.reduce((a, r) => a + r.valor_total, 0);
+    const exercicios = [2025, 2026];
+
+    const porCategoria = soma(repo.getAgregadoPorCategoriaEconomica({ exercicios }));
+    const porUnidade = soma(repo.getAgregadoPorUnidade({ exercicios }));
+    const porFonte = soma(repo.getAgregadoPorFonteRecurso({ exercicios }));
+
+    expect(porCategoria).toBe(170);
+    expect(porUnidade).toBe(porCategoria);
+    expect(porFonte).toBe(porCategoria);
+  });
+
+  it('ranking de credores: só ordinário no valor, estimativo/global separado, credor só-OP some', () => {
+    seedDespesa({ valor: 999, tipo: TIPO_OP, credorCnpj: '99999999999999', credorNome: 'SO OP' });
+
+    const ranking = repo.getRankingCredores({ exercicios: [2026] });
+
+    expect(ranking).toHaveLength(1);
+    expect(ranking[0]).toMatchObject({ n: 1, valor_total: 100, valor_estimado_global: 600 });
+  });
+
+  it('série por ano: cada ano soma só ordinário e a fronteira 2024/2025 separa mandatos', () => {
+    seedDespesa({ valor: 11, tipo: TIPO_EE, exercicio: 2024, data: '2024-12-31' });
+
+    const serie = repo.getCategoriaPorAno({});
+
+    expect(serie).toEqual([
+      expect.objectContaining({ exercicio: 2024, valor_total: 0, valor_estimado_global: 11 }),
+      expect.objectContaining({ exercicio: 2025, valor_total: 70, valor_estimado_global: 0 }),
+      expect.objectContaining({ exercicio: 2026, valor_total: 100, valor_estimado_global: 600 }),
+    ]);
+  });
+});
+
+describe('transparencia-agregados-repo - relacionados no empenho (fiscal-valores V3)', () => {
+  const CNPJ = '22222222222222';
+
+  beforeEach(() => {
+    mockConn.exec('DELETE FROM transparencia_despesas; DELETE FROM documentos;');
+    seq = 0;
+  });
+
+  it('outros empenhos do credor: so ordinario no valor; OP fora; estimativo/global a parte', () => {
+    const alvo = seedDespesa({ credorCnpj: CNPJ, valor: 10 });
+    seedDespesa({ credorCnpj: CNPJ, valor: 20 });
+    seedDespesa({ credorCnpj: CNPJ, valor: 500, tipo: 'EE - Empenho Estimativo' });
+    seedDespesa({ credorCnpj: CNPJ, valor: 7, tipo: 'OP - Ordem de Pagamento' });
+
+    const r = repo.getResumoRelacionados({ credorCnpj: CNPJ, exercicio: 2026, exceptId: alvo });
+
+    expect(r).toMatchObject({ n: 1, valor_total: 20, valor_estimado_global: 500 });
+  });
+
+  it('mesma categoria no ano: so ordinario no valor; OP fora; estimativo/global a parte', () => {
+    seedDespesa({ valor: 30 });
+    seedDespesa({ valor: 800, tipo: 'EG - Empenho Global' });
+    seedDespesa({ valor: 9, tipo: 'OP - Ordem de Pagamento' });
+
+    const r = repo.getResumoCategoriaAno({ prefixos: ['3.3.90.14'], exercicio: 2026 });
+
+    expect(r).toMatchObject({ n: 1, valor_total: 30, valor_estimado_global: 800 });
+  });
+});
+
+describe('transparencia-agregados-repo - insumo do detector de gasto atipico (fiscal-valores V3)', () => {
+  beforeEach(() => {
+    mockConn.exec('DELETE FROM transparencia_despesas; DELETE FROM documentos;');
+    seq = 0;
+  });
+
+  it('agrega so ordinario por credor/categoria/ano: OP duplicaria o gasto e EE/EG sao previsao', () => {
+    const eo1 = seedDespesa({ valor: 100 });
+    const eo2 = seedDespesa({ valor: 50 });
+    seedDespesa({ valor: 5000, tipo: 'EE - Empenho Estimativo' });
+    seedDespesa({ valor: 900, tipo: 'OP - Ordem de Pagamento' });
+
+    const [linha] = repo.getAgregadoCredorCategoriaAno();
+
+    expect(linha).toMatchObject({ n: 2, valor_total: 150 });
+    expect(linha.empenho_ids.sort()).toEqual([eo1, eo2].sort());
+  });
+
+  it('credor so com estimativo/global ou OP nao vira linha do detector', () => {
+    seedDespesa({ valor: 5000, tipo: 'EG - Empenho Global', credorCnpj: '99999999999999', credorNome: 'SO GLOBAL' });
+    seedDespesa({ valor: 700, tipo: 'OP - Ordem de Pagamento', credorCnpj: '88888888888888', credorNome: 'SO OP' });
+
+    expect(repo.getAgregadoCredorCategoriaAno()).toEqual([]);
+  });
+});
+
+describe('transparencia-agregados-repo - detector preserva o exercicio por linha (fiscal-datas D6)', () => {
+  beforeEach(() => {
+    mockConn.exec('DELETE FROM transparencia_despesas; DELETE FROM documentos;');
+    seq = 0;
+  });
+
+  it('mesmo credor e categoria em 2024 e 2025 geram duas linhas (mandatos nao se misturam)', () => {
+    seedDespesa({ valor: 100, exercicio: 2024, data: '2024-12-31' });
+    seedDespesa({ valor: 40, exercicio: 2025, data: '2025-01-02' });
+
+    const linhas = repo.getAgregadoCredorCategoriaAno().sort((a, b) => a.exercicio - b.exercicio);
+
+    expect(linhas.map((l) => [l.exercicio, l.valor_total])).toEqual([[2024, 100], [2025, 40]]);
+  });
+});

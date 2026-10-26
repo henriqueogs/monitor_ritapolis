@@ -2,10 +2,12 @@
 
 jest.mock('../db/credores-repo', () => ({
   getCredorProfile: jest.fn(),
+  listCredores: jest.fn(),
+  getCoberturaCredores: jest.fn(),
 }));
 
-const { getCredorProfile } = require('../db/credores-repo');
-const { getCredorDossie } = require('./credor-service');
+const { getCredorProfile, listCredores, getCoberturaCredores } = require('../db/credores-repo');
+const { getCredorDossie, listarCredoresDoPeriodo } = require('./credor-service');
 
 describe('credor-service', () => {
   beforeEach(() => jest.clearAllMocks());
@@ -50,5 +52,97 @@ describe('credor-service', () => {
     // campos originais preservados
     expect(dossie.nome).toBe('APAE');
     expect(dossie.resumo.n_empenhos).toBe(3);
+  });
+
+  it('dossiê destaca o mandato em curso e traz o acumulado como secundário', () => {
+    getCredorProfile.mockReturnValue({
+      cnpj: '01991246000135',
+      nome: 'APAE',
+      resumo: { n_empenhos: 2, valor_total: 2000 },
+      por_ano: [
+        { ano: 2000, n_empenhos: 1, valor_total: 1000, valor_estimado_global: 0 },
+        { ano: 2025, n_empenhos: 1, valor_total: 1000, valor_estimado_global: 50 },
+      ],
+      por_funcao: [],
+      empenhos_recentes: [],
+      licitacoes_ganhas: [],
+      perfil_consolidado: null,
+    });
+
+    const dossie = getCredorDossie('01991246000135', { anoAtual: 2026 });
+
+    expect(dossie.destaque).toMatchObject({ mandato: '2025-2028', valor_total: 1000, em_curso: true });
+    expect(dossie.acumulado).toMatchObject({ valor_total: 2000, label: '2000–2025' });
+    expect(dossie.por_mandato[0].valor_estimado_global).toBe(50);
+  });
+
+  it('dossiê de credor só EE/EG: estimativo do mandato em curso em destaque, invariantes fecham', () => {
+    getCredorProfile.mockReturnValue({
+      cnpj: '67729178000220',
+      nome: 'EMPRESA X',
+      resumo: { n_empenhos: 0, valor_total: 0, valor_estimado_global: 5000 },
+      por_ano: [
+        { ano: 2021, n_empenhos: 0, valor_total: 0, valor_estimado_global: 1000 },
+        { ano: 2026, n_empenhos: 0, valor_total: 0, valor_estimado_global: 4000 },
+      ],
+      por_funcao: [],
+      empenhos_recentes: [],
+      licitacoes_ganhas: [],
+      perfil_consolidado: null,
+    });
+
+    const dossie = getCredorDossie('67729178000220', { anoAtual: 2026 });
+
+    expect(dossie.destaque).toMatchObject({ mandato: '2025-2028', valor_total: 0, valor_estimado_global: 4000 });
+    const somaMandatos = dossie.por_mandato.reduce((a, m) => a + m.valor_estimado_global, 0);
+    expect(somaMandatos).toBe(dossie.resumo.valor_estimado_global);
+    expect(dossie.acumulado.valor_estimado_global).toBe(dossie.resumo.valor_estimado_global);
+    expect(dossie.acumulado.valor_total).toBe(0);
+  });
+
+  describe('listarCredoresDoPeriodo', () => {
+    beforeEach(() => {
+      listCredores.mockReturnValue({ total: 0, pagina: 1, limite: 50, dados: [] });
+      getCoberturaCredores.mockReturnValue({ primeiro: 2019, ultimo: 2026 });
+    });
+
+    it('mandato vira os 4 exercícios e o rótulo traz o intervalo', () => {
+      const r = listarCredoresDoPeriodo({ mandato: 2026 });
+
+      expect(listCredores).toHaveBeenCalledWith(expect.objectContaining({ exercicios: [2025, 2026, 2027, 2028] }));
+      expect(r.periodo).toEqual({ tipo: 'mandato', label: '2025–2028' });
+    });
+
+    it('exercício explícito tem precedência sobre mandato', () => {
+      const r = listarCredoresDoPeriodo({ exercicio: 2024, mandato: 2026 });
+
+      expect(r.periodo).toEqual({ tipo: 'exercicio', label: '2024' });
+    });
+
+    it('fronteira: mandato 2024 e 2025 resolvem para exercícios diferentes', () => {
+      listarCredoresDoPeriodo({ mandato: 2024 });
+      listarCredoresDoPeriodo({ mandato: 2025 });
+
+      expect(listCredores).toHaveBeenNthCalledWith(1, expect.objectContaining({ exercicios: [2021, 2022, 2023, 2024] }));
+      expect(listCredores).toHaveBeenNthCalledWith(2, expect.objectContaining({ exercicios: [2025, 2026, 2027, 2028] }));
+    });
+
+    it('exercicio invalido com mandato valido usa o mandato (mesma regra de resolverExercicios)', () => {
+      const r = listarCredoresDoPeriodo({ exercicio: -5, mandato: 2026 });
+
+      expect(r.periodo).toEqual({ tipo: 'mandato', label: '2025–2028' });
+    });
+
+    it('mandato inválido cai no acumulado em vez de inventar período', () => {
+      const r = listarCredoresDoPeriodo({ mandato: Number.NaN });
+
+      expect(r.periodo.tipo).toBe('acumulado');
+    });
+
+    it('sem filtro usa a cobertura dos dados e diz que é acumulado', () => {
+      const r = listarCredoresDoPeriodo({});
+
+      expect(r.periodo).toEqual({ tipo: 'acumulado', label: '2019–2026' });
+    });
   });
 });

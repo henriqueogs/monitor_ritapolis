@@ -33,6 +33,9 @@ function getQueue() {
     queue = createQueue(require('../db/connection').db, {
       historicalDocsPerDay: config.pipelineHistoricalDocsPerDay,
       historicalBudgetMs: config.pipelineHistoricalBudgetMs,
+      historicalFailBudgetMs: config.pipelineHistoricalFailBudgetMs,
+      historicalItemsBudgetMs: config.pipelineHistoricalItemsBudgetMs,
+      historicalItemsJobCapMs: config.pipelineHistoricalItemsJobCapMs,
     });
   }
   return queue;

@@ -1,0 +1,27 @@
+[
+  {
+    "id": "qi1-decreto-3-2025",
+    "pergunta": "O que diz o Decreto nº 3/2025?",
+    "fontes_esperadas": [101]
+  },
+  {
+    "id": "qi2-decreto-3-2024",
+    "pergunta": "E o Decreto 3/2024, o que determina?",
+    "fontes_esperadas": [107]
+  },
+  {
+    "id": "qi3-dispensa-034-2026",
+    "pergunta": "Qual o objeto da Dispensa 034/2026?",
+    "fontes_esperadas": [111]
+  },
+  {
+    "id": "qi4-pregao-sem-zeros",
+    "pergunta": "Do que trata o Pregão 34/2025?",
+    "fontes_esperadas": [116]
+  },
+  {
+    "id": "qi5-decreto-13-2025",
+    "pergunta": "Decreto 13 / 2025: quem foi nomeado?",
+    "fontes_esperadas": [120]
+  }
+]

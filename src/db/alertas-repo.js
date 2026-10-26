@@ -84,6 +84,8 @@ function discoveryPublico(discovery) {
   ]);
 }
 
+const PAPEL_CONTRATO = 'contrato';
+
 function metadadosPublicos(metadados) {
   if (!metadados || typeof metadados !== 'object') {
     return {};
@@ -107,14 +109,18 @@ function evidenciaPublica(evidencia) {
     'credor_nome',
     'valor',
     'portal_url',
+    'descricao',
   ]);
+  // Trecho literal só quando vem de fonte oficial sem reescrita: histórico do
+  // empenho ou cláusula do contrato publicado (detectores determinísticos).
+  const trechoLiteral = Boolean(metadados.empenho_id) || evidencia.papel === PAPEL_CONTRATO;
 
   return {
     id: evidencia.id,
     documento_id: evidencia.documento_id,
     anexo_id: evidencia.anexo_id,
     papel: evidencia.papel,
-    trecho_fonte: metadados.empenho_id ? evidencia.trecho_fonte : undefined,
+    trecho_fonte: trechoLiteral ? evidencia.trecho_fonte : undefined,
     documento_titulo: evidencia.documento_titulo,
     documento_tipo: evidencia.documento_tipo,
     documento_ano: evidencia.documento_ano,

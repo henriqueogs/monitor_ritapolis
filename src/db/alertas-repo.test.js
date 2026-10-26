@@ -354,6 +354,20 @@ describe('alertas-repo', () => {
       });
     });
 
+    it('expõe o trecho literal e a descrição da evidência de contrato', () => {
+      seedDocumento(1, '2026-02-23');
+      const { id } = repo.upsertAlerta(
+        { tipo: 'execucao_contratual', titulo: 'Contrato', chave_unica: 'pub-contrato', estado_editorial: 'publicado' },
+        [{ documento_id: 1, papel: 'contrato' }],
+        [{ documento_id: 1, papel: 'contrato', trecho_fonte: 'valor total de R$ 9.184,00', metadados: { descricao: 'Valor do contrato publicado: R$ 9.184,00' } }]
+      );
+
+      const [evidencia] = repo.getAlertaPublico(id).evidencias;
+
+      expect(evidencia.trecho_fonte).toBe('valor total de R$ 9.184,00');
+      expect(evidencia.metadados.descricao).toBe('Valor do contrato publicado: R$ 9.184,00');
+    });
+
     it('nao expõe alertas arquivados no payload publico', () => {
       const { id } = repo.upsertAlerta({ tipo: 'tematico', titulo: 'Arquivar', chave_unica: 'pub-archive', severidade: 'info' }, []);
       repo.setAlertaStatus(id, 'arquivado');

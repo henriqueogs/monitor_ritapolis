@@ -5,6 +5,8 @@ const { createQueue } = require('../src/pipeline/queue');
 const queue = createQueue(db);
 const apply = process.argv.includes('--apply');
 const retryPncpAta = process.argv.includes('--pncp-ata');
+// --kind=summary limita o reprocesso a um tipo de tarefa (padrao: todos os elegiveis).
+const onlyKind = process.argv.find(a => a.startsWith('--kind='))?.split('=')[1];
 const deployStart = process.argv.find(a => a.startsWith('--deploy-from='))?.split('=').slice(1).join('=');
 const deployEnd = process.argv.find(a => a.startsWith('--deploy-to='))?.split('=').slice(1).join('=');
 if (deployStart || deployEnd) {
@@ -39,7 +41,7 @@ const failures = db
     (status='failed' AND (
     (kind IN ('extract','extract-anexo') AND version='2' AND error LIKE 'worker_interrupted%')
     OR (kind='summary' AND version NOT LIKE '%resume-1' AND (error LIKE '%404%' OR error LIKE '%timeout%'))
-    OR (kind='summary' AND version LIKE '%resume-1' AND attempts<3 AND error LIKE '%timed out%')
+    OR (kind='summary' AND version LIKE '%resume-1' AND attempts<3 AND (error LIKE '%timed out%' OR error LIKE '%nao retornou JSON valido%'))
     OR (kind='collection' AND entity IN ('pncp','camara_legislacao','legislacao_prefeitura')
       AND (error LIKE '%url_origem%' OR error LIKE '%maxContentLength%' OR error LIKE '%timeout%'))
     ))
@@ -53,6 +55,9 @@ const failures = db
 const seen = new Set();
 const changes = [];
 for (const old of failures) {
+  if (onlyKind && old.kind !== onlyKind) {
+    continue;
+  }
   const key = `${old.kind}:${old.entity}`;
   if (seen.has(key)) {
     continue;

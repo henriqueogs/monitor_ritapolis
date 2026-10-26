@@ -1,3 +1,6 @@
+import { ehArquivoIncorporavel } from '../../lib/embed-oficial';
+import { HOSTS_PREFEITURA, ORIGEM_PREFEITURA, HOST_SAPL, HOST_CAMARA_PT } from '../../lib/ente';
+
 export function safeHttpUrl(value) {
   if (!value) return null;
 
@@ -25,7 +28,7 @@ export function isGenericPrefeituraSourcePage(value) {
 
   try {
     const parsed = new URL(url);
-    if (!['ritapolis.mg.gov.br', 'www.ritapolis.mg.gov.br'].includes(parsed.hostname)) return false;
+    if (!HOSTS_PREFEITURA.includes(parsed.hostname)) return false;
 
     // Decode antes de comparar para cobrir variações de encoding
     const path = decodeURIComponent(parsed.pathname).toLowerCase();
@@ -41,19 +44,19 @@ export function getPublicPrefeituraSourcePageUrl(value) {
 
   try {
     const parsed = new URL(url);
-    if (!['ritapolis.mg.gov.br', 'www.ritapolis.mg.gov.br'].includes(parsed.hostname)) return null;
+    if (!HOSTS_PREFEITURA.includes(parsed.hostname)) return null;
 
     const normalizedPath = parsed.pathname.toLowerCase();
     if (normalizedPath === '/pagina/6668' || normalizedPath === '/pagina/6668/editais') {
-      return 'https://ritapolis.mg.gov.br/pagina/6668/editais';
+      return `${ORIGEM_PREFEITURA}/pagina/6668/editais`;
     }
     if (normalizedPath === '/pagina/9656' || normalizedPath === '/pagina/9656/editais%202') {
-      return 'https://ritapolis.mg.gov.br/pagina/9656/Editais%202';
+      return `${ORIGEM_PREFEITURA}/pagina/9656/Editais%202`;
     }
     if (parsed.pathname === '/ws_consulta/Pagina.php') {
       const pageId = parsed.searchParams.get('INT_PAG');
-      if (pageId === '6668') return 'https://ritapolis.mg.gov.br/pagina/6668/editais';
-      if (pageId === '9656') return 'https://ritapolis.mg.gov.br/pagina/9656/Editais%202';
+      if (pageId === '6668') return `${ORIGEM_PREFEITURA}/pagina/6668/editais`;
+      if (pageId === '9656') return `${ORIGEM_PREFEITURA}/pagina/9656/Editais%202`;
     }
   } catch {
     return null;
@@ -66,30 +69,19 @@ export function getOfficialFileUrl(documento) {
   const url = safeHttpUrl(documento?.url_pdf);
   if (!url) return null;
   // URL SAPL é página HTML, não arquivo — tratar como source page, não arquivo
-  if (url.includes('sapl.ritapolis.mg.leg.br')) return null;
+  if (url.includes(HOST_SAPL)) return null;
   return url;
 }
 
 export function getEmbeddableOfficialFileUrl(documento) {
   const url = getOfficialFileUrl(documento);
-  if (!url) return null;
-
-  try {
-    const parsed = new URL(url);
-    const path = parsed.pathname.toLowerCase();
-    const isPrefeituraFile =
-      ['ritapolis.mg.gov.br', 'www.ritapolis.mg.gov.br'].includes(parsed.hostname) &&
-      (path === '/obter_arquivo_cadastro_generico.php' || path.endsWith('.pdf'));
-    return isPrefeituraFile ? url : null;
-  } catch {
-    return null;
-  }
+  return ehArquivoIncorporavel(url) ? url : null;
 }
 
 function isCamaraModuleIndexUrl(url) {
   try {
     const parsed = new URL(url);
-    if (parsed.hostname !== 'pt.ritapolis.mg.leg.br') return false;
+    if (parsed.hostname !== HOST_CAMARA_PT) return false;
     // Módulo raiz: path simples sem query params identificadores de documento
     return parsed.search === '' || parsed.searchParams.size === 0;
   } catch {
@@ -100,7 +92,7 @@ function isCamaraModuleIndexUrl(url) {
 function getSaplPageUrl(documento) {
   const saplUrl = safeHttpUrl(documento?.url_pdf);
   if (!saplUrl) return null;
-  if (!saplUrl.includes('sapl.ritapolis.mg.leg.br')) return null;
+  if (!saplUrl.includes(HOST_SAPL)) return null;
   return saplUrl;
 }
 

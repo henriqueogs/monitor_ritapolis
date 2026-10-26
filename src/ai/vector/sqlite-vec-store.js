@@ -1,0 +1,267 @@
+'use strict';
+
+/**
+ * VectorStore sobre SQLite + sqlite-vec (ADR 0002): KNN exato (vec0), cosseno, float32 ou int8.
+ * Filtros por metadados são PRÉ-filtro (`rowid IN (...)`), então o top-k sai sempre do conjunto
+ * que casa — não há sobrebusca que perca resultado. Persistência e reabertura pelo arquivo.
+ * O banco vetorial é separado do banco de documentos (índice derivável, recriável a qualquer hora).
+ */
+
+const { DatabaseSync } = require('node:sqlite');
+const sqliteVec = require('sqlite-vec');
+const { QUANTIZACOES } = require('./memory-vector-store');
+const { normalizar, quantizarInt8 } = require('./quantizacao');
+const { montarMatchFts } = require('./lexical');
+const { validarK, validarVetor, vetorNulo, validarChunk } = require('./validacao');
+
+const BYTES_FLOAT32 = 4;
+const CHAVE_SEGURA = /^[\w-]+$/;
+
+const ESPERA_LOCK_MS = 5000;
+
+/**
+ * Arquivo em WAL + espera por lock: o indexador (escritor) e a API (leitor) usam o mesmo arquivo.
+ * Sem isso, uma leitura simultânea derrubava a escrita com "database is locked" (visto em produção
+ * em 21/10/2026). Banco em memória não recebe pragma de arquivo.
+ */
+function abrirBancoVetorial(caminho, { somenteLeitura = false } = {}) {
+  const db = new DatabaseSync(caminho, { allowExtension: true, readOnly: somenteLeitura });
+  db.loadExtension(sqliteVec.getLoadablePath());
+  if (caminho !== ':memory:') {
+    db.exec(`PRAGMA busy_timeout = ${ESPERA_LOCK_MS}`);
+    if (!somenteLeitura) {
+      db.exec('PRAGMA journal_mode = WAL');
+    }
+  }
+  return db;
+}
+
+// Inteiro JS vira REAL no bind; BigInt grava INTEGER (docId 1 e '1' passam a ser comparáveis como texto)
+const docIdParaSql = docId => (Number.isInteger(docId) ? BigInt(docId) : docId);
+const comoBytes = tipado => new Uint8Array(tipado.buffer, tipado.byteOffset, tipado.byteLength);
+
+function prepararSchema(db, { dims, quantizacao }) {
+  const ftsExistia = Boolean(
+    db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'ia_chunks_fts'").get()
+  );
+  const tipo = quantizacao === QUANTIZACOES.INT8 ? 'int8' : 'float';
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ia_store_meta (chave TEXT PRIMARY KEY, valor TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS ia_chunks (
+      rowid INTEGER PRIMARY KEY AUTOINCREMENT,
+      id TEXT NOT NULL UNIQUE,
+      doc_id,
+      texto TEXT NOT NULL,
+      metadados TEXT NOT NULL,
+      url_origem TEXT NOT NULL,
+      origem_generica INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_ia_chunks_doc_id ON ia_chunks (doc_id);
+    CREATE VIRTUAL TABLE IF NOT EXISTS ia_chunks_fts USING fts5(
+      texto, content='ia_chunks', content_rowid='rowid', tokenize='unicode61 remove_diacritics 2'
+    );
+    CREATE TRIGGER IF NOT EXISTS ia_chunks_fts_ai AFTER INSERT ON ia_chunks BEGIN
+      INSERT INTO ia_chunks_fts (rowid, texto) VALUES (new.rowid, new.texto);
+    END;
+    CREATE TRIGGER IF NOT EXISTS ia_chunks_fts_ad AFTER DELETE ON ia_chunks BEGIN
+      INSERT INTO ia_chunks_fts (ia_chunks_fts, rowid, texto) VALUES ('delete', old.rowid, old.texto);
+    END;
+    CREATE VIRTUAL TABLE IF NOT EXISTS ia_vec USING vec0(embedding ${tipo}[${dims}] distance_metric=cosine);
+  `);
+  const meta = new Map(
+    db
+      .prepare('SELECT chave, valor FROM ia_store_meta')
+      .all()
+      .map(r => [r.chave, r.valor])
+  );
+  const gravado = { dims: meta.get('dims'), quantizacao: meta.get('quantizacao') };
+  if (gravado.dims !== undefined && Number(gravado.dims) !== dims) {
+    throw new Error(`dimensão do índice (${gravado.dims}) difere da pedida (${dims}): reindexar`);
+  }
+  if (gravado.quantizacao !== undefined && gravado.quantizacao !== quantizacao) {
+    throw new Error(`quantização do índice (${gravado.quantizacao}) difere da pedida: reindexar`);
+  }
+  const grava = db.prepare('INSERT OR IGNORE INTO ia_store_meta (chave, valor) VALUES (?, ?)');
+  grava.run('dims', String(dims));
+  grava.run('quantizacao', quantizacao);
+  if (!ftsExistia) {
+    // índice externo recém-criado sobre chunks que já existiam: sem isso, o ramo lexical não os vê
+    db.exec("INSERT INTO ia_chunks_fts (ia_chunks_fts) VALUES ('rebuild')");
+  }
+}
+
+function condicaoFiltros(filtros) {
+  const partes = [];
+  const params = [];
+  for (const [chave, esperado] of Object.entries(filtros ?? {})) {
+    if (!CHAVE_SEGURA.test(chave)) {
+      throw new TypeError(`chave de filtro inválida: ${chave}`);
+    }
+    const valores = (Array.isArray(esperado) ? esperado : [esperado]).map(v =>
+      typeof v === 'boolean' ? Number(v) : v
+    );
+    if (!valores.length) {
+      partes.push('0');
+      continue;
+    }
+    partes.push(`json_extract(metadados, '$.${chave}') IN (${valores.map(() => '?').join(',')})`);
+    params.push(...valores);
+  }
+  return { sql: partes.join(' AND '), params };
+}
+
+const paraResultado = l => ({
+  id: l.id,
+  docId: l.doc_id,
+  texto: l.texto,
+  metadados: JSON.parse(l.metadados),
+  url_origem: l.url_origem,
+  origemGenerica: Boolean(l.origem_generica),
+  score: Math.min(1, 1 - l.distance),
+});
+
+function criarSqliteVecStore({ db, dims, quantizacao = QUANTIZACOES.FLOAT32 }) {
+  if (!Object.values(QUANTIZACOES).includes(quantizacao)) {
+    throw new Error(
+      `Quantização desconhecida: ${quantizacao} (use ${Object.values(QUANTIZACOES).join(' ou ')})`
+    );
+  }
+  prepararSchema(db, { dims, quantizacao });
+  const int8 = quantizacao === QUANTIZACOES.INT8;
+  const marcador = int8 ? 'vec_int8(?)' : '?';
+
+  const bytesDoVetor = vetor => {
+    const unitario = normalizar(vetor);
+    return int8 ? comoBytes(quantizarInt8(unitario).dados) : comoBytes(unitario);
+  };
+
+  const apagarPorRowids = rowids => {
+    const delVec = db.prepare('DELETE FROM ia_vec WHERE rowid = ?');
+    const delChunk = db.prepare('DELETE FROM ia_chunks WHERE rowid = ?');
+    rowids.forEach(r => {
+      delVec.run(BigInt(r));
+      delChunk.run(r);
+    });
+  };
+
+  const emTransacao = fn => {
+    db.exec('BEGIN');
+    try {
+      const retorno = fn();
+      db.exec('COMMIT');
+      return retorno;
+    } catch (err) {
+      if (db.isTransaction) {
+        db.exec('ROLLBACK'); // o SQLite pode já ter revertido (disco cheio, IO): não mascarar a causa
+      }
+      throw err;
+    }
+  };
+
+  function gravarChunk(c) {
+    const existente = db.prepare('SELECT rowid FROM ia_chunks WHERE id = ?').get(c.id);
+    if (existente) {
+      apagarPorRowids([existente.rowid]);
+    }
+    const { lastInsertRowid } = db
+      .prepare(
+        `INSERT INTO ia_chunks (id, doc_id, texto, metadados, url_origem, origem_generica)
+         VALUES (?, ?, ?, ?, ?, ?)`
+      )
+      .run(
+        c.id,
+        docIdParaSql(c.docId),
+        c.texto,
+        JSON.stringify(c.metadados ?? {}),
+        c.url_origem,
+        Number(Boolean(c.origemGenerica))
+      );
+    db.prepare(`INSERT INTO ia_vec (rowid, embedding) VALUES (?, ${marcador})`).run(
+      BigInt(lastInsertRowid),
+      bytesDoVetor(c.vetor)
+    );
+  }
+
+  async function upsert(chunks) {
+    chunks.forEach(c => validarChunk(c, dims)); // lote inteiro validado antes de gravar
+    emTransacao(() => chunks.forEach(gravarChunk));
+  }
+
+  async function search({ vetor, k, filtros }) {
+    const limite = validarK(k);
+    validarVetor(vetor, dims);
+    const { sql, params } = condicaoFiltros(filtros);
+    if (vetorNulo(vetor)) {
+      return [];
+    }
+    const preFiltro = sql ? `AND rowid IN (SELECT rowid FROM ia_chunks WHERE ${sql})` : '';
+    const linhas = db
+      .prepare(
+        `SELECT c.id, c.doc_id, c.texto, c.metadados, c.url_origem, c.origem_generica, v.distance
+           FROM (SELECT rowid, distance FROM ia_vec
+                  WHERE embedding MATCH ${marcador} AND k = ? ${preFiltro}) v
+           JOIN ia_chunks c ON c.rowid = v.rowid
+          ORDER BY v.distance, c.id`
+      )
+      .all(bytesDoVetor(vetor), limite, ...params);
+    return linhas.map(paraResultado);
+  }
+
+  /** Ramo lexical (BM25 do FTS5) com o mesmo formato da busca vetorial; score = cosseno com `vetor`. */
+  async function searchLexical({ consulta, vetor, k, filtros }) {
+    const limite = validarK(k);
+    validarVetor(vetor, dims);
+    const { sql, params } = condicaoFiltros(filtros);
+    const match = montarMatchFts(consulta);
+    if (!match) {
+      return [];
+    }
+    const comVetor = !vetorNulo(vetor);
+    const distancia = comVetor ? `vec_distance_cosine(v.embedding, ${marcador})` : '1.0';
+    const linhas = db
+      .prepare(
+        `SELECT c.id, c.doc_id, c.texto, c.metadados, c.url_origem, c.origem_generica,
+                ${distancia} AS distance
+           FROM ia_chunks_fts f
+           JOIN ia_chunks c ON c.rowid = f.rowid
+           JOIN ia_vec v ON v.rowid = c.rowid
+          WHERE ia_chunks_fts MATCH ? ${sql ? `AND ${sql}` : ''}
+          ORDER BY bm25(ia_chunks_fts), c.id
+          LIMIT ?`
+      )
+      .all(...(comVetor ? [bytesDoVetor(vetor)] : []), match, ...params, limite);
+    return linhas.map(paraResultado);
+  }
+
+  // docId é comparado como texto: 5 e '5' são o mesmo documento (citações também comparam assim)
+  const rowidsDoDoc = docId =>
+    db
+      .prepare('SELECT rowid FROM ia_chunks WHERE CAST(doc_id AS TEXT) = ?')
+      .all(String(docId))
+      .map(r => r.rowid);
+
+  async function deleteByDoc(docId) {
+    const rowids = rowidsDoDoc(docId);
+    emTransacao(() => apagarPorRowids(rowids));
+    return rowids.length;
+  }
+
+  /** Troca TODOS os chunks do documento numa transação: se algo falhar, o índice anterior fica. */
+  async function replaceByDoc(docId, chunks) {
+    chunks.forEach(c => validarChunk(c, dims));
+    emTransacao(() => {
+      apagarPorRowids(rowidsDoDoc(docId));
+      chunks.forEach(gravarChunk);
+    });
+  }
+
+  const count = async () => db.prepare('SELECT COUNT(*) AS n FROM ia_chunks').get().n;
+
+  async function tamanhoBytes() {
+    return (await count()) * (int8 ? dims : dims * BYTES_FLOAT32);
+  }
+
+  return { upsert, replaceByDoc, search, searchLexical, deleteByDoc, count, tamanhoBytes };
+}
+
+module.exports = { criarSqliteVecStore, abrirBancoVetorial };

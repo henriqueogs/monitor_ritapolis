@@ -12,7 +12,8 @@
  *   node scripts/pncp-sincronizar.js --check --ano=2026
  *   node scripts/pncp-sincronizar.js --dry-run --ano=2026
  *   node scripts/pncp-sincronizar.js --ano=2026
- *   node scripts/pncp-sincronizar.js --ano=2026 --cnpj=18557553000105
+ *   node scripts/pncp-sincronizar.js --ano=2026 --cnpj=<cnpj do órgão>
+ *   node scripts/pncp-sincronizar.js --ano=2026 --orgao=prefeitura   (ou camara)
  */
 
 process.loadEnvFile?.() || require('dotenv').config();
@@ -34,7 +35,15 @@ const args = Object.fromEntries(
 );
 
 const ANO = args.ano ? Number(args.ano) : new Date().getFullYear();
-const CNPJ_FILTER = args.cnpj ? String(args.cnpj).replace(/\D/g, '') : null;
+// --orgao=prefeitura|camara escolhe o CNPJ do ente pela configuração (sem CNPJ à mão no package.json).
+const CNPJ_POR_ORGAO = { prefeitura: config.cnpjPrefeitura, camara: config.cnpjCamara };
+if (args.orgao && !CNPJ_POR_ORGAO[args.orgao]) {
+  console.error(`--orgao inválido: "${args.orgao}" (use prefeitura ou camara)`);
+  process.exit(1);
+}
+const CNPJ_FILTER = args.cnpj
+  ? String(args.cnpj).replace(/\D/g, '')
+  : CNPJ_POR_ORGAO[args.orgao] || null;
 const DRY_RUN = Boolean(args['dry-run']);
 const CHECK_ONLY = Boolean(args.check);
 const VERBOSE = Boolean(args.verbose);

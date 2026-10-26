@@ -5,6 +5,7 @@ import SectionBlock from '../../../components/SectionBlock';
 import PeriodoSelector from '../../../components/PeriodoSelector';
 import TransparenciaSubnav from '../../../components/TransparenciaSubnav';
 import FilterBar from '../../../components/FilterBar';
+import NotaEstimadoGlobal from '../../components/NotaEstimadoGlobal';
 
 const BUSCA_MAX_CHARS = 60;
 
@@ -82,6 +83,7 @@ function TabelaAgregado({ titulo, rows, chaveNome, periodoLabel, limparPrefixo =
             </span>
             <span style={{ fontWeight: 600, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
               {formatMoney(r.valor_total)}
+              <NotaEstimadoGlobal valor={r.valor_estimado_global} />
             </span>
           </div>
         ))}
@@ -154,7 +156,10 @@ export default async function CategoriaPage({
                 <span style={{ fontSize: 14, fontWeight: 500 }}>{r.exercicio}</span>
                 <span style={{ display: 'flex', gap: 16, fontSize: 13 }}>
                   <span style={{ color: 'var(--text-muted)' }}>{r.n.toLocaleString('pt-BR')} empenhos</span>
-                  <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{formatMoney(r.valor_total)}</strong>
+                  <strong style={{ fontVariantNumeric: 'tabular-nums' }}>
+                    {formatMoney(r.valor_total)}
+                    <NotaEstimadoGlobal valor={r.valor_estimado_global} />
+                  </strong>
                 </span>
               </div>
               <div style={{ height: 6, background: 'var(--surface-muted)', borderRadius: 3, overflow: 'hidden' }}>
@@ -221,6 +226,7 @@ export default async function CategoriaPage({
                 </span>
                 <span style={{ fontWeight: 600, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                   {formatMoney(c.valor_total)}
+                  <NotaEstimadoGlobal valor={c.valor_estimado_global} />
                 </span>
               </div>
             ))}

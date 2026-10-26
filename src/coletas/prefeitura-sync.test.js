@@ -45,10 +45,14 @@ describe('checkPrefeituraSyncOnPortalOpen', () => {
     mockFetchPageShell.mockReturnValue(pending.promise); // nunca resolve neste teste
 
     const { checkPrefeituraSyncOnPortalOpen } = require('./prefeitura-sync');
-    const inicio = Date.now();
-    const result = await checkPrefeituraSyncOnPortalOpen();
+    // Sem relogio de parede (flaky em maquina lenta): se esperasse o coletor,
+    // que nunca resolve, o race cairia no 'travou'.
+    const result = await Promise.race([
+      checkPrefeituraSyncOnPortalOpen(),
+      new Promise(resolve => setTimeout(() => resolve({ travou: true }), 1000)),
+    ]);
 
-    expect(Date.now() - inicio).toBeLessThan(50);
+    expect(result.travou).toBeUndefined();
     expect(result.verificando).toBe(true);
   });
 

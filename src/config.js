@@ -1,12 +1,22 @@
 const path = require('path');
 const dotenv = require('dotenv');
+const { lerMunicipio, SLUG_PADRAO } = require('./municipio');
 
 dotenv.config();
+
+const municipio = lerMunicipio({ slug: process.env.MUNICIPIO || SLUG_PADRAO });
 
 const rootDir = process.cwd();
 
 function resolveFromRoot(value, fallback) {
   return path.resolve(rootDir, value || fallback);
+}
+
+// Número de env: valor ausente ou inválido (NaN) cai no padrão, nunca vira NaN silencioso
+// (um teto comparado com NaN deixaria de limitar).
+function numeroOuPadrao(value, fallback) {
+  const numero = Number(value);
+  return value !== undefined && value !== '' && Number.isFinite(numero) ? numero : fallback;
 }
 
 module.exports = {
@@ -18,6 +28,20 @@ module.exports = {
   // Teto do trabalho de IA em documentos históricos (força-tarefa temporária).
   pipelineHistoricalDocsPerDay: Number(process.env.PIPELINE_HISTORICAL_DOCS_PER_DAY || 10),
   pipelineHistoricalBudgetMs: Number(process.env.PIPELINE_HISTORICAL_BUDGET_MS || 3000000),
+  // vazio = 25% do orcamento (ver FAIL_BUDGET_SHARE em pipeline/queue.js)
+  pipelineHistoricalFailBudgetMs: process.env.PIPELINE_HISTORICAL_FAIL_BUDGET_MS
+    ? Number(process.env.PIPELINE_HISTORICAL_FAIL_BUDGET_MS)
+    : undefined,
+  // Primeiro exercício considerado na análise financeira (antes disso faltam dados de função).
+  inteligenciaAnoMin: Number(process.env.INTELIGENCIA_ANO_MIN || 2023),
+  // vazio = 25% do orcamento (ver ITEMS_BUDGET_SHARE em pipeline/queue.js)
+  pipelineHistoricalItemsBudgetMs: process.env.PIPELINE_HISTORICAL_ITEMS_BUDGET_MS
+    ? Number(process.env.PIPELINE_HISTORICAL_ITEMS_BUDGET_MS)
+    : undefined,
+  // vazio = 30 min por documento (ver ITEMS_JOB_CAP_MS em pipeline/queue.js)
+  pipelineHistoricalItemsJobCapMs: process.env.PIPELINE_HISTORICAL_ITEMS_JOB_CAP_MS
+    ? Number(process.env.PIPELINE_HISTORICAL_ITEMS_JOB_CAP_MS)
+    : undefined,
   frontendApiUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api',
   collectorDelayMs: Number(process.env.COLETOR_DELAY_MS || 1000),
   collectorTimeoutMs: Number(process.env.COLETOR_TIMEOUT_MS || 15000),
@@ -32,9 +56,14 @@ module.exports = {
   collectorUserAgent:
     process.env.COLETOR_USER_AGENT ||
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-  ibgeCode: process.env.IBGE_CODE || '3156106',
-  cnpjPrefeitura: process.env.CNPJ_PREFEITURA || '18557553000105',
-  cnpjCamara: process.env.CNPJ_CAMARA || '26148056000181',
+  // Identidade do município: padrão vem de municipios/<MUNICIPIO>/municipio.json (ADR 0007); cada
+  // variável individual ainda vence o arquivo. Acesso no código de produção: src/ente.js (valida).
+  municipio: municipio.slug,
+  municipioNome: process.env.MUNICIPIO_NOME || municipio.nome,
+  ufMunicipio: process.env.UF_MUNICIPIO || municipio.uf,
+  ibgeCode: process.env.IBGE_CODE || municipio.ibge,
+  cnpjPrefeitura: process.env.CNPJ_PREFEITURA || municipio.cnpjPrefeitura,
+  cnpjCamara: process.env.CNPJ_CAMARA || municipio.cnpjCamara,
   pncpBaseUrl: process.env.PNCP_BASE_URL || 'https://pncp.gov.br/api/consulta',
   pncpOrgaosUrl: process.env.PNCP_ORGAOS_URL || 'https://pncp.gov.br/pncp-api/v1',
   receitaCnpjBaseUrl: process.env.RECEITA_CNPJ_BASE_URL || 'https://brasilapi.com.br/api/cnpj/v1',
@@ -48,7 +77,10 @@ module.exports = {
   aiMinChunkSizeChars: Number(process.env.AI_MIN_CHUNK_SIZE_CHARS || 3000),
   aiChunkOverlapChars: Number(process.env.AI_CHUNK_OVERLAP_CHARS || 600),
   aiMaxChunksPerDocument: Number(process.env.AI_MAX_CHUNKS_PER_DOCUMENT || 40),
-  aiRequestTimeoutMs: Number(process.env.AI_REQUEST_TIMEOUT_MS || 120000),
+  // 180s desde 22/10/2026: com nemotron-3-ultra (ver nvidiaModel) a campanha teve 17 timeouts em
+  // 5,5h com 120s, contra 1 erro 429. Cabe na fatia de 8 min do pipeline (src/pipeline/progress.js),
+  // que corta a chamada no tempo restante e retoma na fatia seguinte.
+  aiRequestTimeoutMs: Number(process.env.AI_REQUEST_TIMEOUT_MS || 180000),
   aiRetryMax: Number(process.env.AI_RETRY_MAX || 2),
   aiSaveRawResponse: String(process.env.AI_SAVE_RAW_RESPONSE || 'false').toLowerCase() === 'true',
   nvidiaApiKey: process.env.NVIDIA_API_KEY || '',
@@ -71,12 +103,30 @@ module.exports = {
   // 34-41s em resumo real, JSON limpo. Descartados no mesmo teste: glm-5.3
   // (rapido no trivial, travou no resumo real), deepseek-v4.1-flash e
   // glm-5.3-flash (timeout 150s), kimi-k2.6/mistral-large-2 (404 na conta).
-  nvidiaModel: process.env.NVIDIA_MODEL || 'nvidia/nemotron-3-super-120b-a12b',
+  // 20/10/2026: nemotron-3-super passou a responder 404 ("Function ... Not found for account") para
+  // a chave local E para a da VM; /v1/models ainda o listava (listagem != acesso). Ultima resposta
+  // boa em producao: 08:05Z. Teste com o prompt real de resumo (buildDocumentSummaryPrompt, 3 docs
+  // publicos de 2,4k a 10k caracteres, timeout 120s, sem retry): nemotron-3-ultra-550b-a55b 3/3
+  // validos (34/46/94s), nemotron-3.5-super-vl-120b-a12b 3/3 (31/80/107s, mais lento nos medios),
+  // nemotron-3.5-lightning-30b 1/3, gemma-4-31b-it 1/3, glm-5.3 0/3 (timeouts). 404 na conta:
+  // nemotron-nano-3-30b, kimi-k2.6, mistral-large(-2), llama-3.1-nemotron-70b/51b/ultra-253b,
+  // nemotron-4-340b. gpt-oss-20b responde 200 mas so com `reasoning` (quebra o parser). Os dois
+  // melhores levam ~94-107s no documento de 10k, perto do timeout de 120s (subiu para 180s em 22/10).
+  nvidiaModel: process.env.NVIDIA_MODEL || 'nvidia/nemotron-3-ultra-550b-a55b',
   // Override opcional: modelo mais forte só para a investigação de
   // descobertas (menor volume, mais exige julgamento) — sem mexer no modelo
   // padrão usado por resumo/leitura simples/anexo. Vazio = usa nvidiaModel.
   nvidiaModelInvestigacao: process.env.NVIDIA_MODEL_INVESTIGACAO || null,
-  nvidiaEmbedModel: process.env.NVIDIA_EMBED_MODEL || 'baai/bge-m3',
+  // baai/bge-m3 foi aposentado na NVIDIA (410 Gone, spike S2 de 15/10/2026); 2048 dimensões.
+  // Perguntas do cidadão (RAG): desligado por padrão até o índice vetorial existir na VM.
+  aiAskEnabled: String(process.env.AI_ASK_ENABLED || 'false').toLowerCase() === 'true',
+  aiVectorDbPath: process.env.AI_VECTOR_DB_PATH || 'data/ia-vetorial.db',
+  aiAskQuantizacao: process.env.AI_ASK_QUANTIZACAO || 'int8',
+  aiAskEmbedDims: numeroOuPadrao(process.env.AI_ASK_EMBED_DIMS, 2048),
+  // Cosseno mínimo para um trecho entrar no contexto. Calibrar com o eval do modelo real.
+  aiAskLimiar: numeroOuPadrao(process.env.AI_ASK_LIMIAR, 0.2),
+  aiAskDailyLimit: numeroOuPadrao(process.env.AI_ASK_DAILY_LIMIT, 300),
+  nvidiaEmbedModel: process.env.NVIDIA_EMBED_MODEL || 'nvidia/nemotron-3-embed-1b',
   geminiApiKey: process.env.GEMINI_API_KEY || '',
   geminiModel: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
   groqApiKey: process.env.GROQ_API_KEY || '',

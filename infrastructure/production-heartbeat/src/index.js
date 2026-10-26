@@ -1,3 +1,5 @@
+import { parsePreviewTarget } from './preview-target.js';
+
 async function wakeApi(env) {
   const response = await fetch(env.API_HEALTH_URL, {
     headers: {
@@ -36,27 +38,10 @@ const ALLOWED_PROXY_HOSTS = new Set([
 ]);
 const MAX_REDIRECTS = 5;
 
-// Mesmo allowlist do endpoint /api/source-preview da API (src/api/server.js):
-// só arquivos oficiais da prefeitura, servidos direto do Worker pro navegador
-// do cidadao. Antes o Render reencaminhava esses PDFs, consumindo a banda
-// gratuita do plano; aqui o byte nunca passa pelo Render.
-const ALLOWED_PREVIEW_HOSTS = new Set(['ritapolis.mg.gov.br', 'www.ritapolis.mg.gov.br']);
+// Regra de quais arquivos oficiais o /preview serve: ./preview-target.js (testada em
+// tests/heartbeat-preview-target.test.js). O byte do PDF vai direto do Worker pro navegador
+// do cidadao; antes o Render reencaminhava esses PDFs, consumindo a banda gratuita do plano.
 const PREVIEW_REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
-
-function parsePreviewTarget(rawTarget) {
-  let target;
-  try {
-    target = new URL(rawTarget);
-  } catch {
-    return null;
-  }
-  const path = target.pathname.toLowerCase();
-  const allowedPath = path === '/obter_arquivo_cadastro_generico.php' || path.endsWith('.pdf');
-  if (target.protocol !== 'https:' || !ALLOWED_PREVIEW_HOSTS.has(target.hostname) || !allowedPath) {
-    return null;
-  }
-  return target;
-}
 
 function previewHeaders(upstream) {
   const headers = new Headers({

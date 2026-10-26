@@ -22,7 +22,12 @@ export default function LicitationInfo({ documento, licitacao }) {
         { label: 'Arquivos vinculados', value: anexosLabel },
         { label: 'Status', value: licitacao?.status || documento.status_coleta },
         { label: 'Vencedor', value: licitacao?.vencedor_nome || 'Nao informado' },
-        { label: 'Valor final', value: formatMoney(licitacao?.valor_final) },
+        {
+          label: 'Valor final',
+          value: licitacao?.valor_final_oculto
+            ? 'Nao informado — a soma de empenhos nao e valor homologado'
+            : formatMoney(licitacao?.valor_final),
+        },
         { label: 'Origem do resultado', value: licitacao?.origem_detalhe || licitacao?.origem || 'Nao informada' }
       ]} />
     </SectionBlock>

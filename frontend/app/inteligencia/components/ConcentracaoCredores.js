@@ -65,11 +65,11 @@ export default function ConcentracaoCredores({ dados, historico }) {
       {/* Métricas rápidas */}
       <div className="admin-metric-grid" style={{ marginBottom: 16 }}>
         <div className="admin-metric-card">
-          <span>Total geral executado</span>
+          <span>Empenhado ordinário (com CNPJ)</span>
           <strong>{formatMoney(total_geral)}</strong>
         </div>
         <div className="admin-metric-card">
-          <span>Contratos privados</span>
+          <span>Empenhos a credores privados</span>
           <strong>{formatMoney(total_privado)}</strong>
           <p style={{ margin: '4px 0 0', fontSize: 12, opacity: 0.6 }}>{pct_privado}% do total</p>
         </div>
