@@ -202,6 +202,23 @@ describe('rate limit', () => {
       expect(bloqueadas).toBe(0);
     });
 
+    it('registra um aviso por janela estourada, com a classe e sem repetir a cada 429', () => {
+      const logger = require('../logger');
+      const warn = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+      try {
+        disparar(45);
+        jest.advanceTimersByTime(60 * 1000);
+        disparar(41);
+
+        const avisos = warn.mock.calls.filter(([msg]) => msg.startsWith('Rate limit excedido'));
+        expect(avisos).toHaveLength(2);
+        expect(avisos[0][0]).toBe('Rate limit excedido (publicRead)');
+        expect(avisos[0][1]).toMatchObject({ classe: 'publicRead', limite: 40 });
+      } finally {
+        warn.mockRestore();
+      }
+    });
+
     it('login continua bloqueado após 1 minuto quando estourou a cota', () => {
       expect(disparar(21, { path: '/api/auth/login', method: 'POST' }).bloqueadas).toBe(1);
       jest.advanceTimersByTime(60 * 1000);

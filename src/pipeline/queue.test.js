@@ -122,6 +122,12 @@ test('technical dates do not change signatures or turn old publications into rec
   expect(transientError('maxContentLength size exceeded')).toBe(false);
   expect(transientError('Request timed out.')).toBe(true);
   expect(transientError('404 status code')).toBe(false);
+  expect(
+    transientError(
+      "Resposta da IA nao retornou JSON valido: Expected ':' after property name in JSON at position 3321"
+    )
+  ).toBe(true);
+  expect(transientError('Resposta da IA nao contem JSON valido')).toBe(true);
 });
 test('ten historical documents per local day includes backlog created yesterday', () => {
   for (let i = 0; i < 11; i++) {

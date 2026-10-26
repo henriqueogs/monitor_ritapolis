@@ -53,13 +53,30 @@ describe('frontend fetch-retry', () => {
       expect(fetchImpl).toHaveBeenCalledTimes(2);
     });
 
-    it('propaga o erro quando a segunda tentativa também falha', async () => {
+    it('repete até a terceira tentativa em erro de rede (vários sockets velhos no pool)', async () => {
+      // Arrange: função da Vercel descongelada com mais de um socket keep-alive morto
+      const resposta = { ok: true };
+      const fetchImpl = jest
+        .fn()
+        .mockRejectedValueOnce(erroFetchFailed('UND_ERR_SOCKET'))
+        .mockRejectedValueOnce(erroFetchFailed('ETIMEDOUT'))
+        .mockResolvedValueOnce(resposta);
+
+      // Act
+      const resultado = await fetchComRetry('http://api/x', {}, { fetchImpl, esperaMs: 0 });
+
+      // Assert
+      expect(resultado).toBe(resposta);
+      expect(fetchImpl).toHaveBeenCalledTimes(3);
+    });
+
+    it('propaga o erro quando a terceira tentativa também falha', async () => {
       const fetchImpl = jest.fn().mockRejectedValue(erroFetchFailed('ECONNRESET'));
 
       await expect(fetchComRetry('http://api/x', {}, { fetchImpl, esperaMs: 0 })).rejects.toThrow(
         'fetch failed'
       );
-      expect(fetchImpl).toHaveBeenCalledTimes(2);
+      expect(fetchImpl).toHaveBeenCalledTimes(3);
     });
 
     it('não repete erros que não são de rede', async () => {

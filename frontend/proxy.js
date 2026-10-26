@@ -38,7 +38,7 @@ export const config = {
   matcher: [
     {
       source:
-        '/((?!api|_next/static|_next/image|icon.svg|apple-icon|opengraph-image|robots.txt|empenho/|transparencia/servidores/|legislacao/camara/projetos/|legislacao/camara/vereadores/).*)',
+        '/((?!api|149e9513-01fa-4fb0-aad4-566afd725d1b/|_next/static|_next/image|icon.svg|apple-icon|opengraph-image|robots.txt|empenho/|transparencia/servidores/|legislacao/camara/projetos/|legislacao/camara/vereadores/).*)',
       missing: [
         { type: 'header', key: 'next-router-prefetch' },
         { type: 'header', key: 'purpose', value: 'prefetch' },

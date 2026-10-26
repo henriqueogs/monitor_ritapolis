@@ -374,3 +374,18 @@ test('row evidence is checked before the table flag so the real defect is report
   expect(result.resultado_global.valor).toBe(34200);
   expect(mock.generateJson.mock.calls.length).toBeGreaterThan(1);
 });
+
+test('request timeout follows config.aiRequestTimeoutMs instead of a hardcoded value', async () => {
+  const config = require('../config');
+  const original = config.aiRequestTimeoutMs;
+  config.aiRequestTimeoutMs = 180000;
+  try {
+    const doc = document('Item 1 Arroz 10 kg R$ 12,00');
+    const llm = provider(() => empty());
+    await extractAllItems(doc, fontesDoProcesso(doc), llm);
+    expect(llm.generateJson).toHaveBeenCalled();
+    expect(llm.generateJson.mock.calls.every(([req]) => req.timeoutMs === 180000)).toBe(true);
+  } finally {
+    config.aiRequestTimeoutMs = original;
+  }
+});

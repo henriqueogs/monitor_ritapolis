@@ -1,7 +1,9 @@
 const { PHASE_DEVELOPMENT_SERVER } = require('next/constants');
 const path = require('path');
+const { withBotId } = require('botid/next/config');
 const { buildCsp, originDe, CSP_ISR_SOURCES } = require('./lib/csp');
 const { DOMINIO_SITE, SITE_URL } = require('./lib/ente');
+const { SOURCE_SEM_BOTID } = require('./lib/botid');
 
 const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
@@ -11,7 +13,7 @@ const securityHeaders = [
 ];
 
 /** @type {(phase: string) => import('next').NextConfig} */
-module.exports = (phase) => ({
+const nextConfig = (phase) => ({
   reactStrictMode: true,
   // Evita que `next build` sobrescreva assets CSS/chunks usados por `next dev`.
   // Esse conflito deixava o navegador com links para CSS inexistente ou antigo.
@@ -27,7 +29,9 @@ module.exports = (phase) => ({
       apiOrigin: originDe(process.env.NEXT_PUBLIC_API_URL),
     });
     return [
-      { source: '/:path*', headers: securityHeaders },
+      // Fora do caminho do BotID: o desafio usa iframe da própria origem e o withBotId
+      // define X-Frame-Options: SAMEORIGIN ali (DENY quebraria a verificação).
+      { source: SOURCE_SEM_BOTID, headers: securityHeaders },
       ...CSP_ISR_SOURCES.map((source) => ({
         source,
         headers: [{ key: 'Content-Security-Policy', value: cspIsr }],
@@ -56,3 +60,5 @@ module.exports = (phase) => ({
     ];
   },
 });
+
+module.exports = withBotId(nextConfig);
