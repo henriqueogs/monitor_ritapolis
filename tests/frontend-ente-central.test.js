@@ -48,6 +48,18 @@ describe('frontend/lib/ente.js: valores e derivados do ente padrão', () => {
     expect(ente.HOSTS_PREFEITURA).toEqual(['ritapolis.mg.gov.br', 'www.ritapolis.mg.gov.br']);
   });
 
+  it('Portal da Transparência vem do municipio.json (origem, host e listagem de despesas)', () => {
+    expect(ente).toMatchObject({
+      PORTAL_TRANSPARENCIA: 'https://pt.ritapolis.mg.gov.br',
+      HOST_PORTAL_TRANSPARENCIA: 'pt.ritapolis.mg.gov.br',
+      PORTAL_TRANSPARENCIA_DESPESAS: 'https://pt.ritapolis.mg.gov.br/Tempo_Real_Despesa',
+    });
+    expect(ente.ORIGENS_PREFEITURA).toEqual([
+      'https://ritapolis.mg.gov.br',
+      'https://www.ritapolis.mg.gov.br',
+    ]);
+  });
+
   it('o objeto ente agrupa os mesmos valores (usado para parametrizar os textos)', () => {
     expect(ente.ente).toMatchObject({
       nome: 'Ritápolis',

@@ -9,11 +9,12 @@
  * nunca URL malformada (regra de produto §11.3 — rótulo honesto na UI).
  */
 
-const PORTAL_TEMPO_REAL_URL = 'https://pt.ritapolis.mg.gov.br/Tempo_Real_Despesa';
-const PORTAL_DETALHE_DESPESA_URL =
-  'https://pt.ritapolis.mg.gov.br/Relatorios/Detalhamento_Despesa.php';
+const { fontes } = require('../fontes');
 
-// Entidade 1 = Prefeitura — única publicada em pt.ritapolis.mg.gov.br
+const PORTAL_TEMPO_REAL_URL = `${fontes.portalTransparencia}/Tempo_Real_Despesa`;
+const PORTAL_DETALHE_DESPESA_URL = `${fontes.portalTransparencia}/Relatorios/Detalhamento_Despesa.php`;
+
+// Entidade 1 = Prefeitura — única publicada no portal de Ritápolis (SH3)
 const CHAR_ID_EMP_PREFEITURA = '1';
 const EMPENHO_PATTERN = /^\d{5}-\d{3}$/;
 const EXERCICIO_MIN = 1990;
@@ -64,7 +65,7 @@ function comLinkPortal(rows, { exercicioKey = 'exercicio_orcamento' } = {}) {
   }));
 }
 
-const PORTAL_FOLHA_URL = 'https://pt.ritapolis.mg.gov.br/Folha';
+const PORTAL_FOLHA_URL = `${fontes.portalTransparencia}/Folha`;
 
 /**
  * A folha salarial não tem deep-link estável por registro no portal (é

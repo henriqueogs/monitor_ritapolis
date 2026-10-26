@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { fetchEmendas, fetchEmendaTotaisPorAno, fetchEmendaParlamentares } from '../lib/api';
 import { formatMoney, formatDate } from '../lib/format';
 import styles from './styles.module.css';
+import { ORIGEM_PREFEITURA } from '../../lib/ente';
 
 export const metadata = {
   title: 'Emendas Parlamentares',
@@ -242,7 +243,7 @@ export default async function EmendasPage(props) {
         <p>
           Fonte:{' '}
           <a
-            href="https://ritapolis.mg.gov.br/pagina/21642/emendas-parlamentares-estaduais"
+            href={`${ORIGEM_PREFEITURA}/pagina/21642/emendas-parlamentares-estaduais`}
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -250,7 +251,7 @@ export default async function EmendasPage(props) {
           </a>
           {' '}e{' '}
           <a
-            href="https://ritapolis.mg.gov.br/pagina/21947/emendas-parlamentares-federais"
+            href={`${ORIGEM_PREFEITURA}/pagina/21947/emendas-parlamentares-federais`}
             target="_blank"
             rel="noopener noreferrer"
           >

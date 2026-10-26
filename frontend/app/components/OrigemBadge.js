@@ -7,13 +7,15 @@
  *   url      {string}  — sobrescreve a URL padrão da origem (ex: URL PNCP do documento)
  */
 
+import { PORTAL_TRANSPARENCIA_DESPESAS } from '../../lib/ente';
+
 const ORIGEM_CONFIG = {
   portal_transparencia: {
     label: 'Portal Transparência',
     variant: 'gov',
     // Listagem genérica — quem tem um empenho específico deve passar o
     // deep-link da API (`emp.portal.url`) na prop `url`.
-    url: 'https://pt.ritapolis.mg.gov.br/Tempo_Real_Despesa',
+    url: PORTAL_TRANSPARENCIA_DESPESAS,
   },
   pncp: {
     label: 'PNCP',

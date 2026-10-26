@@ -25,4 +25,10 @@ Henrique escolheu **transformar este repositório**.
 + O frontend lê `frontend/lib/municipios.json`, cópia gerada por `npm run municipio:frontend` (a Vercel
   usa `frontend/` como raiz e não enxerga `municipios/`); `NEXT_PUBLIC_MUNICIPIO` escolhe no build e
   `tests/frontend-municipios.test.js` falha se a cópia envelhecer.
-− Hosts das fontes, textos de página e scripts históricos ainda citam Ritápolis (mapa, seções 2.2–2.8).
++ Os endereços das fontes oficiais vêm do mesmo arquivo: domínios da Prefeitura, da Câmara e do site,
+  e a origem do Portal da Transparência (`portalTransparencia`). O backend lê por `src/fontes.js` e o
+  frontend por `frontend/lib/ente.js`; `tests/fontes-sem-host.test.js` falha se o domínio de um
+  município real voltar a ser escrito à mão no código de produção.
+− Os caminhos e IDs de página dentro de cada fonte (`INT_PAG`, `/ws_consulta/...`) seguem nos
+  coletores: são do fornecedor, e entram no contrato `Coletor`.
+− Textos de página e scripts históricos ainda citam Ritápolis (mapa, seções 2.4–2.8).
