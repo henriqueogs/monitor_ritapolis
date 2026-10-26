@@ -45,8 +45,9 @@ function isRecent(doc, now = new Date()) {
     : Number(doc.ano) >= Number(localTime(now).day.slice(0, 4)) &&
         (doc.coletado_em || '').slice(0, 10) >= since;
 }
+// JSON malformado vem de amostragem do modelo: tentar de novo costuma resolver.
 function transientError(error) {
-  return /ECONNRESET|ETIMEDOUT|EAI_AGAIN|ECONNREFUSED|SQLITE_BUSY|timeout|timed out|worker_interrupted|HTTP (429|5\d\d)|\b429\b|\b50[0234]\b/i.test(
+  return /ECONNRESET|ETIMEDOUT|EAI_AGAIN|ECONNREFUSED|SQLITE_BUSY|timeout|timed out|worker_interrupted|HTTP (429|5\d\d)|\b429\b|\b50[0234]\b|IA nao (retornou|contem) JSON valido/i.test(
     String(error)
   );
 }
