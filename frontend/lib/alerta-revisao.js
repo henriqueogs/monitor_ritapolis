@@ -10,7 +10,7 @@ const UNIDADE_REAIS = 'R$';
 const KIND_FACTUAL = 'investigacao_factual';
 const STATUS_APROVADO = 'aprovado';
 // Tipos cuja regra vem da subcategoria (detectores sobre empenhos).
-const TIPOS_REGRA_NA_SUBCATEGORIA = new Set(['gasto_atipico', 'execucao_contratual']);
+const TIPOS_REGRA_NA_SUBCATEGORIA = new Set(['gasto_atipico', 'execucao_contratual', 'conflito_interesse']);
 
 const ROTULO_UNIDADE = Object.freeze({
   arvores: 'árvores',
@@ -61,6 +61,13 @@ const REGRAS = Object.freeze({
       'com o valor do contrato lido no extrato ou contrato publicado. Dispara acima de 125% (limite de ' +
       'acréscimo do art. 125 da Lei 14.133) e com excesso de ao menos R$ 10.000. Aditivo não publicado ' +
       'ou empenho citando o processo errado também explicam a diferença.',
+  },
+  socio_servidor: {
+    nome: 'Sócio com o mesmo nome de servidor',
+    explicacao:
+      'Cruza o quadro societário (Receita) das empresas que receberam empenhos com a folha da Prefeitura. ' +
+      'Dispara com nome completo (3+ palavras), uma única pessoa com esse nome na folha e o mesmo ano de folha ' +
+      'e de empenho. A Receita não traz o CPF do sócio, então pode ser homônimo. Alerta interno: não é publicável.',
   },
   gasto_atipico_credor: {
     nome: 'Um recebedor concentra a categoria',
@@ -189,6 +196,19 @@ function linksDaEvidencia(evidencia, documentosPorId) {
 // Alerta de regra determinística (sem IA): o servidor manda `gate_deterministico`
 // com os campos que o revisor precisa marcar; a revalidação não pode ter pendência.
 function situacaoDeterministica(alerta) {
+  const gate = alerta.gate_deterministico;
+  if (gate.somenteAdmin) {
+    return {
+      deterministico: true,
+      somenteAdmin: true,
+      investigado: false,
+      podePublicar: false,
+      campos: [],
+      pendente: false,
+      motivos: [],
+      bloqueio: gate.bloqueio,
+    };
+  }
   const pendencias = alerta.revalidacao?.pendencias || [];
   return {
     deterministico: true,
@@ -235,6 +255,9 @@ function liberadoParaPublicar(gate, marcados) {
   if (!gate?.deterministico) {
     return Boolean(gate?.podePublicar);
   }
+  if (gate.somenteAdmin) {
+    return false;
+  }
   return !gate.pendente && gate.campos.every((campo) => marcados.has(campo));
 }
 
@@ -257,6 +280,10 @@ function rotuloMotivo(codigo) {
 // Chaves de métricas determinísticas que são valores em reais (exibidas como R$).
 const RE_CHAVE_MONETARIA = /^valor_|^excesso$/;
 const PAPEL_EMPENHO = 'empenho';
+const TITULO_POR_PAPEL = Object.freeze({
+  quadro_societario: 'Quadro societário (Receita Federal)',
+  folha: 'Folha de pagamento da Prefeitura',
+});
 
 function tituloEvidencia(evidencia) {
   if (evidencia?.documento_titulo || evidencia?.anexo_nome) {
@@ -266,7 +293,7 @@ function tituloEvidencia(evidencia) {
   if (evidencia?.papel === PAPEL_EMPENHO && metadados.empenho) {
     return `Empenho ${metadados.empenho}${metadados.exercicio ? ` (${metadados.exercicio})` : ''}`;
   }
-  return `Evidência #${evidencia?.id}`;
+  return TITULO_POR_PAPEL[evidencia?.papel] || `Evidência #${evidencia?.id}`;
 }
 
 function formatarPar(chave, valor) {
