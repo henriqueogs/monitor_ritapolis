@@ -10,6 +10,8 @@
 // Prefixo fixo das rotas do BotID (rewrites do withBotId). Precisa ficar fora do
 // X-Frame-Options: DENY e do CSP frame-ancestors 'none': o desafio usa iframe da própria origem.
 const PREFIXO_BOTID = '/149e9513-01fa-4fb0-aad4-566afd725d1b';
+// Source (path-to-regexp) de "todas as rotas menos as do BotID", para os cabeçalhos do next.config.
+const SOURCE_SEM_BOTID = `/((?!${PREFIXO_BOTID.slice(1)}/).*)`;
 
 const ROTAS_PROTEGIDAS = [{ path: '/api/perguntar', method: 'POST' }];
 
@@ -24,4 +26,4 @@ async function verificarHumano(checar) {
   }
 }
 
-module.exports = { PREFIXO_BOTID, ROTAS_PROTEGIDAS, verificarHumano };
+module.exports = { PREFIXO_BOTID, SOURCE_SEM_BOTID, ROTAS_PROTEGIDAS, verificarHumano };

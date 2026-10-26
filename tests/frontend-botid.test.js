@@ -2,9 +2,16 @@
 
 const fs = require('fs');
 const path = require('path');
-const { PREFIXO_BOTID, ROTAS_PROTEGIDAS, verificarHumano } = require('../frontend/lib/botid');
+const {
+  PREFIXO_BOTID,
+  SOURCE_SEM_BOTID,
+  ROTAS_PROTEGIDAS,
+  verificarHumano,
+} = require('../frontend/lib/botid');
 
 const PROXY_SRC = fs.readFileSync(path.resolve(__dirname, '../frontend/proxy.js'), 'utf8');
+// Lido como texto: o CI do backend não instala as dependências do frontend (next, botid).
+const NEXT_CONFIG_SRC = fs.readFileSync(path.resolve(__dirname, '../frontend/next.config.js'), 'utf8');
 const ROTA_PERGUNTAR_SRC = fs.readFileSync(
   path.resolve(__dirname, '../frontend/app/api/perguntar/route.js'),
   'utf8'
@@ -13,11 +20,6 @@ const CAMINHO_DESAFIO = `${PREFIXO_BOTID}/2d206a39-8ed7-437e-a3be-862e0f06eea3/a
 
 function regexDoSource(source) {
   return new RegExp(`^${source}$`);
-}
-
-async function carregarNextConfig() {
-  const fabrica = require('../frontend/next.config.js');
-  return fabrica('phase-production-build', {});
 }
 
 describe('frontend BotID', () => {
@@ -56,21 +58,14 @@ describe('frontend BotID', () => {
       expect(posCheck).toBeLessThan(posFetch);
     });
 
-    it('next.config aplica o withBotId (rewrites para o desafio da Vercel)', async () => {
-      const config = await carregarNextConfig();
-      const rewrites = await config.rewrites();
-      const lista = Array.isArray(rewrites) ? rewrites : rewrites.beforeFiles;
-
-      expect(lista.some((r) => r.destination.includes('bot-protection'))).toBe(true);
+    it('next.config exporta o config passado pelo withBotId (rewrites do desafio)', () => {
+      expect(NEXT_CONFIG_SRC).toMatch(/module\.exports = withBotId\(nextConfig\);/);
     });
 
-    it('os cabeçalhos de segurança (X-Frame-Options: DENY) não cobrem o caminho do BotID', async () => {
-      const config = await carregarNextConfig();
-      const headers = await config.headers();
-      const seguranca = headers.find((h) => h.headers.some((x) => x.value === 'DENY'));
-
-      expect(regexDoSource(seguranca.source).test('/acervo')).toBe(true);
-      expect(regexDoSource(seguranca.source).test(CAMINHO_DESAFIO)).toBe(false);
+    it('os cabeçalhos de segurança (X-Frame-Options: DENY) não cobrem o caminho do BotID', () => {
+      expect(NEXT_CONFIG_SRC).toContain('{ source: SOURCE_SEM_BOTID, headers: securityHeaders }');
+      expect(regexDoSource(SOURCE_SEM_BOTID).test('/acervo')).toBe(true);
+      expect(regexDoSource(SOURCE_SEM_BOTID).test(CAMINHO_DESAFIO)).toBe(false);
     });
 
     it('o proxy (CSP com frame-ancestors none) não roda no caminho do BotID', () => {

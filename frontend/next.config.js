@@ -2,7 +2,7 @@ const { PHASE_DEVELOPMENT_SERVER } = require('next/constants');
 const path = require('path');
 const { withBotId } = require('botid/next/config');
 const { buildCsp, originDe, CSP_ISR_SOURCES } = require('./lib/csp');
-const { PREFIXO_BOTID } = require('./lib/botid');
+const { SOURCE_SEM_BOTID } = require('./lib/botid');
 
 const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
@@ -30,7 +30,7 @@ const nextConfig = (phase) => ({
     return [
       // Fora do caminho do BotID: o desafio usa iframe da própria origem e o withBotId
       // define X-Frame-Options: SAMEORIGIN ali (DENY quebraria a verificação).
-      { source: `/((?!${PREFIXO_BOTID.slice(1)}/).*)`, headers: securityHeaders },
+      { source: SOURCE_SEM_BOTID, headers: securityHeaders },
       ...CSP_ISR_SOURCES.map((source) => ({
         source,
         headers: [{ key: 'Content-Security-Policy', value: cspIsr }],
