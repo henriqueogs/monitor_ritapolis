@@ -1,0 +1,15 @@
+{
+  "$schema": "../municipio.schema.json",
+  "slug": "_exemplo",
+  "nome": "Cidade Exemplo",
+  "uf": "SP",
+  "ufNome": "São Paulo",
+  "ibge": "3500000",
+  "cnpjPrefeitura": "00000000000000",
+  "cnpjCamara": "00000000000000",
+  "marca": "CidadeExemplo.org",
+  "dominioSite": "cidade-exemplo.invalid",
+  "dominioPrefeitura": "prefeitura.exemplo.invalid",
+  "dominioCamara": "camara.exemplo.invalid",
+  "portalTransparencia": "https://transparencia.exemplo.invalid"
+}

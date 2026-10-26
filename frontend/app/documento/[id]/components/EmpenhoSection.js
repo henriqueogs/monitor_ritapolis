@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import SectionBlock from '../../../components/SectionBlock';
 import { formatDate, formatMoney } from '../../../lib/format';
+import { HOST_PORTAL_TRANSPARENCIA, PORTAL_TRANSPARENCIA_DESPESAS } from '../../../../lib/ente';
 
 // Listagem genérica do Portal — usada só como aside da seção; cada empenho tem
 // deep-link próprio (`emp.portal.url`), montado pela API.
-const PORTAL_BASE = 'https://pt.ritapolis.mg.gov.br/Tempo_Real_Despesa';
+const PORTAL_BASE = PORTAL_TRANSPARENCIA_DESPESAS;
 
 function PortalLink({ label = 'Ver no Portal ↗' }) {
   return (
@@ -78,7 +79,7 @@ export default function EmpenhoSection({ empenhos: data }) {
   return (
     <SectionBlock
       title="Empenhos e pagamentos"
-      description="Fonte: Portal da Transparência (pt.ritapolis.mg.gov.br). Vinculados por modalidade e número do processo."
+      description={`Fonte: Portal da Transparência (${HOST_PORTAL_TRANSPARENCIA}). Vinculados por modalidade e número do processo.`}
       aside={portalAside}
     >
       <ResumoEmpenhos resumo={resumo} />

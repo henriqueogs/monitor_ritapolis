@@ -3,6 +3,7 @@ const cors = require('cors');
 const crypto = require('crypto');
 const { Readable } = require('stream');
 const config = require('../config');
+const { fontes } = require('../fontes');
 const logger = require('../logger');
 const security = require('./security');
 const {
@@ -88,6 +89,7 @@ const { extractEntitiesFromResumes } = require('../ai/extract-entities');
 const { gerarNarrativaAnomalias } = require('../ai/anomaly-narrative');
 const alertasRepo = require('../db/alertas-repo');
 const { generateAlerts, getAlertasStatus } = require('../alertas/alert-generator');
+const alertasRevisao = require('../services/alertas-revisao-service');
 const { extrairFatosInteligencia } = require('../inteligencia/fatos-runner');
 const {
   createAnexoResumoJob,
@@ -134,7 +136,9 @@ const {
   getPrefeituraAreas
 } = require('../cobertura/prefeitura');
 
-const SOURCE_PREVIEW_HOSTS = new Set(['ritapolis.mg.gov.br', 'www.ritapolis.mg.gov.br']);
+const SOURCE_PREVIEW_HOSTS = new Set(fontes.hostsPrefeitura);
+const SOURCE_PREVIEW_USER_AGENT = `Monitor-${config.municipio}/1.0 (+${fontes.site})`;
+const SOURCE_PREVIEW_FRAME_ANCESTORS = `frame-ancestors ${fontes.hostsSite.map(host => `https://${host}`).join(' ')}`;
 const SOURCE_PREVIEW_REDIRECTS = new Set([301, 302, 303, 307, 308]);
 const SOURCE_PREVIEW_MAX_REDIRECTS = 3;
 
@@ -160,14 +164,14 @@ async function fetchSourcePreview(url) {
   const proxyUrl = String(process.env.COLLECTOR_PROXY_URL || '').trim();
   const proxyToken = String(process.env.COLLECTOR_PROXY_TOKEN || '').trim();
 
-  // O Worker já é autorizado pelo portal e evita bloqueios de IP do Render.
+  // O Worker já é autorizado pelo portal e evita bloqueios de IP do host da API.
   // O destino continua validado por parseSourcePreviewUrl antes desta função.
   if (proxyUrl && proxyToken) {
     return fetch(proxyUrl, {
       headers: {
         Accept: 'application/pdf',
         Authorization: `Bearer ${proxyToken}`,
-        'User-Agent': 'Ritapolis-com/1.0 (+https://ritapolis.com)',
+        'User-Agent': SOURCE_PREVIEW_USER_AGENT,
         'X-Target-Url': url.toString(),
       },
       redirect: 'manual',
@@ -179,7 +183,7 @@ async function fetchSourcePreview(url) {
     const response = await fetch(currentUrl, {
       headers: {
         Accept: 'application/pdf',
-        'User-Agent': 'Ritapolis-com/1.0 (+https://ritapolis.com)',
+        'User-Agent': SOURCE_PREVIEW_USER_AGENT,
       },
       redirect: 'manual',
     });
@@ -356,7 +360,7 @@ function createServer({ servicoPerguntar } = {}) {
 
   // Proxy público restrito aos PDFs do portal oficial. O portal bloqueia
   // incorporação cross-site em navegadores móveis e também rejeita alguns
-  // IPs de infraestrutura do Vercel; a API Render faz a busca server-side.
+  // IPs de infraestrutura do Vercel; a API faz a busca server-side.
   app.get('/api/source-preview', async (req, res) => {
     const targetUrl = parseSourcePreviewUrl(req.query?.url);
     if (!targetUrl) {
@@ -383,7 +387,7 @@ function createServer({ servicoPerguntar } = {}) {
     // Esse endpoint é usado exclusivamente como iframe do site público.
     // Sobrescrevemos os defaults globais (DENY/same-site) apenas aqui.
     res.removeHeader('X-Frame-Options');
-    res.setHeader('Content-Security-Policy', 'frame-ancestors https://ritapolis.com https://www.ritapolis.com');
+    res.setHeader('Content-Security-Policy', SOURCE_PREVIEW_FRAME_ANCESTORS);
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=86400, stale-while-revalidate=3600');
     res.setHeader('Content-Disposition', 'inline; filename="fonte-oficial.pdf"');
@@ -1063,10 +1067,10 @@ function createServer({ servicoPerguntar } = {}) {
     }
   });
 
-  // GET /api/alertas/:id — detalhe com documentos vinculados
+  // GET /api/admin/alertas — fila editorial, cada item com a revalidação automática
   app.get('/api/admin/alertas', (req, res) => {
     const { tipo, categoria, severidade, status, estadoEditorial, periodoInicio, periodoFim, pagina, limite } = req.query;
-    return res.json(alertasRepo.listarAlertas({
+    return res.json(alertasRevisao.listarParaRevisao({
       tipo: tipo || undefined,
       categoria: categoria || undefined,
       severidade: severidade || undefined,
@@ -1091,27 +1095,21 @@ function createServer({ servicoPerguntar } = {}) {
     if (!Number.isInteger(id)) {
       return res.status(400).json({ error: 'id invalido' });
     }
-    const alerta = alertasRepo.getAlerta(id);
+    const alerta = alertasRevisao.detalharParaRevisao(id);
     if (!alerta) {
       return res.status(404).json({ error: 'Alerta nao encontrado' });
     }
-    return res.json({
-      ...alerta,
-      historico_editorial: alertasRepo.listarHistoricoEditorial(id),
-    });
+    return res.json(alerta);
   });
 
   app.patch('/api/admin/alertas/:id/editorial', (req, res) => {
     const id = Number(req.params.id);
-    const { estado, motivos } = req.body || {};
+    const { estado, motivos, nota, conferidos } = req.body || {};
     if (!Number.isInteger(id)) {
       return res.status(400).json({ error: 'id invalido' });
     }
     try {
-      const ok = alertasRepo.setEstadoEditorial(id, estado, {
-        origem: 'admin',
-        motivos: Array.isArray(motivos) ? motivos : [],
-      });
+      const ok = alertasRevisao.decidirEditorial(id, { estado, motivos, nota, conferidos });
       if (!ok) {
         return res.status(404).json({ error: 'Alerta nao encontrado' });
       }

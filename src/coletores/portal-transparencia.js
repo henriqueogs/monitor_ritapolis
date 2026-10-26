@@ -1,8 +1,8 @@
 'use strict';
 
 /**
- * Coletor: Portal da Transparência da Prefeitura de Ritápolis
- * Sistema SH3 Informática — https://pt.ritapolis.mg.gov.br
+ * Coletor: Portal da Transparência da Prefeitura
+ * Sistema SH3 Informática — origem em municipio.json (`portalTransparencia`), lida via src/fontes.js
  *
  * API pública e documentada em /api/relatorios/manual_relatorios.
  * Coleta despesas (empenhos, liquidações, pagamentos) mês a mês.
@@ -12,6 +12,7 @@
 const ColetorBase = require('./base');
 const logger = require('../logger');
 const config = require('../config');
+const { fontes } = require('../fontes');
 const {
   upsertReceita,
   crosswalkDespesasDocumentos,
@@ -23,7 +24,7 @@ const { coletarDespesasJanelaViaThread } = require('./portal-transparencia-threa
 const { planCollectionYears } = require('../coletas/collection-cadence');
 const { checkpointInput, processRows } = require('./financial-resume');
 
-const BASE_URL = 'https://pt.ritapolis.mg.gov.br';
+const BASE_URL = fontes.portalTransparencia;
 
 // Primeiro exercício coletado (inclusivo) — configurável via
 // TRANSPARENCIA_ANO_INICIO; API SH3 tem dados desde 2019.

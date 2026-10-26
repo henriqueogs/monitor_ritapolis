@@ -1,7 +1,10 @@
 const path = require('path');
 const dotenv = require('dotenv');
+const { lerMunicipio, SLUG_PADRAO } = require('./municipio');
 
 dotenv.config();
+
+const municipio = lerMunicipio({ slug: process.env.MUNICIPIO || SLUG_PADRAO });
 
 const rootDir = process.cwd();
 
@@ -53,12 +56,19 @@ module.exports = {
   collectorUserAgent:
     process.env.COLETOR_USER_AGENT ||
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-  // Identidade do município (ver src/ente.js, que valida e é a forma de acesso para o código de produção).
-  municipioNome: process.env.MUNICIPIO_NOME || 'Ritápolis',
-  ufMunicipio: process.env.UF_MUNICIPIO || 'MG',
-  ibgeCode: process.env.IBGE_CODE || '3156106',
-  cnpjPrefeitura: process.env.CNPJ_PREFEITURA || '18557553000105',
-  cnpjCamara: process.env.CNPJ_CAMARA || '26148056000181',
+  // Identidade do município: padrão vem de municipios/<MUNICIPIO>/municipio.json (ADR 0007); cada
+  // variável individual ainda vence o arquivo. Acesso no código de produção: src/ente.js (valida).
+  municipio: municipio.slug,
+  municipioNome: process.env.MUNICIPIO_NOME || municipio.nome,
+  ufMunicipio: process.env.UF_MUNICIPIO || municipio.uf,
+  ibgeCode: process.env.IBGE_CODE || municipio.ibge,
+  cnpjPrefeitura: process.env.CNPJ_PREFEITURA || municipio.cnpjPrefeitura,
+  cnpjCamara: process.env.CNPJ_CAMARA || municipio.cnpjCamara,
+  // Endereços das fontes oficiais e do site público; acesso no código de produção: src/fontes.js.
+  dominioSite: municipio.dominioSite,
+  dominioPrefeitura: municipio.dominioPrefeitura,
+  dominioCamara: municipio.dominioCamara,
+  portalTransparencia: municipio.portalTransparencia,
   pncpBaseUrl: process.env.PNCP_BASE_URL || 'https://pncp.gov.br/api/consulta',
   pncpOrgaosUrl: process.env.PNCP_ORGAOS_URL || 'https://pncp.gov.br/pncp-api/v1',
   receitaCnpjBaseUrl: process.env.RECEITA_CNPJ_BASE_URL || 'https://brasilapi.com.br/api/cnpj/v1',

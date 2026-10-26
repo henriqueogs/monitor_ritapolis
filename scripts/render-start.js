@@ -119,7 +119,7 @@ async function main() {
 
 if (require.main === module) {
   main().catch((error) => {
-    console.error('Falha ao iniciar servico no Render:', error.message);
+    console.error('Falha ao iniciar servico (restore + litestream):', error.message);
     process.exit(1);
   });
 }

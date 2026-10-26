@@ -10,7 +10,9 @@
  * Se houver dados, o backfill vira tarefa própria (mover ANO_INICIO pra config).
  */
 
-const BASE_URL = 'https://pt.ritapolis.mg.gov.br';
+const { fontes } = require('../src/fontes');
+
+const BASE_URL = fontes.portalTransparencia;
 const UNIDADE_GESTORA_PREFEITURA = 1;
 const ANOS_DEFAULT = [2019, 2020, 2021, 2022];
 // Uma semana por trimestre é suficiente pra provar existência de dados

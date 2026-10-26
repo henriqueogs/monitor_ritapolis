@@ -77,7 +77,7 @@ de mandato e de dupla contagem entram no dataset ouro (ADR 0006).
 ## Fase 3 — Núcleo agnóstico (ports & adapters)
 
 - [ ] Contrato `Coletor` + modelo canônico (Documento, Licitação, Empenho, Credor)
-- [ ] `municipio.config` (CNPJs, domínios, fontes, regras editoriais, textos)
+- [~] `municipio.config` (CNPJs, domínios, fontes, regras editoriais, textos) — identidade feita em `municipios/<slug>/municipio.json` (ADR 0007); faltam domínios, fontes, regras e textos
 - [ ] Mover o específico de Ritápolis para `adapters/ritapolis`
 - [ ] Monorepo/pacotes: `core`, `ai`, `adapters/*`, `api`, `web`
 - [ ] Testes de contrato dos coletores

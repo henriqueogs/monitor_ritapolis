@@ -48,6 +48,18 @@ describe('frontend/lib/ente.js: valores e derivados do ente padrão', () => {
     expect(ente.HOSTS_PREFEITURA).toEqual(['ritapolis.mg.gov.br', 'www.ritapolis.mg.gov.br']);
   });
 
+  it('Portal da Transparência vem do municipio.json (origem, host e listagem de despesas)', () => {
+    expect(ente).toMatchObject({
+      PORTAL_TRANSPARENCIA: 'https://pt.ritapolis.mg.gov.br',
+      HOST_PORTAL_TRANSPARENCIA: 'pt.ritapolis.mg.gov.br',
+      PORTAL_TRANSPARENCIA_DESPESAS: 'https://pt.ritapolis.mg.gov.br/Tempo_Real_Despesa',
+    });
+    expect(ente.ORIGENS_PREFEITURA).toEqual([
+      'https://ritapolis.mg.gov.br',
+      'https://www.ritapolis.mg.gov.br',
+    ]);
+  });
+
   it('o objeto ente agrupa os mesmos valores (usado para parametrizar os textos)', () => {
     expect(ente.ente).toMatchObject({
       nome: 'Ritápolis',
@@ -184,6 +196,7 @@ describe('textos do layout (textosDoSite)', () => {
 
 describe('guarda: o nome da cidade não é escrito à mão nos pontos centrais', () => {
   const CENTRAIS = [
+    'frontend/lib/ente.js',
     'frontend/lib/page-metadata.js',
     'frontend/lib/site-metadata.js',
     'frontend/app/layout.js',
@@ -203,8 +216,8 @@ describe('guarda: o nome da cidade não é escrito à mão nos pontos centrais',
     expect(linhas.map(l => `${arquivo}:${l.n}: ${l.texto.trim().slice(0, 80)}`)).toEqual([]);
   });
 
-  it('frontend/lib/ente.js é o lugar do nome (a guarda não está olhando o arquivo errado)', () => {
-    const conteudo = fs.readFileSync(path.join(RAIZ, 'frontend/lib/ente.js'), 'utf8');
+  it('frontend/lib/municipios.json é o lugar do nome (a guarda não está olhando o arquivo errado)', () => {
+    const conteudo = fs.readFileSync(path.join(RAIZ, 'frontend/lib/municipios.json'), 'utf8');
 
     expect(NOME.test(conteudo)).toBe(true);
   });

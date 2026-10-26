@@ -4,7 +4,6 @@ const {
   extractJsonText,
   parseSummaryResponse,
   normalizeEnumValue,
-  normalizeDateValue,
   normalizeOptionalText,
   normalizeSummaryBeforeValidation,
   validateSummary,
@@ -124,33 +123,6 @@ describe('normalizeEnumValue', () => {
   });
 });
 
-// ── normalizeDateValue ───────────────────────────────────────────────────────
-
-describe('normalizeDateValue', () => {
-  it('converte formato BR DD/MM/AAAA para ISO AAAA-MM-DD', () => {
-    expect(normalizeDateValue('15/03/2024')).toBe('2024-03-15');
-  });
-
-  it('mantém formato ISO quando já correto', () => {
-    expect(normalizeDateValue('2024-03-15')).toBe('2024-03-15');
-  });
-
-  it('aceita separador traço no formato BR', () => {
-    expect(normalizeDateValue('15-03-2024')).toBe('2024-03-15');
-  });
-
-  it('retorna null para valores vazios ou nulos', () => {
-    expect(normalizeDateValue(null)).toBeNull();
-    expect(normalizeDateValue('')).toBeNull();
-    expect(normalizeDateValue('N/A')).toBeNull();
-    expect(normalizeDateValue('não informado')).toBeNull();
-  });
-
-  it('preserva texto livre quando não reconhece formato', () => {
-    expect(normalizeDateValue('março de 2024')).toBe('março de 2024');
-  });
-});
-
 // ── normalizeOptionalText ────────────────────────────────────────────────────
 
 describe('normalizeOptionalText', () => {
@@ -161,6 +133,10 @@ describe('normalizeOptionalText', () => {
   it('retorna null para string vazia', () => {
     expect(normalizeOptionalText('')).toBeNull();
     expect(normalizeOptionalText('   ')).toBeNull();
+  });
+
+  it('retorna null para campo ausente (undefined)', () => {
+    expect(normalizeOptionalText(undefined)).toBeNull();
   });
 
   it('retorna null para null explícito', () => {
@@ -394,14 +370,72 @@ describe('validateSummary', () => {
     expect(r.confianca).toBe(0.85);
   });
 
-  it('lança erro descritivo quando campo array recebe string', () => {
-    const invalido = { ...summaryValido, datas_relevantes: 'nao_e_array' };
-    expect(() => validateSummary(invalido)).toThrow('contrato esperado');
-    expect(() => validateSummary(invalido)).toThrow('datas_relevantes');
+  it('lança erro descritivo quando a resposta não é um objeto', () => {
+    expect(() => validateSummary([])).toThrow('contrato esperado');
   });
 
-  it('lança erro quando pontos_principais não é array', () => {
-    const invalido = { ...summaryValido, pontos_principais: 'deveria ser array' };
-    expect(() => validateSummary(invalido)).toThrow('contrato esperado');
+  // Tarefa 25227 (22/10/2026): resumo caiu como contrato_invalido. Formatos
+  // que o modelo devolve e que antes iam direto para o Zod.
+  describe('formatos tolerados', () => {
+    it('lista vinda como null vira lista vazia', () => {
+      const r = validateSummary({
+        ...summaryValido,
+        pontos_principais: null,
+        datas_relevantes: null,
+        valores: null,
+        partes_envolvidas: null,
+        riscos_ou_alertas: null,
+        campos_nao_encontrados: null,
+      });
+      expect(r.pontos_principais).toEqual([]);
+      expect(r.datas_relevantes).toEqual([]);
+      expect(r.valores).toEqual([]);
+      expect(r.partes_envolvidas).toEqual([]);
+      expect(r.riscos_ou_alertas).toEqual([]);
+      expect(r.campos_nao_encontrados).toEqual([]);
+    });
+
+    it('pontos_principais e campos_nao_encontrados em texto viram lista', () => {
+      const r = validateSummary({
+        ...summaryValido,
+        pontos_principais: 'Modalidade: pregão',
+        campos_nao_encontrados: 'valor estimado',
+      });
+      expect(r.pontos_principais).toEqual(['Modalidade: pregão']);
+      expect(r.campos_nao_encontrados).toEqual(['valor estimado']);
+    });
+
+    it('lista em texto sem trecho_fonte é descartada', () => {
+      const r = validateSummary({ ...summaryValido, datas_relevantes: 'nao_e_array' });
+      expect(r.datas_relevantes).toEqual([]);
+    });
+
+    it('data fora do padrão vira ISO ou null, sem perder a descrição', () => {
+      const r = validateSummary({
+        ...summaryValido,
+        datas_relevantes: [
+          { tipo: 'abertura', data: '5 de março de 2024', descricao: 'Sessão', trecho_fonte: 'dia 5' },
+          { tipo: 'vigencia', data: 'março de 2024', descricao: 'Vigência', trecho_fonte: 'março' },
+        ],
+      });
+      expect(r.datas_relevantes.map(d => d.data)).toEqual(['2024-03-05', null]);
+      expect(r.datas_relevantes[1].descricao).toBe('Vigência');
+    });
+
+    it('valor em texto de moeda vira número', () => {
+      const r = validateSummary({
+        ...summaryValido,
+        valores: [{ tipo: 'estimado', valor: 'R$ 1.234,56', descricao: 'Total', trecho_fonte: 'R$ 1.234,56' }],
+      });
+      expect(r.valores[0].valor).toBe(1234.56);
+    });
+
+    it('valor sem número é descartado em vez de derrubar o resumo', () => {
+      const r = validateSummary({
+        ...summaryValido,
+        valores: [{ tipo: 'estimado', valor: null, descricao: 'Total', trecho_fonte: 'a definir' }],
+      });
+      expect(r.valores).toEqual([]);
+    });
   });
 });

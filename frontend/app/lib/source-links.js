@@ -1,3 +1,4 @@
+import { ehArquivoIncorporavel } from '../../lib/embed-oficial';
 import { HOSTS_PREFEITURA, ORIGEM_PREFEITURA, HOST_SAPL, HOST_CAMARA_PT } from '../../lib/ente';
 
 export function safeHttpUrl(value) {
@@ -74,18 +75,7 @@ export function getOfficialFileUrl(documento) {
 
 export function getEmbeddableOfficialFileUrl(documento) {
   const url = getOfficialFileUrl(documento);
-  if (!url) return null;
-
-  try {
-    const parsed = new URL(url);
-    const path = parsed.pathname.toLowerCase();
-    const isPrefeituraFile =
-      HOSTS_PREFEITURA.includes(parsed.hostname) &&
-      (path === '/obter_arquivo_cadastro_generico.php' || path.endsWith('.pdf'));
-    return isPrefeituraFile ? url : null;
-  } catch {
-    return null;
-  }
+  return ehArquivoIncorporavel(url) ? url : null;
 }
 
 function isCamaraModuleIndexUrl(url) {

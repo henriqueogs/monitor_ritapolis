@@ -19,7 +19,7 @@ const {
   parseModalidadeEdital,
 } = require('../src/licitacoes/modalidade');
 
-const API_BASE = String(process.env.RITAPOLIS_AUDIT_API || 'https://monitor-ritapolis-api.onrender.com/api').replace(/\/$/, '');
+const API_BASE = String(process.env.RITAPOLIS_AUDIT_API || 'https://api.ritapolis.com/api').replace(/\/$/, '');
 const USAR_BANCO_LOCAL = process.argv.includes('--local');
 const OUTPUT_DIR = path.resolve(__dirname, '..', 'validation');
 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');

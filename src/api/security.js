@@ -203,6 +203,16 @@ function rateLimit(req, res, next) {
   }
 
   current.count += 1;
+  // Um aviso por janela estourada (não por 429): mostra no app.log, e no
+  // diagnóstico da VM, quando uma varredura bate no limite. Sem IP: o dado
+  // mínimo para contar estouros por classe.
+  if (current.count === limit + 1) {
+    logger.warn(`Rate limit excedido (${classification})`, {
+      classe: classification,
+      limite: limit,
+      janelaMs: windowMs,
+    });
+  }
   if (current.count > limit) {
     res.setHeader('Retry-After', Math.ceil((current.resetAt - now) / 1000));
     return res.status(429).json({ error: 'Muitas requisicoes; tente novamente em instantes' });

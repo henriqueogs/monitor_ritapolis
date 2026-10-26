@@ -14,8 +14,9 @@ const PASTAS = ['src', 'scripts', 'frontend/app', 'frontend/lib'];
 const IGNORAR_DIRS = new Set(['node_modules', '.next', '.next-dev', '__fixtures__', 'coverage']);
 const EXTENSOES = new Set(['.js', '.mjs', '.cjs', '.jsx']);
 
-// Onde a configuração do ente mora de verdade (valores padrão de Ritápolis).
-const CONFIGURACAO = new Set(['src/config.js', 'frontend/lib/ente.js']);
+// A configuração do ente mora em JSON (fora da varredura): municipios/<slug>/municipio.json no backend
+// e a cópia frontend/lib/municipios.json no frontend (tests/frontend-municipios.test.js).
+const CONFIGURACAO = new Set();
 
 // Exceções conhecidas, com motivo.
 const EXCECOES = {
@@ -154,5 +155,38 @@ describe('frontend/lib/ente.js espelha o padrão do backend', () => {
         }
       }
     }
+  });
+});
+
+describe('frontend/lib/ente.js espelha municipios/<padrão>/municipio.json', () => {
+  it('nome, UF, nome da UF, CNPJ da Prefeitura e IBGE iguais ao arquivo do município padrão', () => {
+    const { lerMunicipio } = require('../src/municipio');
+    const municipio = lerMunicipio();
+    const espelho = require('../frontend/lib/ente');
+
+    expect({
+      nome: espelho.NOME,
+      uf: espelho.UF,
+      ufNome: espelho.UF_NOME,
+      cnpjPrefeitura: espelho.CNPJ_PREFEITURA,
+      ibge: espelho.IBGE_CODE,
+    }).toEqual({
+      nome: municipio.nome,
+      uf: municipio.uf,
+      ufNome: municipio.ufNome,
+      cnpjPrefeitura: municipio.cnpjPrefeitura,
+      ibge: municipio.ibge,
+    });
+  });
+});
+
+describe('package.json sem CNPJ do ente nos scripts', () => {
+  it('os atalhos npm escolhem o órgão por nome (--orgao), não por CNPJ escrito à mão', () => {
+    const { scripts } = require('../package.json');
+    const violacoes = Object.entries(scripts).filter(([, comando]) =>
+      encontrarLiterais(comando).some(a => a.tipo === 'cnpj')
+    );
+
+    expect(violacoes).toEqual([]);
   });
 });

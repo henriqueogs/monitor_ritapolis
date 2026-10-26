@@ -42,7 +42,9 @@ medidas reduzem isso:
   `node_modules/.deploy-lock-hash` e só é gravado depois de um `npm ci` bem
   sucedido, então uma instalação que falhou é refeita no deploy seguinte.
 - O frontend (`frontend/lib/fetch-retry.js`) repete uma vez, após 2 s, as
-  leituras GET que recebem 502/503/504.
+  leituras GET que recebem 502/503/504. Falha de rede (`fetch failed`: socket
+  keep-alive morto depois que a função da Vercel ficou congelada) tem até 3
+  tentativas.
 
 **Instalação manual:** o `/opt/monitor-ritapolis/deploy.sh` da VM é uma
 cópia (ver `docs/DEPLOY_FILA_SEGURA_2026-10-01.md`). Mudanças em
@@ -95,7 +97,9 @@ e devolve só leitura:
   contagem por nível e principais mensagens de erro/aviso, sem o meta). Cada
   mensagem vem com a categoria do erro de IA (`timeout`, `limite_provider`,
   `rede`, `modelo_indisponivel`…), calculada por `src/ai/classificar-erro-ia.js`
-  a partir do meta `erro`/`error`; o texto do erro não sai. `sem_detalhe` =
+  a partir do meta `erro`/`error`; o texto do erro não sai. Estouro do rate
+  limit da API aparece como `Rate limit excedido (<classe>)`, uma linha por
+  janela estourada. `sem_detalhe` =
   linha sem esse meta; `indisponivel` = checkout da VM ainda sem o classificador.
 
 O script é uma cópia: mudanças em `scripts/vm-diagnostico.sh` só valem depois

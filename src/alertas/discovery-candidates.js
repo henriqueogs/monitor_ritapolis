@@ -9,8 +9,11 @@ const DEFAULT_TEMAS = {
   'meio_ambiente.supressao_arvores': true,
   'compras.precos_itens': true,
   'contratos.recorrencia_fornecedor_objeto': true,
-  'eventos.gastos_eventos_publicos': true,
-  'riscos.alerta_resumo_ia': true,
+  // Desligados por padrão (23/10/2026): contar contratações de um evento e
+  // repetir o risco lido pela IA no resumo não apontam nada conferível — só
+  // geravam fila para descartar. Reativáveis em alertas:investigacao_temas_ativos.
+  'eventos.gastos_eventos_publicos': false,
+  'riscos.alerta_resumo_ia': false,
 };
 
 const STOPWORDS_OBJETO = new Set([
@@ -28,6 +31,13 @@ function normalizarTexto(texto) {
     .replace(/[^a-z0-9]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+// "Empresa _________" é lacuna de modelo de contrato, não nome de fornecedor.
+const RE_LACUNA_MODELO = /_{3,}|\.{5,}/;
+
+function nomeReal(nome) {
+  return Boolean(nome) && !RE_LACUNA_MODELO.test(nome);
 }
 
 function normalizarCnpj(valor) {
@@ -305,7 +315,7 @@ function candidatosContratos(fatos) {
     for (const grupo of agruparObjetosSemelhantes(lista)) {
       const fatosUnicos = dedupePorDocumento(grupo.fatos);
       if (fatosUnicos.length < 2) {continue;}
-      const fornecedor = fatosUnicos.find((fato) => fato.vencedor_nome)?.vencedor_nome || `CNPJ ${cnpj}`;
+      const fornecedor = fatosUnicos.find((fato) => nomeReal(fato.vencedor_nome))?.vencedor_nome || `CNPJ ${cnpj}`;
       const objetoKey = chaveObjeto(grupo.referencia);
       const processos = fatosUnicos.map((fato) => fato.documento_numero || `doc ${fato.documento_id}`);
       const descritos = fatosUnicos.map((fato) => ({

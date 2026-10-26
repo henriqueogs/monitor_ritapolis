@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "municipio.schema.json",
+  "title": "Município",
+  "description": "Identidade do município de uma instalação do Monitor (ADR 0007). Lido por src/municipio.js; valores conferidos por src/ente.js.",
+  "type": "object",
+  "required": [
+    "slug",
+    "nome",
+    "uf",
+    "ufNome",
+    "ibge",
+    "cnpjPrefeitura",
+    "cnpjCamara",
+    "marca",
+    "dominioSite",
+    "dominioPrefeitura",
+    "dominioCamara",
+    "portalTransparencia"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "slug": {
+      "description": "Igual ao nome da pasta em municipios/. Escolhido pela variável MUNICIPIO.",
+      "type": "string",
+      "pattern": "^[a-z0-9_-]+$"
+    },
+    "nome": {
+      "description": "Nome oficial, com acento.",
+      "type": "string",
+      "minLength": 1
+    },
+    "uf": {
+      "description": "Sigla da UF.",
+      "type": "string",
+      "pattern": "^[A-Z]{2}$"
+    },
+    "ufNome": {
+      "description": "Nome da UF por extenso.",
+      "type": "string",
+      "minLength": 1
+    },
+    "ibge": {
+      "description": "Código IBGE do município (7 dígitos).",
+      "type": "string",
+      "pattern": "^\\d{7}$"
+    },
+    "cnpjPrefeitura": {
+      "description": "CNPJ da Prefeitura, só dígitos.",
+      "type": "string",
+      "pattern": "^\\d{14}$"
+    },
+    "cnpjCamara": {
+      "description": "CNPJ da Câmara Municipal, só dígitos.",
+      "type": "string",
+      "pattern": "^\\d{14}$"
+    },
+    "marca": {
+      "description": "Nome da marca exibido no site (ex.: Ritápolis.com).",
+      "type": "string",
+      "minLength": 1
+    },
+    "dominioSite": {
+      "description": "Domínio do site público, sem https:// (ex.: ritapolis.com).",
+      "type": "string",
+      "pattern": "^[a-z0-9.-]+$"
+    },
+    "dominioPrefeitura": {
+      "description": "Domínio oficial da Prefeitura (ex.: ritapolis.mg.gov.br).",
+      "type": "string",
+      "pattern": "^[a-z0-9.-]+$"
+    },
+    "dominioCamara": {
+      "description": "Domínio oficial da Câmara (ex.: ritapolis.mg.leg.br).",
+      "type": "string",
+      "pattern": "^[a-z0-9.-]+$"
+    },
+    "portalTransparencia": {
+      "description": "Origem do Portal da Transparência da Prefeitura, com https:// e sem barra final (ex.: https://pt.ritapolis.mg.gov.br). Fica separado porque cada fornecedor usa um endereço próprio.",
+      "type": "string",
+      "pattern": "^https://[a-z0-9.-]+$"
+    }
+  },
+  "additionalProperties": false
+}

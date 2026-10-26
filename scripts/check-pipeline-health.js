@@ -23,6 +23,14 @@ function main(raw) {
     const c = saude.campanha;
     console.log(`campanha: docs_24h=${c.docs_24h}/${c.limite_docs_dia} pendentes=${c.pendentes} sem_resumo_com_texto=${c.sem_resumo_com_texto} ultima_execucao=${c.ultima_execucao || '-'} 429_24h=${c.erros_limite_provider_24h}`);
   }
+  // Só id, etapa e categoria (o endpoint público já não expõe o texto do erro).
+  const p = saude.pipeline;
+  if (p?.failures?.length) {
+    console.log(`tarefas_com_falha: reais=${p.falhas_reais} aguardando_revisao=${p.aguardando_revisao}`);
+    for (const f of p.failures) {
+      console.log(`  falha id=${f.id} etapa=${f.kind} categoria=${f.categoria}`);
+    }
+  }
   if (saude.status !== 'ok') {
     console.error('::error::Pipeline de IA em alerta — ver motivos acima.');
     process.exit(1);

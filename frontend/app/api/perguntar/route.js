@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { checkBotId } from 'botid/server';
+import { verificarHumano } from '../../../lib/botid';
 
 // Proxy público e mínimo para POST /api/ia/perguntar do backend. Existe para o navegador não
 // falar direto com a API e para repassar SÓ { pergunta } (o backend valida o resto).
@@ -7,7 +9,7 @@ import { NextResponse } from 'next/server';
 const backendApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 const LIMITE_CORPO_BYTES = 2048;
 const TIMEOUT_MS = 60_000;
-const STATUS = { BAD_REQUEST: 400, TOO_LARGE: 413, BAD_GATEWAY: 502 };
+const STATUS = { BAD_REQUEST: 400, FORBIDDEN: 403, TOO_LARGE: 413, BAD_GATEWAY: 502 };
 
 function resposta(corpo, status, extras = {}) {
   return NextResponse.json(corpo, { status, headers: { 'Cache-Control': 'no-store', ...extras } });
@@ -30,6 +32,14 @@ async function lerPergunta(request) {
 }
 
 export async function POST(request) {
+  // Antes de ler o corpo e de gastar chamada de IA no backend.
+  const { bloquear, falhou } = await verificarHumano(checkBotId);
+  if (falhou) {
+    console.error('BotID indisponível; pergunta seguiu sem verificação');
+  }
+  if (bloquear) {
+    return resposta({ error: 'acesso_negado' }, STATUS.FORBIDDEN);
+  }
   const { pergunta, erro } = await lerPergunta(request);
   if (erro) {
     return erro;

@@ -15,6 +15,7 @@
 
 const ColetorBase = require('./base');
 const logger = require('../logger');
+const { fontes } = require('../fontes');
 const {
   upsertVereador,
   upsertMandato,
@@ -28,7 +29,7 @@ const {
   parseMandatos,
 } = require('./camara-sgc');
 
-const BASE_URL = 'https://ritapolis.mg.leg.br';
+const BASE_URL = fontes.siteCamara;
 const PROJETOS_URL = `${BASE_URL}/ws_consulta/sgc/buscarProjetos.php`;
 const VEREADORES_URL = `${BASE_URL}/ws_consulta/sgc/buscarVereadoresPelaBusca.php`;
 const MANDATOS_URL = `${BASE_URL}/ws_consulta/sgc/buscarMandatosDoVereador.php`;

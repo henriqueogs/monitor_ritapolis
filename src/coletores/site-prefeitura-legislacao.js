@@ -19,8 +19,9 @@ const { naoFutura } = require('../utils/datas');
 const { arquivoExtraidoExistente } = require('../utils/documento-merge');
 const { mandatoInicio } = require('../utils/mandato');
 const { normalizarTipo, normalizeSpaces } = require('./legislacao-tipos');
+const { fontes } = require('../fontes');
 
-const BASE_URL = 'https://ritapolis.mg.gov.br';
+const BASE_URL = fontes.sitePrefeitura;
 const SEARCH_URL = `${BASE_URL}/ws_consulta/wsBuscarLeis.php`;
 const REGISTROS_POR_PAGINA = 50;
 
