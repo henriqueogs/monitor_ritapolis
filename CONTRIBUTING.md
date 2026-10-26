@@ -1,53 +1,74 @@
 # Como contribuir
 
+Obrigado por querer ajudar. Antes de tudo, leia o [código de conduta](CODE_OF_CONDUCT.md). Falha de
+segurança não vai em issue pública: veja [`SECURITY.md`](SECURITY.md).
+
+## Jeitos de contribuir
+
+- **Achou um dado errado ou sem fonte?** Abra uma issue com o modelo "Dado errado ou sem fonte".
+- **Quer montar para a sua cidade?** Siga [`docs/ADICIONAR_MUNICIPIO.md`](docs/ADICIONAR_MUNICIPIO.md)
+  e, se travar, abra uma issue "Montar para um novo município".
+- **Código:** abra uma issue antes de um PR grande. Correção pontual pode ir direto em PR.
+
 ## Setup local
 
+Requisitos: Node.js 24+ e npm 11+. Para só ver funcionando, `docker compose up --build` basta.
+
 ```bash
-# 1. Clone o repositório
 git clone https://github.com/henriqueogs/monitor_ritapolis.git
 cd monitor_ritapolis
-
-# 2. Instale as dependências
 npm install
 cd frontend && npm install && cd ..
 
-# 3. Configure o ambiente
-cp .env.example .env
-# Edite .env e adicione sua NVIDIA_API_KEY (ou GEMINI_API_KEY como alternativa)
-
-# 4. Inicialize o banco de dados
+cp .env.example .env     # MUNICIPIO escolhe a pasta em municipios/; chave de IA é opcional
 npm run setup-db
 
-# 5. Suba o servidor
-npm start
-# API em http://localhost:3001
-# Frontend em http://localhost:3000
+npm run api              # API em http://localhost:3001
+npm run dev:frontend     # site em http://localhost:3000
 ```
 
 ## Estrutura do projeto
 
 ```
+municipios/             Um municipio.json por cidade (identidade e endereços das fontes)
 src/
-  api/server.js         Express + todas as rotas
-  db/index.js           CRUD SQLite (DatabaseSync, node:sqlite)
-  ai/                   Resumos IA, leitura integrada, schedulers
-  integracoes/          PNCP — consulta por CNPJ e busca fuzzy
-  coletas/              Schedulers e coordenação de coleta
-  coletores/            Parsers da Prefeitura e Câmara
-  parsers/              Extração de produtos e detalhes
-  config.js             Configuração central (carrega .env)
-scripts/                Scripts npm (coleta, IA, PNCP, inteligência)
-frontend/               Next.js 14, React 18, CSS modules
-data/                   Banco SQLite (não versionado)
+  api/server.js         Rotas HTTP (sem regra de negócio)
+  coletores/            Leitura das fontes oficiais (site, portal, Câmara)
+  coletas/              Agendamento e sincronização incremental
+  parsers/, licitacoes/ Regras de domínio (extração, agrupamento, normalização)
+  integracoes/          PNCP e fontes nacionais
+  ai/                   Resumos, leitura integrada, busca (RAG)
+  db/                   Repositórios SQLite (node:sqlite)
+  config.js, ente.js, fontes.js   Configuração e identidade do município
+scripts/                Comandos npm (coleta, IA, PNCP, manutenção)
+frontend/               Next.js (App Router), CSS Modules
+tests/                  Guardas, testes de integração e E2E
 ```
+
+## Padrões
+
+O [`CLAUDE.md`](CLAUDE.md) é o guia de padrões do projeto, para pessoas e para IA. O essencial:
+
+- **Teste primeiro** (TDD): escreva o teste, veja falhar, implemente.
+- **Camadas:** regra de negócio no domínio; rotas, coletores e repositórios não decidem nada.
+- **Nada de município escrito à mão:** CNPJ, UF, IBGE e domínios vêm de `municipios/`. As guardas
+  `tests/ente-sem-literal.test.js` e `tests/fontes-sem-host.test.js` falham se aparecer.
+- **Dado ao cidadão:** soma sempre com período, "recente" é data de publicação, fonte sempre visível
+  (§11 do `CLAUDE.md`).
+
+Antes do PR:
+
+```bash
+npm test
+npm run lint
+cd frontend && npm run build
+```
+
+O modelo de PR traz o checklist.
 
 ## Princípios do projeto
 
-- **Fonte oficial sempre visível** — todo número tem origem rastreável
-- **IA como apoio** — resume, organiza, compara; não inventa dados
-- **Lacunas explícitas** — quando falta dado, a interface diz isso
-- **Mock nunca em produção** — dados reais ou nada
-
-## Issues e PRs
-
-Abra uma issue antes de começar um PR grande. Para correções pontuais, PR direto é bem-vindo.
+- **Fonte oficial sempre visível**: todo número tem origem rastreável.
+- **IA como apoio**: resume, organiza e compara; não inventa dados.
+- **Lacunas explícitas**: quando falta dado, a interface diz isso.
+- **Mock nunca em produção**: dados reais ou nada. Os fictícios do `_exemplo` se identificam como tal.

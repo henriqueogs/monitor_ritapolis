@@ -1,0 +1,31 @@
+name: Dado errado ou sem fonte
+description: Um número, documento ou texto exibido não bate com a fonte oficial, ou aparece sem origem.
+labels: ['dados']
+body:
+  - type: input
+    id: pagina
+    attributes:
+      label: Página do site
+      description: Endereço da tela onde o dado aparece.
+      placeholder: https://ritapolis.com/documento/123
+    validations:
+      required: true
+  - type: input
+    id: fonte
+    attributes:
+      label: Fonte oficial
+      description: Link do portal da Prefeitura, da Câmara ou do PNCP com o valor certo, se tiver.
+  - type: textarea
+    id: diferenca
+    attributes:
+      label: O que está diferente
+      description: O que o site mostra e o que a fonte diz. Período (ano, mandato) ajuda muito.
+    validations:
+      required: true
+  - type: checkboxes
+    id: conduta
+    attributes:
+      label: Linguagem
+      options:
+        - label: Descrevi o fato e a fonte, sem acusar pessoas (CODE_OF_CONDUCT.md).
+          required: true

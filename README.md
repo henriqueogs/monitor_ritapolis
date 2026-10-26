@@ -25,8 +25,8 @@ docker compose up --build
 
 Sobe a API (http://localhost:3001/api) e o site (http://localhost:3000) com o município de exemplo
 (`municipios/_exemplo/`) e 9 documentos fictícios, todos marcados `[EXEMPLO]`. Coleta, IA, alertas e
-backup ficam desligados, então nada sai para a internet. Para um município de verdade, veja
-[`municipios/README.md`](municipios/README.md). O título, a marca e os metadados já mudam para a
+backup ficam desligados, então nada sai para a internet. Para um município de verdade, siga
+[`docs/ADICIONAR_MUNICIPIO.md`](docs/ADICIONAR_MUNICIPIO.md). O título, a marca e os metadados já mudam para a
 Cidade Exemplo; alguns textos de página (destaque da home, contexto da cidade) ainda citam Ritápolis.
 
 ## Requisitos
@@ -43,16 +43,16 @@ cd frontend && npm install && cd ..
 
 ## Configuração
 
-Crie `.env` na raiz com base no `.env.example`:
+Crie `.env` na raiz com base no `.env.example`. O município vem de `municipios/<MUNICIPIO>/municipio.json`
+(nome, UF, IBGE, CNPJs e endereços das fontes); para montar outra cidade, siga
+[`docs/ADICIONAR_MUNICIPIO.md`](docs/ADICIONAR_MUNICIPIO.md).
 
 ```env
 DB_PATH=./data/ritapolis.db
 LOG_DIR=./logs
 API_PORT=3001
 NEXT_PUBLIC_API_URL=http://localhost:3001/api
-IBGE_CODE=3156106
-CNPJ_PREFEITURA=18557553000105
-CNPJ_CAMARA=26148056000181
+MUNICIPIO=ritapolis
 AI_SUMMARY_ENABLED=true
 AI_PROVIDER=nvidia
 NVIDIA_API_KEY=nvapi-sua-chave-aqui

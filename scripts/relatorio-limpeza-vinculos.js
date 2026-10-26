@@ -18,8 +18,10 @@ const {
   parseModalidadeDespesa,
   parseModalidadeEdital,
 } = require('../src/licitacoes/modalidade');
+const { fontes } = require('../src/fontes');
 
-const API_BASE = String(process.env.RITAPOLIS_AUDIT_API || 'https://api.ritapolis.com/api').replace(/\/$/, '');
+const API_PADRAO = `${fontes.site.replace('https://', 'https://api.')}/api`;
+const API_BASE = String(process.env.RITAPOLIS_AUDIT_API || API_PADRAO).replace(/\/$/, '');
 const USAR_BANCO_LOCAL = process.argv.includes('--local');
 const OUTPUT_DIR = path.resolve(__dirname, '..', 'validation');
 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
