@@ -93,6 +93,7 @@ function buildPageMetadata(path, { siteUrl, brand }) {
   const siteName = brand;
   const title = `${page.title} — ${siteName}`;
   const url = `${base}${path === '/' ? '' : path}`;
+  const image = `${base}/og?path=${encodeURIComponent(path)}`;
   return {
     title: { absolute: title },
     description: page.description,
@@ -104,8 +105,9 @@ function buildPageMetadata(path, { siteUrl, brand }) {
       title,
       description: page.description,
       url,
+      images: [{ url: image, width: 1200, height: 630, alt: page.title }],
     },
-    twitter: { card: 'summary_large_image', title, description: page.description },
+    twitter: { card: 'summary_large_image', title, description: page.description, images: [image] },
   };
 }
 

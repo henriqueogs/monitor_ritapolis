@@ -1,4 +1,5 @@
 import QualitySignals from '../../../components/QualitySignals';
+import ShareWhatsApp from '../../../components/ShareWhatsApp';
 import StatusBadge from '../../../components/StatusBadge';
 import { splitDocumentTitle, formatDate, labelFonte, labelTipo } from '../../../lib/format';
 
@@ -15,6 +16,7 @@ export default function DocumentHeader({ documento, licitacao }) {
         {subtitulo ? <p className="page-title-subtitle">{subtitulo}</p> : null}
         <h1>{titulo}</h1>
         <QualitySignals documento={documento} />
+        <ShareWhatsApp path={`/documento/${documento.id}`} title={titulo} />
       </div>
       <StatusBadge value={licitacao?.status || documento.status_coleta} />
     </div>

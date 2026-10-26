@@ -4,6 +4,7 @@ import { formatMoney } from '../../lib/format';
 import SectionBlock from '../../components/SectionBlock';
 import FinalidadeBadge from '../../components/FinalidadeBadge';
 import TransparenciaSubnav from '../../components/TransparenciaSubnav';
+import ShareWhatsApp from '../../components/ShareWhatsApp';
 import BreadcrumbJsonLd from '../../components/BreadcrumbJsonLd';
 import LinhaDoTempoPagamento from './components/LinhaDoTempoPagamento';
 import EmpenhosRelacionados from './components/EmpenhosRelacionados';
@@ -110,6 +111,10 @@ export default async function EmpenhoPage({ params: paramsPromise }) {
                 {empenho.portal.especifico ? '↗ Ver no Portal da Transparência' : '↗ Portal (busca manual)'}
               </a>
             )}
+            <ShareWhatsApp
+              path={`/empenho/${params.id}`}
+              title={`Empenho ${empenho.empenho}/${empenho.exercicio_orcamento} — Prefeitura de Ritápolis`}
+            />
           </p>
         </div>
       </div>

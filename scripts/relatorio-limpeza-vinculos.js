@@ -19,7 +19,11 @@ const {
   parseModalidadeEdital,
 } = require('../src/licitacoes/modalidade');
 
-const API_BASE = String(process.env.RITAPOLIS_AUDIT_API || 'https://api.ritapolis.com/api').replace(/\/$/, '');
+// Host da API só por ambiente (regra: domínios de fonte/produção não ficam hard-coded no código).
+if (!process.env.RITAPOLIS_AUDIT_API && !process.argv.includes('--local')) {
+  throw new Error('Defina RITAPOLIS_AUDIT_API (ex.: https://<host-da-api>/api) ou use --local.');
+}
+const API_BASE = String(process.env.RITAPOLIS_AUDIT_API || '').replace(/\/$/, '');
 const USAR_BANCO_LOCAL = process.argv.includes('--local');
 const OUTPUT_DIR = path.resolve(__dirname, '..', 'validation');
 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');

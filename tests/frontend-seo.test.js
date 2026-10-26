@@ -1,7 +1,17 @@
 'use strict';
 
 const { buildPageMetadata, buildContentMetadata, PUBLIC_PAGES } = require('../frontend/lib/page-metadata');
+const { buildWhatsAppShareUrl } = require('../frontend/lib/share-links');
 const config = { siteUrl: 'https://example.org', brand: 'Ritápolis.com' };
+
+describe('buildWhatsAppShareUrl', () => {
+  it('encodes title and page URL (with utm) into a wa.me link', () => {
+    const href = buildWhatsAppShareUrl({ title: 'Edital & contrato', url: 'https://example.org/documento/1' });
+    expect(href.startsWith('https://wa.me/?text=')).toBe(true);
+    const text = decodeURIComponent(href.split('text=')[1]);
+    expect(text).toBe('Edital & contrato\nhttps://example.org/documento/1?utm_source=whatsapp&utm_medium=share');
+  });
+});
 
 describe('public page search metadata', () => {
   it('gives every public entry page a distinct title and canonical URL', () => {
@@ -14,6 +24,16 @@ describe('public page search metadata', () => {
       expect(page.openGraph.url).toBe(page.alternates.canonical);
       expect(page.openGraph.title).toBe(page.title.absolute);
     }
+  });
+
+  it('gives every public page its own social image URL for og and twitter', () => {
+    const urls = Object.keys(PUBLIC_PAGES).map((path) => {
+      const page = buildPageMetadata(path, config);
+      expect(page.twitter.images).toEqual(page.openGraph.images.map((i) => i.url));
+      return page.openGraph.images[0].url;
+    });
+    expect(new Set(urls).size).toBe(urls.length);
+    expect(urls[0]).toMatch(/^https:\/\/example\.org\/og\?path=/);
   });
 
   it('rejects unknown routes instead of publishing misleading metadata', () => {
