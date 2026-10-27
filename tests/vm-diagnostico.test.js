@@ -13,7 +13,7 @@ systemctl() { echo "systemctl $*" >> "$TEST_LOG"; printf 'NRestarts=2\\nActiveEn
 journalctl() {
   echo "journalctl $*" >> "$TEST_LOG"
   case "$*" in
-    *"-k"*) echo 'Out of memory: Killed process 1234 (node) total-vm:900000kB';;
+    *"-k"*) printf '%s\n' 'Out of memory: Killed process 1234 (node) total-vm:900000kB' 'watchdog: BUG: soft lockup - CPU#0 stuck for 22s! [node:1234]' 'TCP: request_sock_TCP: Possible SYN flooding on port 443. Sending cookies.';;
     *caddy*) echo '{"level":"error","msg":"dial tcp 127.0.0.1:3001: connect: connection refused","remote_ip":"200.1.2.3","uri":"/api/credores/12345678000190"}';;
     *) echo 'Oct 18 11:45:00 vm systemd[1]: monitor-ritapolis.service: Scheduled restart job, restart counter is at 2.';;
   esac
@@ -26,6 +26,30 @@ sha256sum() { echo "abc123  $1"; }
 `;
 
 const CLASSIFICADOR = path.resolve(__dirname, '../src/ai/classificar-erro-ia.js');
+
+// /proc falso: steal = 10% do total desde o boot; contadores TCP e de interface conhecidos.
+function criarProcFalso(temp) {
+  const proc = path.join(temp, 'proc');
+  fs.mkdirSync(path.join(proc, 'net'), { recursive: true });
+  fs.mkdirSync(path.join(proc, 'pressure'));
+  fs.writeFileSync(path.join(proc, 'stat'), 'cpu  500 0 200 200 0 0 0 100 0 0\ncpu0 500 0 200 200 0 0 0 100 0 0\n');
+  fs.writeFileSync(path.join(proc, 'pressure', 'cpu'), 'some avg10=12.50 avg60=8.00 avg300=3.10 total=123\n');
+  fs.writeFileSync(path.join(proc, 'net', 'snmp'), [
+    'Tcp: RtoAlgorithm RtoMin RtoMax MaxConn ActiveOpens PassiveOpens AttemptFails EstabResets CurrEstab InSegs OutSegs RetransSegs InErrs OutRsts',
+    'Tcp: 1 200 120000 -1 10 50 3 4 5 1000 2000 40 0 7',
+  ].join('\n'));
+  fs.writeFileSync(path.join(proc, 'net', 'netstat'), [
+    'TcpExt: SyncookiesSent ListenOverflows ListenDrops TCPTimeouts TCPAbortOnTimeout',
+    'TcpExt: 2 6 8 9 1',
+  ].join('\n'));
+  fs.writeFileSync(path.join(proc, 'net', 'dev'), [
+    'Inter-|   Receive                                                |  Transmit',
+    ' face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed',
+    '    lo: 100 1 0 0 0 0 0 0 100 1 0 0 0 0 0 0',
+    '  ens3: 9000 90 0 11 0 0 0 0 8000 80 0 22 0 0 0 0',
+  ].join('\n'));
+  return proc;
+}
 
 function runDiag(
   originalCommand,
@@ -51,8 +75,12 @@ function runDiag(
     '{"level":"warn","message":"Pipeline: tarefa falhou","id":42,"kind":"summary","error":"429 Too Many Requests key nvapi-Zz9","timestamp":"2026-10-18T11:48:00.000Z"}',
     '{"level":"info","message":"fora da janela","timestamp":"2026-10-18T09:00:00.000Z"}',
   ].join('\n'));
+  const proc = criarProcFalso(temp);
   const log = path.join(temp, 'calls.log');
-  const script = source.replace('APP_DIR=/opt/monitor-ritapolis', `APP_DIR="${app}"`);
+  const script = source
+    .replace('APP_DIR=/opt/monitor-ritapolis', `APP_DIR="${app}"`)
+    .replace('PROC_DIR=/proc', `PROC_DIR="${proc}"`)
+    .replace('AMOSTRA_STEAL_S=5', 'AMOSTRA_STEAL_S=0');
   fs.writeFileSync(path.join(temp, 'diag.sh'), MOCKS + script.replace(/\r/g, ''));
   const env = { ...process.env, TEST_LOG: log };
   if (originalCommand !== undefined) {env.SSH_ORIGINAL_COMMAND = originalCommand;}
@@ -108,6 +136,21 @@ describe('vm-diagnostico.sh', () => {
     expect(r.status).toBe(0);
     expect(r.stdout).toContain('app_log_por_nivel:');
     expect(r.stdout).toMatch(/1 indisponivel \| Chunk de resumo IA falhou/);
+  });
+
+  it('mostra CPU roubada (steal), pressão de CPU e contadores TCP/interface para separar CPU de rede', () => {
+    const r = runDiag('2026-10-18T11:40 2026-10-18T11:50');
+
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain('== cpu e rede');
+    expect(r.stdout).toContain('cpu_steal_desde_boot_pct: 10.0');
+    expect(r.stdout).toContain('cpu_steal_agora_pct: 0.0');
+    expect(r.stdout).toContain('cpu_pressao: some avg10=12.50 avg60=8.00 avg300=3.10');
+    expect(r.stdout).toContain('tcp_desde_boot: retrans_segs=40 retrans_pct=2.0 attempt_fails=3 estab_resets=4 out_rsts=7');
+    expect(r.stdout).toContain('tcp_ext_desde_boot: listen_overflows=6 listen_drops=8 timeouts=9 abort_on_timeout=1 syncookies_sent=2');
+    expect(r.stdout).toContain('interface_drops_desde_boot: rx=11 tx=22');
+    expect(r.stdout).toContain('travamentos_kernel_na_janela: 1');
+    expect(r.stdout).toContain('kernel_rede_na_janela: 1');
   });
 
   it('recusa parâmetro fora do formato sem executar nada (injeção pelo SSH_ORIGINAL_COMMAND)', () => {
