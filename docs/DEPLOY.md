@@ -93,6 +93,11 @@ e devolve só leitura:
 - se o `deploy.sh` instalado é a versão nova e se o marcador do lockfile bate;
 - `NRestarts`, restarts e saídas do serviço na janela;
 - `free -m`, carga, disco e kills por falta de memória (OOM) do kernel;
+- CPU roubada pelo host (`steal`, desde o boot e numa amostra de 5 s), pressão
+  de CPU (`/proc/pressure/cpu`), contadores TCP (retransmissões, resets,
+  overflow da fila de conexões) e drops da interface, além de travamentos do
+  kernel e avisos de rede na janela. Separa VM estrangulada de problema de rede
+  quando a Vercel perde conexão com a API sem erro no Caddy;
 - erros do Caddy (só o campo `msg`) e do `logs/app.log` (JSON do winston:
   contagem por nível e principais mensagens de erro/aviso, sem o meta). Cada
   mensagem vem com a categoria do erro de IA (`timeout`, `limite_provider`,

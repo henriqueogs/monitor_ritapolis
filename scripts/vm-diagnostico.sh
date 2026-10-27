@@ -17,6 +17,8 @@ JANELA_MAX_S=86400
 RE_MINUTO='^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}$'
 TOP_MENSAGENS=8
 TAMANHO_MENSAGEM=120
+PROC_DIR=/proc
+AMOSTRA_STEAL_S=5
 
 falhar() { echo "$1" >&2; exit 2; }
 
@@ -100,6 +102,43 @@ free -m 2>/dev/null
 uptime 2>/dev/null
 df -h / 2>/dev/null
 echo "oom_kills_na_janela: $(jctl -k | grep -ciE 'out of memory|killed process')"
+
+# ── CPU e rede: separa VM estrangulada (steal/pressão) de problema de rede ────
+# Achado 23-27/10/2026: a Vercel perde conexão com a API em rajadas (ETIMEDOUT,
+# "other side closed") sem erro no Caddy e sem restart. Steal alto = o host da
+# Oracle tirou CPU da E2.1.Micro; retransmissões/drops altos = rede. Contadores
+# do kernel são acumulados desde o boot (ver uptime); só números, nada de IP.
+echo '== cpu e rede'
+cpu_linha() { awk '$1 == "cpu" { print $2+$3+$4+$5+$6+$7+$8+$9, $9 }' "$PROC_DIR/stat"; }
+pct() { awk -v p="$1" -v t="$2" 'BEGIN { printf "%.1f", (t > 0 ? 100 * p / t : 0) }'; }
+read -r total_1 steal_1 < <(cpu_linha)
+sleep "$AMOSTRA_STEAL_S"
+read -r total_2 steal_2 < <(cpu_linha)
+echo "cpu_steal_desde_boot_pct: $(pct "$steal_2" "$total_2")"
+echo "cpu_steal_agora_pct: $(pct $((steal_2 - steal_1)) $((total_2 - total_1)))"
+if [[ -r "$PROC_DIR/pressure/cpu" ]]; then
+  echo "cpu_pressao: $(grep '^some' "$PROC_DIR/pressure/cpu" | cut -d' ' -f1-4)"
+fi
+# Linhas "Prefixo: nomes" seguidas de "Prefixo: valores" (formato de /proc/net/snmp e netstat).
+contadores() {
+  awk -v pre="$1:" '$1 == pre { if (!n) { for (i = 2; i <= NF; i++) nome[i] = $i; n = 1 }
+    else { for (i = 2; i <= NF; i++) print nome[i] "=" $i } }' "$2"
+}
+valor() { printf '%s\n' "$1" | grep "^$2=" | cut -d= -f2; }
+tcp=$(contadores Tcp "$PROC_DIR/net/snmp")
+retrans=$(valor "$tcp" RetransSegs)
+echo "tcp_desde_boot: retrans_segs=$retrans retrans_pct=$(pct "$retrans" "$(valor "$tcp" OutSegs)")" \
+  "attempt_fails=$(valor "$tcp" AttemptFails) estab_resets=$(valor "$tcp" EstabResets)" \
+  "out_rsts=$(valor "$tcp" OutRsts)"
+ext=$(contadores TcpExt "$PROC_DIR/net/netstat")
+echo "tcp_ext_desde_boot: listen_overflows=$(valor "$ext" ListenOverflows)" \
+  "listen_drops=$(valor "$ext" ListenDrops) timeouts=$(valor "$ext" TCPTimeouts)" \
+  "abort_on_timeout=$(valor "$ext" TCPAbortOnTimeout) syncookies_sent=$(valor "$ext" SyncookiesSent)"
+# /proc/net/dev: depois de "iface:", campo 4 = drops recebidos, campo 12 = drops enviados.
+awk -F: 'NR > 2 && $1 !~ /^ *lo$/ { split($2, c, " "); rx += c[4]; tx += c[12] }
+  END { printf "interface_drops_desde_boot: rx=%d tx=%d\n", rx, tx }' "$PROC_DIR/net/dev"
+echo "travamentos_kernel_na_janela: $(jctl -k | grep -ciE 'soft lockup|hung_task|rcu.*stall|clocksource.*unstable')"
+echo "kernel_rede_na_janela: $(jctl -k | grep -ciE 'nf_conntrack: table full|SYN flooding|link is down')"
 
 # ── Caddy (só o campo msg; nunca IP de visitante nem URI) ─────────────────────
 echo '== caddy'
