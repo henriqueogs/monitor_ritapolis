@@ -54,17 +54,24 @@ function extrairValorEstimado(resumoJson) {
 
 // ── Upsert local (origem = 'resumo_ai') ───────────────────────────────────────
 
+// Linha de resultado do PNCP (src/db/pncp-resultados-repo.js): vencedor/valor null ali é
+// decisão (vários fornecedores, documento não canônico), não lacuna a preencher.
+const SEM_RESULTADO_PNCP = "IFNULL(licitacoes_detalhes.origem_detalhe, '') NOT LIKE 'pncp_resultados%'";
+
 const upsertStmt = db.prepare(`
   INSERT INTO licitacoes_detalhes (documento_id, vencedor_nome, vencedor_cnpj, valor_final, origem, atualizado_em)
   VALUES (@documento_id, @vencedor_nome, @vencedor_cnpj, @valor_final, 'resumo_ai', @now)
   ON CONFLICT(documento_id) DO UPDATE SET
     vencedor_nome = CASE WHEN licitacoes_detalhes.vencedor_nome IS NULL AND @vencedor_nome IS NOT NULL
+                          AND ${SEM_RESULTADO_PNCP}
                          THEN @vencedor_nome ELSE licitacoes_detalhes.vencedor_nome END,
     vencedor_cnpj = CASE WHEN licitacoes_detalhes.vencedor_cnpj IS NULL AND @vencedor_cnpj IS NOT NULL
+                          AND ${SEM_RESULTADO_PNCP}
                          THEN @vencedor_cnpj ELSE licitacoes_detalhes.vencedor_cnpj END,
     valor_final   = CASE WHEN licitacoes_detalhes.valor_final IS NULL AND @valor_final IS NOT NULL
+                          AND ${SEM_RESULTADO_PNCP}
                          THEN @valor_final ELSE licitacoes_detalhes.valor_final END,
-    origem        = CASE WHEN licitacoes_detalhes.vencedor_nome IS NULL
+    origem        = CASE WHEN licitacoes_detalhes.vencedor_nome IS NULL AND ${SEM_RESULTADO_PNCP}
                          THEN 'resumo_ai' ELSE licitacoes_detalhes.origem END,
     atualizado_em = @now
 `);

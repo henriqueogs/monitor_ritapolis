@@ -70,6 +70,8 @@ module.exports = {
   dominioCamara: municipio.dominioCamara,
   portalTransparencia: municipio.portalTransparencia,
   pncpBaseUrl: process.env.PNCP_BASE_URL || 'https://pncp.gov.br/api/consulta',
+  // API pública de leitura por órgão/compra (itens e resultados homologados).
+  pncpApiUrl: process.env.PNCP_API_URL || 'https://pncp.gov.br/api/pncp',
   pncpOrgaosUrl: process.env.PNCP_ORGAOS_URL || 'https://pncp.gov.br/pncp-api/v1',
   receitaCnpjBaseUrl: process.env.RECEITA_CNPJ_BASE_URL || 'https://brasilapi.com.br/api/cnpj/v1',
   credorEnriquecimentoIntervalDias: Number(process.env.CREDOR_ENRIQUECIMENTO_INTERVAL_DIAS || 90),

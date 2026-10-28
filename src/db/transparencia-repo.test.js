@@ -641,6 +641,20 @@ describe('transparencia-repo - enriquecerDetalhesComEmpenhos nao inventa valor f
     expect(detalhe().vencedor_cnpj).toBeNull();
   });
 
+  it('resultado do PNCP com vários fornecedores (ou documento não canônico) não ganha vencedor de empenho', () => {
+    // fiscal-valores 28/10, ressalva do achado 6: o vencedor apagado pelo PNCP voltava
+    // com o maior credor de empenho, ao lado do total de vários fornecedores.
+    for (const detalheOrigem of ['pncp_resultados', 'pncp_resultados_nao_canonico']) {
+      mockConn
+        .prepare("UPDATE licitacoes_detalhes SET vencedor_cnpj = NULL, valor_final = 5000, origem = 'pncp_orgaos', origem_detalhe = ? WHERE documento_id = 1")
+        .run(detalheOrigem);
+      seedDespesa({ ...A, valor: 100, documentoId: 1, modalidade: MOD });
+
+      expect(repo.enriquecerDetalhesComEmpenhos()).toBe(0);
+      expect(detalhe()).toMatchObject({ vencedor_cnpj: null, origem_detalhe: detalheOrigem });
+    }
+  });
+
   it('nao sobrescreve vencedor ja conhecido', () => {
     mockConn.prepare("UPDATE licitacoes_detalhes SET vencedor_cnpj = '33333333333333', valor_final = 777 WHERE documento_id = 1").run();
     seedDespesa({ ...A, valor: 100, documentoId: 1, modalidade: MOD });

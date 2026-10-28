@@ -1,4 +1,5 @@
 const { ente, formatarCnpj } = require('../ente');
+const { normalizarControlePncp } = require('../licitacoes/pncp-resultados');
 
 const PREFEITURA_CNPJ = formatarCnpj(ente.cnpjPrefeitura);
 
@@ -220,7 +221,7 @@ function parseNumeroPncp(text) {
 
   for (const pattern of patterns) {
     const match = source.match(pattern);
-    if (match?.[1]) {return match[1].trim();}
+    if (match?.[1]) {return normalizarControlePncp(match[1]);}
   }
 
   return null;

@@ -13,6 +13,8 @@ const axios = require('axios');
 const config = require('../config');
 
 const CONSULTA_BASE = config.pncpBaseUrl || 'https://pncp.gov.br/api/consulta';
+const API_BASE = config.pncpApiUrl || 'https://pncp.gov.br/api/pncp';
+const ITENS_POR_PAGINA = 50;
 
 // Todas as modalidades usadas por municípios
 const MODALIDADES = [
@@ -103,12 +105,8 @@ async function* gerarContratacoesPorCnpj(cnpj, ano) {
   for (const modalidade of MODALIDADES) {
     let pagina = 1;
     while (true) {
-      let resp;
-      try {
-        resp = await buscarContratacoes({ cnpj, codigoModalidadeContratacao: modalidade, dataInicial, dataFinal, pagina });
-      } catch {
-        break;
-      }
+      // Erro de rede/HTTP propaga: quem chama conta como falha (antes virava "0 resultados").
+      const resp = await buscarContratacoes({ cnpj, codigoModalidadeContratacao: modalidade, dataInicial, dataFinal, pagina });
       if (!resp || !resp.items.length) {break;}
 
       yield { modalidade, items: resp.items };
@@ -119,25 +117,51 @@ async function* gerarContratacoesPorCnpj(cnpj, ano) {
   }
 }
 
+// GET na API /api/pncp/v1 (leitura pública por órgão). 204/404 = sem dados.
+async function getApi(caminho, params) {
+  const response = await axios.get(`${API_BASE}${caminho}`, {
+    params,
+    timeout: config.collectorTimeoutMs,
+    validateStatus: (status) => status < 500,
+    headers: { accept: 'application/json', 'user-agent': config.collectorUserAgent },
+  });
+  if (response.status === 204 || response.status === 404) {return null;}
+  if (response.status >= 400) {throw new Error(`PNCP HTTP ${response.status} em ${caminho}`);}
+  return response.data;
+}
+
+/**
+ * Itens de uma compra com os resultados (fornecedor e valor homologado) de cada um.
+ * Resultados só são buscados para itens com temResultado, para não gastar chamadas.
+ */
+async function buscarItensComResultados({ cnpj, ano, sequencial }) {
+  const base = `/v1/orgaos/${cnpj}/compras/${ano}/${sequencial}/itens`;
+  const itens = [];
+  for (let pagina = 1; ; pagina++) {
+    const lote = (await getApi(base, { pagina, tamanhoPagina: ITENS_POR_PAGINA })) || [];
+    itens.push(...lote);
+    if (lote.length < ITENS_POR_PAGINA) {break;}
+  }
+  const completos = [];
+  for (const item of itens) {
+    const resultados = item.temResultado
+      ? (await getApi(`${base}/${item.numeroItem}/resultados`)) || []
+      : [];
+    completos.push({ ...item, resultados });
+  }
+  return completos;
+}
+
 // Extrai o número de controle PNCP de um item da API de consulta
 function extrairNumeroPncp(item) {
   return item?.numeroControlePNCP || item?.numeroControlePncpCompra || null;
 }
 
-// Extrai vencedor de um item da API de consulta (se homologado)
-function extrairVencedor(item) {
-  const nome = item?.nomeRazaoSocialFornecedor || item?.nomeVencedor || null;
-  const cnpj = item?.niFornecedor || item?.cnpjVencedor || null;
-  const valor = item?.valorTotalHomologado ?? item?.valorFinal ?? null;
-  if (!nome) {return null;}
-  return { nome, cnpj, valor };
-}
-
 module.exports = {
   buscarContratacoes,
+  buscarItensComResultados,
   verificarCoberturaMunicipio,
   gerarContratacoesPorCnpj,
   extrairNumeroPncp,
-  extrairVencedor,
   MODALIDADES
 };

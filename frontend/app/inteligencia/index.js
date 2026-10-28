@@ -4,6 +4,7 @@ import CategoriaBadge from '../components/CategoriaBadge';
 import { fetchInteligenciaPanorama, fetchCoberturaPorAno, fetchAlertasDestaques } from '../lib/api';
 import { formatMoney } from '../lib/format';
 import { formatarMetricaAlerta } from '../../lib/alerta-revisao';
+import { rotuloIntervaloAnos, intervaloDasLinhas } from '../../lib/intervalo-anos';
 import FornecedoresRanking from '../estatisticas/components/FornecedoresRanking';
 
 export const metadata = {
@@ -96,6 +97,9 @@ export default async function InteligenciaPage() {
   const { resumo, alertas, por_ano, por_categoria } = panorama;
   const valorTotal = (resumo.valor_vencedor_identificado || 0) + (resumo.valor_produtos_identificado || 0);
   const totalMaxCategoria = Math.max(...(por_categoria || []).map((c) => c.total), 1);
+  // §11.1: a coluna soma todos os anos; o rótulo diz quais.
+  const intervaloValorCategoria = intervaloDasLinhas(por_categoria || [], 'valor_final');
+  const rotuloAnosCategoria = rotuloIntervaloAnos(intervaloValorCategoria.min, intervaloValorCategoria.max);
   // Intervalo explícito para o valor somado (princípio: soma sempre com período)
   const anosPanorama = (por_ano || []).map((r) => Number(r.ano)).filter(Boolean);
   const periodoPanorama = anosPanorama.length
@@ -192,7 +196,7 @@ export default async function InteligenciaPage() {
           >
             <span style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>Categoria</span>
             <span style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', textAlign: 'right' }}>Editais</span>
-            <span style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', textAlign: 'right', minWidth: 90 }}>Valor final</span>
+            <span style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', textAlign: 'right', minWidth: 90 }}>{rotuloAnosCategoria ? `Valor final (${rotuloAnosCategoria})` : 'Valor final'}</span>
           </div>
 
           {por_categoria.map((c) => {
@@ -237,6 +241,7 @@ export default async function InteligenciaPage() {
 
           <p style={{ margin: '12px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
             Valor final disponível apenas para licitações com vencedor registrado. A cobertura é parcial.
+            {rotuloAnosCategoria ? ` Soma de licitações de ${rotuloAnosCategoria}, todos os anos juntos.` : ''}
           </p>
         </SectionBlock>
       )}

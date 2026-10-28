@@ -487,6 +487,9 @@ function enriquecerDetalhesComEmpenhos() {
                               ELSE TRIM(IFNULL(origem_detalhe, '') || ' | vencedor_empenho_agregado') END,
         atualizado_em = CURRENT_TIMESTAMP
     WHERE documento_id = @docId AND vencedor_cnpj IS NULL
+      -- Resultado do PNCP (src/db/pncp-resultados-repo.js): vencedor null ali é decisão
+      -- (vários fornecedores ou documento não canônico), não falta de dado.
+      AND IFNULL(origem_detalhe, '') NOT LIKE 'pncp_resultados%'
   `);
 
   let enriquecidos = 0;
@@ -494,8 +497,7 @@ function enriquecerDetalhesComEmpenhos() {
     const atual = buscarAtual.get(docId);
     // Nunca substitui vencedor existente nem cria detalhe novo (sem linha, nada a enriquecer).
     if (!atual || atual.vencedor_cnpj) {continue;}
-    gravar.run({ docId, nome: grupo.credor_nome, cnpj: grupo.credor_cnpj });
-    enriquecidos++;
+    enriquecidos += Number(gravar.run({ docId, nome: grupo.credor_nome, cnpj: grupo.credor_cnpj }).changes);
   }
 
   return enriquecidos;

@@ -484,6 +484,38 @@ CREATE INDEX IF NOT EXISTS idx_inteligencia_fatos_anexo ON inteligencia_fatos(an
 CREATE INDEX IF NOT EXISTS idx_inteligencia_fatos_tipo ON inteligencia_fatos(tipo, subtipo);
 CREATE INDEX IF NOT EXISTS idx_inteligencia_fatos_periodo ON inteligencia_fatos(periodo_inicio, periodo_fim, data_evento);
 CREATE INDEX IF NOT EXISTS idx_licitacoes_detalhes_origem ON licitacoes_detalhes(origem);
+CREATE INDEX IF NOT EXISTS idx_licitacoes_detalhes_numero_pncp ON licitacoes_detalhes(numero_pncp);
+-- Um processo do PNCP tem um só documento canônico com valor/vencedor (src/db/pncp-resultados-repo.js).
+-- Documento que chega ou ganha o mesmo numero_pncp depois da sincronização entra neutralizado,
+-- seja qual for o escritor (texto, coleta, IA, scripts); senão o ano soma o processo duas vezes.
+CREATE TRIGGER IF NOT EXISTS licitacoes_detalhes_pncp_nao_canonico_ai AFTER INSERT ON licitacoes_detalhes
+WHEN NEW.numero_pncp IS NOT NULL
+  AND IFNULL(NEW.origem_detalhe, '') NOT LIKE 'pncp_resultados%'
+  AND EXISTS (SELECT 1 FROM licitacoes_detalhes c
+              WHERE c.numero_pncp = NEW.numero_pncp AND c.origem_detalhe = 'pncp_resultados'
+                AND c.documento_id <> NEW.documento_id)
+BEGIN
+  UPDATE licitacoes_detalhes
+  SET valor_final = NULL, vencedor_nome = NULL, vencedor_cnpj = NULL, data_homologacao = NULL,
+      origem = 'pncp_orgaos', origem_detalhe = 'pncp_resultados_nao_canonico',
+      trecho_fonte = NULL, confianca = NULL
+  WHERE documento_id = NEW.documento_id;
+END;
+CREATE TRIGGER IF NOT EXISTS licitacoes_detalhes_pncp_nao_canonico_au
+AFTER UPDATE OF numero_pncp, valor_final, vencedor_nome, vencedor_cnpj, data_homologacao, origem_detalhe
+ON licitacoes_detalhes
+WHEN NEW.numero_pncp IS NOT NULL
+  AND IFNULL(NEW.origem_detalhe, '') NOT LIKE 'pncp_resultados%'
+  AND EXISTS (SELECT 1 FROM licitacoes_detalhes c
+              WHERE c.numero_pncp = NEW.numero_pncp AND c.origem_detalhe = 'pncp_resultados'
+                AND c.documento_id <> NEW.documento_id)
+BEGIN
+  UPDATE licitacoes_detalhes
+  SET valor_final = NULL, vencedor_nome = NULL, vencedor_cnpj = NULL, data_homologacao = NULL,
+      origem = 'pncp_orgaos', origem_detalhe = 'pncp_resultados_nao_canonico',
+      trecho_fonte = NULL, confianca = NULL
+  WHERE documento_id = NEW.documento_id;
+END;
 CREATE INDEX IF NOT EXISTS idx_licitacoes_produtos_documento_id ON licitacoes_produtos(documento_id);
 CREATE INDEX IF NOT EXISTS idx_licitacoes_produtos_ano ON licitacoes_produtos(ano);
 CREATE INDEX IF NOT EXISTS idx_licitacoes_produtos_descricao_normalizada ON licitacoes_produtos(descricao_normalizada);

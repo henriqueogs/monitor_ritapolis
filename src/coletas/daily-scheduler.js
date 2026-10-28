@@ -6,7 +6,7 @@
  * Complementa o collection-scheduler (documentos) e o ai-daily-scheduler (resumos).
  * Responsabilidades:
  *   • Despesas + Receitas: coleta incremental diária (02:00-03:00 local)
- *   • PNCP sync: sincronização semanal de vencedores/valores finais
+ *   • PNCP sync: sincronização semanal de vencedores/valores finais (./pncp-vencedores.js)
  *   • Fornecedores: consolidação após cada coleta bem-sucedida
  *
  * Não duplica lógica — apenas chama as funções já existentes nos coletores.
@@ -21,6 +21,7 @@ const { planCollectionYears } = require('./collection-cadence');
 const { enriquecerCredores } = require('../integracoes/enriquecer-credores');
 const schedulerLock = require('./scheduler-lock');
 const { invalidarTodos } = require('../services/cache-registry');
+const { sincronizarVencedoresPncp, statusDaSincronizacao } = require('./pncp-vencedores');
 
 const LOCK_OWNER = 'daily';
 
@@ -172,43 +173,21 @@ async function sincronizarPncp() {
   logger.info('daily-scheduler: iniciando PNCP sync');
 
   try {
-    const { gerarContratacoesPorCnpj, extrairVencedor } = require('../integracoes/pncp-orgaos');
-    const { getDocumentoByNumeroPncp, updateLicitacaoVencedor } = require('../db');
     const anoAtual = new Date().getFullYear();
-    const anos = [anoAtual - 1, anoAtual];
-    const cnpjs = [config.cnpjPrefeitura, config.cnpjCamara];
-
-    let atualizados = 0;
-    for (const cnpj of cnpjs) {
-      for (const ano of anos) {
-        const dataInicial = `${ano}0101`;
-        const dataFinal = `${ano}1231`;
-        try {
-          for await (const contratacao of gerarContratacoesPorCnpj({
-            cnpj,
-            codigoMunicipioIbge: config.ibgeCode,
-            dataInicial,
-            dataFinal,
-          })) {
-            const doc = getDocumentoByNumeroPncp(contratacao.numeroPncp);
-            if (!doc) {continue;}
-            const vencedor = extrairVencedor(contratacao);
-            if (!vencedor?.nome) {continue;}
-            updateLicitacaoVencedor(doc.id, vencedor);
-            atualizados++;
-          }
-        } catch (err) {
-          logger.warn('daily-scheduler: erro PNCP parcial', { cnpj, ano, erro: err.message });
-        }
-      }
+    const { falhas, ...stats } = await sincronizarVencedoresPncp({
+      cnpjs: [config.cnpjPrefeitura, config.cnpjCamara],
+      anos: [anoAtual - 1, anoAtual],
+    });
+    const status = statusDaSincronizacao(stats);
+    if (falhas.length) {
+      logger.warn('daily-scheduler: falhas no PNCP sync', { total: falhas.length, exemplos: falhas.slice(0, 3) });
     }
+    logger.info('daily-scheduler: PNCP sync concluído', { status, ...stats });
 
-    logger.info('daily-scheduler: PNCP sync concluído', { atualizados });
-
-    // Registrar como coleta bem-sucedida para controle de intervalo
+    // 'erro' não conta para o intervalo semanal: o próximo tick tenta de novo.
     db.prepare(
-      "INSERT INTO transparencia_coletas_log (tipo, exercicio, status, novos, atualizados) VALUES ('pncp', ?, 'ok', 0, ?)"
-    ).run(anoAtual, atualizados);
+      "INSERT INTO transparencia_coletas_log (tipo, exercicio, status, novos, atualizados) VALUES ('pncp', ?, ?, ?, ?)"
+    ).run(anoAtual, status, stats.correspondencias, stats.atualizadas);
   } catch (err) {
     logger.error('daily-scheduler: erro no PNCP sync', { erro: err.message });
   } finally {

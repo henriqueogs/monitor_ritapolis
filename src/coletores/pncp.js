@@ -304,6 +304,8 @@ class ColetorPncp extends ColetorBase {
         licitacao_detalhes: {
           modalidade: modalidadeNome,
           status: compra.situacaoCompraNome || null,
+          // Chave para casar com os resultados (src/coletas/pncp-vencedores.js).
+          numero_pncp: compra.numeroControlePNCP || null,
         },
       },
       resultado
