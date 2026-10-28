@@ -1344,22 +1344,27 @@ function upsertLicitacaoDetalhesExtraidos(documento, detalhes) {
         @origem, @origem_detalhe, @trecho_fonte, @confianca, @atualizado_em
       )
       ON CONFLICT(documento_id) DO UPDATE SET
+        -- Linha de resultado do PNCP (src/db/pncp-resultados-repo.js): o texto não mexe em
+        -- valor, vencedor, data nem origem (fiscal-valores 28/10, achado 4).
         modalidade = COALESCE(licitacoes_detalhes.modalidade, excluded.modalidade),
         status = COALESCE(licitacoes_detalhes.status, excluded.status),
         vencedor_nome = CASE
           WHEN excluded.vencedor_nome IS NOT NULL
+            AND IFNULL(licitacoes_detalhes.origem_detalhe, '') NOT LIKE 'pncp_resultados%'
             AND (licitacoes_detalhes.vencedor_nome IS NULL OR IFNULL(licitacoes_detalhes.origem, '') LIKE 'texto_%')
           THEN excluded.vencedor_nome
           ELSE licitacoes_detalhes.vencedor_nome
         END,
         vencedor_cnpj = CASE
           WHEN excluded.vencedor_cnpj IS NOT NULL
+            AND IFNULL(licitacoes_detalhes.origem_detalhe, '') NOT LIKE 'pncp_resultados%'
             AND (licitacoes_detalhes.vencedor_cnpj IS NULL OR IFNULL(licitacoes_detalhes.origem, '') LIKE 'texto_%')
           THEN excluded.vencedor_cnpj
           ELSE licitacoes_detalhes.vencedor_cnpj
         END,
         valor_final = CASE
           WHEN excluded.valor_final IS NOT NULL
+            AND IFNULL(licitacoes_detalhes.origem_detalhe, '') NOT LIKE 'pncp_resultados%'
             AND (licitacoes_detalhes.valor_final IS NULL OR IFNULL(licitacoes_detalhes.origem, '') LIKE 'texto_%')
           THEN excluded.valor_final
           ELSE licitacoes_detalhes.valor_final
@@ -1367,12 +1372,14 @@ function upsertLicitacaoDetalhesExtraidos(documento, detalhes) {
         numero_pncp = COALESCE(licitacoes_detalhes.numero_pncp, excluded.numero_pncp),
         data_homologacao = CASE
           WHEN excluded.data_homologacao IS NOT NULL
+            AND IFNULL(licitacoes_detalhes.origem_detalhe, '') NOT LIKE 'pncp_resultados%'
             AND (licitacoes_detalhes.data_homologacao IS NULL OR IFNULL(licitacoes_detalhes.origem, '') LIKE 'texto_%')
           THEN excluded.data_homologacao
           ELSE licitacoes_detalhes.data_homologacao
         END,
         origem = CASE
           WHEN excluded.origem IS NOT NULL
+            AND IFNULL(licitacoes_detalhes.origem_detalhe, '') NOT LIKE 'pncp_resultados%'
             AND (
               licitacoes_detalhes.origem IS NULL
               OR IFNULL(licitacoes_detalhes.origem, '') LIKE 'texto_%'
@@ -1382,9 +1389,12 @@ function upsertLicitacaoDetalhesExtraidos(documento, detalhes) {
           THEN excluded.origem
           ELSE licitacoes_detalhes.origem
         END,
-        origem_detalhe = COALESCE(excluded.origem_detalhe, licitacoes_detalhes.origem_detalhe),
-        trecho_fonte = COALESCE(excluded.trecho_fonte, licitacoes_detalhes.trecho_fonte),
-        confianca = COALESCE(excluded.confianca, licitacoes_detalhes.confianca),
+        origem_detalhe = CASE WHEN IFNULL(licitacoes_detalhes.origem_detalhe, '') NOT LIKE 'pncp_resultados%'
+          THEN COALESCE(excluded.origem_detalhe, licitacoes_detalhes.origem_detalhe) ELSE licitacoes_detalhes.origem_detalhe END,
+        trecho_fonte = CASE WHEN IFNULL(licitacoes_detalhes.origem_detalhe, '') NOT LIKE 'pncp_resultados%'
+          THEN COALESCE(excluded.trecho_fonte, licitacoes_detalhes.trecho_fonte) ELSE licitacoes_detalhes.trecho_fonte END,
+        confianca = CASE WHEN IFNULL(licitacoes_detalhes.origem_detalhe, '') NOT LIKE 'pncp_resultados%'
+          THEN COALESCE(excluded.confianca, licitacoes_detalhes.confianca) ELSE licitacoes_detalhes.confianca END,
         atualizado_em = excluded.atualizado_em`
     )
     .run({
@@ -2955,17 +2965,26 @@ function saveDocumento(documento) {
         @origem, @origem_detalhe, @trecho_fonte, @confianca, @atualizado_em
       )
       ON CONFLICT(documento_id) DO UPDATE SET
+        -- Linha de resultado do PNCP: a coleta não mexe em valor, vencedor, data nem origem.
         modalidade = COALESCE(excluded.modalidade, licitacoes_detalhes.modalidade),
         status = COALESCE(excluded.status, licitacoes_detalhes.status),
-        vencedor_nome = COALESCE(excluded.vencedor_nome, licitacoes_detalhes.vencedor_nome),
-        vencedor_cnpj = COALESCE(excluded.vencedor_cnpj, licitacoes_detalhes.vencedor_cnpj),
-        valor_final = COALESCE(excluded.valor_final, licitacoes_detalhes.valor_final),
+        vencedor_nome = CASE WHEN IFNULL(licitacoes_detalhes.origem_detalhe, '') NOT LIKE 'pncp_resultados%'
+          THEN COALESCE(excluded.vencedor_nome, licitacoes_detalhes.vencedor_nome) ELSE licitacoes_detalhes.vencedor_nome END,
+        vencedor_cnpj = CASE WHEN IFNULL(licitacoes_detalhes.origem_detalhe, '') NOT LIKE 'pncp_resultados%'
+          THEN COALESCE(excluded.vencedor_cnpj, licitacoes_detalhes.vencedor_cnpj) ELSE licitacoes_detalhes.vencedor_cnpj END,
+        valor_final = CASE WHEN IFNULL(licitacoes_detalhes.origem_detalhe, '') NOT LIKE 'pncp_resultados%'
+          THEN COALESCE(excluded.valor_final, licitacoes_detalhes.valor_final) ELSE licitacoes_detalhes.valor_final END,
         numero_pncp = COALESCE(excluded.numero_pncp, licitacoes_detalhes.numero_pncp),
-        data_homologacao = COALESCE(excluded.data_homologacao, licitacoes_detalhes.data_homologacao),
-        origem = COALESCE(excluded.origem, licitacoes_detalhes.origem),
-        origem_detalhe = COALESCE(excluded.origem_detalhe, licitacoes_detalhes.origem_detalhe),
-        trecho_fonte = COALESCE(excluded.trecho_fonte, licitacoes_detalhes.trecho_fonte),
-        confianca = COALESCE(excluded.confianca, licitacoes_detalhes.confianca),
+        data_homologacao = CASE WHEN IFNULL(licitacoes_detalhes.origem_detalhe, '') NOT LIKE 'pncp_resultados%'
+          THEN COALESCE(excluded.data_homologacao, licitacoes_detalhes.data_homologacao) ELSE licitacoes_detalhes.data_homologacao END,
+        origem = CASE WHEN IFNULL(licitacoes_detalhes.origem_detalhe, '') NOT LIKE 'pncp_resultados%'
+          THEN COALESCE(excluded.origem, licitacoes_detalhes.origem) ELSE licitacoes_detalhes.origem END,
+        origem_detalhe = CASE WHEN IFNULL(licitacoes_detalhes.origem_detalhe, '') NOT LIKE 'pncp_resultados%'
+          THEN COALESCE(excluded.origem_detalhe, licitacoes_detalhes.origem_detalhe) ELSE licitacoes_detalhes.origem_detalhe END,
+        trecho_fonte = CASE WHEN IFNULL(licitacoes_detalhes.origem_detalhe, '') NOT LIKE 'pncp_resultados%'
+          THEN COALESCE(excluded.trecho_fonte, licitacoes_detalhes.trecho_fonte) ELSE licitacoes_detalhes.trecho_fonte END,
+        confianca = CASE WHEN IFNULL(licitacoes_detalhes.origem_detalhe, '') NOT LIKE 'pncp_resultados%'
+          THEN COALESCE(excluded.confianca, licitacoes_detalhes.confianca) ELSE licitacoes_detalhes.confianca END,
         atualizado_em = excluded.atualizado_em`
       ).run({ ...detalhesPayload, atualizado_em: now });
       if (result.action === 'unchanged') { result.action = 'updated'; }

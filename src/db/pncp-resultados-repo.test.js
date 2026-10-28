@@ -76,7 +76,7 @@ const RESULTADO_UNICO = {
 
 describe('pncp-resultados-repo', () => {
   beforeEach(() => {
-    mockConn.exec('DELETE FROM licitacoes_detalhes; DELETE FROM documentos;');
+    mockConn.exec('DELETE FROM documentos_resumos_ai; DELETE FROM licitacoes_detalhes; DELETE FROM documentos;');
   });
 
   it('com edital do site e compra do PNCP no mesmo processo, o valor entra uma vez só no ano', () => {
@@ -119,6 +119,64 @@ describe('pncp-resultados-repo', () => {
         origem_detalhe: 'pncp_resultados_nao_canonico',
       });
     }
+  });
+
+  it('extração por texto e nova coleta não devolvem valor/vencedor a linha do PNCP', () => {
+    // fiscal-valores 28/10 (2ª reauditoria), achado 4: reextrair o texto do não canônico
+    // recolocava 750 e o ano voltava a somar 2750.
+    const { upsertLicitacaoDetalhesExtraidos, saveDocumento } = require('./index');
+    const site = seedDocumento({ fonte: 'site_prefeitura', detalhes: {} });
+    const outro = seedDocumento({ fonte: 'site_prefeitura', detalhes: { valor_final: 750, origem: 'texto_ia' } });
+    gravarResultadoPncp(site, { ...RESULTADO_UNICO, vencedor_nome: null, vencedor_cnpj: null, multiplos_fornecedores: true });
+
+    const doTexto = {
+      valor_final: 750,
+      vencedor_nome: 'X do texto',
+      vencedor_cnpj: '55444333000122',
+      data_homologacao: '2025-01-01',
+      origem: 'texto_regex',
+      origem_detalhe: 'regex_homologacao',
+      trecho_fonte: 'homologado por 750',
+    };
+    upsertLicitacaoDetalhesExtraidos({ id: outro }, doTexto);
+    upsertLicitacaoDetalhesExtraidos({ id: site }, { ...doTexto, valor_final: 999 });
+    saveDocumento({
+      fonte: 'site_prefeitura',
+      tipo: 'edital',
+      titulo: 'Pregão 1/2025',
+      url_origem: 'https://exemplo.gov.br/origem',
+      ano: 2025,
+      hash_conteudo: 'hash-coleta',
+      licitacao_detalhes: { ...doTexto, numero_pncp: CONTROLE },
+    });
+
+    // Extração de entidades por IA (ai-daily-scheduler) também grava direto.
+    const resumo = JSON.stringify({
+      partes_envolvidas: [{ papel: 'contratado', nome: 'Y da IA', documento: 'CNPJ 55.444.333/0001-22' }],
+      valores: [{ tipo: 'final', valor: 640 }],
+    });
+    for (const id of [site, outro]) {
+      mockConn
+        .prepare(
+          `INSERT INTO documentos_resumos_ai (documento_id, provider, modelo, contrato_versao, resumo_json, texto_hash)
+           VALUES (?, 'teste', 'teste', 'v1', ?, 'h')`
+        )
+        .run(id, resumo);
+    }
+    require('../ai/extract-entities').extractEntitiesFromResumes();
+
+    expect(somaPorAno(2025)).toBe(2000);
+    expect(detalhes(outro)).toMatchObject({
+      valor_final: null,
+      vencedor_nome: null,
+      origem_detalhe: 'pncp_resultados_nao_canonico',
+    });
+    expect(detalhes(site)).toMatchObject({
+      valor_final: 2000,
+      vencedor_nome: null,
+      origem: 'pncp_orgaos',
+      origem_detalhe: 'pncp_resultados',
+    });
   });
 
   it('troca a origem e limpa o trecho/confiança do valor anterior (empenho ou texto)', () => {

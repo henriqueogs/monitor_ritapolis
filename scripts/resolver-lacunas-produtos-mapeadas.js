@@ -113,16 +113,22 @@ function main() {
       @origem_detalhe, @trecho_fonte, 0.86, @atualizado_em
     )
     ON CONFLICT(documento_id) DO UPDATE SET
+      -- Linha de resultado do PNCP (src/db/pncp-resultados-repo.js) não recebe vencedor/valor local.
       vencedor_nome = CASE
+        WHEN IFNULL(licitacoes_detalhes.origem_detalhe, '') LIKE 'pncp_resultados%' THEN licitacoes_detalhes.vencedor_nome
         WHEN IFNULL(licitacoes_detalhes.vencedor_nome, '') = ''
           OR LOWER(licitacoes_detalhes.vencedor_nome) IN ('autorizatário', 'autorizatario', 'contratada', 'contratado', 'licitante', 'cnpj n°', 'cnpj n')
         THEN excluded.vencedor_nome
         ELSE licitacoes_detalhes.vencedor_nome
       END,
-      vencedor_cnpj = CASE WHEN IFNULL(licitacoes_detalhes.vencedor_cnpj, '') = '' THEN excluded.vencedor_cnpj ELSE licitacoes_detalhes.vencedor_cnpj END,
-      valor_final = COALESCE(licitacoes_detalhes.valor_final, excluded.valor_final),
-      origem = CASE WHEN licitacoes_detalhes.valor_final IS NULL THEN excluded.origem ELSE licitacoes_detalhes.origem END,
-      origem_detalhe = COALESCE(excluded.origem_detalhe, licitacoes_detalhes.origem_detalhe),
+      vencedor_cnpj = CASE WHEN IFNULL(licitacoes_detalhes.origem_detalhe, '') LIKE 'pncp_resultados%' THEN licitacoes_detalhes.vencedor_cnpj
+        WHEN IFNULL(licitacoes_detalhes.vencedor_cnpj, '') = '' THEN excluded.vencedor_cnpj ELSE licitacoes_detalhes.vencedor_cnpj END,
+      valor_final = CASE WHEN IFNULL(licitacoes_detalhes.origem_detalhe, '') LIKE 'pncp_resultados%' THEN licitacoes_detalhes.valor_final
+        ELSE COALESCE(licitacoes_detalhes.valor_final, excluded.valor_final) END,
+      origem = CASE WHEN IFNULL(licitacoes_detalhes.origem_detalhe, '') LIKE 'pncp_resultados%' THEN licitacoes_detalhes.origem
+        WHEN licitacoes_detalhes.valor_final IS NULL THEN excluded.origem ELSE licitacoes_detalhes.origem END,
+      origem_detalhe = CASE WHEN IFNULL(licitacoes_detalhes.origem_detalhe, '') LIKE 'pncp_resultados%' THEN licitacoes_detalhes.origem_detalhe
+        ELSE COALESCE(excluded.origem_detalhe, licitacoes_detalhes.origem_detalhe) END,
       trecho_fonte = COALESCE(excluded.trecho_fonte, licitacoes_detalhes.trecho_fonte),
       confianca = MAX(IFNULL(licitacoes_detalhes.confianca, 0), excluded.confianca),
       atualizado_em = excluded.atualizado_em
