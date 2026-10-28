@@ -1,26 +1,54 @@
 'use strict';
 
-const { rotuloValorHomologado, NOTA_REGISTRO_PRECOS } = require('../frontend/lib/rotulo-valor');
+const {
+  rotuloValorFinal,
+  rotuloValorAgregado,
+  isValorHomologado,
+  NOTA_REGISTRO_PRECOS,
+  NOTA_VALOR_AGREGADO,
+} = require('../frontend/lib/rotulo-valor');
 
 describe('rotulo-valor', () => {
-  describe('rotuloValorHomologado', () => {
-    it('diz que é o valor homologado e traz o ano do processo (§11.1)', () => {
-      expect(rotuloValorHomologado(2025)).toBe('Valor homologado (2025)');
-    });
-
-    it('aceita um intervalo já formatado para somas de vários anos', () => {
-      expect(rotuloValorHomologado('2023–2026')).toBe('Valor homologado (2023–2026)');
+  describe('rotuloValorFinal', () => {
+    // fiscal-valores 28/10: valor_final vem de origens diferentes; "homologado" só para o PNCP.
+    it.each([
+      ['pncp_orgaos', 'Valor homologado (2025)'],
+      ['texto_contrato', 'Valor do contrato (2025)'],
+      ['texto_ata', 'Valor registrado em ata (2025)'],
+      ['resumo_ai', 'Valor final informado (2025)'],
+      ['texto_documento', 'Valor final informado (2025)'],
+      ['texto_homologacao', 'Valor final informado (2025)'],
+      [null, 'Valor final informado (2025)'],
+    ])('origem %s → %s', (origem, esperado) => {
+      expect(rotuloValorFinal({ origem, periodo: 2025 })).toBe(esperado);
     });
 
     it('sem ano conhecido não inventa período', () => {
-      expect(rotuloValorHomologado(null)).toBe('Valor homologado');
-      expect(rotuloValorHomologado('')).toBe('Valor homologado');
+      expect(rotuloValorFinal({ origem: 'pncp_orgaos', periodo: null })).toBe('Valor homologado');
+      expect(rotuloValorFinal({ origem: 'texto_ata', periodo: 'sem_ano' })).toBe('Valor registrado em ata');
     });
   });
 
-  it('a nota de registro de preços avisa que o valor é o teto da ata, não o contratado', () => {
+  describe('isValorHomologado', () => {
+    it('só a origem do resultado do PNCP é homologada', () => {
+      expect(isValorHomologado('pncp_orgaos')).toBe(true);
+      expect(isValorHomologado('texto_contrato')).toBe(false);
+      expect(isValorHomologado(undefined)).toBe(false);
+    });
+  });
+
+  describe('rotuloValorAgregado', () => {
+    it('soma de origens misturadas não se diz homologada e leva o período (§11.1)', () => {
+      expect(rotuloValorAgregado('2023–2026')).toBe('Valor final informado (2023–2026)');
+      expect(rotuloValorAgregado('')).toBe('Valor final informado');
+    });
+  });
+
+  it('as notas explicam registro de preços e a mistura de origens sem chamar de gasto', () => {
     expect(NOTA_REGISTRO_PRECOS).toMatch(/registro de preços/i);
-    expect(NOTA_REGISTRO_PRECOS).toMatch(/ata/);
     expect(NOTA_REGISTRO_PRECOS).toMatch(/não .*contratado/);
+    expect(NOTA_VALOR_AGREGADO).toMatch(/homologado/);
+    expect(NOTA_VALOR_AGREGADO).toMatch(/contrato/);
+    expect(NOTA_VALOR_AGREGADO).toMatch(/não é o valor gasto/i);
   });
 });

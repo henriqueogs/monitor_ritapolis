@@ -1,6 +1,13 @@
 import AdminMetricCard from '../../components/AdminMetricCard';
 import { formatMoney } from '../../lib/format';
 
+const SEM_ANO = 'sem_ano';
+
+// O ano é o do edital, não o da homologação (§11.1 / fiscal-valores 28/10).
+function rotuloPeriodoLicitacoes(ano) {
+  return ano && ano !== SEM_ANO ? `em licitações de ${ano}` : 'em licitações sem ano identificado';
+}
+
 function percent(part, total) {
   if (!total) return '0%';
   return `${Math.round((Number(part || 0) / Number(total)) * 100)}%`;
@@ -32,9 +39,9 @@ export default function LicitacaoYearSummary({ row, currentYear }) {
         note={`${row.com_resumo_ai} documentos`}
       />
       <AdminMetricCard
-        label="Com valor homologado"
+        label="Com valor final informado"
         value={percent(row.com_valor_final, row.total)}
-        note={row.valor_final_total ? `${formatMoney(row.valor_final_total)} homologados em ${row.ano}` : 'Sem valores'}
+        note={row.valor_final_total ? `${formatMoney(row.valor_final_total)} ${rotuloPeriodoLicitacoes(row.ano)}` : 'Sem valores'}
       />
       <AdminMetricCard
         label="Modalidade mais comum"
