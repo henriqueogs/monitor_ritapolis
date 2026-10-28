@@ -98,6 +98,9 @@ e devolve só leitura:
   overflow da fila de conexões) e drops da interface, além de travamentos do
   kernel e avisos de rede na janela. Separa VM estrangulada de problema de rede
   quando a Vercel perde conexão com a API sem erro no Caddy;
+- CPU por processo na mesma amostra do `steal` e CPU acumulada, agrupadas pelo
+  nome (para `node`, só o nome do script: `node:pipeline-worker.js`), sem
+  argumentos nem caminhos. Mostra quem disputa a vCPU quando o `steal` sobe;
 - erros do Caddy (só o campo `msg`) e do `logs/app.log` (JSON do winston:
   contagem por nível e principais mensagens de erro/aviso, sem o meta). Cada
   mensagem vem com a categoria do erro de IA (`timeout`, `limite_provider`,

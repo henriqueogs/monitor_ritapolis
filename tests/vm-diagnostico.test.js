@@ -42,6 +42,21 @@ function criarProcFalso(temp) {
     'TcpExt: SyncookiesSent ListenOverflows ListenDrops TCPTimeouts TCPAbortOnTimeout',
     'TcpExt: 2 6 8 9 1',
   ].join('\n'));
+  // Processos: stat com utime/stime (campos 14 e 15) e cmdline separado por NUL.
+  const processos = [
+    ['101', 'node', 'node\x00/opt/monitor-ritapolis/scripts/render-start.js\x00', 3000, 1000],
+    ['102', 'node', 'node\x00/opt/monitor-ritapolis/scripts/pipeline-worker.js\x00098765\x00', 500, 100],
+    ['103', 'caddy', '/usr/bin/caddy\x00run\x00--config\x00/etc/caddy/Caddyfile\x00', 200, 100],
+  ];
+  for (const [pid, comm, cmdline, utime, stime] of processos) {
+    fs.mkdirSync(path.join(proc, pid));
+    fs.writeFileSync(path.join(proc, pid, 'comm'), `${comm}\n`);
+    fs.writeFileSync(path.join(proc, pid, 'cmdline'), cmdline);
+    fs.writeFileSync(
+      path.join(proc, pid, 'stat'),
+      `${pid} (${comm}) S 1 1 1 0 -1 0 0 0 0 0 ${utime} ${stime} 0 0 20 0 1 0 100 0 0\n`
+    );
+  }
   fs.writeFileSync(path.join(proc, 'net', 'dev'), [
     'Inter-|   Receive                                                |  Transmit',
     ' face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed',
@@ -151,6 +166,17 @@ describe('vm-diagnostico.sh', () => {
     expect(r.stdout).toContain('interface_drops_desde_boot: rx=11 tx=22');
     expect(r.stdout).toContain('travamentos_kernel_na_janela: 1');
     expect(r.stdout).toContain('kernel_rede_na_janela: 1');
+  });
+
+  it('lista o consumo de CPU por processo só com o nome (node: nome do script, sem argumentos)', () => {
+    const r = runDiag('2026-10-18T11:40 2026-10-18T11:50');
+
+    expect(r.stdout).toMatch(/processo: node:render-start\.js cpu_amostra_pct=0\.0 cpu_acumulada_s=40 qtd=1/);
+    expect(r.stdout).toMatch(/processo: node:pipeline-worker\.js cpu_amostra_pct=0\.0 cpu_acumulada_s=6 qtd=1/);
+    expect(r.stdout).toMatch(/processo: caddy cpu_amostra_pct=0\.0 cpu_acumulada_s=3 qtd=1/);
+    // Ordem: maior CPU acumulada primeiro (empate na amostra).
+    expect(r.stdout.indexOf('node:render-start.js')).toBeLessThan(r.stdout.indexOf('node:pipeline-worker.js'));
+    expect(r.stdout).not.toMatch(/98765|Caddyfile|\/opt\/monitor/);
   });
 
   it('recusa parâmetro fora do formato sem executar nada (injeção pelo SSH_ORIGINAL_COMMAND)', () => {
