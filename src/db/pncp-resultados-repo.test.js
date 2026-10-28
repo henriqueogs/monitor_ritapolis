@@ -98,6 +98,29 @@ describe('pncp-resultados-repo', () => {
     expect(somaPorAno(2025)).toBe(2000);
   });
 
+  it('troca de documento canônico entre execuções não deixa o processo somado duas vezes', () => {
+    // fiscal-valores 28/10 (reauditoria), achado 4: semana 1 só o doc do PNCP tinha numero_pncp
+    // e recebeu 2000; na semana 2 o edital local ganhou o número pelo texto e virou canônico.
+    const pncp = seedDocumento({ fonte: 'pncp', detalhes: {} });
+    gravarResultadoPncp(escolherDocumentoCanonico(listarDocumentosPorNumeroPncp(CONTROLE)).id, RESULTADO_UNICO);
+    const site = seedDocumento({ fonte: 'site_prefeitura', detalhes: { valor_final: 900, origem: 'texto_ia' } });
+    const outroLocal = seedDocumento({ fonte: 'site_prefeitura', detalhes: { valor_final: 750, origem: 'texto_ia' } });
+
+    const canonico = escolherDocumentoCanonico(listarDocumentosPorNumeroPncp(CONTROLE));
+    gravarResultadoPncp(canonico.id, RESULTADO_UNICO);
+
+    expect(canonico.id).toBe(site);
+    expect(somaPorAno(2025)).toBe(2000);
+    for (const id of [pncp, outroLocal]) {
+      expect(detalhes(id)).toMatchObject({
+        valor_final: null,
+        vencedor_nome: null,
+        data_homologacao: null,
+        origem_detalhe: 'pncp_resultados_nao_canonico',
+      });
+    }
+  });
+
   it('troca a origem e limpa o trecho/confiança do valor anterior (empenho ou texto)', () => {
     const id = seedDocumento({
       fonte: 'site_prefeitura',

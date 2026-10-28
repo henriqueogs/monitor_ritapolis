@@ -3745,6 +3745,9 @@ function getInteligenciaPanorama() {
         lc.categoria,
         COUNT(*) AS total,
         ROUND(COALESCE(SUM(${VF_LD}), 0), 2) AS valor_final_total,
+        -- §11.1: período coberto pela soma (só documentos que têm valor final).
+        MIN(CASE WHEN ${VF_LD} IS NOT NULL THEN d.ano END) AS ano_min_valor_final,
+        MAX(CASE WHEN ${VF_LD} IS NOT NULL THEN d.ano END) AS ano_max_valor_final,
         ROUND(COALESCE(SUM(d.valor_estimado), 0), 2) AS valor_estimado_total,
         COUNT(CASE WHEN ld.vencedor_nome IS NOT NULL AND ld.vencedor_nome <> '' THEN 1 END) AS com_vencedor
       FROM licitacoes_categorias lc
