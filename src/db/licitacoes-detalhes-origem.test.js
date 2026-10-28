@@ -182,6 +182,25 @@ describe('licitacoes_detalhes: origem descreve o valor_final', () => {
     expect(detalhes(id)).toMatchObject({ valor_final: 500, origem: 'texto_ata', origem_detalhe: 'ata.pdf' });
   });
 
+  it('valor regravado depois do gate mantém o rastro valor_final_invalidado', () => {
+    // Arrange: scripts/aplicar-gate-valores.js zera o valor e anota o motivo em origem_detalhe.
+    const id = seedDocumento({
+      origem: 'texto_contrato',
+      origem_detalhe: 'contrato.pdf | valor_final_invalidado(900000,acima_do_teto)',
+    });
+    resumoComValor(id, 900000);
+
+    // Act
+    extractEntitiesFromResumes();
+
+    // Assert
+    expect(detalhes(id)).toMatchObject({
+      valor_final: 900000,
+      origem: 'resumo_ai',
+      origem_detalhe: 'valor_final_invalidado(900000,acima_do_teto)',
+    });
+  });
+
   describe('coleta (saveDocumento)', () => {
     it('sem valor não troca a origem do valor existente', () => {
       // Arrange
