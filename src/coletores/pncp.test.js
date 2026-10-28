@@ -128,3 +128,27 @@ test('ata persistence uses official consulta object/identity and does not invent
     objetoCompra: 'Objeto oficial do teste', anoAta: 2026 }, orgao, {});
   expect(c.salvarDocumento.mock.calls[1][0].hash_conteudo).toBe(originalHash);
 });
+test('compra grava o número de controle PNCP nos detalhes (é a chave da sincronização de vencedores)', () => {
+  const collector = new Pncp();
+  collector.salvarDocumento = jest.fn();
+
+  collector.salvarCompra(
+    {
+      numeroControlePNCP: '18557553000105-1-000001/2025',
+      anoCompra: 2025,
+      sequencialCompra: 1,
+      codigoModalidadeContratacao: 6,
+      objetoCompra: 'Objeto oficial',
+      situacaoCompraNome: 'Divulgada no PNCP',
+    },
+    orgao,
+    {}
+  );
+
+  expect(collector.salvarDocumento).toHaveBeenCalledWith(
+    expect.objectContaining({
+      licitacao_detalhes: expect.objectContaining({ numero_pncp: '18557553000105-1-000001/2025' }),
+    }),
+    {}
+  );
+});
