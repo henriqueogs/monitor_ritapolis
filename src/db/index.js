@@ -43,6 +43,7 @@ const aiJobsRepo = require('./ai-jobs-repo');
 const documentosRepo = require('./documentos-repo');
 const produtosRepo = require('./produtos-repo');
 const inteligenciaFatosRepo = require('./inteligencia-fatos-repo');
+const { normalizarControlePncp } = require('../licitacoes/pncp-resultados');
 
 // Desestrutura helpers do documentos-repo para uso nas funções restantes
 const {
@@ -1404,7 +1405,7 @@ function upsertLicitacaoDetalhesExtraidos(documento, detalhes) {
       vencedor_nome: detalhes.vencedor_nome || null,
       vencedor_cnpj: detalhes.vencedor_cnpj || null,
       valor_final: detalhes.valor_final ?? null,
-      numero_pncp: detalhes.numero_pncp || null,
+      numero_pncp: normalizarControlePncp(detalhes.numero_pncp),
       data_homologacao: detalhes.data_homologacao || null,
       origem: detalhes.origem || null,
       origem_detalhe: detalhes.origem_detalhe || null,
@@ -2943,7 +2944,7 @@ function saveDocumento(documento) {
       vencedor_nome: documento.licitacao_detalhes.vencedor_nome || null,
       vencedor_cnpj: documento.licitacao_detalhes.vencedor_cnpj || null,
       valor_final: documento.licitacao_detalhes.valor_final ?? null,
-      numero_pncp: documento.licitacao_detalhes.numero_pncp || null,
+      numero_pncp: normalizarControlePncp(documento.licitacao_detalhes.numero_pncp),
       data_homologacao: documento.licitacao_detalhes.data_homologacao || null,
       origem: documento.licitacao_detalhes.origem || null,
       origem_detalhe: documento.licitacao_detalhes.origem_detalhe || null,

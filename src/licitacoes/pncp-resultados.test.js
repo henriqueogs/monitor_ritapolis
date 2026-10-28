@@ -2,6 +2,7 @@
 
 const {
   parseControleCompra,
+  normalizarControlePncp,
   consolidarResultadosCompra,
   escolherDocumentoCanonico,
 } = require('./pncp-resultados');
@@ -210,5 +211,20 @@ describe('pncp-resultados', () => {
       expect(escolherDocumentoCanonico([{ id: 9, fonte: 'pncp' }])).toEqual({ id: 9, fonte: 'pncp' });
       expect(escolherDocumentoCanonico([])).toBeNull();
     });
+  });
+});
+
+describe('normalizarControlePncp', () => {
+  it('completa o sequencial com zeros até 6 dígitos', () => {
+    expect(normalizarControlePncp(' 00000000000191-1-10/2025 ')).toBe('00000000000191-1-000010/2025');
+  });
+
+  it('mantém o número já no formato do PNCP', () => {
+    expect(normalizarControlePncp('00000000000191-1-000010/2025')).toBe('00000000000191-1-000010/2025');
+  });
+
+  it('vazio vira null e formato desconhecido fica como veio', () => {
+    expect(normalizarControlePncp('')).toBeNull();
+    expect(normalizarControlePncp('abc')).toBe('abc');
   });
 });

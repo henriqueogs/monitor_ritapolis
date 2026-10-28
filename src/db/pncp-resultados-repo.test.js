@@ -214,6 +214,22 @@ describe('pncp-resultados-repo', () => {
     expect(detalhes(site)).toMatchObject({ valor_final: 2000, origem_detalhe: 'pncp_resultados' });
   });
 
+  it('número com sequencial fora do padrão (texto/OCR) é o mesmo processo', () => {
+    // fiscal-valores 28/10, achado 4b: '-00001/' não casava com '-000001/' e o ano somava 2800.
+    const { upsertLicitacaoDetalhesExtraidos } = require('./index');
+    const site = seedDocumento({ fonte: 'site_prefeitura', detalhes: {} });
+    gravarResultadoPncp(site, RESULTADO_UNICO);
+    const variante = seedDocumento({ fonte: 'site_prefeitura', detalhes: { numero_pncp: null } });
+
+    upsertLicitacaoDetalhesExtraidos(
+      { id: variante },
+      { valor_final: 800, origem: 'texto_regex', numero_pncp: CONTROLE.replace('-000001/', '-00001/') }
+    );
+
+    expect(somaPorAno(2025)).toBe(2000);
+    expect(detalhes(variante)).toMatchObject({ numero_pncp: CONTROLE, valor_final: null });
+  });
+
   it('troca a origem e limpa o trecho/confiança do valor anterior (empenho ou texto)', () => {
     const id = seedDocumento({
       fonte: 'site_prefeitura',

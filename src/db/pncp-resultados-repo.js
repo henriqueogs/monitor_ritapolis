@@ -9,6 +9,7 @@
 const { db } = require('./connection');
 const logger = require('../logger');
 const { aplicarGatePlausibilidadeItemProcesso } = require('./produtos-plausibilidade-repo');
+const { normalizarControlePncp } = require('../licitacoes/pncp-resultados');
 
 const ORIGEM_PNCP = 'pncp_orgaos';
 const ORIGEM_DETALHE_RESULTADOS = 'pncp_resultados';
@@ -23,7 +24,7 @@ function listarDocumentosPorNumeroPncp(numeroPncp) {
        WHERE ld.numero_pncp = ?
        ORDER BY d.id`
     )
-    .all(String(numeroPncp));
+    .all(normalizarControlePncp(numeroPncp));
 }
 
 const ORIGEM_DETALHE_NAO_CANONICO = 'pncp_resultados_nao_canonico';
@@ -81,7 +82,7 @@ function gravarResultadoPncp(documentoId, dados) {
   }
   const id = Number(documentoId);
   const agora = new Date().toISOString();
-  const numeroPncp = dados.numero_pncp || null;
+  const numeroPncp = normalizarControlePncp(dados.numero_pncp);
   let changes = 0;
   db.exec('BEGIN');
   try {

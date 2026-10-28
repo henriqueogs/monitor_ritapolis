@@ -23,6 +23,19 @@ function parseControleCompra(controle) {
   return { cnpj: m[1], ano: Number(m[3]), sequencial: Number(m[2]) };
 }
 
+const RE_CONTROLE_SOLTO = /^(\d{14})-(\d)-(\d{1,8})\/(\d{4})$/;
+const DIGITOS_SEQUENCIAL = 6;
+
+// Número de controle como o PNCP publica (sequencial com 6 dígitos): é a chave do documento
+// canônico e dos triggers; '-00010/' e '-000010/' tem de ser o mesmo processo.
+function normalizarControlePncp(controle) {
+  const texto = String(controle || '').trim();
+  const m = RE_CONTROLE_SOLTO.exec(texto);
+  if (!m) {return texto || null;}
+  const sequencial = String(Number(m[3])).padStart(DIGITOS_SEQUENCIAL, '0');
+  return `${m[1]}-${m[2]}-${sequencial}/${m[4]}`;
+}
+
 function apenasDigitos(valor) {
   return String(valor || '').replace(/\D/g, '');
 }
@@ -121,4 +134,9 @@ function escolherDocumentoCanonico(documentos = []) {
   )[0];
 }
 
-module.exports = { parseControleCompra, consolidarResultadosCompra, escolherDocumentoCanonico };
+module.exports = {
+  parseControleCompra,
+  normalizarControlePncp,
+  consolidarResultadosCompra,
+  escolherDocumentoCanonico,
+};
