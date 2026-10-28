@@ -1,6 +1,10 @@
 'use strict';
 
-const { parseControleCompra, consolidarResultadosCompra } = require('./pncp-resultados');
+const {
+  parseControleCompra,
+  consolidarResultadosCompra,
+  escolherDocumentoCanonico,
+} = require('./pncp-resultados');
 
 function resultado(campos = {}) {
   return {
@@ -119,10 +123,92 @@ describe('pncp-resultados', () => {
       expect(r.valor_final).toBeNull();
     });
 
+    it('registro de preços: só o 1º classificado do item conta (classificados e reserva não somam)', () => {
+      // fiscal-valores 28/10, achado 1: três resultados SRP somavam 3300 em vez de 1000.
+      const itens = [
+        {
+          numeroItem: 1,
+          temResultado: true,
+          quantidade: 10,
+          resultados: [
+            resultado({ ordemClassificacaoSrp: 1, valorTotalHomologado: 1000 }),
+            resultado({ ordemClassificacaoSrp: 2, niFornecedor: '99888777000166', valorTotalHomologado: 1100 }),
+            resultado({ ordemClassificacaoSrp: 3, niFornecedor: '55444333000122', valorTotalHomologado: 1200 }),
+          ],
+        },
+      ];
+
+      const r = consolidarResultadosCompra(itens);
+
+      expect(r.valor_final).toBe(1000);
+      expect(r.fornecedores).toBe(1);
+      expect(r.vencedor_cnpj).toBe('11222333000181');
+    });
+
+    it('item dividido entre fornecedores: soma só se as quantidades cabem no item', () => {
+      const dividido = (qtdA, qtdB) => [
+        {
+          numeroItem: 1,
+          temResultado: true,
+          quantidade: 10,
+          resultados: [
+            resultado({ quantidadeHomologada: qtdA, valorTotalHomologado: 600 }),
+            resultado({ niFornecedor: '99888777000166', quantidadeHomologada: qtdB, valorTotalHomologado: 400 }),
+          ],
+        },
+      ];
+
+      expect(consolidarResultadosCompra(dividido(6, 4)).valor_final).toBe(1000);
+      expect(consolidarResultadosCompra(dividido(10, 10)).valor_final).toBeNull();
+      expect(consolidarResultadosCompra(dividido(undefined, undefined)).valor_final).toBeNull();
+    });
+
+    it('temResultado sem resultado válido (vazio ou só cancelado) deixa a compra pendente', () => {
+      // fiscal-valores 28/10, achado 2: contava como fechado e subestimava o total.
+      const itens = [
+        { numeroItem: 1, temResultado: true, resultados: [resultado()] },
+        { numeroItem: 2, temResultado: true, resultados: [] },
+      ];
+      const soCancelado = [
+        { numeroItem: 1, temResultado: true, resultados: [resultado()] },
+        { numeroItem: 2, temResultado: true, resultados: [resultado({ situacaoCompraItemResultadoId: 2 })] },
+      ];
+
+      expect(consolidarResultadosCompra(itens).valor_final).toBeNull();
+      expect(consolidarResultadosCompra(soCancelado).valor_final).toBeNull();
+    });
+
+    it('valor homologado vazio ou não numérico é desconhecido, não zero', () => {
+      // fiscal-valores 28/10, achado 3: Number('') === 0.
+      const itens = (valor) => [{ numeroItem: 1, temResultado: true, resultados: [resultado({ valorTotalHomologado: valor })] }];
+
+      expect(consolidarResultadosCompra(itens('')).valor_final).toBeNull();
+      expect(consolidarResultadosCompra(itens('abc')).valor_final).toBeNull();
+      expect(consolidarResultadosCompra(itens('1500.25')).valor_final).toBe(1500.25);
+    });
+
     it('sem nenhum resultado: tudo null (nada a gravar)', () => {
       const r = consolidarResultadosCompra([{ numeroItem: 1, temResultado: false, resultados: [] }]);
 
       expect(r).toMatchObject({ vencedor_nome: null, valor_final: null, itens_com_resultado: 0 });
+    });
+  });
+
+  describe('escolherDocumentoCanonico', () => {
+    // fiscal-valores 28/10, achado 4: dois documentos do mesmo processo somavam duas vezes.
+    it('prefere o documento local (site) ao que o coletor do PNCP trouxe, e o de menor id', () => {
+      const docs = [
+        { id: 9, fonte: 'pncp' },
+        { id: 7, fonte: 'site_prefeitura' },
+        { id: 3, fonte: 'site_prefeitura' },
+      ];
+
+      expect(escolherDocumentoCanonico(docs)).toEqual({ id: 3, fonte: 'site_prefeitura' });
+    });
+
+    it('sem documento local, usa o do PNCP; lista vazia dá null', () => {
+      expect(escolherDocumentoCanonico([{ id: 9, fonte: 'pncp' }])).toEqual({ id: 9, fonte: 'pncp' });
+      expect(escolherDocumentoCanonico([])).toBeNull();
     });
   });
 });

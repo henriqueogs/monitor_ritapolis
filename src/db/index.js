@@ -1412,53 +1412,6 @@ function upsertLicitacaoDetalhesExtraidos(documento, detalhes) {
   return result.changes || 0;
 }
 
-function getDocumentoByNumeroPncp(numeroPncp) {
-  if (!numeroPncp) {return null;}
-  return (
-    db
-      .prepare(
-        `SELECT d.id, d.numero, d.ano, d.titulo, d.fonte, d.tipo
-         FROM documentos d
-         JOIN licitacoes_detalhes ld ON ld.documento_id = d.id
-         WHERE ld.numero_pncp = ?
-         LIMIT 1`
-      )
-      .get(String(numeroPncp)) || null
-  );
-}
-
-function upsertDadosPncp(documentoId, { vencedor_nome, vencedor_cnpj, valor_final, numero_pncp, data_resultado } = {}) {
-  const now = new Date().toISOString();
-  return (
-    db
-      .prepare(
-        `INSERT INTO licitacoes_detalhes (documento_id, vencedor_nome, vencedor_cnpj, valor_final, numero_pncp, data_homologacao, origem, atualizado_em)
-         VALUES (@documento_id, @vencedor_nome, @vencedor_cnpj, @valor_final, @numero_pncp, @data_homologacao, 'pncp_orgaos', @atualizado_em)
-         ON CONFLICT(documento_id) DO UPDATE SET
-           vencedor_nome = CASE WHEN @vencedor_nome IS NOT NULL THEN @vencedor_nome ELSE licitacoes_detalhes.vencedor_nome END,
-           vencedor_cnpj = CASE WHEN @vencedor_cnpj IS NOT NULL THEN @vencedor_cnpj ELSE licitacoes_detalhes.vencedor_cnpj END,
-           valor_final   = CASE WHEN @valor_final IS NOT NULL THEN @valor_final ELSE licitacoes_detalhes.valor_final END,
-           numero_pncp   = COALESCE(licitacoes_detalhes.numero_pncp, @numero_pncp),
-           data_homologacao = CASE WHEN @data_homologacao IS NOT NULL AND licitacoes_detalhes.data_homologacao IS NULL THEN @data_homologacao ELSE licitacoes_detalhes.data_homologacao END,
-           origem        = CASE
-             WHEN licitacoes_detalhes.vencedor_nome IS NULL OR IFNULL(licitacoes_detalhes.origem, '') LIKE 'texto_%'
-             THEN 'pncp_orgaos'
-             ELSE licitacoes_detalhes.origem
-           END,
-           atualizado_em = @atualizado_em`
-      )
-      .run({
-        documento_id: Number(documentoId),
-        vencedor_nome: vencedor_nome || null,
-        vencedor_cnpj: vencedor_cnpj || null,
-        valor_final: valor_final ?? null,
-        numero_pncp: numero_pncp || null,
-        data_homologacao: data_resultado || null,
-        atualizado_em: now
-      }).changes || 0
-  );
-}
-
 function estruturarDetalhesLicitacoes({ ano = new Date().getFullYear(), limite } = {}) {
   const filters = ["d.tipo = 'edital'", "IFNULL(d.texto_completo, '') <> ''"];
   const params = {};
@@ -4128,8 +4081,6 @@ module.exports = {
   getFornecedoresRanking,
   getProdutosGruposComparaveis,
   getEvolucaoPrecoGrupo,
-  getDocumentoByNumeroPncp,
-  upsertDadosPncp,
   // Re-exports de coletas-repo.js
   ...coletasRepo,
   // Re-exports de ai-jobs-repo.js

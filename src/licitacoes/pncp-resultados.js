@@ -7,11 +7,15 @@
 // Formato "<CNPJ do órgão, 14 dígitos>-1-<sequencial, 6 dígitos>/<ano>": o 1 indica compra.
 const RE_CONTROLE_COMPRA = /^(\d{14})-1-(\d{6})\/(\d{4})$/;
 
-// situacaoCompraItem do PNCP: 1 = em andamento. 3 (anulado/revogado/cancelado),
-// 4 (deserto) e 5 (fracassado) encerram o item sem fornecedor.
+// situacaoCompraItem do PNCP: 3 (anulado/revogado/cancelado), 4 (deserto) e
+// 5 (fracassado) encerram o item sem fornecedor.
 const ITEM_ENCERRADO_SEM_RESULTADO = new Set([3, 4, 5]);
 // situacaoCompraItemResultadoId: 2 = resultado cancelado (não vale como homologado).
 const RESULTADO_CANCELADO = 2;
+// Registro de preços: só o 1º classificado é o adjudicado; 2º, 3º e cadastro
+// reserva também vêm como resultado do item e não podem somar.
+const PRIMEIRO_CLASSIFICADO = 1;
+const FONTE_PNCP = 'pncp';
 
 function parseControleCompra(controle) {
   const m = RE_CONTROLE_COMPRA.exec(String(controle || '').trim());
@@ -23,25 +27,50 @@ function apenasDigitos(valor) {
   return String(valor || '').replace(/\D/g, '');
 }
 
-function resultadosValidos(item) {
-  return (item.resultados || []).filter(
-    (r) => Number(r.situacaoCompraItemResultadoId) !== RESULTADO_CANCELADO && apenasDigitos(r.niFornecedor)
-  );
+// Número oficial ou null: '' e texto não numérico são desconhecidos, nunca zero.
+function numeroOficial(valor) {
+  if (typeof valor === 'number') {return Number.isFinite(valor) ? valor : null;}
+  if (typeof valor !== 'string' || valor.trim() === '') {return null;}
+  const n = Number(valor);
+  return Number.isFinite(n) ? n : null;
 }
 
-function itemFechado(item, validos) {
-  if (validos.length > 0 || item.temResultado) {return true;}
-  // Sem resultado: só conta como fechado se o PNCP disser que encerrou sem fornecedor.
-  // Situação desconhecida ou em andamento é tratada como pendente (conservador).
-  return ITEM_ENCERRADO_SEM_RESULTADO.has(Number(item.situacaoCompraItem));
+// Resultados que contam como adjudicação do item.
+function resultadosVencedores(item) {
+  return (item.resultados || []).filter((r) => {
+    if (Number(r.situacaoCompraItemResultadoId) === RESULTADO_CANCELADO) {return false;}
+    if (!apenasDigitos(r.niFornecedor)) {return false;}
+    const ordem = r.ordemClassificacaoSrp;
+    return ordem === null || ordem === undefined || Number(ordem) === PRIMEIRO_CLASSIFICADO;
+  });
+}
+
+// Fechado = tem adjudicação ou o PNCP encerrou o item sem fornecedor. temResultado
+// sem resultado válido (lista vazia, só cancelado) fica pendente.
+function itemFechado(item, vencedores) {
+  return vencedores.length > 0 || ITEM_ENCERRADO_SEM_RESULTADO.has(Number(item.situacaoCompraItem));
+}
+
+// Valor homologado do item, ou null se não dá para afirmar o total sem dupla contagem.
+function valorDoItem(item, vencedores) {
+  const valores = vencedores.map((r) => numeroOficial(r.valorTotalHomologado));
+  if (valores.some((v) => v === null)) {return null;}
+  if (vencedores.length > 1) {
+    // Item dividido entre fornecedores: só soma se as quantidades cabem no item.
+    const quantidades = vencedores.map((r) => numeroOficial(r.quantidadeHomologada));
+    const quantidadeItem = numeroOficial(item.quantidade);
+    if (quantidadeItem === null || quantidades.some((q) => q === null)) {return null;}
+    if (quantidades.reduce((a, b) => a + b, 0) > quantidadeItem + 1e-9) {return null;}
+  }
+  return valores.reduce((a, b) => a + b, 0);
 }
 
 /**
  * Consolida os resultados de todos os itens de uma compra.
- * - Só grava algo quando a compra está fechada (nenhum item em andamento).
- * - Vencedor só quando um único fornecedor (CNPJ) venceu todos os itens com resultado.
- * - valor_final = soma do valorTotalHomologado; null se algum resultado não tem valor
- *   (valor desconhecido é null, nunca zero).
+ * - Só grava algo quando a compra está fechada (nenhum item pendente).
+ * - Vencedor só quando um único fornecedor (CNPJ) venceu todos os itens adjudicados.
+ * - valor_final = soma do valor homologado dos adjudicados; null se algum é desconhecido
+ *   ou se um item dividido não fecha a quantidade.
  */
 function consolidarResultadosCompra(itens = []) {
   const fornecedores = new Map();
@@ -52,18 +81,15 @@ function consolidarResultadosCompra(itens = []) {
   let fechada = itens.length > 0;
 
   for (const item of itens) {
-    const validos = resultadosValidos(item);
-    if (!itemFechado(item, validos)) {fechada = false;}
-    if (validos.length) {itensComResultado += 1;}
-    for (const r of validos) {
+    const vencedores = resultadosVencedores(item);
+    if (!itemFechado(item, vencedores)) {fechada = false;}
+    if (!vencedores.length) {continue;}
+    itensComResultado += 1;
+    const valor = valorDoItem(item, vencedores);
+    if (valor === null) {somaCompleta = false;} else {soma += valor;}
+    for (const r of vencedores) {
       const cnpj = apenasDigitos(r.niFornecedor);
       if (!fornecedores.has(cnpj)) {fornecedores.set(cnpj, r.nomeRazaoSocialFornecedor || null);}
-      const valor = Number(r.valorTotalHomologado);
-      if (r.valorTotalHomologado === null || r.valorTotalHomologado === undefined || !Number.isFinite(valor)) {
-        somaCompleta = false;
-      } else {
-        soma += valor;
-      }
       const data = String(r.dataResultado || '').slice(0, 10) || null;
       if (data && (!dataResultado || data > dataResultado)) {dataResultado = data;}
     }
@@ -82,4 +108,17 @@ function consolidarResultadosCompra(itens = []) {
   };
 }
 
-module.exports = { parseControleCompra, consolidarResultadosCompra };
+/**
+ * Um processo pode ter mais de um documento com o mesmo numero_pncp (edital do site
+ * e a compra trazida pelo coletor do PNCP). O resultado vai para um só, senão os
+ * agregados por ano somam o processo duas vezes: o documento local, de menor id;
+ * sem documento local, o do PNCP.
+ */
+function escolherDocumentoCanonico(documentos = []) {
+  if (!documentos.length) {return null;}
+  return [...documentos].sort(
+    (a, b) => Number(a.fonte === FONTE_PNCP) - Number(b.fonte === FONTE_PNCP) || a.id - b.id
+  )[0];
+}
+
+module.exports = { parseControleCompra, consolidarResultadosCompra, escolherDocumentoCanonico };

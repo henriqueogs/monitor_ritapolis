@@ -18,9 +18,11 @@ function criarDeps(sobrescrever = {}) {
       yield { modalidade: 6, items: [{ numeroControlePNCP: CONTROLE }, { numeroControlePNCP: 'sem-doc-local' }] };
     },
     extrairNumeroPncp: (item) => item.numeroControlePNCP,
-    getDocumentoByNumeroPncp: jest.fn((numero) => (numero === CONTROLE ? { id: 42 } : null)),
+    listarDocumentosPorNumeroPncp: jest.fn((numero) =>
+      numero === CONTROLE ? [{ id: 50, fonte: 'pncp' }, { id: 42, fonte: 'site_prefeitura' }] : []
+    ),
     buscarItensComResultados: jest.fn(async () => [itemFechado('11222333000181', 1500)]),
-    upsertDadosPncp: jest.fn(() => 1),
+    gravarResultadoPncp: jest.fn(() => 1),
     ...sobrescrever,
   };
 }
@@ -40,9 +42,12 @@ describe('sincronizarVencedoresPncp', () => {
       ano: 2025,
       sequencial: 1,
     });
-    expect(deps.upsertDadosPncp).toHaveBeenCalledWith(42, {
+    // Grava só no documento canônico (o do site), nunca nos dois do mesmo processo.
+    expect(deps.gravarResultadoPncp).toHaveBeenCalledTimes(1);
+    expect(deps.gravarResultadoPncp).toHaveBeenCalledWith(42, {
       vencedor_nome: 'Fornecedor A',
       vencedor_cnpj: '11222333000181',
+      multiplos_fornecedores: false,
       valor_final: 1500,
       numero_pncp: CONTROLE,
       data_resultado: null,
@@ -64,8 +69,35 @@ describe('sincronizarVencedoresPncp', () => {
 
     const stats = await sincronizarVencedoresPncp({ cnpjs: ['18557553000105'], anos: [2025] }, deps);
 
-    expect(deps.upsertDadosPncp).not.toHaveBeenCalled();
+    expect(deps.gravarResultadoPncp).not.toHaveBeenCalled();
     expect(stats.sem_resultado).toBe(1);
+  });
+
+  it('vencedor sem valor homologado conhecido não grava (origem do valor não mistura)', async () => {
+    const deps = criarDeps({
+      buscarItensComResultados: jest.fn(async () => [itemFechado('11222333000181', null)]),
+    });
+
+    const stats = await sincronizarVencedoresPncp({ cnpjs: ['18557553000105'], anos: [2025] }, deps);
+
+    expect(deps.gravarResultadoPncp).not.toHaveBeenCalled();
+    expect(stats.sem_resultado).toBe(1);
+  });
+
+  it('vários fornecedores: grava o total e sinaliza para apagar o vencedor único antigo', async () => {
+    const deps = criarDeps({
+      buscarItensComResultados: jest.fn(async () => [
+        itemFechado('11222333000181', 1000),
+        { ...itemFechado('99888777000166', 500), numeroItem: 2 },
+      ]),
+    });
+
+    await sincronizarVencedoresPncp({ cnpjs: ['18557553000105'], anos: [2025] }, deps);
+
+    expect(deps.gravarResultadoPncp).toHaveBeenCalledWith(
+      42,
+      expect.objectContaining({ vencedor_nome: null, multiplos_fornecedores: true, valor_final: 1500 })
+    );
   });
 
   it('dry-run conta o que seria gravado sem gravar', async () => {
@@ -76,7 +108,7 @@ describe('sincronizarVencedoresPncp', () => {
       deps
     );
 
-    expect(deps.upsertDadosPncp).not.toHaveBeenCalled();
+    expect(deps.gravarResultadoPncp).not.toHaveBeenCalled();
     expect(stats.atualizadas).toBe(1);
   });
 

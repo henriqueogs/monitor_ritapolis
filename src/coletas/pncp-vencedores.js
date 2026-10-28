@@ -3,22 +3,27 @@
 // Sincronização de vencedores e valores homologados do PNCP para os documentos
 // locais (licitacoes_detalhes). Orquestra: consulta de contratações por órgão/ano
 // → casa pelo número de controle PNCP → itens/resultados → regra pura de
-// consolidação (src/licitacoes/pncp-resultados.js) → upsertDadosPncp.
+// consolidação e documento canônico (src/licitacoes/pncp-resultados.js) →
+// gravação (src/db/pncp-resultados-repo.js).
 //
 // Achado 28/10/2026: a versão anterior, dentro do daily-scheduler, chamava o
 // gerador com a assinatura errada, tratava lotes como contratações e chamava uma
 // função de banco inexistente; registrava "ok" toda semana com 0 atualizações.
 
 const pncpOrgaos = require('../integracoes/pncp-orgaos');
-const db = require('../db');
-const { parseControleCompra, consolidarResultadosCompra } = require('../licitacoes/pncp-resultados');
+const pncpRepo = require('../db/pncp-resultados-repo');
+const {
+  parseControleCompra,
+  consolidarResultadosCompra,
+  escolherDocumentoCanonico,
+} = require('../licitacoes/pncp-resultados');
 
 const DEPS_PADRAO = {
   gerarContratacoesPorCnpj: pncpOrgaos.gerarContratacoesPorCnpj,
   extrairNumeroPncp: pncpOrgaos.extrairNumeroPncp,
   buscarItensComResultados: pncpOrgaos.buscarItensComResultados,
-  getDocumentoByNumeroPncp: (numero) => db.getDocumentoByNumeroPncp(numero),
-  upsertDadosPncp: (id, dados) => db.upsertDadosPncp(id, dados),
+  listarDocumentosPorNumeroPncp: pncpRepo.listarDocumentosPorNumeroPncp,
+  gravarResultadoPncp: pncpRepo.gravarResultadoPncp,
 };
 
 function statsVazias() {
@@ -29,7 +34,8 @@ async function processarCompra(numeroPncp, documento, { dryRun, deps, stats }) {
   const controle = parseControleCompra(numeroPncp);
   if (!controle) {return;}
   const consolidado = consolidarResultadosCompra(await deps.buscarItensComResultados(controle));
-  if (!consolidado.vencedor_nome && consolidado.valor_final === null) {
+  // Só compra fechada e precificada: vencedor sem valor deixaria origem/valor misturados.
+  if (consolidado.valor_final === null) {
     stats.sem_resultado += 1;
     return;
   }
@@ -37,9 +43,10 @@ async function processarCompra(numeroPncp, documento, { dryRun, deps, stats }) {
     stats.atualizadas += 1;
     return;
   }
-  const alteradas = deps.upsertDadosPncp(documento.id, {
+  const alteradas = deps.gravarResultadoPncp(documento.id, {
     vencedor_nome: consolidado.vencedor_nome,
     vencedor_cnpj: consolidado.vencedor_cnpj,
+    multiplos_fornecedores: consolidado.fornecedores > 1,
     valor_final: consolidado.valor_final,
     numero_pncp: numeroPncp,
     data_resultado: consolidado.data_resultado,
@@ -53,7 +60,11 @@ async function processarOrgaoAno(cnpj, ano, contexto) {
     for (const item of items) {
       stats.consultadas += 1;
       const numeroPncp = deps.extrairNumeroPncp(item);
-      const documento = numeroPncp ? deps.getDocumentoByNumeroPncp(numeroPncp) : null;
+      // Um documento por processo: gravar em todos os que têm o mesmo numero_pncp
+      // faria os agregados por ano somarem a compra duas vezes.
+      const documento = numeroPncp
+        ? escolherDocumentoCanonico(deps.listarDocumentosPorNumeroPncp(numeroPncp))
+        : null;
       if (!documento) {continue;}
       stats.correspondencias += 1;
       try {
