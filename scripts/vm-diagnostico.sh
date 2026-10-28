@@ -111,9 +111,35 @@ echo "oom_kills_na_janela: $(jctl -k | grep -ciE 'out of memory|killed process')
 echo '== cpu e rede'
 cpu_linha() { awk '$1 == "cpu" { print $2+$3+$4+$5+$6+$7+$8+$9, $9 }' "$PROC_DIR/stat"; }
 pct() { awk -v p="$1" -v t="$2" 'BEGIN { printf "%.1f", (t > 0 ? 100 * p / t : 0) }'; }
+# Nome de processo sem argumentos (IDs, caminhos): para node, só o nome do script .js.
+nome_processo() {
+  local dir="$1" comm arg
+  comm=$(cat "$dir/comm" 2>/dev/null) || return 1
+  if [[ "$comm" == node* ]]; then
+    while IFS= read -r -d '' arg; do
+      if [[ "$arg" == *.js ]]; then echo "node:${arg##*/}"; return 0; fi
+    done < "$dir/cmdline"
+  fi
+  echo "$comm"
+}
+# "pid nome ticks" (utime+stime: campos 14 e 15 do stat; o comm entre parênteses pode ter espaço).
+foto_processos() {
+  local dir stat resto
+  for dir in "$PROC_DIR"/[0-9]*; do
+    stat=$(cat "$dir/stat" 2>/dev/null) || continue
+    resto=${stat##*) }
+    read -r -a campos <<< "$resto"
+    printf '%s %s %s\n' "${dir##*/}" "$(nome_processo "$dir")" $(( campos[11] + campos[12] ))
+  done
+}
 read -r total_1 steal_1 < <(cpu_linha)
+foto_1=$(foto_processos)
+inicio_amostra=$(date +%s.%N)
 sleep "$AMOSTRA_STEAL_S"
 read -r total_2 steal_2 < <(cpu_linha)
+foto_2=$(foto_processos)
+# Intervalo real entre as fotos (o sleep mais o tempo de ler /proc), divisor do % por processo.
+duracao_amostra=$(awk -v a="$inicio_amostra" -v b="$(date +%s.%N)" 'BEGIN { print b - a }')
 echo "cpu_steal_desde_boot_pct: $(pct "$steal_2" "$total_2")"
 echo "cpu_steal_agora_pct: $(pct $((steal_2 - steal_1)) $((total_2 - total_1)))"
 if [[ -r "$PROC_DIR/pressure/cpu" ]]; then
@@ -137,6 +163,21 @@ echo "tcp_ext_desde_boot: listen_overflows=$(valor "$ext" ListenOverflows)" \
 # /proc/net/dev: depois de "iface:", campo 4 = drops recebidos, campo 12 = drops enviados.
 awk -F: 'NR > 2 && $1 !~ /^ *lo$/ { split($2, c, " "); rx += c[4]; tx += c[12] }
   END { printf "interface_drops_desde_boot: rx=%d tx=%d\n", rx, tx }' "$PROC_DIR/net/dev"
+# CPU por processo (agrupado pelo nome): % na mesma amostra do steal e CPU acumulada desde o
+# início de cada processo. Mostra quem disputa a vCPU quando o steal sobe.
+TOP_PROCESSOS=8
+awk -v hz="$(getconf CLK_TCK)" -v amostra="$duracao_amostra" '
+  NR == FNR { antes[$1] = $3; next }
+  { qtd[$2]++; acum[$2] += $3; if ($1 in antes) delta[$2] += $3 - antes[$1] }
+  END {
+    for (n in qtd) {
+      pct = amostra > 0 ? 100 * delta[n] / (hz * amostra) : 0
+      if (pct < 0) pct = 0
+      printf "%012.3f %012d processo: %s cpu_amostra_pct=%.1f cpu_acumulada_s=%d qtd=%d\n",
+        pct, acum[n], n, pct, acum[n] / hz, qtd[n]
+    }
+  }' <(printf '%s\n' "$foto_1") <(printf '%s\n' "$foto_2") |
+  sort -r | head -n "$TOP_PROCESSOS" | cut -d' ' -f3-
 echo "travamentos_kernel_na_janela: $(jctl -k | grep -ciE 'soft lockup|hung_task|rcu.*stall|clocksource.*unstable')"
 echo "kernel_rede_na_janela: $(jctl -k | grep -ciE 'nf_conntrack: table full|SYN flooding|link is down')"
 
