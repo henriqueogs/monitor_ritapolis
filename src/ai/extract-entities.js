@@ -11,6 +11,7 @@
 
 const logger = require('../logger');
 const { db } = require('../db');
+const { SEM_RESULTADO_PNCP, sqlValorComProcedencia } = require('../db/licitacoes-detalhes-sql');
 
 // ── Helpers de extração ───────────────────────────────────────────────────────
 
@@ -56,7 +57,16 @@ function extrairValorEstimado(resumoJson) {
 
 // Linha de resultado do PNCP (src/db/pncp-resultados-repo.js): vencedor/valor null ali é
 // decisão (vários fornecedores, documento não canônico), não lacuna a preencher.
-const SEM_RESULTADO_PNCP = "IFNULL(licitacoes_detalhes.origem_detalhe, '') NOT LIKE 'pncp_resultados%'";
+//
+// origem descreve o valor_final (src/db/licitacoes-detalhes-sql.js): vira 'resumo_ai' quando a
+// IA grava o valor, limpando detalhe/trecho/confiança do escritor anterior; numa linha ainda
+// sem valor nem vencedor, a IA assume a origem do que preencher.
+const SQL_VALOR_IA = sqlValorComProcedencia({
+  gravaValor: `licitacoes_detalhes.valor_final IS NULL AND @valor_final IS NOT NULL AND ${SEM_RESULTADO_PNCP}`,
+  semValor: `licitacoes_detalhes.valor_final IS NULL AND licitacoes_detalhes.vencedor_nome IS NULL
+    AND ${SEM_RESULTADO_PNCP}`,
+  novo: (coluna) => ({ valor_final: '@valor_final', origem: "'resumo_ai'" })[coluna] || 'NULL',
+});
 
 const upsertStmt = db.prepare(`
   INSERT INTO licitacoes_detalhes (documento_id, vencedor_nome, vencedor_cnpj, valor_final, origem, atualizado_em)
@@ -68,11 +78,7 @@ const upsertStmt = db.prepare(`
     vencedor_cnpj = CASE WHEN licitacoes_detalhes.vencedor_cnpj IS NULL AND @vencedor_cnpj IS NOT NULL
                           AND ${SEM_RESULTADO_PNCP}
                          THEN @vencedor_cnpj ELSE licitacoes_detalhes.vencedor_cnpj END,
-    valor_final   = CASE WHEN licitacoes_detalhes.valor_final IS NULL AND @valor_final IS NOT NULL
-                          AND ${SEM_RESULTADO_PNCP}
-                         THEN @valor_final ELSE licitacoes_detalhes.valor_final END,
-    origem        = CASE WHEN licitacoes_detalhes.vencedor_nome IS NULL AND ${SEM_RESULTADO_PNCP}
-                         THEN 'resumo_ai' ELSE licitacoes_detalhes.origem END,
+    ${SQL_VALOR_IA},
     atualizado_em = @now
 `);
 
