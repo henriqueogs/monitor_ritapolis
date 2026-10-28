@@ -122,14 +122,16 @@ nome_processo() {
   fi
   echo "$comm"
 }
-# "pid nome ticks" (utime+stime: campos 14 e 15 do stat; o comm entre parênteses pode ter espaço).
+# "pid nome ticks inicio" (utime+stime: campos 14 e 15 do stat; starttime: campo 22, em ticks
+# desde o boot; o comm entre parênteses pode ter espaço).
 foto_processos() {
   local dir stat resto
   for dir in "$PROC_DIR"/[0-9]*; do
     stat=$(cat "$dir/stat" 2>/dev/null) || continue
     resto=${stat##*) }
     read -r -a campos <<< "$resto"
-    printf '%s %s %s\n' "${dir##*/}" "$(nome_processo "$dir")" $(( campos[11] + campos[12] ))
+    printf '%s %s %s %s\n' "${dir##*/}" "$(nome_processo "$dir")" \
+      $(( campos[11] + campos[12] )) "${campos[19]}"
   done
 }
 read -r total_1 steal_1 < <(cpu_linha)
@@ -163,18 +165,26 @@ echo "tcp_ext_desde_boot: listen_overflows=$(valor "$ext" ListenOverflows)" \
 # /proc/net/dev: depois de "iface:", campo 4 = drops recebidos, campo 12 = drops enviados.
 awk -F: 'NR > 2 && $1 !~ /^ *lo$/ { split($2, c, " "); rx += c[4]; tx += c[12] }
   END { printf "interface_drops_desde_boot: rx=%d tx=%d\n", rx, tx }' "$PROC_DIR/net/dev"
-# CPU por processo (agrupado pelo nome): % na mesma amostra do steal e CPU acumulada desde o
-# início de cada processo. Mostra quem disputa a vCPU quando o steal sobe.
+# CPU por processo (agrupado pelo nome): % na mesma amostra do steal, média desde o início do
+# processo (compara a API, reiniciada a cada deploy, com agentes ligados há meses) e CPU
+# acumulada. Mostra quem disputa a vCPU quando o steal sobe.
 TOP_PROCESSOS=8
-awk -v hz="$(getconf CLK_TCK)" -v amostra="$duracao_amostra" '
+uptime_s=$(cut -d' ' -f1 "$PROC_DIR/uptime")
+awk -v hz="$(getconf CLK_TCK)" -v amostra="$duracao_amostra" -v uptime="$uptime_s" '
   NR == FNR { antes[$1] = $3; next }
-  { qtd[$2]++; acum[$2] += $3; if ($1 in antes) delta[$2] += $3 - antes[$1] }
+  {
+    qtd[$2]++; acum[$2] += $3
+    if ($1 in antes) delta[$2] += $3 - antes[$1]
+    idade = uptime - $4 / hz
+    if (idade > idade_max[$2]) idade_max[$2] = idade
+  }
   END {
     for (n in qtd) {
       pct = amostra > 0 ? 100 * delta[n] / (hz * amostra) : 0
       if (pct < 0) pct = 0
-      printf "%012.3f %012d processo: %s cpu_amostra_pct=%.1f cpu_acumulada_s=%d qtd=%d\n",
-        pct, acum[n], n, pct, acum[n] / hz, qtd[n]
+      media = idade_max[n] > 0 ? 100 * acum[n] / (hz * idade_max[n]) : 0
+      printf "%012.3f %012.3f processo: %s cpu_amostra_pct=%.1f cpu_media_desde_inicio_pct=%.1f cpu_acumulada_s=%d qtd=%d\n",
+        pct, media, n, pct, media, acum[n] / hz, qtd[n]
     }
   }' <(printf '%s\n' "$foto_1") <(printf '%s\n' "$foto_2") |
   sort -r | head -n "$TOP_PROCESSOS" | cut -d' ' -f3-
