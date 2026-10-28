@@ -12,8 +12,17 @@ Ver `QUICK_SUMMARY.md` para o mapa geral dos documentos do projeto.
 
 ## 📍 Status em 28/10/2026 (resumo)
 
-Fonte: `git log` de `master` (PRs #167–#205). Estado de produção (fila de IA,
-flags, VM) **não reverificado** nesta atualização — conferir `/api/saude/pipeline`.
+Fonte: `git log` de `master` (PRs #167–#205) + leitura da produção (VM, só leitura).
+
+**Produção (28/10 22:54 UTC):** `/api/saude/pipeline` `ok`, 0 falhas reais, 0 erros 429.
+Campanha 200/200 docs em 24 h, mas 100% do orçamento (197 min) foi `facts`;
+`sem_resumo_com_texto`=3 (era 545), `documentos_recentes.sem_resumo`=0. Fila:
+`waiting.historical_budget`=1136, `pending` facts 200 / source-check 893, 10 docs
+aguardando revisão. Último resumo ok 26/10 (`nemotron-3-ultra-550b`). Flags:
+`DESCOBERTAS_SCHEDULER_ENABLED=false`; `AI_ASK_ENABLED` não definido (= desligado);
+`sqlite-vec` já instalado na VM. **VM:** vmstat com ~52% de CPU roubada (steal) e
+~30% de iowait, 363 MB disponíveis, swap 189/2047 MB, disco 39% — a VM está
+estrangulada pelo hypervisor, não por falta de RAM.
 
 **Entregue desde 19/10:**
 - **Núcleo agnóstico (Fase 3):** ente/identidade do município em
@@ -39,12 +48,12 @@ flags, VM) **não reverificado** nesta atualização — conferir `/api/saude/pi
 
 1. **Confirmar PNCP em produção:** rodar a sincronização de vencedores, checar
    `valor_homologado` na UI e que nenhum total mistura estágios (§11.1).
-2. **VM lenta/steal:** coletar o diagnóstico novo (`docs/DEPLOY.md`) e decidir se
+2. **VM lenta/steal (confirmado ~52%):** coletar o diagnóstico novo (`docs/DEPLOY.md`) e decidir se
    o gargalo é CPU roubada; só então mexer em paralelismo (A7).
 3. **Resumos (Fase A abaixo):** medir `docs_24h` e `sem_resumo_com_texto` após
    A9/A10; seguir com A3 (`limite_tamanho`), A4 (`contrato_rejeitado`), A6 (alerta
    de ritmo), A5/A8 (fila de revisão, `source-check`/`facts`).
-4. **IA/RAG:** decidir ligar `AI_ASK_ENABLED` (falta `sqlite-vec` na VM, indexar,
+4. **IA/RAG:** decidir ligar `AI_ASK_ENABLED` (`sqlite-vec` já na VM; falta indexar,
    dataset real de 30–50 perguntas para o eval).
 5. **Na Lupa:** avaliar fila de revisão com o mantenedor, novo lote de 20, depois
    religar `DESCOBERTAS_SCHEDULER_ENABLED`.
