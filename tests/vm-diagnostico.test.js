@@ -43,18 +43,20 @@ function criarProcFalso(temp) {
     'TcpExt: 2 6 8 9 1',
   ].join('\n'));
   // Processos: stat com utime/stime (campos 14 e 15) e cmdline separado por NUL.
+  // starttime em ticks desde o boot (CLK_TCK 100); uptime 1001 s. Idades: 100 s, 10 s, 1000 s.
+  fs.writeFileSync(path.join(proc, 'uptime'), '1001.00 500.00\n');
   const processos = [
-    ['101', 'node', 'node\x00/opt/monitor-ritapolis/scripts/render-start.js\x00', 3000, 1000],
-    ['102', 'node', 'node\x00/opt/monitor-ritapolis/scripts/pipeline-worker.js\x00098765\x00', 500, 100],
-    ['103', 'caddy', '/usr/bin/caddy\x00run\x00--config\x00/etc/caddy/Caddyfile\x00', 200, 100],
+    ['101', 'node', 'node\x00/opt/monitor-ritapolis/scripts/render-start.js\x00', 3000, 1000, 90100],
+    ['102', 'node', 'node\x00/opt/monitor-ritapolis/scripts/pipeline-worker.js\x00098765\x00', 500, 100, 99100],
+    ['103', 'caddy', '/usr/bin/caddy\x00run\x00--config\x00/etc/caddy/Caddyfile\x00', 200, 100, 100],
   ];
-  for (const [pid, comm, cmdline, utime, stime] of processos) {
+  for (const [pid, comm, cmdline, utime, stime, inicio] of processos) {
     fs.mkdirSync(path.join(proc, pid));
     fs.writeFileSync(path.join(proc, pid, 'comm'), `${comm}\n`);
     fs.writeFileSync(path.join(proc, pid, 'cmdline'), cmdline);
     fs.writeFileSync(
       path.join(proc, pid, 'stat'),
-      `${pid} (${comm}) S 1 1 1 0 -1 0 0 0 0 0 ${utime} ${stime} 0 0 20 0 1 0 100 0 0\n`
+      `${pid} (${comm}) S 1 1 1 0 -1 0 0 0 0 0 ${utime} ${stime} 0 0 20 0 1 0 ${inicio} 0 0\n`
     );
   }
   fs.writeFileSync(path.join(proc, 'net', 'dev'), [
@@ -171,11 +173,16 @@ describe('vm-diagnostico.sh', () => {
   it('lista o consumo de CPU por processo só com o nome (node: nome do script, sem argumentos)', () => {
     const r = runDiag('2026-10-18T11:40 2026-10-18T11:50');
 
-    expect(r.stdout).toMatch(/processo: node:render-start\.js cpu_amostra_pct=0\.0 cpu_acumulada_s=40 qtd=1/);
-    expect(r.stdout).toMatch(/processo: node:pipeline-worker\.js cpu_amostra_pct=0\.0 cpu_acumulada_s=6 qtd=1/);
-    expect(r.stdout).toMatch(/processo: caddy cpu_amostra_pct=0\.0 cpu_acumulada_s=3 qtd=1/);
-    // Ordem: maior CPU acumulada primeiro (empate na amostra).
-    expect(r.stdout.indexOf('node:render-start.js')).toBeLessThan(r.stdout.indexOf('node:pipeline-worker.js'));
+    expect(r.stdout).toMatch(
+      /processo: node:render-start\.js cpu_amostra_pct=0\.0 cpu_media_desde_inicio_pct=40\.0 cpu_acumulada_s=40 qtd=1/
+    );
+    expect(r.stdout).toMatch(
+      /processo: node:pipeline-worker\.js cpu_amostra_pct=0\.0 cpu_media_desde_inicio_pct=60\.0 cpu_acumulada_s=6 qtd=1/
+    );
+    expect(r.stdout).toMatch(/processo: caddy cpu_amostra_pct=0\.0 cpu_media_desde_inicio_pct=0\.3 cpu_acumulada_s=3 qtd=1/);
+    // Empate na amostra: ordena pela média desde o início (processo novo e pesado vem antes do antigo).
+    const ordem = ['node:pipeline-worker.js', 'node:render-start.js', 'processo: caddy'].map((n) => r.stdout.indexOf(n));
+    expect(ordem).toEqual([...ordem].sort((a, b) => a - b));
     expect(r.stdout).not.toMatch(/98765|Caddyfile|\/opt\/monitor/);
   });
 

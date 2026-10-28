@@ -1,8 +1,8 @@
 name: VM diagnóstico
 
 # Diagnóstico somente leitura da VM (deploy.sh, systemd, memória, OOM, Caddy,
-# service.log) numa janela de até 24h. A chave ORACLE_DIAG_SSH_KEY só executa
-# /opt/monitor-ritapolis/report-diagnostico.sh (scripts/vm-diagnostico.sh).
+# CPU/rede, app.log) numa janela de até 24h. A chave ORACLE_DIAG_SSH_KEY só executa
+# scripts/vm-diagnostico.sh do checkout da VM (atualizado a cada deploy).
 # O repositório é público: a saída é só resumo saneado. Ver docs/DEPLOY.md.
 on:
   workflow_dispatch:
@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Diagnóstico via SSH (chave restrita, só roda report-diagnostico.sh)
+      - name: Diagnóstico via SSH (chave restrita, só roda scripts/vm-diagnostico.sh)
         run: |
           mkdir -p ~/.ssh
           echo "$SSH_KEY" > ~/.ssh/diag_key

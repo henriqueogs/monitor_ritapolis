@@ -110,9 +110,11 @@ e devolve só leitura:
   janela estourada. `sem_detalhe` =
   linha sem esse meta; `indisponivel` = checkout da VM ainda sem o classificador.
 
-O script é uma cópia: mudanças em `scripts/vm-diagnostico.sh` só valem depois
-de reinstalar (`cd /opt/monitor-ritapolis && git pull && sudo install -m 755
-scripts/vm-diagnostico.sh /opt/monitor-ritapolis/report-diagnostico.sh`).
+A chave executa direto `scripts/vm-diagnostico.sh` do checkout da VM (desde
+28/10/2026; antes era uma cópia em `report-diagnostico.sh`). Cada deploy do
+backend atualiza o script junto com o código: não há passo de reinstalação.
+Isso dá à chave o mesmo nível de confiança que a VM já dá ao repositório (o
+deploy roda o código do `master` como serviço); continua sendo só leitura.
 
 **O repositório é público e o log do Actions também.** Por isso o script
 (`scripts/vm-diagnostico.sh`) nunca imprime linhas brutas de log nem o meta
@@ -126,11 +128,11 @@ nada na VM. Instalação, uma vez:
 # 1. Na sua máquina: gerar o par (sem senha, uso exclusivo do workflow)
 ssh-keygen -t ed25519 -N '' -C 'monitor-ritapolis-diagnostico' -f ~/.ssh/monitor-ritapolis-diag
 
-# 2. Ainda na sua máquina: instalar o script na VM e autorizar a chave só para ele
+# 2. Ainda na sua máquina: autorizar a chave só para o script do checkout
+#    (bash na frente: o arquivo não é executável no git)
 PUB=$(cat ~/.ssh/monitor-ritapolis-diag.pub)
-ssh -i ~/.ssh/monitor-ritapolis-oracle ubuntu@<IP-da-VM> "cd /opt/monitor-ritapolis && git pull &&
-  sudo install -m 755 scripts/vm-diagnostico.sh /opt/monitor-ritapolis/report-diagnostico.sh &&
-  echo 'command=\"/opt/monitor-ritapolis/report-diagnostico.sh\",restrict $PUB' >> ~/.ssh/authorized_keys"
+ssh -i ~/.ssh/monitor-ritapolis-oracle ubuntu@<IP-da-VM> \
+  "echo 'command=\"bash /opt/monitor-ritapolis/scripts/vm-diagnostico.sh\",restrict $PUB' >> ~/.ssh/authorized_keys"
 
 # 3. Conteúdo para o secret ORACLE_DIAG_SSH_KEY (chave privada)
 cat ~/.ssh/monitor-ritapolis-diag
