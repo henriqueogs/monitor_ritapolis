@@ -1,9 +1,9 @@
 #!/bin/bash
 # Diagnóstico somente leitura da VM, para o workflow vm-diagnostico.yml.
 #
-# Instalado em /opt/monitor-ritapolis/report-diagnostico.sh e preso a uma
-# chave SSH própria (command="...",restrict no authorized_keys): a chave só
-# executa este script. A janela vem do cliente via SSH_ORIGINAL_COMMAND e é
+# Executado direto do checkout da VM (command="bash /opt/monitor-ritapolis/
+# scripts/vm-diagnostico.sh",restrict no authorized_keys): a chave só executa
+# este script, e o deploy o mantém atualizado. A janela vem do cliente via SSH_ORIGINAL_COMMAND e é
 # validada antes de qualquer comando.
 #
 # O repositório é PÚBLICO e os logs do Actions também: a saída é só resumo
