@@ -10,6 +10,51 @@ Ver `QUICK_SUMMARY.md` para o mapa geral dos documentos do projeto.
 
 ---
 
+## 📍 Status em 28/10/2026 (resumo)
+
+Fonte: `git log` de `master` (PRs #167–#205). Estado de produção (fila de IA,
+flags, VM) **não reverificado** nesta atualização — conferir `/api/saude/pipeline`.
+
+**Entregue desde 19/10:**
+- **Núcleo agnóstico (Fase 3):** ente/identidade do município em
+  `municipios/<slug>/municipio.json` (ADR 0007), frontend lê o mesmo JSON,
+  `docker compose up` com município de exemplo, prompts de IA via ente.
+- **RAG/IA:** UI `/perguntar`, busca lexical por nº de documento (`N/AAAA`),
+  índice vetorial em WAL, timeout de IA 180 s, JSON inválido vira erro
+  transitório (até 3 tentativas), resumo fora do contrato tenta de novo.
+  Vercel BotID protege a pergunta à IA.
+- **Alertas (Na Lupa):** tela de revisão com evidências/regra/revalidação,
+  detector "empenhado acima do contratado", gate de publicação próprio; geradores
+  de ruído desligados.
+- **PNCP:** sincronização semanal de vencedores e valores homologados corrigida
+  (3 rodadas do `fiscal-valores`; número de controle normalizado; escritas de
+  texto/coleta/IA não reescrevem resultado do PNCP). Frontend: "Valor
+  homologado (ano)", rótulo por origem.
+- **Operação/segurança:** diagnóstico da VM com CPU roubada (steal) e CPU por
+  processo; `next` 16.4.2, `npm audit` (zod, body-parser, undici); retry de rede
+  no frontend; log de estouro de rate limit; Vercel Web Analytics.
+- **SEO:** `og:image` por página, metadados específicos, botão WhatsApp.
+
+## 🎯 Próximas atividades (ordem sugerida)
+
+1. **Confirmar PNCP em produção:** rodar a sincronização de vencedores, checar
+   `valor_homologado` na UI e que nenhum total mistura estágios (§11.1).
+2. **VM lenta/steal:** coletar o diagnóstico novo (`docs/DEPLOY.md`) e decidir se
+   o gargalo é CPU roubada; só então mexer em paralelismo (A7).
+3. **Resumos (Fase A abaixo):** medir `docs_24h` e `sem_resumo_com_texto` após
+   A9/A10; seguir com A3 (`limite_tamanho`), A4 (`contrato_rejeitado`), A6 (alerta
+   de ritmo), A5/A8 (fila de revisão, `source-check`/`facts`).
+4. **IA/RAG:** decidir ligar `AI_ASK_ENABLED` (falta `sqlite-vec` na VM, indexar,
+   dataset real de 30–50 perguntas para o eval).
+5. **Na Lupa:** avaliar fila de revisão com o mantenedor, novo lote de 20, depois
+   religar `DESCOBERTAS_SCHEDULER_ENABLED`.
+6. **Fase 3:** textos de página do frontend via ente; contrato `Coletor`; parâmetros
+   por porte.
+7. **Backlog:** OCR Câmara/Prefeitura (Fase C), observabilidade de deep-links
+   fora de datacenter, transparência (fonte de recurso, emendas×empenhos, `coTce`).
+
+---
+
 ## ✅ Concluído — Publicação (MVP)
 
 Deploy em produção desde 28/08/2026 (API em VM Oracle Cloud Always Free +
