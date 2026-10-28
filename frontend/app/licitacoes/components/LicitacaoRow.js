@@ -3,6 +3,7 @@ import QualitySignals from '../../components/QualitySignals';
 import CategoriaBadge from '../../components/CategoriaBadge';
 import StatusBadge from '../../components/StatusBadge';
 import { formatDate, formatMoney, labelFonte } from '../../lib/format';
+import { rotuloValorHomologado } from '../../../lib/rotulo-valor';
 
 export default function LicitacaoRow({ item }) {
   const modelo = item.licitacao_modelo || {};
@@ -18,7 +19,7 @@ export default function LicitacaoRow({ item }) {
     : 'Sem arquivo identificado';
 
   const valorExibido = detalhes.valor_final ?? (modelo.valor_estimado ?? item.valor_estimado);
-  const labelValor = detalhes.valor_final != null ? 'Valor final' : 'Valor estimado';
+  const labelValor = detalhes.valor_final != null ? rotuloValorHomologado(item.ano) : 'Valor estimado';
   const badges = [
     correlacao.tem_grupo && `${correlacao.grupo_total_documentos} publicações`,
     correlacao.tem_leitura_integrada && 'Análise do processo',

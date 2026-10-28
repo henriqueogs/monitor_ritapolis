@@ -9,6 +9,7 @@ import HistoricoPorMandato from './components/HistoricoPorMandato';
 import BreadcrumbJsonLd from '../../components/BreadcrumbJsonLd';
 import { SITE_URL } from '../../lib/brand';
 import { serializarJsonLd } from '../../../lib/json-ld';
+import { ROTULO_VALOR_HOMOLOGADO, NOTA_REGISTRO_PRECOS } from '../../../lib/rotulo-valor';
 
 export async function generateMetadata({ params: paramsPromise }) {
   const params = await paramsPromise;
@@ -357,7 +358,7 @@ export default async function CredorProfilePage({
                 <span>Ano</span>
                 <span>Processo</span>
                 <span>Modalidade</span>
-                <span style={{ textAlign: 'right' }}>Valor final</span>
+                <span style={{ textAlign: 'right' }} title={NOTA_REGISTRO_PRECOS}>{ROTULO_VALOR_HOMOLOGADO}</span>
               </div>
               {licitacoes_ganhas.map((l) => (
                 <Link

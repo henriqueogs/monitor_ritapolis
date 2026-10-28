@@ -5,6 +5,7 @@ import { fetchInteligenciaPanorama, fetchCoberturaPorAno, fetchAlertasDestaques 
 import { formatMoney } from '../lib/format';
 import { formatarMetricaAlerta } from '../../lib/alerta-revisao';
 import { rotuloIntervaloAnos, intervaloDasLinhas } from '../../lib/intervalo-anos';
+import { rotuloValorHomologado, ROTULO_VALOR_HOMOLOGADO, NOTA_REGISTRO_PRECOS } from '../../lib/rotulo-valor';
 import FornecedoresRanking from '../estatisticas/components/FornecedoresRanking';
 
 export const metadata = {
@@ -196,7 +197,7 @@ export default async function InteligenciaPage() {
           >
             <span style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>Categoria</span>
             <span style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', textAlign: 'right' }}>Editais</span>
-            <span style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', textAlign: 'right', minWidth: 90 }}>{rotuloAnosCategoria ? `Valor final (${rotuloAnosCategoria})` : 'Valor final'}</span>
+            <span style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', textAlign: 'right', minWidth: 90 }}>{rotuloValorHomologado(rotuloAnosCategoria)}</span>
           </div>
 
           {por_categoria.map((c) => {
@@ -240,7 +241,8 @@ export default async function InteligenciaPage() {
           })}
 
           <p style={{ margin: '12px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
-            Valor final disponível apenas para licitações com vencedor registrado. A cobertura é parcial.
+            Valor homologado disponível apenas para licitações com vencedor registrado. A cobertura é parcial.
+            {` ${NOTA_REGISTRO_PRECOS}`}
             {rotuloAnosCategoria ? ` Soma de licitações de ${rotuloAnosCategoria}, todos os anos juntos.` : ''}
           </p>
         </SectionBlock>
@@ -295,7 +297,7 @@ export default async function InteligenciaPage() {
                 <span>Licitações</span>
                 <span>Com vencedor</span>
                 <span>Valor estimado</span>
-                <span>Valor final</span>
+                <span>{ROTULO_VALOR_HOMOLOGADO}</span>
               </div>
               {por_ano.map((item) => (
                 <div key={item.ano} className="table-row">

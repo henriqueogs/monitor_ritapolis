@@ -1,6 +1,7 @@
 import KeyValueList from '../../../components/KeyValueList';
 import SectionBlock from '../../../components/SectionBlock';
 import { formatDate, formatMoney } from '../../../lib/format';
+import { rotuloValorHomologado } from '../../../../lib/rotulo-valor';
 
 export default function LicitationInfo({ documento, licitacao }) {
   const modelo = documento.licitacao_modelo || {};
@@ -23,7 +24,7 @@ export default function LicitationInfo({ documento, licitacao }) {
         { label: 'Status', value: licitacao?.status || documento.status_coleta },
         { label: 'Vencedor', value: licitacao?.vencedor_nome || 'Nao informado' },
         {
-          label: 'Valor final',
+          label: rotuloValorHomologado(documento.ano),
           value: licitacao?.valor_final_oculto
             ? 'Nao informado — a soma de empenhos nao e valor homologado'
             : formatMoney(licitacao?.valor_final),

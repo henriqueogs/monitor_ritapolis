@@ -3,6 +3,7 @@ import OrigemBadge from '../../../components/OrigemBadge';
 import SectionBlock from '../../../components/SectionBlock';
 import SourceLinks from '../../../components/SourceLinks';
 import { bestResumo, formatDate, formatMoney, labelFonte, labelTipo } from '../../../lib/format';
+import { rotuloValorHomologado } from '../../../../lib/rotulo-valor';
 import styles from '../styles.module.css';
 
 /**
@@ -55,7 +56,7 @@ export default function SummaryAndSource({ documento, licitacao }) {
         : null
     },
     {
-      label: 'Valor final',
+      label: rotuloValorHomologado(documento.ano),
       value: valorFinal != null
         ? <>{formatMoney(valorFinal)}<OrigemBadge origem={origemFinanceira} url={origemUrl} /></>
         : null

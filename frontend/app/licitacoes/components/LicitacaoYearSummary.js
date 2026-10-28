@@ -32,9 +32,9 @@ export default function LicitacaoYearSummary({ row, currentYear }) {
         note={`${row.com_resumo_ai} documentos`}
       />
       <AdminMetricCard
-        label="Com valor final"
+        label="Com valor homologado"
         value={percent(row.com_valor_final, row.total)}
-        note={formatMoney(row.valor_final_total, 'Sem valores')}
+        note={row.valor_final_total ? `${formatMoney(row.valor_final_total)} homologados em ${row.ano}` : 'Sem valores'}
       />
       <AdminMetricCard
         label="Modalidade mais comum"
