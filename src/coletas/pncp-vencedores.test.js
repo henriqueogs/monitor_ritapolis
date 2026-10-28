@@ -57,6 +57,7 @@ describe('sincronizarVencedoresPncp', () => {
       correspondencias: 1,
       atualizadas: 1,
       sem_resultado: 0,
+      implausiveis: 0,
       erros: 0,
       falhas: [],
     });
@@ -98,6 +99,18 @@ describe('sincronizarVencedoresPncp', () => {
       42,
       expect.objectContaining({ vencedor_nome: null, multiplos_fornecedores: true, valor_final: 1500 })
     );
+  });
+
+  it('valor homologado fora da faixa plausível não grava (respeita o gate de valores)', async () => {
+    // fiscal-valores 28/10: sem isso a sincronização semanal desfazia o aplicar-gate-valores.
+    const deps = criarDeps({
+      buscarItensComResultados: jest.fn(async () => [itemFechado('11222333000181', 1e12)]),
+    });
+
+    const stats = await sincronizarVencedoresPncp({ cnpjs: ['18557553000105'], anos: [2025] }, deps);
+
+    expect(deps.gravarResultadoPncp).not.toHaveBeenCalled();
+    expect(stats).toMatchObject({ atualizadas: 0, implausiveis: 1 });
   });
 
   it('dry-run conta o que seria gravado sem gravar', async () => {

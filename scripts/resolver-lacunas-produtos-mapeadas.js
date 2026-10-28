@@ -129,8 +129,10 @@ function main() {
         WHEN licitacoes_detalhes.valor_final IS NULL THEN excluded.origem ELSE licitacoes_detalhes.origem END,
       origem_detalhe = CASE WHEN IFNULL(licitacoes_detalhes.origem_detalhe, '') LIKE 'pncp_resultados%' THEN licitacoes_detalhes.origem_detalhe
         ELSE COALESCE(excluded.origem_detalhe, licitacoes_detalhes.origem_detalhe) END,
-      trecho_fonte = COALESCE(excluded.trecho_fonte, licitacoes_detalhes.trecho_fonte),
-      confianca = MAX(IFNULL(licitacoes_detalhes.confianca, 0), excluded.confianca),
+      trecho_fonte = CASE WHEN IFNULL(licitacoes_detalhes.origem_detalhe, '') LIKE 'pncp_resultados%' THEN licitacoes_detalhes.trecho_fonte
+        ELSE COALESCE(excluded.trecho_fonte, licitacoes_detalhes.trecho_fonte) END,
+      confianca = CASE WHEN IFNULL(licitacoes_detalhes.origem_detalhe, '') LIKE 'pncp_resultados%' THEN licitacoes_detalhes.confianca
+        ELSE MAX(IFNULL(licitacoes_detalhes.confianca, 0), excluded.confianca) END,
       atualizado_em = excluded.atualizado_em
   `);
 

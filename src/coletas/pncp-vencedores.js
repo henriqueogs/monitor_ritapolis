@@ -17,6 +17,7 @@ const {
   consolidarResultadosCompra,
   escolherDocumentoCanonico,
 } = require('../licitacoes/pncp-resultados');
+const { avaliarValorFinal } = require('../licitacoes/valores');
 
 const DEPS_PADRAO = {
   gerarContratacoesPorCnpj: pncpOrgaos.gerarContratacoesPorCnpj,
@@ -27,7 +28,14 @@ const DEPS_PADRAO = {
 };
 
 function statsVazias() {
-  return { consultadas: 0, correspondencias: 0, atualizadas: 0, sem_resultado: 0, erros: 0 };
+  return {
+    consultadas: 0,
+    correspondencias: 0,
+    atualizadas: 0,
+    sem_resultado: 0,
+    implausiveis: 0,
+    erros: 0,
+  };
 }
 
 async function processarCompra(numeroPncp, documento, { dryRun, deps, stats }) {
@@ -37,6 +45,12 @@ async function processarCompra(numeroPncp, documento, { dryRun, deps, stats }) {
   // Só compra fechada e precificada: vencedor sem valor deixaria origem/valor misturados.
   if (consolidado.valor_final === null) {
     stats.sem_resultado += 1;
+    return;
+  }
+  // Mesmo critério do aplicar-gate-valores: a sincronização não traz de volta um valor
+  // que o gate descartaria.
+  if (!avaliarValorFinal(consolidado.valor_final).plausivel) {
+    stats.implausiveis += 1;
     return;
   }
   if (dryRun) {
@@ -79,7 +93,7 @@ async function processarOrgaoAno(cnpj, ano, contexto) {
 
 /**
  * @param {{ cnpjs: string[], anos: number[], dryRun?: boolean }} opcoes
- * @returns {Promise<{consultadas, correspondencias, atualizadas, sem_resultado, erros, falhas}>}
+ * @returns {Promise<{consultadas, correspondencias, atualizadas, sem_resultado, implausiveis, erros, falhas}>}
  */
 async function sincronizarVencedoresPncp({ cnpjs, anos, dryRun = false }, deps = DEPS_PADRAO) {
   const stats = statsVazias();

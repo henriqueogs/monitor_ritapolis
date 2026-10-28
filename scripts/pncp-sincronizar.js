@@ -85,7 +85,8 @@ async function main() {
   console.log(
     `  Compras PNCP: ${totais.consultadas} | Correspondências locais: ${totais.correspondencias}` +
       ` | ${DRY_RUN ? 'Seriam atualizadas' : 'Atualizadas'}: ${totais.atualizadas}` +
-      ` | Sem resultado ainda: ${totais.sem_resultado}`
+      ` | Sem resultado ainda: ${totais.sem_resultado}` +
+      ` | Fora da faixa plausível: ${totais.implausiveis}`
   );
   if (totais.erros) {
     console.log(`  Erros: ${totais.erros}`);

@@ -179,6 +179,41 @@ describe('pncp-resultados-repo', () => {
     });
   });
 
+  it('documento que ganha o mesmo numero_pncp depois da sincronização entra neutralizado', () => {
+    // fiscal-valores 28/10 (3ª reauditoria), achado 4a: o doc novo chegava sem marca e o
+    // ano somava 2750 até a próxima sincronização semanal.
+    const { upsertLicitacaoDetalhesExtraidos, saveDocumento } = require('./index');
+    const site = seedDocumento({ fonte: 'site_prefeitura', detalhes: {} });
+    gravarResultadoPncp(site, RESULTADO_UNICO);
+    const doTexto = { valor_final: 750, vencedor_nome: 'X do texto', origem: 'texto_regex' };
+
+    // Linha nova (INSERT sem conflito) já com o número.
+    const novo = seedDocumento({ fonte: 'site_prefeitura', detalhes: doTexto });
+    // Linha existente que só depois ganha o número pela extração de texto.
+    const semNumero = seedDocumento({ fonte: 'site_prefeitura', detalhes: { numero_pncp: null } });
+    upsertLicitacaoDetalhesExtraidos({ id: semNumero }, { ...doTexto, numero_pncp: CONTROLE });
+    // Coleta de um documento novo com o número já no texto.
+    const coletado = saveDocumento({
+      fonte: 'site_prefeitura',
+      tipo: 'edital',
+      titulo: 'Extrato 1/2025',
+      url_origem: 'https://exemplo.gov.br/extrato',
+      ano: 2025,
+      hash_conteudo: 'hash-novo',
+      licitacao_detalhes: { ...doTexto, numero_pncp: CONTROLE },
+    });
+
+    expect(somaPorAno(2025)).toBe(2000);
+    for (const id of [novo, semNumero, Number(coletado.id)]) {
+      expect(detalhes(id)).toMatchObject({
+        valor_final: null,
+        vencedor_nome: null,
+        origem_detalhe: 'pncp_resultados_nao_canonico',
+      });
+    }
+    expect(detalhes(site)).toMatchObject({ valor_final: 2000, origem_detalhe: 'pncp_resultados' });
+  });
+
   it('troca a origem e limpa o trecho/confiança do valor anterior (empenho ou texto)', () => {
     const id = seedDocumento({
       fonte: 'site_prefeitura',
