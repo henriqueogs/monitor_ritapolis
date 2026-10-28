@@ -3,6 +3,7 @@ import OrigemBadge from '../../../components/OrigemBadge';
 import SectionBlock from '../../../components/SectionBlock';
 import SourceLinks from '../../../components/SourceLinks';
 import { bestResumo, formatDate, formatMoney, labelFonte, labelTipo } from '../../../lib/format';
+import { rotuloValorFinal, isValorHomologado, NOTA_REGISTRO_PRECOS } from '../../../../lib/rotulo-valor';
 import styles from '../styles.module.css';
 
 /**
@@ -55,10 +56,14 @@ export default function SummaryAndSource({ documento, licitacao }) {
         : null
     },
     {
-      label: 'Valor final',
+      label: rotuloValorFinal({ origem: origemFinanceira, periodo: documento.ano }),
       value: valorFinal != null
         ? <>{formatMoney(valorFinal)}<OrigemBadge origem={origemFinanceira} url={origemUrl} /></>
         : null
+    },
+    {
+      label: 'Se for registro de preços',
+      value: valorFinal != null && isValorHomologado(origemFinanceira) ? NOTA_REGISTRO_PRECOS : null
     }
   ].filter((item) => item.value && item.value !== 'null' && item.value !== 'undefined');
 
