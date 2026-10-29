@@ -283,3 +283,66 @@ describe('inferirEsfera', () => {
     expect(inferirEsfera('texto generico', null)).toBeNull();
   });
 });
+
+describe('anoReferenciaEmenda', () => {
+  const { anoReferenciaEmenda } = require('./emenda-parlamentar');
+
+  it('usa o ano da data de recebimento do recurso', () => {
+    expect(
+      anoReferenciaEmenda({ data_recebimento: '2024-03-15', numero_emenda: '202539600001', data_inicio: '2025-01-10' })
+    ).toBe(2024);
+  });
+
+  it('sem recebimento, usa o ano do número federal (AAAA + 8 dígitos)', () => {
+    expect(anoReferenciaEmenda({ numero_emenda: '202340290015', data_inicio: '2024-02-01' })).toBe(2023);
+  });
+
+  it('sem recebimento, usa o ano do número estadual (Resolução N.x/AAAA)', () => {
+    expect(anoReferenciaEmenda({ numero_emenda: 'Resolução N.10063/2022' })).toBe(2022);
+  });
+
+  it('sem recebimento nem número com ano, usa o início', () => {
+    expect(anoReferenciaEmenda({ numero_emenda: '10063', data_inicio: '2021-06-20' })).toBe(2021);
+  });
+
+  it('número sem ano reconhecível não inventa ano', () => {
+    expect(anoReferenciaEmenda({ numero_emenda: '40290015' })).toBeNull();
+  });
+
+  it('retorna null sem nenhum campo', () => {
+    expect(anoReferenciaEmenda({})).toBeNull();
+    expect(anoReferenciaEmenda()).toBeNull();
+  });
+});
+
+describe('parseEmendaParlamentar — ano_referencia', () => {
+  it('estadual: ano do recebimento', () => {
+    expect(parseEmendaParlamentar(TEXTO_ESTADUAL).ano_referencia).toBe(2025);
+  });
+});
+
+describe('anoReferenciaEmenda — fronteiras', () => {
+  const { anoReferenciaEmenda } = require('./emenda-parlamentar');
+
+  it('recebimento em dezembro vale sobre número do ano seguinte', () => {
+    expect(anoReferenciaEmenda({ data_recebimento: '2024-12-30', numero_emenda: '202539600001' })).toBe(2024);
+  });
+
+  it('ano implausível (erro de digitação) passa para o próximo critério', () => {
+    expect(anoReferenciaEmenda({ data_recebimento: '2207-01-15', numero_emenda: '202339600001' })).toBe(2023);
+  });
+
+  it('ano no futuro não é usado', () => {
+    const futuro = `${new Date().getFullYear() + 2}-01-10`;
+    expect(anoReferenciaEmenda({ data_recebimento: futuro, data_inicio: '2022-05-01' })).toBe(2022);
+  });
+});
+
+describe('anoReferenciaEmenda — margem do número (LOA do ano seguinte)', () => {
+  const { anoReferenciaEmenda } = require('./emenda-parlamentar');
+
+  it('aceita número do ano seguinte e rejeita dois anos à frente', () => {
+    expect(anoReferenciaEmenda({ numero_emenda: '202740290015' }, { anoAtual: 2026 })).toBe(2027);
+    expect(anoReferenciaEmenda({ numero_emenda: '202840290015' }, { anoAtual: 2026 })).toBeNull();
+  });
+});

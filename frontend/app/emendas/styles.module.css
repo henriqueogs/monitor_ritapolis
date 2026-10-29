@@ -65,6 +65,12 @@
   margin-top: 0.25rem;
 }
 
+.totaisNota {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
 /* ── Filtros ─────────────────────────────────────────────────────────────────── */
 .filtrosSection {
   background: var(--surface);
