@@ -161,12 +161,10 @@ a atividade 3), Fase 3 núcleo agnóstico (textos de página via ente, contrato
 `Coletor`), deep-links fora de datacenter, transparência (fonte de recurso,
 emendas×empenhos, `coTce`).
 
-## Decisões abertas para o mantenedor
+## Decisões do mantenedor (29/10)
 
-1. Prioridade entre vertentes 1–12 (sugestão: 6 → 1 → 3 → 9).
-2. Meta de precisão para religar o scheduler (sugestão: ≥ 80% aprovadas na
-   revisão em lote de 20).
-3. Teto diário de tokens da trilha 2 (Analista IA).
-4. ~~"Suspeita da IA" pública ou interna?~~ **Decidido 29/10: só interna antes**
-   (fila de revisão no admin). Pública com rótulo só depois de nova aprovação
-   explícita do mantenedor.
+1. Primeira vertente determinística: **compras repetidas** (vertente 1), depois divergência entre documentos (6).
+2. Dossiês do Analista IA, nesta ordem de entrada: **credor, processo licitatório, legislação** (categoria×ano e secretaria ficam para depois).
+3. Teto de tokens do Analista IA: **medir primeiro** no protótipo N2 (custo real por dossiê) e fixar o teto com esse número, sem competir com a campanha de resumos.
+4. "Suspeita da IA": **só interna** (fila de revisão no admin); pública com rótulo só após nova aprovação.
+5. Meta de precisão para o scheduler: **em aberto** — ver explicação do que é o scheduler em `CURRENT_WORK.md`/conversa; sugestão ≥ 80% em lote de 20.
