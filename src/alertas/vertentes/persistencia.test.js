@@ -47,6 +47,34 @@ describe('candidatoParaAlerta', () => {
     const { alerta } = candidatoParaAlerta(candidato());
     expect(avaliarGateDeterministico(alerta, { pendencias: [] }).aplicavel).toBe(true);
   });
+
+  it('preserva evidencia_hash, metadados e documentos informados pelo candidato', () => {
+    const c = candidato({
+      evidencias: [
+        {
+          documento_id: null,
+          evidencia_hash: 'abc',
+          url_origem: 'https://x.gov.br/e',
+          metadados: { empenho_id: 5 },
+        },
+      ],
+      documentos: [{ documento_id: 9, papel: 'contrato' }],
+    });
+    const { evidencias, documentos } = candidatoParaAlerta(c);
+    expect(evidencias[0]).toMatchObject({ evidencia_hash: 'abc' });
+    expect(evidencias[0].metadados).toMatchObject({
+      empenho_id: 5,
+      url_origem: 'https://x.gov.br/e',
+    });
+    expect(documentos).toEqual([{ documento_id: 9, papel: 'contrato' }]);
+  });
+
+  it('candidato.alerta sobrescreve tipo e chave_unica (migração de runner legado)', () => {
+    const { alerta } = candidatoParaAlerta(
+      candidato({ alerta: { tipo: 'legado', chave_unica: 'k1' } })
+    );
+    expect(alerta).toMatchObject({ tipo: 'legado', chave_unica: 'k1' });
+  });
 });
 
 describe('persistirCandidatos', () => {
