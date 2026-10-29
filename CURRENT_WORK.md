@@ -55,10 +55,15 @@ estrangulada pelo hypervisor, não por falta de RAM.
 3. **Resumos (Fase A abaixo):** medir `docs_24h` e `sem_resumo_com_texto` após
    A9/A10; seguir com A3 (`limite_tamanho`), A4 (`contrato_rejeitado`), A6 (alerta
    de ritmo), A5/A8 (fila de revisão, `source-check`/`facts`).
-4. **IA/RAG:** decidir ligar `AI_ASK_ENABLED` (`sqlite-vec` já na VM; falta indexar,
-   dataset real de 30–50 perguntas para o eval).
-5. **Na Lupa:** avaliar fila de revisão com o mantenedor, novo lote de 20, depois
-   religar `DESCOBERTAS_SCHEDULER_ENABLED`.
+4. **IA/RAG (`/perguntar`): ESTACIONADO** (decisão 29/10) — falta analisar o
+   conteúdo todo e o uso interno de IA já tem limite; abrir a terceiros está longe.
+5. **Na Lupa v4 (refatoração):** panorama de inconsistências e gastos em várias
+   vertentes, **híbrida**: trilha determinística (verificado) + trilha "Analista
+   IA" que levanta suspeitas/absurdos com evidência verificada mecanicamente
+   (revisão humana primeiro). Padrão da #57. Plano e fases N0–N6 em
+   `docs/PLANO_PROXIMAS_ATIVIDADES_2026-10-29.md`; N0 concluído em
+   `docs/NA_LUPA_V4_N0_DIAGNOSTICO_2026-10-29.md` (achado: `unidade="undefined"` em 36%
+   dos produtos bloqueia vertentes de preço). Scheduler segue desligado.
 6. **Fase 3:** textos de página do frontend via ente; contrato `Coletor`; parâmetros
    por porte.
 7. **Backlog:** OCR Câmara/Prefeitura (Fase C), observabilidade de deep-links
