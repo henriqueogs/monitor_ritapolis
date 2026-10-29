@@ -18,7 +18,31 @@ jest.mock('./connection', () => ({
   db: mockConn,
 }));
 
-const { listDocumentos, listPublicacoesRecentes, labelTipo } = require('./documentos-repo');
+const {
+  listDocumentos,
+  listPublicacoesRecentes,
+  labelTipo,
+  cleanField,
+  compactField,
+} = require('./documentos-repo');
+
+describe('cleanField / compactField', () => {
+  it('undefined e null viram null (nunca a string "undefined")', () => {
+    expect(cleanField(undefined)).toBeNull();
+    expect(cleanField(null)).toBeNull();
+    expect(compactField(undefined)).toBeNull();
+    expect(compactField(undefined, 600)).toBeNull();
+  });
+
+  it('preserva zero e texto, normalizando espaços', () => {
+    expect(cleanField(0)).toBe('0');
+    expect(cleanField('  UN   caixa ')).toBe('UN caixa');
+  });
+
+  it('descarta somente URL vazia, como antes', () => {
+    expect(cleanField('https://')).toBeNull();
+  });
+});
 
 describe('labelTipo', () => {
   it('traduz tipos de legislacao pra texto legivel (nao vaza o valor cru do banco)', () => {

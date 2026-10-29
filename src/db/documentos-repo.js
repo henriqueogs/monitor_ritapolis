@@ -228,7 +228,7 @@ function normalizeDocumento(row) {
 // ── Helpers de campos ─────────────────────────────────────────────────────────
 
 function cleanField(value) {
-  if (value === null) { return null; }
+  if (value === null || value === undefined) { return null; }
   const text = normalizeText(String(value)).replace(/\s+/g, ' ').trim();
   if (!text || /^https?:\/\/$/i.test(text)) { return null; }
   return text;
