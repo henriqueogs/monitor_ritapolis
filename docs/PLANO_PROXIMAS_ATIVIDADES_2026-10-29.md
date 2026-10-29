@@ -167,5 +167,6 @@ emendas×empenhos, `coTce`).
 2. Meta de precisão para religar o scheduler (sugestão: ≥ 80% aprovadas na
    revisão em lote de 20).
 3. Teto diário de tokens da trilha 2 (Analista IA).
-4. "Suspeita da IA" pode aparecer **pública com rótulo** após sua aprovação
-   (sugestão) ou só em área interna no começo?
+4. ~~"Suspeita da IA" pública ou interna?~~ **Decidido 29/10: só interna antes**
+   (fila de revisão no admin). Pública com rótulo só depois de nova aprovação
+   explícita do mantenedor.
