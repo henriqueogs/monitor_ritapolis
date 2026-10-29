@@ -234,7 +234,7 @@ Obs.: `curl` na home dá 429 — é o Challenge do firewall Vercel, não queda.
   editais de 2026 sem facts/integrated em 15/10; o teto de 30 min por doc
   aumentaria isso). Agora `facts` segue; `integrated` espera `items` válido.
   Cobertura medida em 15/10: editais 2019–2025 com items 100%; 2026 73/83.
-- [ ] **A11. Planejamento global após cada tarefa (achado 29/10, VM).** Medido por
+- [x] **A11. Planejamento global após cada tarefa (achado 29/10, VM).** Medido por
   SSH (só leitura): `steal` 46–61% em picos (VM.Standard.E2.1.Micro, 1/8 OCPU;
   8,6% desde o boot), iowait 30–48%, `scripts/api.js` leu 77 GB em ~3,7 h
   (~5,8 MB/s). Causa provável: `coordinator.js` zera `planningAt` ao fim de toda
@@ -249,6 +249,9 @@ Obs.: `curl` na home dá 429 — é o Challenge do firewall Vercel, não queda.
   e manter o plano global a cada 5 min; invalidar cache só em tarefas que mudam
   dado público; trocar `SELECT *` por colunas necessárias. Aceite: `read_bytes` do
   api.js e iowait caem; `docs_24h` mantém 200.
+  **Implementado 29/10** (`planEntidade`, `escopoReplanejamento`, invalidação de cache
+  com piso de 1 min). Após o deploy medir `read_bytes` do api.js e iowait; `SELECT *`
+  do plano global (a cada 5 min) segue.
 - [ ] **A3. `limite_tamanho` em `collection`**: chunking/map-reduce em vez de
   rejeitar documentos grandes.
 - [ ] **A4. `contrato_rejeitado`**: ver prompts/schema; o modelo erra chave

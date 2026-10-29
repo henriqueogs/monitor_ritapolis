@@ -214,6 +214,64 @@ function ordenarParaPlanejamento(db, docs, now) {
     .sort((a, b) => a.grupo - b.grupo || a.indice - b.indice)
     .map(({ doc }) => doc);
 }
+const AI_KINDS = [
+  'extract',
+  'summary',
+  'items',
+  'integrated',
+  'facts',
+  'extract-anexo',
+  'anexo-summary',
+];
+// Depois de uma tarefa ok: etapas de IA só liberam a próxima etapa do mesmo
+// documento; source-check não libera nada; o resto (coleta, despesas) muda o
+// conjunto de documentos e pede o plano global.
+function escopoReplanejamento(kind) {
+  if (AI_KINDS.includes(kind)) {
+    return 'entidade';
+  }
+  return kind === 'source-check' ? 'nenhum' : 'global';
+}
+function historicosDoDia(queue, day) {
+  return new Set(
+    queue.db
+      .prepare(
+        `SELECT DISTINCT entity FROM pipeline_jobs
+    WHERE historical = 1 AND kind IN (${AI_KINDS.map(k => `'${k}'`).join(',')})
+    AND created_at >= ?`
+      )
+      .all(`${day}T03:00:00.000Z`)
+      .map(r => Number(r.entity))
+  );
+}
+// Planeja um documento respeitando o teto diário de históricos; devolve o job.
+function planDocumentoDoDia(queue, doc, historicalIds, day, now) {
+  const recent = isRecent(doc, now);
+  if (!recent && !historicalIds.has(doc.id) && historicalIds.size >= config.pipelineHistoricalDocsPerDay) {
+    return null;
+  }
+  const job = planDocument(queue, doc, now);
+  if (
+    !recent &&
+    job &&
+    job.status !== 'ok' &&
+    (job.status !== 'failed' || job.created_at >= `${day}T03:00:00.000Z`)
+  ) {
+    historicalIds.add(doc.id);
+  }
+  return job;
+}
+function planEntidade(queue, entity, now = new Date()) {
+  if (!config.aiSummaryEnabled || !config.aiSchedulerEnabled) {
+    return;
+  }
+  const doc = queue.db.prepare('SELECT * FROM documentos WHERE id = ?').get(Number(entity));
+  if (!doc) {
+    return;
+  }
+  const day = localTime(now).day;
+  planDocumentoDoDia(queue, doc, historicosDoDia(queue, day), day, now);
+}
 function planAi(queue, now = new Date()) {
   if (!config.aiSummaryEnabled || !config.aiSchedulerEnabled) {
     return;
@@ -227,30 +285,9 @@ function planAi(queue, now = new Date()) {
     COALESCE(data_publicacao, CASE WHEN ano >= ? THEN substr(coletado_em,1,10) END, '') DESC, id DESC`
     )
     .all(Number(day.slice(0, 4)));
-  const historicalIds = new Set(
-    queue.db
-      .prepare(
-        `SELECT DISTINCT entity FROM pipeline_jobs
-    WHERE historical = 1 AND kind IN ('extract','summary','items','integrated','facts','extract-anexo','anexo-summary')
-    AND created_at >= ?`
-      )
-      .all(`${day}T03:00:00.000Z`)
-      .map(r => Number(r.entity))
-  );
+  const historicalIds = historicosDoDia(queue, day);
   for (const doc of ordenarParaPlanejamento(queue.db, docs, now)) {
-    const recent = isRecent(doc, now);
-    if (!recent && !historicalIds.has(doc.id) && historicalIds.size >= config.pipelineHistoricalDocsPerDay) {
-      continue;
-    }
-    const job = planDocument(queue, doc, now);
-    if (
-      !recent &&
-      job &&
-      job.status !== 'ok' &&
-      (job.status !== 'failed' || job.created_at >= `${day}T03:00:00.000Z`)
-    ) {
-      historicalIds.add(doc.id);
-    }
+    planDocumentoDoDia(queue, doc, historicalIds, day, now);
   }
 }
 function plan(queue, now = new Date()) {
@@ -324,6 +361,8 @@ function plan(queue, now = new Date()) {
 module.exports = {
   plan,
   planAi,
+  planEntidade,
+  escopoReplanejamento,
   planDocument,
   planFinance,
   enqueueCollection,
