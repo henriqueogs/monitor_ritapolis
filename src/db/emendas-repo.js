@@ -165,6 +165,15 @@ function getEmendaById(id) {
 /**
  * Totais por ano para exibição no frontend (regra 11.1 do CLAUDE.md).
  * Retorna [{ ano, total_emendas, soma_repasse, esfera }]
+ *
+ * Unidade de contagem = ficha publicada (documento). NÃO deduplicar por numero_emenda:
+ * o campo identifica o instrumento (resolução/processo), compartilhado por emendas distintas.
+ * Conferência em produção (29/10/2026, 10 fichas, 8 numero_emenda distintos):
+ *  - docs 627 e 646, "N.1490.01.0002389/2025-98": parlamentares e objetos diferentes
+ *    (R$ 154.354 e R$ 500.000) — emendas distintas;
+ *  - docs 645 e 649, "Resolução N.10088/2025": PDFs distintos na fonte, mesmo parlamentar,
+ *    objeto e empenho, valores R$ 73.490 + R$ 76.510 = R$ 150.000 — tratadas como parcelas.
+ * Só reabrir com documento da Prefeitura/ALMG provando que duas fichas são a mesma transferência.
  */
 function totaisPorAno() {
   return db.prepare(`
