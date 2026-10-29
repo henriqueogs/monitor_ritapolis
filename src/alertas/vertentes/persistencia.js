@@ -31,13 +31,22 @@ function chaveUnica(candidato) {
 }
 
 function evidenciaParaRepo(evidencia) {
-  const { documento_id: documentoId, anexo_id: anexoId, trecho, papel, ...resto } = evidencia;
+  const {
+    documento_id: documentoId,
+    anexo_id: anexoId,
+    trecho,
+    papel,
+    evidencia_hash: evidenciaHash,
+    metadados,
+    ...resto
+  } = evidencia;
   return {
     documento_id: documentoId ?? null,
     anexo_id: anexoId ?? null,
     papel: papel || 'fonte',
     trecho_fonte: trecho || null,
-    metadados: resto,
+    ...(evidenciaHash ? { evidencia_hash: evidenciaHash } : {}),
+    metadados: { ...resto, ...metadados },
   };
 }
 
@@ -74,7 +83,8 @@ function candidatoParaAlerta(candidato) {
     // alerta existente em vez de duplicá-lo.
     ...candidato.alerta,
   };
-  const documentos = alerta.documentos_ids.map(id => ({ documento_id: id }));
+  const documentos =
+    candidato.documentos || alerta.documentos_ids.map(id => ({ documento_id: id }));
   return { alerta, documentos, evidencias: candidato.evidencias.map(evidenciaParaRepo) };
 }
 
