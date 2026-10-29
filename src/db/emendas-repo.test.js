@@ -146,6 +146,20 @@ describe('emendas-repo: ano de referência', () => {
     }
   });
 
+  it('fichas com o mesmo numero_emenda são contadas separadamente (número é do instrumento)', () => {
+    // Arrange: caso real 627/646 — mesmo instrumento, parlamentares e objetos diferentes.
+    const numero = 'N.1490.01.0002389/2025-98 /2025';
+    const base = { esfera: 'estadual', numero_emenda: numero, ano_referencia: 2022 };
+    seedEmenda({ detalhes: { ...base, nome_parlamentar: 'Parlamentar B', valor_repasse: 154354 } });
+    seedEmenda({ detalhes: { ...base, nome_parlamentar: 'Parlamentar C', valor_repasse: 500000 } });
+
+    // Act
+    const [total2022] = totaisPorAno().filter((t) => t.ano === 2022);
+
+    // Assert
+    expect(total2022).toMatchObject({ total_emendas: 2, soma_repasse: 654354 });
+  });
+
   it('ranking de parlamentares filtra pelo ano de referência', () => {
     // Act
     const ranking = parlamentaresComTotais({ ano: 2024 });
