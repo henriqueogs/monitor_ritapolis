@@ -61,7 +61,9 @@ estrangulada pelo hypervisor, não por falta de RAM.
    vertentes, **híbrida**: trilha determinística (verificado) + trilha "Analista
    IA" que levanta suspeitas/absurdos com evidência verificada mecanicamente
    (revisão humana primeiro). Padrão da #57. Plano e fases N0–N6 em
-   `docs/PLANO_PROXIMAS_ATIVIDADES_2026-10-29.md`. Scheduler segue desligado.
+   `docs/PLANO_PROXIMAS_ATIVIDADES_2026-10-29.md`; N0 concluído em
+   `docs/NA_LUPA_V4_N0_DIAGNOSTICO_2026-10-29.md` (achado: `unidade="undefined"` em 36%
+   dos produtos bloqueia vertentes de preço). Scheduler segue desligado.
 6. **Fase 3:** textos de página do frontend via ente; contrato `Coletor`; parâmetros
    por porte.
 7. **Backlog:** OCR Câmara/Prefeitura (Fase C), observabilidade de deep-links
