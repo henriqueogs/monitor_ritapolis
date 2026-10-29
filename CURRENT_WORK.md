@@ -48,8 +48,10 @@ estrangulada pelo hypervisor, não por falta de RAM.
 
 1. **Confirmar PNCP em produção:** rodar a sincronização de vencedores, checar
    `valor_homologado` na UI e que nenhum total mistura estágios (§11.1).
-2. **VM lenta/steal (confirmado ~52%):** coletar o diagnóstico novo (`docs/DEPLOY.md`) e decidir se
-   o gargalo é CPU roubada; só então mexer em paralelismo (A7).
+2. **VM lenta (A11 abaixo):** o coordenador reexecuta o planejamento inteiro após
+   cada tarefa ok → ~100 MB+ lidos e segundos de event loop por tarefa. Corrigir
+   (replanejar só o documento da tarefa / limitar frequência) antes de mexer em
+   paralelismo (A7).
 3. **Resumos (Fase A abaixo):** medir `docs_24h` e `sem_resumo_com_texto` após
    A9/A10; seguir com A3 (`limite_tamanho`), A4 (`contrato_rejeitado`), A6 (alerta
    de ritmo), A5/A8 (fila de revisão, `source-check`/`facts`).
@@ -232,6 +234,21 @@ Obs.: `curl` na home dá 429 — é o Challenge do firewall Vercel, não queda.
   editais de 2026 sem facts/integrated em 15/10; o teto de 30 min por doc
   aumentaria isso). Agora `facts` segue; `integrated` espera `items` válido.
   Cobertura medida em 15/10: editais 2019–2025 com items 100%; 2026 73/83.
+- [ ] **A11. Planejamento global após cada tarefa (achado 29/10, VM).** Medido por
+  SSH (só leitura): `steal` 46–61% em picos (VM.Standard.E2.1.Micro, 1/8 OCPU;
+  8,6% desde o boot), iowait 30–48%, `scripts/api.js` leu 77 GB em ~3,7 h
+  (~5,8 MB/s). Causa provável: `coordinator.js` zera `planningAt` ao fim de toda
+  tarefa ok, então `plan()` + `planAi()` rodam a cada ~10 s de `facts`
+  (1073 execuções/24 h), cada vez varrendo os 2.345 docs (`SELECT * FROM documentos`
+  3,3 s/38 MB; `DISTINCT` de resumos ok 1,8 s/45 MB; consulta de `source-check`
+  0,7 s/9 MB — ≈ 6 s e 90 MB **só nessas 3 leituras**, fora o `planDocument` por
+  documento). `node:sqlite` é síncrono: cada plano trava o event loop da API.
+  Além disso `cache-registry.invalidarTodos()` roda após toda tarefa ok, derrubando
+  os agregados de 10 min. `ritapolis.db` = 2,4 GB para ~430 MB de cache de página.
+  **Fix proposto (TDD):** após tarefa ok, replanejar só a entidade (`planDocument`)
+  e manter o plano global a cada 5 min; invalidar cache só em tarefas que mudam
+  dado público; trocar `SELECT *` por colunas necessárias. Aceite: `read_bytes` do
+  api.js e iowait caem; `docs_24h` mantém 200.
 - [ ] **A3. `limite_tamanho` em `collection`**: chunking/map-reduce em vez de
   rejeitar documentos grandes.
 - [ ] **A4. `contrato_rejeitado`**: ver prompts/schema; o modelo erra chave
