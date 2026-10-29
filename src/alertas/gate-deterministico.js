@@ -9,6 +9,8 @@
 // As confirmações vão para o histórico editorial com PREFIXO_CONFERIDO.
 
 const VERSOES_DETERMINISTICAS = new Set(['execucao-contratual-v1']);
+// Vertentes do Na Lupa v4 (src/alertas/vertentes) gravam `vertente-<nome>-v<n>`.
+const PREFIXO_VERTENTE = 'vertente-';
 const CAMPO_PADRAO = 'achado conferido nas fontes';
 const PREFIXO_CONFERIDO = 'CONFERIDO: ';
 
@@ -21,7 +23,8 @@ const NAO_APLICAVEL = Object.freeze({
 });
 
 function ehDeterministico(alerta) {
-  return VERSOES_DETERMINISTICAS.has(alerta?.qualidade_versao);
+  const versao = alerta?.qualidade_versao;
+  return VERSOES_DETERMINISTICAS.has(versao) || String(versao || '').startsWith(PREFIXO_VERTENTE);
 }
 
 function camposAConferir(alerta) {
