@@ -10,6 +10,62 @@ Ver `QUICK_SUMMARY.md` para o mapa geral dos documentos do projeto.
 
 ---
 
+## 📍 Status em 28/10/2026 (resumo)
+
+Fonte: `git log` de `master` (PRs #167–#205) + leitura da produção (VM, só leitura).
+
+**Produção (28/10 22:54 UTC):** `/api/saude/pipeline` `ok`, 0 falhas reais, 0 erros 429.
+Campanha 200/200 docs em 24 h, mas 100% do orçamento (197 min) foi `facts`;
+`sem_resumo_com_texto`=3 (era 545), `documentos_recentes.sem_resumo`=0. Fila:
+`waiting.historical_budget`=1136, `pending` facts 200 / source-check 893, 10 docs
+aguardando revisão. Último resumo ok 26/10 (`nemotron-3-ultra-550b`). Flags:
+`DESCOBERTAS_SCHEDULER_ENABLED=false`; `AI_ASK_ENABLED` não definido (= desligado);
+`sqlite-vec` já instalado na VM. **VM:** vmstat com ~52% de CPU roubada (steal) e
+~30% de iowait, 363 MB disponíveis, swap 189/2047 MB, disco 39% — a VM está
+estrangulada pelo hypervisor, não por falta de RAM.
+
+**Entregue desde 19/10:**
+- **Núcleo agnóstico (Fase 3):** ente/identidade do município em
+  `municipios/<slug>/municipio.json` (ADR 0007), frontend lê o mesmo JSON,
+  `docker compose up` com município de exemplo, prompts de IA via ente.
+- **RAG/IA:** UI `/perguntar`, busca lexical por nº de documento (`N/AAAA`),
+  índice vetorial em WAL, timeout de IA 180 s, JSON inválido vira erro
+  transitório (até 3 tentativas), resumo fora do contrato tenta de novo.
+  Vercel BotID protege a pergunta à IA.
+- **Alertas (Na Lupa):** tela de revisão com evidências/regra/revalidação,
+  detector "empenhado acima do contratado", gate de publicação próprio; geradores
+  de ruído desligados.
+- **PNCP:** sincronização semanal de vencedores e valores homologados corrigida
+  (3 rodadas do `fiscal-valores`; número de controle normalizado; escritas de
+  texto/coleta/IA não reescrevem resultado do PNCP). Frontend: "Valor
+  homologado (ano)", rótulo por origem.
+- **Operação/segurança:** diagnóstico da VM com CPU roubada (steal) e CPU por
+  processo; `next` 16.4.2, `npm audit` (zod, body-parser, undici); retry de rede
+  no frontend; log de estouro de rate limit; Vercel Web Analytics.
+- **SEO:** `og:image` por página, metadados específicos, botão WhatsApp.
+
+## 🎯 Próximas atividades (ordem sugerida)
+
+1. **Confirmar PNCP em produção:** rodar a sincronização de vencedores, checar
+   `valor_homologado` na UI e que nenhum total mistura estágios (§11.1).
+2. **VM lenta (A11 abaixo):** o coordenador reexecuta o planejamento inteiro após
+   cada tarefa ok → ~100 MB+ lidos e segundos de event loop por tarefa. Corrigir
+   (replanejar só o documento da tarefa / limitar frequência) antes de mexer em
+   paralelismo (A7).
+3. **Resumos (Fase A abaixo):** medir `docs_24h` e `sem_resumo_com_texto` após
+   A9/A10; seguir com A3 (`limite_tamanho`), A4 (`contrato_rejeitado`), A6 (alerta
+   de ritmo), A5/A8 (fila de revisão, `source-check`/`facts`).
+4. **IA/RAG:** decidir ligar `AI_ASK_ENABLED` (`sqlite-vec` já na VM; falta indexar,
+   dataset real de 30–50 perguntas para o eval).
+5. **Na Lupa:** avaliar fila de revisão com o mantenedor, novo lote de 20, depois
+   religar `DESCOBERTAS_SCHEDULER_ENABLED`.
+6. **Fase 3:** textos de página do frontend via ente; contrato `Coletor`; parâmetros
+   por porte.
+7. **Backlog:** OCR Câmara/Prefeitura (Fase C), observabilidade de deep-links
+   fora de datacenter, transparência (fonte de recurso, emendas×empenhos, `coTce`).
+
+---
+
 ## ✅ Concluído — Publicação (MVP)
 
 Deploy em produção desde 28/08/2026 (API em VM Oracle Cloud Always Free +
@@ -178,6 +234,24 @@ Obs.: `curl` na home dá 429 — é o Challenge do firewall Vercel, não queda.
   editais de 2026 sem facts/integrated em 15/10; o teto de 30 min por doc
   aumentaria isso). Agora `facts` segue; `integrated` espera `items` válido.
   Cobertura medida em 15/10: editais 2019–2025 com items 100%; 2026 73/83.
+- [x] **A11. Planejamento global após cada tarefa (achado 29/10, VM).** Medido por
+  SSH (só leitura): `steal` 46–61% em picos (VM.Standard.E2.1.Micro, 1/8 OCPU;
+  8,6% desde o boot), iowait 30–48%, `scripts/api.js` leu 77 GB em ~3,7 h
+  (~5,8 MB/s). Causa provável: `coordinator.js` zera `planningAt` ao fim de toda
+  tarefa ok, então `plan()` + `planAi()` rodam a cada ~10 s de `facts`
+  (1073 execuções/24 h), cada vez varrendo os 2.345 docs (`SELECT * FROM documentos`
+  3,3 s/38 MB; `DISTINCT` de resumos ok 1,8 s/45 MB; consulta de `source-check`
+  0,7 s/9 MB — ≈ 6 s e 90 MB **só nessas 3 leituras**, fora o `planDocument` por
+  documento). `node:sqlite` é síncrono: cada plano trava o event loop da API.
+  Além disso `cache-registry.invalidarTodos()` roda após toda tarefa ok, derrubando
+  os agregados de 10 min. `ritapolis.db` = 2,4 GB para ~430 MB de cache de página.
+  **Fix proposto (TDD):** após tarefa ok, replanejar só a entidade (`planDocument`)
+  e manter o plano global a cada 5 min; invalidar cache só em tarefas que mudam
+  dado público; trocar `SELECT *` por colunas necessárias. Aceite: `read_bytes` do
+  api.js e iowait caem; `docs_24h` mantém 200.
+  **Implementado 29/10** (`planEntidade`, `escopoReplanejamento`, invalidação de cache
+  com piso de 1 min). Após o deploy medir `read_bytes` do api.js e iowait; `SELECT *`
+  do plano global (a cada 5 min) segue.
 - [ ] **A3. `limite_tamanho` em `collection`**: chunking/map-reduce em vez de
   rejeitar documentos grandes.
 - [ ] **A4. `contrato_rejeitado`**: ver prompts/schema; o modelo erra chave

@@ -2,7 +2,7 @@
 const path = require('path');
 const { fork } = require('child_process');
 const { createQueue } = require('./queue');
-const { plan, enqueueCollection } = require('./planner');
+const { plan, planEntidade, escopoReplanejamento, enqueueCollection } = require('./planner');
 const { transientError, localTime } = require('./policy');
 const { guardReport } = require('../storage/daily-snapshot');
 const logger = require('../logger');
@@ -13,6 +13,9 @@ let timer;
 let child;
 let childJob;
 let planningAt = 0;
+let cacheInvalidatedAt = 0;
+let cacheDirty = false;
+const CACHE_INVALIDATION_MIN_MS = 60000;
 let stopping = false;
 function killWorker(worker) {
   if (process.platform !== 'win32' && worker.pid > 0) {
@@ -24,6 +27,32 @@ function killWorker(worker) {
     }
   }
   worker.kill('SIGKILL');
+}
+// Cada tarefa ok mudaria os agregados, mas invalidar a cada ~10 s os refaz sem parar
+// (leitura de GBs no banco); no máximo uma invalidação por minuto, o resto fica pendente.
+function invalidarCache(now = Date.now()) {
+  if (now - cacheInvalidatedAt < CACHE_INVALIDATION_MIN_MS) {
+    cacheDirty = true;
+    return;
+  }
+  cacheInvalidatedAt = now;
+  cacheDirty = false;
+  require('../services/cache-registry').invalidarTodos();
+}
+function replanejarAposTarefa(job) {
+  const escopo = escopoReplanejamento(job.kind);
+  if (escopo === 'global') {
+    planningAt = 0;
+    return;
+  }
+  if (escopo !== 'entidade') {
+    return;
+  }
+  try {
+    planEntidade(getQueue(), job.entity);
+  } catch (error) {
+    logger.error('Pipeline: replanejamento da entidade falhou', { id: job.id, error: error.message });
+  }
 }
 function enabled() {
   return process.env.PIPELINE_ENABLED === 'true';
@@ -135,7 +164,9 @@ function run(job) {
         : { error: `worker_interrupted (exit ${code})`, transient: true });
     getQueue().finish(job.id, result);
     if (!result.error && !result.deferred) {
-      require('../services/cache-registry').invalidarTodos();
+      if (job.kind !== 'source-check') {
+        invalidarCache();
+      }
       if (job.kind === 'backup') {
         getQueue().setMeta('backup', result.result);
       }
@@ -152,7 +183,7 @@ function run(job) {
           getQueue().setMeta('expenses_through', payload.through);
         }
       }
-      planningAt = 0;
+      replanejarAposTarefa(job);
     } else if (result.error) {
       logger.warn('Pipeline: tarefa falhou', { id: job.id, kind: job.kind, error: result.error });
     }
@@ -167,6 +198,9 @@ function wake() {
   }
   try {
     const q = getQueue();
+    if (cacheDirty) {
+      invalidarCache();
+    }
     if (Date.now() - planningAt >= 5 * 60000) {
       planningAt = Date.now();
       plan(q);

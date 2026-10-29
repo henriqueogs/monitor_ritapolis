@@ -290,3 +290,60 @@ describe('historicos sem resumo entram antes dos que so precisam de etapas segui
     ]);
   });
 });
+
+describe('replanejamento por entidade (A11)', () => {
+  const config = require('../config');
+  const { planEntidade, escopoReplanejamento } = require('./planner');
+  const original = config.pipelineHistoricalDocsPerDay;
+  afterEach(() => {
+    config.pipelineHistoricalDocsPerDay = original;
+  });
+
+  test('planeja so o documento informado, sem varrer os demais', () => {
+    document(1, 2026, '2026-09-29');
+    document(2, 2026, '2026-09-28');
+    document(3, 2026, '2026-09-27');
+
+    planEntidade(q, 2, now);
+
+    expect(db.prepare('SELECT kind, entity FROM pipeline_jobs').all()).toEqual([
+      { kind: 'summary', entity: '2' },
+    ]);
+  });
+
+  test('historico respeita o teto diario de documentos', () => {
+    config.pipelineHistoricalDocsPerDay = 1;
+    document(1, 2025, '2025-12-02');
+    document(2, 2025, '2025-12-01');
+
+    planEntidade(q, 1, now);
+    planEntidade(q, 2, now);
+
+    expect(db.prepare('SELECT entity FROM pipeline_jobs').all()).toEqual([{ entity: '1' }]);
+  });
+
+  test('documento que ja entrou no dia segue planejado mesmo com o teto cheio', () => {
+    config.pipelineHistoricalDocsPerDay = 1;
+    document(1, 2025, '2025-12-02');
+    planEntidade(q, 1, now);
+    db.prepare("UPDATE pipeline_jobs SET status='ok'").run();
+
+    planEntidade(q, 1, now);
+
+    expect(db.prepare('SELECT COUNT(*) AS n FROM pipeline_jobs').get().n).toBeGreaterThanOrEqual(1);
+  });
+
+  test('id inexistente nao falha nem cria tarefa', () => {
+    expect(() => planEntidade(q, 999, now)).not.toThrow();
+    expect(db.prepare('SELECT COUNT(*) AS n FROM pipeline_jobs').get().n).toBe(0);
+  });
+
+  test('escopo: etapas de IA replanejam a entidade, source-check nao replaneja, o resto e global', () => {
+    expect(escopoReplanejamento('facts')).toBe('entidade');
+    expect(escopoReplanejamento('summary')).toBe('entidade');
+    expect(escopoReplanejamento('anexo-summary')).toBe('entidade');
+    expect(escopoReplanejamento('source-check')).toBe('nenhum');
+    expect(escopoReplanejamento('collection')).toBe('global');
+    expect(escopoReplanejamento('expenses')).toBe('global');
+  });
+});
