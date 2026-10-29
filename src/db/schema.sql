@@ -691,6 +691,7 @@ CREATE TABLE IF NOT EXISTS emendas_detalhes (
   data_termino TEXT,
   data_recebimento TEXT,
   dados_despesa TEXT,
+  ano_referencia INTEGER,          -- recebimento > número da emenda > início (não o ano da postagem)
   atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (documento_id)
 );

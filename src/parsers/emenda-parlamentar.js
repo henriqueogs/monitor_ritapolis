@@ -5,6 +5,8 @@
  * Funcoes puras - sem efeitos colaterais, sem acesso a DB.
  */
 
+const { ANO_PLAUSIVEL_MIN } = require('../utils/mandato');
+
 const ESFERA = { ESTADUAL: 'estadual', FEDERAL: 'federal' };
 
 // Rótulos conhecidos do formulário de emenda. A fonte federal vem em LINHA ÚNICA
@@ -82,6 +84,46 @@ function extrairParlamentar(texto) {
   return { nome: raw, cargo: null };
 }
 
+// Ano no número da emenda: federal "AAAA" + 8 dígitos (202539600001); estadual "Resolução N.x/AAAA".
+const ANO_NUMERO_FEDERAL = /^(20\d{2})\d{8}$/;
+const ANO_NUMERO_ESTADUAL = /\/\s*(20\d{2})\b/;
+
+// O número pode ser do orçamento do ano seguinte (LOA votada em dezembro); datas, não.
+const MARGEM_ANO_NUMERO = 1;
+
+function anoPlausivel(ano, maximo) {
+  return Number.isInteger(ano) && ano >= ANO_PLAUSIVEL_MIN && ano <= maximo ? ano : null;
+}
+
+function anoDeIso(data, maximo) {
+  const match = String(data || '').match(/^(\d{4})-\d{2}-\d{2}/);
+  return match ? anoPlausivel(Number(match[1]), maximo) : null;
+}
+
+function anoDoNumeroEmenda(numero, maximo) {
+  const texto = String(numero || '');
+  const federal = texto.replace(/\D/g, '').match(ANO_NUMERO_FEDERAL);
+  if (federal && /^\s*\d[\d\s.]*$/.test(texto)) { return anoPlausivel(Number(federal[1]), maximo); }
+  const estadual = texto.match(ANO_NUMERO_ESTADUAL);
+  return estadual ? anoPlausivel(Number(estadual[1]), maximo) : null;
+}
+
+/**
+ * Ano a que a emenda se refere: recebimento do recurso, depois o ano do número da emenda,
+ * depois o início. Nunca o ano em que a ficha foi postada no site (CLAUDE.md §11.1).
+ * Ano implausível ou futuro (erro de digitação) passa para o próximo critério.
+ */
+function anoReferenciaEmenda(
+  { data_recebimento, numero_emenda, data_inicio } = {},
+  { anoAtual = new Date().getFullYear() } = {}
+) {
+  return (
+    anoDeIso(data_recebimento, anoAtual) ??
+    anoDoNumeroEmenda(numero_emenda, anoAtual + MARGEM_ANO_NUMERO) ??
+    anoDeIso(data_inicio, anoAtual)
+  );
+}
+
 function parseEmendaParlamentar(texto, opts) {
   const titulo = (opts && opts.titulo) || null;
   const src = String(texto || '');
@@ -96,12 +138,16 @@ function parseEmendaParlamentar(texto, opts) {
   const dataTerminoRaw = extrairCampo(src, 'TERMINO') || extrairCampo(src, 'TÉRMINO');
   const dataRecebimentoRaw = extrairCampo(src, 'DATA DE RECEBIMENTO DO RECURSO');
 
+  const numeroEmenda =
+    extrairCampo(src, 'N.o DA EMENDA') ||
+    extrairCampo(src, 'No DA EMENDA') ||
+    extrairCampo(src, 'Nº DA EMENDA') ||
+    extrairCampo(src, 'N.º DA EMENDA');
+  const dataInicio = parsearDataBR(dataInicioRaw);
+  const dataRecebimento = parsearDataBR(dataRecebimentoRaw);
+
   return {
-    numero_emenda:
-      extrairCampo(src, 'N.o DA EMENDA') ||
-      extrairCampo(src, 'No DA EMENDA') ||
-      extrairCampo(src, 'Nº DA EMENDA') ||
-      extrairCampo(src, 'N.º DA EMENDA'),
+    numero_emenda: numeroEmenda,
     nome_parlamentar: parlamentar.nome,
     cargo_parlamentar: parlamentar.cargo,
     partido: extrairCampo(src, 'PARTIDO DO PARLAMENTAR'),
@@ -126,15 +172,21 @@ function parseEmendaParlamentar(texto, opts) {
     gestor_responsavel:
       extrairCampo(src, 'GESTOR RESPONSÁVEL') ||
       extrairCampo(src, 'GESTOR RESPONSAVEL'),
-    data_inicio: parsearDataBR(dataInicioRaw),
+    data_inicio: dataInicio,
     data_termino: parsearDataBR(dataTerminoRaw),
-    data_recebimento: parsearDataBR(dataRecebimentoRaw),
+    data_recebimento: dataRecebimento,
     dados_despesa: extrairCampo(src, 'DADOS DA DESPESA'),
+    ano_referencia: anoReferenciaEmenda({
+      data_recebimento: dataRecebimento,
+      numero_emenda: numeroEmenda,
+      data_inicio: dataInicio,
+    }),
   };
 }
 
 module.exports = {
   parseEmendaParlamentar,
+  anoReferenciaEmenda,
   parsearValorMonetario,
   parsearDataBR,
   extrairCampo,

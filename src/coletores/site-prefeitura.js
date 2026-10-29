@@ -4,6 +4,7 @@ const { getDocumentoByUrlPdfRaw } = require('../db');
 const { extractOfficialFileText, inferFileExtension } = require('../parsers/document-file');
 const { parseLicitacao } = require('../parsers/licitacao');
 const { parseDecreto } = require('../parsers/decreto');
+const { gravarDetalhesEmenda } = require('../coletas/emendas-detalhes');
 const { parseDataBrasileira, naoFutura } = require('../utils/datas');
 const { arquivoExtraidoExistente } = require('../utils/documento-merge');
 const { fontes } = require('../fontes');
@@ -16,6 +17,7 @@ const {
 } = require('../utils/text');
 
 const BASE_URL = fontes.sitePrefeitura;
+const TIPO_EMENDA = 'emenda_parlamentar';
 const PREFEITURA_AREAS = [
   {
     id: 'editais',
@@ -116,7 +118,7 @@ function inferTipo(title, text, modalidade = '') {
   // "lei" apenas no título (ex: "Lei nº 001/2024") — nunca no corpo do PDF
   if (/\blei\b/i.test(headSource)) {return 'lei';}
   // Emendas parlamentares (estaduais ou federais) — título pode ser "Emenda" ou "Emendas"
-  if (/\bemendas?\b/i.test(headSource)) {return 'emenda_parlamentar';}
+  if (/\bemendas?\b/i.test(headSource)) {return TIPO_EMENDA;}
   return 'documento_publico';
 }
 
@@ -426,7 +428,7 @@ class ColetorSitePrefeitura extends ColetorBase {
         ? tituloReconstruido
         : item.titulo || tituloReconstruido;
 
-    this.salvarDocumento(
+    const salvo = this.salvarDocumento(
       {
         fonte: this.fonte,
         tipo,
@@ -484,6 +486,10 @@ class ColetorSitePrefeitura extends ColetorBase {
       },
       resultado
     );
+
+    if (tipo === TIPO_EMENDA && salvo?.id) {
+      gravarDetalhesEmenda(salvo.id, { texto: mergedText, titulo });
+    }
   }
 
   async executar(resultado) {

@@ -13,6 +13,10 @@ const { parseJson } = require('./documentos-repo');
 
 const TIPO_EMENDA = 'emenda_parlamentar';
 
+// Ano da emenda (src/parsers/emenda-parlamentar.js → anoReferenciaEmenda). documentos.ano é o ano
+// em que a ficha foi postada no site: só vale quando a emenda ainda não tem ano de referência.
+const ANO_EMENDA = 'COALESCE(ed.ano_referencia, d.ano)';
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function rowToEmenda(row) {
@@ -38,7 +42,7 @@ function salvarEmendaDetalhes(documentoId, campos) {
       orgao_transferidor, instrumento_legal, categoria_economica,
       unidade_executora, gestor_responsavel,
       data_inicio, data_termino, data_recebimento, dados_despesa,
-      atualizado_em
+      ano_referencia, atualizado_em
     ) VALUES (
       :documento_id, :esfera, :numero_emenda, :nome_parlamentar, :cargo_parlamentar,
       :partido, :tipo_emenda, :tipo_transferencia, :objeto, :objeto_detalhado,
@@ -46,7 +50,7 @@ function salvarEmendaDetalhes(documentoId, campos) {
       :orgao_transferidor, :instrumento_legal, :categoria_economica,
       :unidade_executora, :gestor_responsavel,
       :data_inicio, :data_termino, :data_recebimento, :dados_despesa,
-      CURRENT_TIMESTAMP
+      :ano_referencia, CURRENT_TIMESTAMP
     )
     ON CONFLICT(documento_id) DO UPDATE SET
       esfera = excluded.esfera,
@@ -70,6 +74,7 @@ function salvarEmendaDetalhes(documentoId, campos) {
       data_termino = excluded.data_termino,
       data_recebimento = excluded.data_recebimento,
       dados_despesa = excluded.dados_despesa,
+      ano_referencia = excluded.ano_referencia,
       atualizado_em = CURRENT_TIMESTAMP
   `).run({ documento_id: documentoId, ...campos });
 }
@@ -84,7 +89,7 @@ function getEmendaDetalhesByDocumentoId(documentoId) {
 
 const BASE_SELECT = `
   SELECT
-    d.id, d.titulo, d.tipo, d.ano, d.data_publicacao, d.url_origem, d.url_pdf,
+    d.id, d.titulo, d.tipo, ${ANO_EMENDA} AS ano, d.ano AS ano_publicacao, d.data_publicacao, d.url_origem, d.url_pdf,
     d.resumo, d.dados_extras,
     ed.esfera, ed.numero_emenda, ed.nome_parlamentar, ed.cargo_parlamentar,
     ed.partido, ed.tipo_emenda, ed.tipo_transferencia,
@@ -119,7 +124,7 @@ function listarEmendas({ esfera, partido, nome_parlamentar, ano, limit = 50, off
     params.nome_parlamentar = `%${nome_parlamentar}%`;
   }
   if (ano) {
-    conditions.push('d.ano = :ano');
+    conditions.push(`${ANO_EMENDA} = :ano`);
     params.ano = Number(ano);
   }
 
@@ -139,7 +144,7 @@ function contarEmendas({ esfera, partido, nome_parlamentar, ano } = {}) {
     conditions.push('ed.nome_parlamentar LIKE :nome_parlamentar');
     params.nome_parlamentar = `%${nome_parlamentar}%`;
   }
-  if (ano) { conditions.push('d.ano = :ano'); params.ano = Number(ano); }
+  if (ano) { conditions.push(`${ANO_EMENDA} = :ano`); params.ano = Number(ano); }
 
   const where = conditions.length ? ` AND ${conditions.join(' AND ')}` : '';
   const sql = `
@@ -164,15 +169,15 @@ function getEmendaById(id) {
 function totaisPorAno() {
   return db.prepare(`
     SELECT
-      d.ano,
+      ${ANO_EMENDA} AS ano,
       ed.esfera,
       COUNT(*) as total_emendas,
       SUM(ed.valor_repasse) as soma_repasse
     FROM documentos d
     LEFT JOIN emendas_detalhes ed ON ed.documento_id = d.id
     WHERE d.tipo = '${TIPO_EMENDA}'
-    GROUP BY d.ano, ed.esfera
-    ORDER BY d.ano DESC, ed.esfera
+    GROUP BY 1, ed.esfera
+    ORDER BY 1 DESC, ed.esfera
   `).all();
 }
 
@@ -183,7 +188,7 @@ function parlamentaresComTotais({ esfera, ano } = {}) {
   const conditions = [];
   const params = {};
   if (esfera) { conditions.push('ed.esfera = :esfera'); params.esfera = esfera; }
-  if (ano) { conditions.push('d.ano = :ano'); params.ano = Number(ano); }
+  if (ano) { conditions.push(`${ANO_EMENDA} = :ano`); params.ano = Number(ano); }
   const where = conditions.length ? ` AND ${conditions.join(' AND ')}` : '';
 
   return db.prepare(`

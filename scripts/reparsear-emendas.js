@@ -7,6 +7,7 @@
  * Motivo: as emendas FEDERAIS vêm em LINHA ÚNICA na fonte; o parser antigo
  * (parar no \n) fazia cada campo engolir o registro inteiro (cargo/instrumento/
  * unidade com 260+ chars). O parser novo para no próximo rótulo conhecido.
+ * Também preenche emendas_detalhes.ano_referencia (ano da emenda, não o da postagem no site).
  *
  * Idempotente (upsert por documento_id). Dry-run por padrão.
  *   node scripts/reparsear-emendas.js            # dry-run

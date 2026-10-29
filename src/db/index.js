@@ -118,6 +118,7 @@ function ensureRuntimeSchema() {
   ensureColumn('fornecedores_perfil', 'n_empenhos', 'INTEGER NOT NULL DEFAULT 0');
   ensureColumn('fornecedores_perfil', 'n_anos_pago', 'INTEGER NOT NULL DEFAULT 0');
   ensureColumn('alertas', 'estado_editorial', "TEXT NOT NULL DEFAULT 'revisao'");
+  ensureColumn('emendas_detalhes', 'ano_referencia', 'INTEGER');
   ensureColumn('alertas', 'evidencias_hash', 'TEXT');
   ensureColumn('alertas', 'qualidade_motivos_json', "TEXT NOT NULL DEFAULT '[]'");
   ensureColumn('alertas', 'qualidade_versao', 'TEXT');

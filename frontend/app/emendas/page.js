@@ -3,6 +3,12 @@ import { fetchEmendas, fetchEmendaTotaisPorAno, fetchEmendaParlamentares } from 
 import { formatMoney, formatDate } from '../lib/format';
 import styles from './styles.module.css';
 import { ORIGEM_PREFEITURA } from '../../lib/ente';
+import { paginacaoDaBusca } from '../../lib/paginacao';
+import { resumirTotaisPorEsfera } from '../../lib/emendas-totais';
+import Pagination from '../components/Pagination';
+
+const EMENDAS_POR_PAGINA = 50;
+const LIMITE_MAX_API = 100;
 
 export const metadata = {
   title: 'Emendas Parlamentares',
@@ -12,48 +18,44 @@ export const metadata = {
 // existe em CI) e congela a pagina vazia ate o proximo deploy.
 export const dynamic = 'force-dynamic';
 
-function RangeAnos({ totais }) {
-  if (!totais || totais.length === 0) return null;
-  const anos = totais.map((t) => t.ano).filter(Boolean);
-  if (anos.length === 0) return null;
-  const min = Math.min(...anos);
-  const max = Math.max(...anos);
-  return min === max ? String(min) : `${min}–${max}`;
+const ROTULO_ESFERA = { estadual: 'Estaduais', federal: 'Federais' };
+
+function plural(n, singular) {
+  return `${n} ${singular}${n !== 1 ? 's' : ''}`;
 }
 
-function TotaisCards({ totais }) {
-  if (!totais || totais.length === 0) return null;
-
-  // Agrupa por esfera para somar
-  const porEsfera = {};
-  for (const t of totais) {
-    const esfera = t.esfera || 'indefinida';
-    if (!porEsfera[esfera]) { porEsfera[esfera] = { total_emendas: 0, soma_repasse: 0, anos: [] }; }
-    porEsfera[esfera].total_emendas += t.total_emendas || 0;
-    porEsfera[esfera].soma_repasse += t.soma_repasse || 0;
-    if (t.ano) { porEsfera[esfera].anos.push(t.ano); }
-  }
-
-  const range = <RangeAnos totais={totais} />;
+// Ano = recebimento do recurso ou, sem essa data, o ano da emenda (número/início). Por isso o
+// rótulo diz "repasses", não "recebido".
+function TotaisCards({ totais, anoSelecionado }) {
+  const { anoDestaque, esferas } = resumirTotaisPorEsfera(totais, anoSelecionado);
+  if (!anoDestaque) return null;
 
   return (
-    <div className={styles.totaisGrid}>
-      {Object.entries(porEsfera).map(([esfera, dados]) => {
-        const label = esfera === 'estadual' ? 'Estaduais' : esfera === 'federal' ? 'Federais' : 'Outras';
-        const anosLocal = [...new Set(dados.anos)].sort();
-        const rangeLocal = anosLocal.length > 1
-          ? `${anosLocal[0]}–${anosLocal[anosLocal.length - 1]}`
-          : anosLocal[0] || '';
-        return (
+    <>
+      <div className={styles.totaisGrid}>
+        {Object.entries(esferas).map(([esfera, { ano, acumulado, semAno }]) => (
           <div key={esfera} className={styles.totaisCard}>
-            <span className={styles.totaisLabel}>Emendas {label}</span>
-            <span className={styles.totaisValor}>{formatMoney(dados.soma_repasse)}</span>
-            <span className={styles.totaisPeriodo}>Total recebido {rangeLocal}</span>
-            <span className={styles.totaisQtd}>{dados.total_emendas} emenda{dados.total_emendas !== 1 ? 's' : ''}</span>
+            <span className={styles.totaisLabel}>Emendas {ROTULO_ESFERA[esfera] || 'Outras'}</span>
+            <span className={styles.totaisValor}>{formatMoney(ano.soma_repasse)}</span>
+            <span className={styles.totaisPeriodo}>Repasses de {anoDestaque}</span>
+            <span className={styles.totaisQtd}>{plural(ano.total_emendas, 'emenda')}</span>
+            <span className={styles.totaisQtd}>
+              Acumulado {acumulado.intervalo}: {formatMoney(acumulado.soma_repasse)} ·{' '}
+              {plural(acumulado.total_emendas, 'emenda')}
+            </span>
+            {semAno.total_emendas > 0 && (
+              <span className={styles.totaisQtd}>
+                Sem ano identificado: {formatMoney(semAno.soma_repasse)} · {plural(semAno.total_emendas, 'emenda')}
+              </span>
+            )}
           </div>
-        );
-      })}
-    </div>
+        ))}
+      </div>
+      <p className={styles.totaisNota}>
+        Ano de cada emenda: data de recebimento do recurso ou, sem ela, o ano da emenda (número ou
+        início). Se a ficha não traz nenhum desses dados, vale o ano em que foi publicada no site.
+      </p>
+    </>
   );
 }
 
@@ -191,9 +193,13 @@ export default async function EmendasPage(props) {
   const esfera = searchParams?.esfera || undefined;
   const ano = searchParams?.ano || undefined;
   const parlamentar = searchParams?.parlamentar || undefined;
+  const { pagina, limite, offset } = paginacaoDaBusca(searchParams, {
+    limite: EMENDAS_POR_PAGINA,
+    limiteMax: LIMITE_MAX_API,
+  });
 
   const [{ emendas, total }, totais] = await Promise.all([
-    fetchEmendas({ esfera, ano, parlamentar, limite: 50 }),
+    fetchEmendas({ esfera, ano, parlamentar, limite, offset }),
     fetchEmendaTotaisPorAno(),
   ]);
 
@@ -208,7 +214,7 @@ export default async function EmendasPage(props) {
         </p>
       </div>
 
-      <TotaisCards totais={totais} />
+      <TotaisCards totais={totais} anoSelecionado={ano} />
 
       <section className={styles.filtrosSection} aria-labelledby="emendas-filtros-title">
         <div className={styles.filtrosHeader}>
@@ -238,6 +244,14 @@ export default async function EmendasPage(props) {
           ))}
         </section>
       )}
+
+      <Pagination
+        basePath="/emendas"
+        filters={{ esfera, ano, parlamentar }}
+        total={total}
+        pagina={pagina}
+        limite={limite}
+      />
 
       <footer className={styles.fonteRodape}>
         <p>
