@@ -14,7 +14,9 @@ const MOEDA = 'R$';
 const CHAVE_HASH_CHARS = 16;
 
 function limitesPeriodo(periodo) {
-  if (periodo.inicio && periodo.fim) {return { inicio: periodo.inicio, fim: periodo.fim };}
+  if (periodo.inicio && periodo.fim) {
+    return { inicio: periodo.inicio, fim: periodo.fim };
+  }
   return { inicio: `${periodo.ano}-01-01`, fim: `${periodo.ano}-12-31` };
 }
 
@@ -68,6 +70,9 @@ function candidatoParaAlerta(candidato) {
       metrica: candidato.metrica,
       campos_a_verificar: candidato.campos_a_verificar,
     },
+    // Vertente migrada de runner legado pode fixar tipo/chave/rótulos para atualizar o
+    // alerta existente em vez de duplicá-lo.
+    ...candidato.alerta,
   };
   const documentos = alerta.documentos_ids.map(id => ({ documento_id: id }));
   return { alerta, documentos, evidencias: candidato.evidencias.map(evidenciaParaRepo) };
@@ -77,7 +82,9 @@ function persistirCandidatos(candidatos, { upsert, dryRun = false } = {}) {
   let gravados = 0;
   let falhas = 0;
   for (const candidato of candidatos) {
-    if (dryRun) {continue;}
+    if (dryRun) {
+      continue;
+    }
     try {
       const { alerta, documentos, evidencias } = candidatoParaAlerta(candidato);
       upsert(alerta, documentos, evidencias);

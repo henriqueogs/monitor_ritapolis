@@ -51,7 +51,9 @@ describe('vertente gasto-atipico-categoria', () => {
     expect(c.metrica).toMatchObject({ unidade: 'R$', valor: 600000 });
     expect(c.evidencias).toHaveLength(2);
     expect(c.evidencias[0].url_origem).toMatch(/^https?:\/\//);
-    expect(c.titulo).toMatch(/Posto A/);
+    expect(c.titulo).toMatch(/um recebedor concentra/);
+    expect(c.alerta).toMatchObject({ tipo: 'gasto_atipico', subcategoria: 'gasto_atipico_credor' });
+    expect(c.alerta.chave_unica).toMatch(/^empenho|combustivel|gasto_atipico_credor|2025|/);
   });
 
   it('sem empenho carregado não há evidência e o candidato é descartado', () => {
