@@ -47,8 +47,13 @@ matéria-prima da Na Lupa v4**.
 ### 5.1 Princípios (herdados da #57 e do `planejamento-descobertas-investigativas.md`)
 
 1. Uma descoberta = uma afirmação, objeto delimitado, cálculo reproduzível.
-2. **Quem acha o fato é regra determinística; a IA só narra** (e, no modo
-   exploratório, propõe hipóteses que o sistema verifica por consulta).
+2. **A Na Lupa é híbrida (decisão 29/10): não é 100% determinística.** Duas
+   trilhas, rotuladas de forma diferente ao cidadão:
+   - **Verificado:** regra determinística acha o fato; a IA só narra.
+   - **Suspeita da IA:** a IA lê os dados e levanta padrões, detalhes suspeitos
+     ou absurdos que nenhuma regra previu. O *julgamento* é da IA e vem
+     rotulado como tal; as *evidências* (trechos, números, fontes) são
+     verificadas mecanicamente antes de qualquer exibição.
 3. Toda afirmação cita fonte oficial rastreável (CLAUDE.md §11.3) e período
    explícito (§11.1). Linguagem não acusatória: fato + fonte + critério.
 4. Publicação automática só depois dos gates (factual → editorial); dúvida vai
@@ -73,10 +78,31 @@ categoria/ano; só a #57 é útil, e só 1 descoberta pública.
   um arquivo + testes; o orquestrador roda todas, aplica os gates e persiste.
 - **Catálogo e medição por vertente**: candidatos / publicados / rejeitados na
   revisão (precisão). Vertente com precisão baixa é rebaixada para `revisao`.
-- **Modo exploratório (IA propõe, regra verifica)**: a IA recebe resumos e tabelas
-  de fatos e sugere *tipos de inconsistência* e consultas; cada sugestão só vira
-  candidato se uma verificação determinística reproduz o achado com evidência.
-  Sugestões úteis recorrentes viram vertente fixa. Respeita o teto de uso de IA.
+- **Trilha 2 — Analista IA ("Suspeita da IA")**, trilha própria e permanente:
+  1. *Dossiês por unidade de análise:* credor, processo licitatório, categoria×ano,
+     secretaria, norma, servidor-agregado. Cada dossiê junta fatos, valores,
+     datas, resumos e trechos com id de fonte.
+  2. *Seleção do que a IA vê* (orçamento limitado): outliers estatísticos + sinais
+     das vertentes determinísticas + **amostra aleatória** (para achar o que
+     ninguém previu) + dossiês nunca analisados primeiro.
+  3. *Prompt de analista:* "aponte padrões incomuns, incoerências, valores
+     absurdos ou superestimados, repetições, lacunas — com a evidência exata".
+     Saída estruturada: `{ achado, tipo, evidencias[{fonte_id, trecho, numero}],
+     por_que_suspeito, o_que_falta_para_confirmar, confianca }`.
+  4. *Verificação mecânica das evidências (sem julgar a suspeita):* cada trecho
+     existe literalmente na fonte; cada número bate com o banco; cada fonte tem
+     `url_origem`; somas e contagens recalculadas pelo sistema (fiscais
+     `valores`/`proveniencia`). Evidência inválida → candidato descartado.
+  5. *Dedupe e consolidação:* a mesma suspeita em vários dossiês vira uma só.
+  6. *Rótulo e linguagem:* "Ponto de atenção levantado por IA — não é conclusão";
+     fato + fonte + critério + o que falta confirmar; nunca acusação nem
+     intenção (fiscal `privacidade`). PF só agregada.
+  7. *Publicação:* começa **sempre na fila de revisão humana**; vira publicação
+     automática só por tipo de achado depois de precisão medida. Revisão alimenta
+     um conjunto de exemplos (aprovados/rejeitados) que melhora o prompt.
+  8. *Retroalimentação:* suspeita recorrente e confirmada vira vertente
+     determinística (trilha 1) — a IA descobre, a regra passa a vigiar.
+  Teto diário de tokens; modelo e custo medidos antes (limites NVIDIA já medidos).
 - Legado: ocultar o que não passa no gate novo, preservar para auditoria.
 
 ### 5.4 Vertentes (primeiras; lista aberta)
@@ -109,9 +135,8 @@ categoria/ano; só a #57 é útil, e só 1 descoberta pública.
 **Pessoal (cuidado LGPD — só agregado)**
 12. Folha: variações por secretaria/mandato; nada nominal sem base legal.
 
-> A lista é ponto de partida: cada rodada de resumos (atividade 3) pode revelar
-> padrões novos; o modo exploratório existe justamente para não depender só do
-> que já pensamos.
+> A lista é ponto de partida para a trilha 1: cada rodada de resumos
+> (atividade 3) e cada suspeita confirmada na trilha 2 pode gerar vertente nova.
 
 ### 5.5 Fases
 
@@ -119,13 +144,15 @@ categoria/ano; só a #57 é útil, e só 1 descoberta pública.
 |---|---|---|
 | N0 | Diagnóstico: auditar descobertas atuais, amostrar 30 achados reais (da base de fatos) por vertente e medir quantos são verificáveis | relatório + vertentes priorizadas pelo mantenedor |
 | N1 | Contrato de vertente + orquestrador + migração de 2 detectores existentes + oculta legado | testes verdes; nenhuma descoberta pública fora do gate |
-| N2 | Vertentes 6 e 1 (as de maior valor e mais próximas da #57) | ≥ 3 descobertas publicáveis com revisão humana |
-| N3 | Vertentes 2, 3, 5, 7, 9 | precisão medida por vertente |
-| N4 | Modo exploratório (IA propõe → regra verifica) com teto de tokens | ≥ 1 vertente nova nascida do modo |
-| N5 | Religar `DESCOBERTAS_SCHEDULER_ENABLED` só com precisão ≥ meta | decisão do mantenedor |
+| N2 | **Analista IA, protótipo manual** (trilha 2): dossiês de credor e de processo, prompt de analista, verificador de evidências, lote de 20 para você revisar | ≥ 30% das suspeitas úteis; 0 evidência inventada passando |
+| N3 | Vertentes determinísticas 6 e 1 (mais próximas da #57) | ≥ 3 descobertas publicáveis com revisão humana |
+| N4 | Analista IA em escala: seleção (outliers + amostra aleatória), dossiês de categoria/secretaria/norma, dedupe, teto de tokens | fila de revisão com rótulo "Suspeita da IA" |
+| N5 | Vertentes 2, 3, 5, 7, 9 + promoção de suspeitas confirmadas a vertentes | precisão medida por vertente/tipo |
+| N6 | Religar `DESCOBERTAS_SCHEDULER_ENABLED` só com precisão ≥ meta | decisão do mantenedor |
 
-N0 começa já (não depende dos resumos completos: usa o que existe). N2+ rendem
-mais conforme a atividade 3 avança.
+N0 começa já (não depende dos resumos completos: usa o que existe). A trilha 2
+entra cedo (N2) porque é ela que acha o que não previmos; N3+ rendem mais
+conforme a atividade 3 avança.
 
 ## 6. Backlog (oportunista)
 
@@ -139,4 +166,6 @@ emendas×empenhos, `coTce`).
 1. Prioridade entre vertentes 1–12 (sugestão: 6 → 1 → 3 → 9).
 2. Meta de precisão para religar o scheduler (sugestão: ≥ 80% aprovadas na
    revisão em lote de 20).
-3. Teto diário de tokens do modo exploratório.
+3. Teto diário de tokens da trilha 2 (Analista IA).
+4. "Suspeita da IA" pode aparecer **pública com rótulo** após sua aprovação
+   (sugestão) ou só em área interna no começo?

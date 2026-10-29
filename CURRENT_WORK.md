@@ -58,8 +58,9 @@ estrangulada pelo hypervisor, não por falta de RAM.
 4. **IA/RAG (`/perguntar`): ESTACIONADO** (decisão 29/10) — falta analisar o
    conteúdo todo e o uso interno de IA já tem limite; abrir a terceiros está longe.
 5. **Na Lupa v4 (refatoração):** panorama de inconsistências e gastos em várias
-   vertentes (compras repetidas, preço acima da referência, diárias, divergência
-   entre documentos, legislação…), padrão da #57. Plano e fases N0–N5 em
+   vertentes, **híbrida**: trilha determinística (verificado) + trilha "Analista
+   IA" que levanta suspeitas/absurdos com evidência verificada mecanicamente
+   (revisão humana primeiro). Padrão da #57. Plano e fases N0–N6 em
    `docs/PLANO_PROXIMAS_ATIVIDADES_2026-10-29.md`. Scheduler segue desligado.
 6. **Fase 3:** textos de página do frontend via ente; contrato `Coletor`; parâmetros
    por porte.
