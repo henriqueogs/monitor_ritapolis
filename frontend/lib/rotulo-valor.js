@@ -5,9 +5,10 @@
 // licitacoes_detalhes.valor_final vem de origens diferentes: resultado do PNCP (homologado),
 // texto do contrato/ata/homologação, IA... O derivado de empenho já sai no backend
 // (src/transparencia/valor-final-empenho.js). "Homologado" só para o resultado do PNCP, que tem
-// escritor único e protegido; nas demais origens `origem` nem sempre descreve o valor gravado
-// (os escritores de texto e IA atualizam valor e origem com condições diferentes), então o
-// rótulo não afirma estágio (fiscal-valores 28/10). O ano é o do processo.
+// escritor único e protegido. `origem` acompanha o valor gravado (src/db/licitacoes-detalhes-sql.js),
+// mas texto_contrato/texto_ata vêm de heurística por substring (inferOrigem em
+// src/parsers/licitacao-detalhes.js: "Data" ou "contratada" já dão texto_ata), então o rótulo
+// não afirma contrato nem ata (fiscal-valores 28/10). O ano é o do processo.
 
 const ORIGEM_PNCP_RESULTADOS = 'pncp_orgaos';
 const ROTULO_HOMOLOGADO = 'Valor homologado';

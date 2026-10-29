@@ -10,9 +10,9 @@ const {
 
 describe('rotulo-valor', () => {
   describe('rotuloValorFinal', () => {
-    // fiscal-valores 28/10: "homologado" só para o PNCP. Nas demais origens `origem` pode não
-    // descrever o valor gravado (ex.: valor da IA numa linha com origem texto_contrato), então
-    // o rótulo não afirma "contrato" nem "ata".
+    // fiscal-valores 28/10: "homologado" só para o PNCP. texto_contrato/texto_ata vêm de
+    // heurística por substring no parser (ex.: "Data" vira texto_ata), então o rótulo não
+    // afirma "contrato" nem "ata".
     it.each([
       ['pncp_orgaos', 'Valor homologado (2025)'],
       ['texto_contrato', 'Valor final informado (2025)'],
