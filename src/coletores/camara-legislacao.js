@@ -18,6 +18,7 @@ const { extractOfficialFileText, inferFileExtension } = require('../parsers/docu
 const { naoFutura } = require('../utils/datas');
 const { arquivoExtraidoExistente } = require('../utils/documento-merge');
 const { normalizarTipo, normalizeSpaces } = require('./legislacao-tipos');
+const { corrigirGrafiaDoEnte } = require('../utils/nome-ente');
 const { fontes } = require('../fontes');
 
 const BASE_URL = fontes.siteCamara;
@@ -93,7 +94,8 @@ function parseRegistrosLegislacao(html) {
       return;
     }
 
-    const ementa = normalizeSpaces(item.find('.texto_item_descricao').first().text());
+    const ementaFonte = normalizeSpaces(item.find('.texto_item_descricao').first().text());
+    const { texto: ementa, corrigido } = corrigirGrafiaDoEnte(ementaFonte);
     const autor = autorOuNulo(item.find('.texto_item_autores').first().text());
     const dataPublicacao = parseDataPublicacao(item.find('.publicacao_item_unica').first().text());
 
@@ -106,6 +108,7 @@ function parseRegistrosLegislacao(html) {
       tipo: normalizarTipo(titulo.tipoLabel),
       autor,
       ementa,
+      ementaOriginal: corrigido ? ementaFonte : null,
       dataPublicacao,
       anexoUrl: href,
       anexoNome,
@@ -220,6 +223,7 @@ class ColetorCamaraLegislacao extends ColetorBase {
           tipo_label: item.tipoLabel,
           autor: item.autor,
           ementa: item.ementa,
+          ementa_original: item.ementaOriginal ?? null,
           anexo_nome: item.anexoNome,
           parser_pdf: {
             paginas: arquivo.pages,

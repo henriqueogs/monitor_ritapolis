@@ -28,11 +28,15 @@ describe('camara-legislacao', () => {
 
   describe('paraHttps', () => {
     it('troca http:// por https:// (a fonte gera link de anexo em http mesmo com o site em https)', () => {
-      expect(paraHttps('http://sgc.ritapolis.mg.leg.br/?Download=1')).toBe('https://sgc.ritapolis.mg.leg.br/?Download=1');
+      expect(paraHttps('http://sgc.ritapolis.mg.leg.br/?Download=1')).toBe(
+        'https://sgc.ritapolis.mg.leg.br/?Download=1'
+      );
     });
 
     it('nao mexe em URL ja https ou valor nulo', () => {
-      expect(paraHttps('https://sgc.ritapolis.mg.leg.br/?Download=1')).toBe('https://sgc.ritapolis.mg.leg.br/?Download=1');
+      expect(paraHttps('https://sgc.ritapolis.mg.leg.br/?Download=1')).toBe(
+        'https://sgc.ritapolis.mg.leg.br/?Download=1'
+      );
       expect(paraHttps(null)).toBeNull();
     });
   });
@@ -40,13 +44,34 @@ describe('camara-legislacao', () => {
   describe('parseTituloItem', () => {
     it('extrai tipo, numero e exercicio de "Tipo - NUM / ANO"', () => {
       expect(parseTituloItem('Lei Ordinária - 1 / 1963')).toEqual({
-        tipoLabel: 'Lei Ordinária', numero: '1', exercicio: 1963,
+        tipoLabel: 'Lei Ordinária',
+        numero: '1',
+        exercicio: 1963,
       });
     });
 
     it('retorna null pra titulo fora do formato', () => {
       expect(parseTituloItem('')).toBeNull();
       expect(parseTituloItem('sem separador nem ano')).toBeNull();
+    });
+  });
+
+  describe('grafia do nome do município na ementa', () => {
+    const html = ementa =>
+      '<div class="item_busca"><div class="titulo_item">Resolução - 8 / 2026</div>' +
+      '<div class="texto_item_descricao">' +
+      ementa +
+      '</div></div>';
+
+    it('corrige grafia errada e guarda a ementa original', () => {
+      const [r] = parseRegistrosLegislacao(html('Aprova as contas da Prefeitura de Eitápois.'));
+      expect(r.ementa).toBe('Aprova as contas da Prefeitura de Ritápolis.');
+      expect(r.ementaOriginal).toBe('Aprova as contas da Prefeitura de Eitápois.');
+    });
+
+    it('sem erro, não marca ementa original', () => {
+      const [r] = parseRegistrosLegislacao(html('Aprova as contas da Prefeitura de Ritápolis.'));
+      expect(r.ementaOriginal).toBeNull();
     });
   });
 
