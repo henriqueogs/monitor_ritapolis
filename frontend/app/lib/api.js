@@ -276,6 +276,10 @@ export function fetchDocumentos(params = {}) {
   return fetchJson(`/documentos${buildQuery(params)}`);
 }
 
+export function fetchSitemapDocumentos() {
+  return fetchJson('/sitemap/documentos');
+}
+
 export function fetchDocumento(id) {
   return fetchJson(`/documentos/${id}`);
 }

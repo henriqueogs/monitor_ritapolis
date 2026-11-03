@@ -489,6 +489,7 @@ module.exports = {
   classifyAnexo,
   normalizeModalidadeLicitacao,
   // Queries
+  listSitemapDocumentos: () => db.prepare('SELECT id FROM documentos ORDER BY id DESC LIMIT 10000').all(),
   buildDocumentoWhere,
   listDocumentos,
   listPublicacoesRecentes,
