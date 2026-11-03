@@ -87,7 +87,9 @@ describe('listDocumentos', () => {
 
   it('retorna apenas IDs para o sitemap mesmo com mais de 1500 documentos', () => {
     const insert = mockConn.prepare('INSERT INTO documentos (fonte, tipo, titulo, status_coleta, url_origem) VALUES (?, ?, ?, ?, ?)');
-    for (let i = 0; i < 1502; i += 1) insert.run('prefeitura', 'edital', `Documento ${i}`, 'ok', `https://exemplo.com/${i}`);
+    for (let i = 0; i < 1502; i += 1) {
+      insert.run('prefeitura', 'edital', `Documento ${i}`, 'ok', `https://exemplo.com/${i}`);
+    }
     const result = listSitemapDocumentos();
     expect(result).toHaveLength(1502);
     expect(Object.keys(result[0])).toEqual(['id']);
