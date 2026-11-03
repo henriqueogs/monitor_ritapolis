@@ -8,6 +8,7 @@ const logger = require('../logger');
 const security = require('./security');
 const {
   listDocumentos,
+  listSitemapDocumentos,
   listLicitacoes,
   listLicitacaoProdutos,
   getLicitacaoAnaliseAnual,
@@ -524,6 +525,10 @@ function createServer({ servicoPerguntar } = {}) {
       alertas: getAlertasStatus(),
       descobertas: descobertasScheduler.getStatus()
     });
+  });
+
+  app.get('/api/sitemap/documentos', (_req, res) => {
+    res.json({ dados: listSitemapDocumentos() });
   });
 
   app.get('/api/documentos', (req, res) => {

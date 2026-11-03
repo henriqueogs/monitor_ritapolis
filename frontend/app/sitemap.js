@@ -1,5 +1,5 @@
 import { SITE_URL } from './lib/brand';
-import { fetchDocumentos, fetchCredores, fetchAlertas } from './lib/api';
+import { fetchDocumentos, fetchSitemapDocumentos, fetchCredores, fetchAlertas } from './lib/api';
 import { fetchSitemapDocuments } from '../lib/sitemap-documents';
 import { connection } from 'next/server';
 import { unstable_cache } from 'next/cache';
@@ -47,7 +47,7 @@ async function generateSitemap() {
   }));
 
   const [docs, credores, descobertas] = await Promise.all([
-    fetchSitemapDocuments(fetchDocumentos, MAX_DOCUMENTOS),
+    fetchSitemapDocumentos().catch(() => fetchSitemapDocuments(fetchDocumentos, MAX_DOCUMENTOS)),
     fetchCredores({ limite: MAX_CREDORES }).catch(() => ({ dados: [] })),
     fetchAlertas({ limite: MAX_DESCOBERTAS }).catch(() => ({ dados: [] })),
   ]);
@@ -77,7 +77,7 @@ async function generateSitemap() {
   return [...estaticas, ...urlsDocumentos, ...urlsCredores, ...urlsDescobertas];
 }
 
-const cachedSitemap = unstable_cache(generateSitemap, ['public-sitemap-v3'], { revalidate: 3600 });
+const cachedSitemap = unstable_cache(generateSitemap, ['public-sitemap-v4'], { revalidate: 3600 });
 
 export default async function sitemap() {
   // A API não existe no build de CI; gere em runtime e cacheie a lista inteira.
