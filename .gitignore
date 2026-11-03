@@ -60,3 +60,6 @@ test-results/
 
 # relatórios locais do eval de IA (podem conter respostas de modelo)
 relatorios/
+
+# scratch de agentes
+.codex-tmp/
