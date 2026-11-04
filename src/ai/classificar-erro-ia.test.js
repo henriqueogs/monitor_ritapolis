@@ -18,6 +18,12 @@ describe('classificar-erro-ia', () => {
       expect(classifyAiError('algo inesperado')).toBe('outro');
     });
 
+    it('PNCP público bloqueado não é falha da chave do provedor de IA', () => {
+      expect(classifyAiError('PNCP HTTP 403; PNCP HTTP 403')).toBe('fonte_bloqueada');
+      expect(classifyAiError('401 Unauthorized')).toBe('credencial');
+      expect(classifyAiError('403 API key forbidden')).toBe('credencial');
+    });
+
     it('carrega sem config/.env (o diagnóstico da VM roda fora do app)', () => {
       const fonte = require('fs').readFileSync(require.resolve('./classificar-erro-ia'), 'utf8');
       expect(fonte).not.toMatch(/require\(/);

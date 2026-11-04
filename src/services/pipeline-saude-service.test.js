@@ -151,6 +151,24 @@ describe('pipeline-saude-service', () => {
     expect(result.pipeline.falhas_reais).toBe(0);
     expect(result.pipeline.aguardando_revisao).toBe(1);
   });
+
+  it('uses complete failure counts even when all ten displayed failures are awaiting review', () => {
+    const pipeline = require('../pipeline/coordinator');
+    pipeline.enabled.mockReturnValue(true);
+    pipeline.status.mockReturnValue({
+      counts: [], safety: { paused: false },
+      failures: Array.from({ length: 10 }, (_, id) => ({ id, kind: 'items', error: 'texto_baixa_qualidade_ocr' })),
+      failure_counts: [{ categoria: 'revisao_fonte', total: 400 }, { categoria: 'timeout', total: 2 }],
+    });
+    repo.getUltimoResumoOk.mockReturnValue({ em: AGORA.toISOString() });
+    repo.contarRecentesSemResumo.mockReturnValue({ total: 9, semResumo: 0, semTexto: 0 });
+    const result = getSaudePipeline({ agora: AGORA });
+    expect(result.motivos).toContain('tarefas_atuais_com_falha');
+    expect(result.pipeline).toMatchObject({ falhas_reais: 2, aguardando_revisao: 400 });
+    expect(result.pipeline.failure_counts).toEqual([
+      { categoria: 'revisao_fonte', total: 400 }, { categoria: 'timeout', total: 2 },
+    ]);
+  });
 });
 
 describe('pipeline-saude-service: campanha historica', () => {

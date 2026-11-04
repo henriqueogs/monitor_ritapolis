@@ -23,6 +23,7 @@ uptime() { echo ' 11:50:00 up 3 days,  load average: 0.87, 0.60, 0.40'; }
 df() { echo 'Filesystem Size Used Avail Use% Mounted'; echo '/dev/sda1 45G 15G 30G 33% /'; }
 git() { echo "git $*" >> "$TEST_LOG"; echo "lockhash-atual"; }
 sha256sum() { echo "abc123  $1"; }
+getconf() { if [[ "$1" == CLK_TCK ]]; then echo 100; else command getconf "$@"; fi; }
 `;
 
 const CLASSIFICADOR = path.resolve(__dirname, '../src/ai/classificar-erro-ia.js');

@@ -16,6 +16,7 @@ describe('check-pipeline-health.js', () => {
       pipeline: {
         falhas_reais: 1,
         aguardando_revisao: 1,
+        failure_counts: [{ categoria: 'timeout', total: 1 }, { categoria: 'revisao_fonte', total: 1 }],
         failures: [
           { id: 6101, kind: 'summary', categoria: 'timeout' },
           { id: 6090, kind: 'extract', categoria: 'revisao_fonte' },
@@ -27,6 +28,7 @@ describe('check-pipeline-health.js', () => {
     expect(r.stdout).toContain('tarefas_com_falha: reais=1 aguardando_revisao=1');
     expect(r.stdout).toContain('falha id=6101 etapa=summary categoria=timeout');
     expect(r.stdout).toContain('falha id=6090 etapa=extract categoria=revisao_fonte');
+    expect(r.stdout).toContain('falhas_por_categoria: timeout=1 revisao_fonte=1');
   });
 
   it('sem bloco pipeline não imprime a seção de falhas e sai 0 quando ok', () => {

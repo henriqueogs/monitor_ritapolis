@@ -1,7 +1,12 @@
 'use strict';
 const crypto = require('crypto');
 
-const VOLATILE = new Set(['gerado_em', 'atualizado_em', 'criado_em', 'coletado_em', 'duracao_ms']);
+const VOLATILE = new Set([
+  'gerado_em', 'atualizado_em', 'criado_em', 'coletado_em', 'duracao_ms',
+  // listarAnexosDocumento also exposes these dates as SQL aliases. The facts
+  // runner updates the local summary; hashing its date would queue itself again.
+  'resumo_criado_em', 'resumo_atualizado_em',
+]);
 function stableValue(value) {
   if (Array.isArray(value)) {
     return value.map(stableValue);

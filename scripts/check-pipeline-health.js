@@ -27,6 +27,9 @@ function main(raw) {
   const p = saude.pipeline;
   if (p?.failures?.length) {
     console.log(`tarefas_com_falha: reais=${p.falhas_reais} aguardando_revisao=${p.aguardando_revisao}`);
+    if (p.failure_counts?.length) {
+      console.log(`falhas_por_categoria: ${p.failure_counts.map(f => `${f.categoria}=${f.total}`).join(' ')}`);
+    }
     for (const f of p.failures) {
       console.log(`  falha id=${f.id} etapa=${f.kind} categoria=${f.categoria}`);
     }

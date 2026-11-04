@@ -81,8 +81,12 @@ function getSaudePipeline({ agora = new Date() } = {}) {
   if (state?.safety.paused) {
     avaliacao.motivos.push(`escritas_pausadas:${state.safety.reason}`);
   }
-  const revisao = state?.failures.filter(f => CATEGORIAS_REVISAO.has(classifyAiError(f.error))) || [];
-  const falhasReais = (state?.failures.length || 0) - revisao.length;
+  const failureCounts = state?.failure_counts || (state?.failures || [])
+    .map(f => ({ categoria: classifyAiError(f.error), total: 1 }));
+  const revisao = failureCounts.reduce(
+    (total, f) => total + (CATEGORIAS_REVISAO.has(f.categoria) ? f.total : 0), 0
+  );
+  const falhasReais = failureCounts.reduce((total, f) => total + f.total, 0) - revisao;
   if (falhasReais > 0) {
     avaliacao.motivos.push('tarefas_atuais_com_falha');
   }
@@ -90,7 +94,7 @@ function getSaudePipeline({ agora = new Date() } = {}) {
   if (campanha) {
     avaliacao.motivos.push(...campanha.motivos);
   }
-  const avisos = revisao.length ? ['documentos_aguardando_revisao'] : [];
+  const avisos = revisao ? ['documentos_aguardando_revisao'] : [];
   if (
     state?.oldest_pending_recent &&
     agora.getTime() - Date.parse(state.oldest_pending_recent) > DIA_MS
@@ -113,7 +117,8 @@ function getSaudePipeline({ agora = new Date() } = {}) {
               oldest_pending_recent: state.oldest_pending_recent,
               waiting: state.waiting,
               falhas_reais: falhasReais,
-              aguardando_revisao: revisao.length,
+              aguardando_revisao: revisao,
+              failure_counts: failureCounts,
               safety: { paused: state.safety.paused, reason: state.safety.reason },
               failures: state.failures.map(f => ({
                 id: f.id,

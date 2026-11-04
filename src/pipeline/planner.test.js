@@ -108,6 +108,35 @@ test('valid current summaries are reused; only dependent factual work is queued'
   expect(db.prepare('SELECT kind FROM pipeline_jobs').all()).toEqual([{ kind: 'facts' }]);
 });
 
+test('repeating factual extraction does not enqueue itself when only local attachment summary dates change', () => {
+  document(1, 2026, '2026-09-29');
+  const signature = crypto.createHash('sha256').update(text).digest('hex');
+  db.prepare(`INSERT INTO documentos_resumos_ai(documento_id,provider,modelo,contrato_versao,resumo_json,texto_hash,status)
+    VALUES(1,'nvidia','test','1.1','{}',?,'ok')`).run(signature);
+  db.prepare(`INSERT INTO documentos_anexos(id,documento_id,url,texto_completo,texto_hash,status_extracao)
+    VALUES(1,1,'https://official.example/anexo.pdf',?,?,'ok')`).run(text, signature);
+  const { processarDocumento } = require('../inteligencia/fatos-runner');
+  const doc = db.prepare('SELECT * FROM documentos WHERE id=1').get();
+  processarDocumento(doc);
+  planAi(q, now);
+  const pending = q.claim(now);
+  expect(pending.kind).toBe('anexo-summary');
+  q.finish(pending.id, { error: 'texto_baixa_qualidade_ocr' }, now);
+  planAi(q, now);
+  const facts = q.claim(now);
+  expect(facts.kind).toBe('facts');
+  processarDocumento(doc);
+  db.prepare("UPDATE documentos_anexos_resumos_ai SET atualizado_em='2026-10-01T12:00:00Z' WHERE anexo_id=1").run();
+  q.finish(facts.id, { result: {} }, now);
+  planAi(q, now);
+  expect(db.prepare("SELECT count(*) n FROM pipeline_jobs WHERE kind='facts'").get().n).toBe(1);
+  // Real source changes still require extraction.
+  db.prepare('UPDATE documentos_anexos SET texto_completo=?,texto_hash=? WHERE id=1').run(`${text} Novo fato.`, 'changed');
+  planAi(q, now);
+  const updated = q.claim(now);
+  expect(updated.kind).toBe('anexo-summary');
+});
+
 test('anexo longo com resumo truncado antigo e replanejado; curto valido nao e regenerado', () => {
   document(1, 2026, '2026-09-29');
   const signature = crypto.createHash('sha256').update(text).digest('hex');

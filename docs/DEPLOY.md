@@ -152,9 +152,14 @@ systemd, do kernel e do Caddy saem zeradas.
 IA está resumindo: último resumo ok, último erro classificado
 (`modelo_indisponivel`, `credencial`, `limite_provider`, `timeout`…), último
 ciclo do scheduler e quantos documentos dos últimos 30 dias estão sem resumo.
-`.github/workflows/pipeline-health.yml` consulta todo dia (10:30 UTC) e **falha**
+`.github/workflows/pipeline-health.yml` consulta a cada seis horas (00:30, 06:30,
+12:30 e 18:30 UTC; horários efetivos dependem da fila do Actions) e **falha**
 — o GitHub avisa por e-mail — quando o status é `alerta` (nenhum resumo ok há
 24h com pendentes, maioria dos recentes sem resumo, ou scheduler desligado).
+
+Os totais de falhas consideram todas as tarefas ainda não substituídas por uma
+tentativa mais nova, por entidade e etapa. Os dez detalhes recentes são uma
+amostra; `failure_counts` informa os totais por categoria.
 
 Se o motivo for `modelo_indisponivel`: o catálogo NVIDIA aposentou o modelo;
 trocar `NVIDIA_MODEL` no `.env` da VM (ver comentário em `src/config.js`) e
@@ -224,3 +229,7 @@ na migração em si.
 
 `NEXT_PUBLIC_API_URL=https://api.ritapolis.com/api` — configurado como
 variável de ambiente de produção no projeto Vercel, não no repo.
+
+`/api` é o prefixo das rotas, não uma página ou endpoint de diagnóstico.
+Para verificar saúde, use
+[`/api/saude/pipeline`](https://api.ritapolis.com/api/saude/pipeline).
