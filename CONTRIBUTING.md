@@ -6,6 +6,8 @@ segurança não vai em issue pública: veja [`SECURITY.md`](SECURITY.md).
 ## Jeitos de contribuir
 
 - **Achou um dado errado ou sem fonte?** Abra uma issue com o modelo "Dado errado ou sem fonte".
+- **O problema envolve dados pessoais?** Use o contato privado em
+  [`docs/DADOS_PESSOAIS_E_CORRECOES.md`](docs/DADOS_PESSOAIS_E_CORRECOES.md).
 - **Quer montar para a sua cidade?** Siga [`docs/ADICIONAR_MUNICIPIO.md`](docs/ADICIONAR_MUNICIPIO.md)
   e, se travar, abra uma issue "Montar para um novo município".
 - **Código:** abra uma issue antes de um PR grande. Correção pontual pode ir direto em PR.

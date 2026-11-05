@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Dado pessoal ou correção sensível
+    url: https://github.com/henriqueogs/monitor_ritapolis/blob/master/docs/DADOS_PESSOAIS_E_CORRECOES.md
+    about: Use o contato privado; não publique identificadores pessoais na issue.
   - name: Falha de segurança
     url: https://github.com/henriqueogs/monitor_ritapolis/security/advisories/new
     about: Relate em privado. Não abra issue pública para vulnerabilidade.

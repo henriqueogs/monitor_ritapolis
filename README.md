@@ -31,6 +31,10 @@ Cidade Exemplo; alguns textos de página (destaque da home, contexto da cidade) 
 
 ## Requisitos
 
+Correções que envolvam dados pessoais: veja o
+[canal privado de contato](docs/DADOS_PESSOAIS_E_CORRECOES.md).
+Falhas de segurança têm [relato privado próprio](SECURITY.md).
+
 - Node.js 24 ou superior
 - npm 11 ou superior
 

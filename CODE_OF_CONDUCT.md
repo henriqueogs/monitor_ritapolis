@@ -23,8 +23,8 @@ com o mesmo cuidado que o projeto exige ao falar de dado público: com respeito,
 
 ## Como relatar
 
-O canal privado de conduta será publicado após confirmação do mantenedor. Não exponha dados
-pessoais ou relatos sensíveis em issues públicas. O formulário de vulnerabilidade em `SECURITY.md`
+Envie relatos de conduta para [henriqueogs@gmail.com](mailto:henriqueogs@gmail.com).
+Não exponha dados pessoais ou relatos sensíveis em issues públicas. O formulário de vulnerabilidade em `SECURITY.md`
 é reservado a falhas de segurança. Os mantenedores podem editar ou apagar comentários, recusar
 contribuições e bloquear quem descumprir este código.
 
