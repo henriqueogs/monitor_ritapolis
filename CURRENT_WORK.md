@@ -14,11 +14,14 @@ Ver `QUICK_SUMMARY.md` para o mapa geral dos documentos do projeto.
 
 Diagnóstico, evidências e critérios de conclusão em
 [`docs/STATUS_DESENVOLVIMENTO_2026-11-04.md`](docs/STATUS_DESENVOLVIMENTO_2026-11-04.md).
-Este resumo substitui os números e a ordem sugerida em 28–29/10 abaixo.
+O acompanhamento por requisito, com os aceites ainda abertos, está em
+[`docs/PENDENCIAS_ATIVAS.md`](docs/PENDENCIAS_ATIVAS.md). Este resumo substitui
+os números e a ordem sugerida em 28–29/10 abaixo.
 
-- **Código/produção:** `master` e VM em `ca06164`; CI e deploy de 03/11 verdes.
-  Capacidade: 315 MB disponíveis, swap 145 MB, disco 42%. GET de saúde excedeu
-  40 s nesta consulta; latência ainda precisa de diagnóstico.
+- **Código/produção:** #220–224 integrados, VM em `d449c26`, CI e deploy
+  verificados. A contagem integral de falhas ganhou índices; saúde pública
+  respondeu em 569 ms após aquecimento (antes excedia 40 s). Uma amostra não
+  comprova desempenho sustentado. Disco 42%; manter os limites da campanha.
 - **Dados:** 2.348 documentos; 2.254 com pelo menos 50 caracteres. Três textos
   sem qualquer resumo `ok` (992, 1566, 1860). Oito recentes com texto, nenhum
   sem resumo atual no check das 03h48 (Brasília).
@@ -26,11 +29,13 @@ Este resumo substitui os números e a ordem sugerida em 28–29/10 abaixo.
   em 24 h. Datas técnicas de resumos de anexos mudam a assinatura e geram
   retrabalho. PR #220 integrado e publicado em `4addab6`, 04/11 às 22h01
   (Brasília); comparação de 24 h ainda pendente.
-- **Monitoramento:** API contava só dez falhas. Auditoria: 499 tarefas sem
-  substituição, 490 para revisão e nove operacionais. Patch conta todo o
-  universo por categoria e mantém dez detalhes na resposta.
-- **PNCP:** último job falhou com HTTP 403; diagnóstico corrigido para
-  `fonte_bloqueada`; recuperação da origem pendente.
+- **Monitoramento/recuperação (22h39 Brasília):** API conta todas as falhas e
+  mostra dez detalhes. PNCP 41716 recuperado e concluído. Os três resumos
+  (992, 1566, 1860) estão pendentes, ainda sem resultado atual. Cinco tarefas
+  de itens terminaram em timeout; retomadas limitadas preservaram checkpoints,
+  tentativas e orçamento e não resolveram o conjunto. Há 490 etapas para
+  revisão: 489 documentais em 366 documentos e uma coleta. Não confundir
+  tarefas com documentos. Manifesto de triagem exportado, piloto ainda aberto.
 - **Na Lupa:** um publicado, 224 em revisão, 81 rejeitados. N1 tem contrato,
   persistência e dois detectores migrados. D1/D2 integrados; zero unidades
   `undefined`, mas 7.779 nulas. Suspeitas IA só internas.
@@ -38,18 +43,21 @@ Este resumo substitui os números e a ordem sugerida em 28–29/10 abaixo.
 
 ### Prioridades atuais
 
-1. Correções do #220 publicadas; medir efeito em 24 h e latência/I/O na VM.
-2. Triar nove falhas operacionais, recuperar três resumos e revalidar PNCP.
-3. Medir latência, I/O e drenagem (203 facts, 2.188 source-check e 140 janelas
-   históricas de despesas pendentes na leitura).
+1. Medir efeito das correções #220–224 em 24 h, latência/I/O e avanço útil.
+2. Resolver cinco timeouts de itens e três resumos; validar alternativas de
+   modelo com o contrato e as fontes, sem trocar o modelo global por hipótese.
+3. Medir drenagem de facts, source-check e despesas históricas.
 4. Triar revisões por documento/motivo e fazer piloto de dez recuperações.
 5. Na Lupa: avaliar N1 e protótipo N2 interno com 20 dossiês; depois compras
    repetidas com cruzamento documental e divergências entre documentos.
 6. OCR/unidades ausentes; transparência e núcleo agnóstico conforme demanda.
 
-PRs herdados: #218 (cache, CI verde) para revisão prioritária; #199 e #192 com
-conflitos; #182 sem diff, candidato a encerrar; #132 com medição histórica.
-Detalhes e encaminhamentos no diagnóstico de 04/11.
+PRs herdados: #218 em integração com limite de idade e observabilidade;
+#199 e #192 com conflitos. #182 encerrado por redundância (diff vazio e
+Analytics confirmado: 335 visitantes / 392 pageviews na janela retornada
+01/11–05/11 UTC). Issue #133 encerrada: documentação usa o endpoint real de
+saúde. A medição histórica do #132 foi preservada separadamente, sem ser
+usada como diagnóstico atual.
 
 Recuperação seletiva e IDs das nove falhas:
 [`docs/RECUPERACAO_SELETIVA_2026-11-04.md`](docs/RECUPERACAO_SELETIVA_2026-11-04.md).
@@ -383,7 +391,14 @@ genérico e detector de gasto atípico nas Descobertas
   `.github/workflows/portal-links.yml` é só manual. **Definir um modelo de
   observabilidade** que rode fora de datacenter (ex.: Worker/proxy residencial).
 
-## ⏳ Pendente — Confirmar efeito do fix de cache pós-crawler (17/09/2026)
+## Referência histórica — cache pós-crawler (17/09 e 08/10/2026)
+
+Reconfirmação de 08/10 preservada em
+[`docs/archive/CACHE_VM_2026-10-08.md`](docs/archive/CACHE_VM_2026-10-08.md),
+com a correção do escopo de ISR: `/empenho/[id]` admite ISR, mas
+`/credores/[cnpj]` lê `searchParams` e permanece dinâmica. Medições de outubro
+não comprovam o desempenho atual; os aceites atuais estão em OP02/OP07.
+O texto de 17/09 abaixo é contexto histórico.
 
 Continuação do achado de 02/09 (PR #44, ISR em `/empenho/[id]` e
 `/credores/[cnpj]`): em 17/09 achado que o **resto** das páginas públicas

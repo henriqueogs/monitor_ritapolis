@@ -102,7 +102,8 @@ async function doFetchJson(path, cacheOpts) {
 // do fetch(), nao afetada por force-dynamic -- e' o jeito certo de cachear
 // dado numa rota forcadamente dinamica. So no servidor (next/cache e'
 // server-only, mesmo motivo do import dinamico de next/headers acima).
-// Falha de conexão na revalidação mantém o último dado bom em vez de logar erro (lib/ultimo-bom.js).
+// Falha de rede pode reutilizar o último dado bom por até 30 min, com eventos
+// de degradação/recuperação. HTTP/parsing e dados mais antigos voltam a falhar.
 const lerComFallback = criarUltimoBom();
 
 async function fetchJsonCacheado(path, cacheOpts, revalidate) {
