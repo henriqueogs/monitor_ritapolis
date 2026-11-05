@@ -53,3 +53,18 @@ Adicionar `--apply` somente depois de conferir a prévia. A aplicação:
 Enfileirado não significa concluído. Tarefas históricas continuam sujeitas ao
 orçamento já gasto no dia e à prioridade dos documentos recentes. Validar
 resultado canônico e atualidade do hash depois da execução.
+
+## Continuação da medição de I/O
+
+Após o #220, a API ainda leu aproximadamente 3,21 GB em sete minutos. A auditoria
+dos dez minutos seguintes ao deploy identificou sete tarefas `facts` e oito
+`analysis`; a análise geral ainda retornava escopo de replanejamento `global`.
+Isso zerava `planningAt` após cada análise, furando a cadência de cinco minutos
+preservada pelo A11 para as demais etapas.
+
+Correção adicional: `analysis`, que atualiza alertas e não acrescenta documentos
+ou dependências de IA, passa a retornar escopo `nenhum`, como `source-check`.
+Coletas e despesas mantêm o replanejamento global; etapas de IA por documento
+mantêm o replanejamento da entidade. O teste de regressão falhou antes e passou
+após a correção. A varredura global periódica de cinco minutos permanece ativa.
+Medir novamente após o deploy; não atribuir melhoria apenas à mudança de código.

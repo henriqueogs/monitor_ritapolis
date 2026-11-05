@@ -367,11 +367,12 @@ describe('replanejamento por entidade (A11)', () => {
     expect(db.prepare('SELECT COUNT(*) AS n FROM pipeline_jobs').get().n).toBe(0);
   });
 
-  test('escopo: etapas de IA replanejam a entidade, source-check nao replaneja, o resto e global', () => {
+  test('escopo: IA replaneja entidade; source-check e analysis preservam a cadencia global', () => {
     expect(escopoReplanejamento('facts')).toBe('entidade');
     expect(escopoReplanejamento('summary')).toBe('entidade');
     expect(escopoReplanejamento('anexo-summary')).toBe('entidade');
     expect(escopoReplanejamento('source-check')).toBe('nenhum');
+    expect(escopoReplanejamento('analysis')).toBe('nenhum');
     expect(escopoReplanejamento('collection')).toBe('global');
     expect(escopoReplanejamento('expenses')).toBe('global');
   });
