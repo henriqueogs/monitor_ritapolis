@@ -63,12 +63,14 @@ Estados: **verificado**, **em execução**, **a fazer**, **decisão pendente**,
 | GE01 | Textos de página do frontend via identidade do município | A fazer; preservar textos padrão e verificar município de exemplo |
 | GE02 | Contrato Coletor, modelo canônico e testes dos adapters | A fazer; cobertura dos coletores atuais sem regressões |
 | GE03 | Parâmetros por porte, fronteiras do específico de Ritápolis e organização de pacotes | A fazer; separar migração de estrutura de mudança funcional |
-| GE04 | Guia de município, comunidade, privacidade e relato de segurança (#199) | A fazer; resolver conflitos e confirmar capacidades do GitHub |
+| GE04 | Guia de município, comunidade, privacidade e relato de segurança (#199) | Em integração: conflito resolvido preservando API explícita; guia ajustado para NVIDIA, fork/upstream e cobertura parcial. Relato privado GitHub habilitado e relido como `enabled=true`; contato henriqueogs@gmail.com autorizado pelo mantenedor. Canal de correções não substitui auditoria de logs, cookies e retenção, ainda pendente |
 | GE05 | OpenAPI e documentação operacional atual | A fazer; contratos e comandos executáveis verificados |
-| GE06 | PRs antigos #182/#132 e issue #133 | Parcial: #182 encerrado (diff vazio; Analytics presente e coletando), #133 encerrada (documentação aponta endpoint válido); medição e correção histórica de #132 preservadas em `docs/archive/CACHE_VM_2026-10-08.md`, encerramento após integração |
+| GE06 | PRs antigos #182/#132 e issue #133 | Verificado: #182 e #133 encerrados; conteúdo de #132 integrado via #225 e PR original encerrado. Histórico em `docs/archive/CACHE_VM_2026-10-08.md` |
 | SEO01 | Metadados, og:image, compartilhamento e Sobre | Parcial; código integrado, aceites reais em produção pendentes de auditoria |
 | SEO02 | Search Console, sitemap e indexação | Parcial; histórico aponta verificações anteriores; auditar estado atual |
 | SEO03 | Analytics ativo e linha de base | Verificado em produção pela API Vercel: 335 visitantes / 392 pageviews na janela retornada 01/11–05/11 UTC; PR #182 redundante encerrado |
+| FE07 | Data pública do cabeçalho do documento | Falha confirmada no navegador em `/documento/1194`: cabeçalho mostra 27/09/2026 por `atualizado_em`, enquanto publicação está ausente. Remover fallback técnico e rotular ausência; regressão e fiscais de datas/proveniência antes da integração |
+| FE08 | Revisar consistência da página Sobre | Auditoria visual: soma estimada sem período e badges Câmara/PNCP desatualizados; reconciliar com dados reais e critérios de publicação |
 | DIV01 | Template Resumo da semana, primeiro conteúdo e pitch revisáveis | A fazer; preparar artefatos com dados e fontes reais |
 | DIV02 | Canal, grupos locais, postagem e contato com instituições | Dependência de instrução explícita para envio/publicação; preparar rascunhos e destinos sem enviar mensagens |
 | NOT01 | Assinatura e notificações de novos documentos/alertas | A fazer; opt-in, confirmação e controle de envio/descadastro |
