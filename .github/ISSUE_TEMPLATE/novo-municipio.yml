@@ -1,0 +1,35 @@
+name: Montar para um novo município
+description: Quero instalar o Monitor na minha cidade, ou encontrei um obstáculo no caminho.
+labels: ['novo-municipio']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Antes, leia o guia [`docs/ADICIONAR_MUNICIPIO.md`](https://github.com/henriqueogs/monitor_ritapolis/blob/master/docs/ADICIONAR_MUNICIPIO.md).
+  - type: input
+    id: municipio
+    attributes:
+      label: Município e UF
+      placeholder: São João del-Rei/MG
+    validations:
+      required: true
+  - type: input
+    id: site
+    attributes:
+      label: Site da Prefeitura
+    validations:
+      required: true
+  - type: input
+    id: portal
+    attributes:
+      label: Portal da Transparência
+      description: 'Endereço e, se souber, o fornecedor do sistema (ex.: SH3 Informática).'
+  - type: input
+    id: camara
+    attributes:
+      label: Site da Câmara
+  - type: textarea
+    id: obstaculo
+    attributes:
+      label: Onde você parou
+      description: Passo do guia, erro ou fonte que os coletores não conseguem ler.

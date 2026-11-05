@@ -3,8 +3,8 @@
 /**
  * Gera um inventário dry-run dos vínculos empenho -> documento.
  *
- * O script nunca grava no banco nem altera a API. Por padrão consulta a
- * produção, classifica apenas por correspondência exata (tipo + número + ano)
+ * O script nunca grava no banco nem altera a API. Consulta a API explicitamente
+ * configurada ou o banco local; classifica por correspondência exata (tipo + número + ano)
  * e grava o relatório em validation/, diretório ignorado pelo Git.
  *
  * Uso:
@@ -18,7 +18,6 @@ const {
   parseModalidadeDespesa,
   parseModalidadeEdital,
 } = require('../src/licitacoes/modalidade');
-
 // Host da API só por ambiente (regra: domínios de fonte/produção não ficam hard-coded no código).
 if (!process.env.RITAPOLIS_AUDIT_API && !process.argv.includes('--local')) {
   throw new Error('Defina RITAPOLIS_AUDIT_API (ex.: https://<host-da-api>/api) ou use --local.');

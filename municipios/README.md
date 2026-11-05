@@ -11,6 +11,9 @@ um pela variável de ambiente `MUNICIPIO` (padrão: `ritapolis`).
 
 ## Adicionar um município
 
+O guia completo, com variáveis de ambiente, fontes e primeira coleta, está em
+[`docs/ADICIONAR_MUNICIPIO.md`](../docs/ADICIONAR_MUNICIPIO.md). Resumo:
+
 1. Copie `_exemplo/` para `municipios/<slug>/` (slug em minúsculas, sem acento; ex.: `sao-joao-del-rei`).
 2. Edite `municipio.json`: o campo `slug` precisa ser igual ao nome da pasta. Nome com acento, UF, nome
    da UF, código IBGE (7 dígitos), CNPJs da Prefeitura e da Câmara (só dígitos), marca, domínios do
