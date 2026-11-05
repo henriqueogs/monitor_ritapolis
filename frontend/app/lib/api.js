@@ -1,4 +1,5 @@
 import { fetchComRetry, descreverErroDeRede } from '../../lib/fetch-retry';
+import { criarUltimoBom } from '../../lib/ultimo-bom';
 
 const backendApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 const adminProxyUrl = '/api/admin-proxy';
@@ -101,10 +102,14 @@ async function doFetchJson(path, cacheOpts) {
 // do fetch(), nao afetada por force-dynamic -- e' o jeito certo de cachear
 // dado numa rota forcadamente dinamica. So no servidor (next/cache e'
 // server-only, mesmo motivo do import dinamico de next/headers acima).
+// Falha de rede pode reutilizar o último dado bom por até 30 min, com eventos
+// de degradação/recuperação. HTTP/parsing e dados mais antigos voltam a falhar.
+const lerComFallback = criarUltimoBom();
+
 async function fetchJsonCacheado(path, cacheOpts, revalidate) {
   const { unstable_cache } = await import('next/cache');
   const cached = unstable_cache(
-    () => doFetchJson(path, cacheOpts),
+    () => lerComFallback(path, () => doFetchJson(path, cacheOpts)),
     [path],
     { revalidate }
   );
