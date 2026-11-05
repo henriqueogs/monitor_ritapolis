@@ -224,13 +224,13 @@ const AI_KINDS = [
   'anexo-summary',
 ];
 // Depois de uma tarefa ok: etapas de IA só liberam a próxima etapa do mesmo
-// documento; source-check não libera nada; o resto (coleta, despesas) muda o
+// documento; source-check e analysis não liberam etapas; o resto (coleta, despesas) muda o
 // conjunto de documentos e pede o plano global.
 function escopoReplanejamento(kind) {
   if (AI_KINDS.includes(kind)) {
     return 'entidade';
   }
-  return kind === 'source-check' ? 'nenhum' : 'global';
+  return ['source-check', 'analysis'].includes(kind) ? 'nenhum' : 'global';
 }
 function historicosDoDia(queue, day) {
   return new Set(
