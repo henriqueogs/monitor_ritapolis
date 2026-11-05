@@ -282,4 +282,4 @@ function createQueue(
   }
   return { enqueue, claim, finish, get, meta, setMeta, status, db };
 }
-module.exports = { createQueue };
+module.exports = { createQueue, ITEMS_JOB_CAP_MS };

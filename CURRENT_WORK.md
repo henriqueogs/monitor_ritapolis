@@ -24,7 +24,8 @@ Este resumo substitui os números e a ordem sugerida em 28–29/10 abaixo.
   sem resumo atual no check das 03h48 (Brasília).
 - **Gargalo:** 1.476 execuções de `facts` / 201 documentos e 1.474 de `analysis`
   em 24 h. Datas técnicas de resumos de anexos mudam a assinatura e geram
-  retrabalho. Patch/teste preparados, ainda sem deploy.
+  retrabalho. PR #220 integrado e publicado em `4addab6`, 04/11 às 22h01
+  (Brasília); comparação de 24 h ainda pendente.
 - **Monitoramento:** API contava só dez falhas. Auditoria: 499 tarefas sem
   substituição, 490 para revisão e nove operacionais. Patch conta todo o
   universo por categoria e mantém dez detalhes na resposta.
@@ -37,7 +38,7 @@ Este resumo substitui os números e a ordem sugerida em 28–29/10 abaixo.
 
 ### Prioridades atuais
 
-1. Integrar/deployar correções de retrabalho e monitoramento; medir efeito em 24 h.
+1. Correções do #220 publicadas; medir efeito em 24 h e latência/I/O na VM.
 2. Triar nove falhas operacionais, recuperar três resumos e revalidar PNCP.
 3. Medir latência, I/O e drenagem (203 facts, 2.188 source-check e 140 janelas
    históricas de despesas pendentes na leitura).
@@ -49,6 +50,9 @@ Este resumo substitui os números e a ordem sugerida em 28–29/10 abaixo.
 PRs herdados: #218 (cache, CI verde) para revisão prioritária; #199 e #192 com
 conflitos; #182 sem diff, candidato a encerrar; #132 com medição histórica.
 Detalhes e encaminhamentos no diagnóstico de 04/11.
+
+Recuperação seletiva e IDs das nove falhas:
+[`docs/RECUPERACAO_SELETIVA_2026-11-04.md`](docs/RECUPERACAO_SELETIVA_2026-11-04.md).
 
 ## Referência histórica — status em 28/10/2026
 
