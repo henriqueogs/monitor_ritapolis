@@ -532,6 +532,8 @@ CREATE INDEX IF NOT EXISTS idx_licitacoes_grupo_documentos_grupo_id ON licitacoe
 CREATE INDEX IF NOT EXISTS idx_licitacoes_grupo_documentos_documento_id ON licitacoes_grupo_documentos(documento_id);
 CREATE INDEX IF NOT EXISTS idx_resumos_ai_documento_id ON documentos_resumos_ai(documento_id);
 CREATE INDEX IF NOT EXISTS idx_resumos_ai_texto_hash ON documentos_resumos_ai(texto_hash);
+CREATE INDEX IF NOT EXISTS idx_resumos_ai_status_recente
+  ON documentos_resumos_ai(status, atualizado_em DESC, id DESC);
 CREATE INDEX IF NOT EXISTS idx_resumos_ai_jobs_documento_hash
   ON documentos_resumos_ai_jobs(documento_id, texto_hash, contrato_versao, status);
 CREATE INDEX IF NOT EXISTS idx_resumos_ai_jobs_status

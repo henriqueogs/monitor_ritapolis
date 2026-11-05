@@ -45,6 +45,7 @@ function createQueue(
   CREATE UNIQUE INDEX IF NOT EXISTS pipeline_single_running
     ON pipeline_jobs((1)) WHERE status = 'running';
   CREATE INDEX IF NOT EXISTS pipeline_pending ON pipeline_jobs(status, priority, available_at);
+  CREATE INDEX IF NOT EXISTS pipeline_status_kind ON pipeline_jobs(status, kind);
   CREATE INDEX IF NOT EXISTS pipeline_entity_stage ON pipeline_jobs(entity,kind,status,finished_at);
   CREATE TABLE IF NOT EXISTS pipeline_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
   CREATE TABLE IF NOT EXISTS pipeline_runs (id INTEGER PRIMARY KEY, job_id INTEGER NOT NULL, kind TEXT NOT NULL,

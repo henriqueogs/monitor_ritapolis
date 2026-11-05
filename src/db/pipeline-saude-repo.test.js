@@ -45,6 +45,13 @@ function seedResumo(docId, { status = 'ok', em = '2026-09-20 10:00:00', erro = n
 }
 
 describe('pipeline-saude-repo', () => {
+  it('latest successful summary uses an ordered index instead of scanning and sorting JSON rows', () => {
+    const plan = mockConn.prepare(`EXPLAIN QUERY PLAN SELECT atualizado_em AS em,provider,modelo
+      FROM documentos_resumos_ai WHERE status='ok' ORDER BY atualizado_em DESC,id DESC LIMIT 1`)
+      .all().map(row => row.detail).join('\n');
+    expect(plan).toMatch(/SEARCH documentos_resumos_ai USING INDEX/);
+    expect(plan).not.toMatch(/TEMP B-TREE/);
+  });
   it('resumo antigo nao cobre texto oficial alterado', () => {
     const id = seedDoc();
     seedResumo(id);
