@@ -10,7 +10,47 @@ Ver `QUICK_SUMMARY.md` para o mapa geral dos documentos do projeto.
 
 ---
 
-## 📍 Status em 28/10/2026 (resumo)
+## 📍 Status em 04/11/2026
+
+Diagnóstico, evidências e critérios de conclusão em
+[`docs/STATUS_DESENVOLVIMENTO_2026-11-04.md`](docs/STATUS_DESENVOLVIMENTO_2026-11-04.md).
+Este resumo substitui os números e a ordem sugerida em 28–29/10 abaixo.
+
+- **Código/produção:** `master` e VM em `ca06164`; CI e deploy de 03/11 verdes.
+  Capacidade: 315 MB disponíveis, swap 145 MB, disco 42%. GET de saúde excedeu
+  40 s nesta consulta; latência ainda precisa de diagnóstico.
+- **Dados:** 2.348 documentos; 2.254 com pelo menos 50 caracteres. Três textos
+  sem qualquer resumo `ok` (992, 1566, 1860). Oito recentes com texto, nenhum
+  sem resumo atual no check das 03h48 (Brasília).
+- **Gargalo:** 1.476 execuções de `facts` / 201 documentos e 1.474 de `analysis`
+  em 24 h. Datas técnicas de resumos de anexos mudam a assinatura e geram
+  retrabalho. Patch/teste preparados, ainda sem deploy.
+- **Monitoramento:** API contava só dez falhas. Auditoria: 499 tarefas sem
+  substituição, 490 para revisão e nove operacionais. Patch conta todo o
+  universo por categoria e mantém dez detalhes na resposta.
+- **PNCP:** último job falhou com HTTP 403; diagnóstico corrigido para
+  `fonte_bloqueada`; recuperação da origem pendente.
+- **Na Lupa:** um publicado, 224 em revisão, 81 rejeitados. N1 tem contrato,
+  persistência e dois detectores migrados. D1/D2 integrados; zero unidades
+  `undefined`, mas 7.779 nulas. Suspeitas IA só internas.
+- **RAG público:** estacionado por decisão de 29/10. Não indexar nem habilitar.
+
+### Prioridades atuais
+
+1. Integrar/deployar correções de retrabalho e monitoramento; medir efeito em 24 h.
+2. Triar nove falhas operacionais, recuperar três resumos e revalidar PNCP.
+3. Medir latência, I/O e drenagem (203 facts, 2.188 source-check e 140 janelas
+   históricas de despesas pendentes na leitura).
+4. Triar revisões por documento/motivo e fazer piloto de dez recuperações.
+5. Na Lupa: avaliar N1 e protótipo N2 interno com 20 dossiês; depois compras
+   repetidas com cruzamento documental e divergências entre documentos.
+6. OCR/unidades ausentes; transparência e núcleo agnóstico conforme demanda.
+
+PRs herdados: #218 (cache, CI verde) para revisão prioritária; #199 e #192 com
+conflitos; #182 sem diff, candidato a encerrar; #132 com medição histórica.
+Detalhes e encaminhamentos no diagnóstico de 04/11.
+
+## Referência histórica — status em 28/10/2026
 
 Fonte: `git log` de `master` (PRs #167–#205) + leitura da produção (VM, só leitura).
 
@@ -44,7 +84,7 @@ estrangulada pelo hypervisor, não por falta de RAM.
   no frontend; log de estouro de rate limit; Vercel Web Analytics.
 - **SEO:** `og:image` por página, metadados específicos, botão WhatsApp.
 
-## 🎯 Próximas atividades (ordem sugerida)
+## Planejamento anterior — 28–29/10 (prioridades atuais acima)
 
 1. **Confirmar PNCP em produção:** rodar a sincronização de vencedores, checar
    `valor_homologado` na UI e que nenhum total mistura estágios (§11.1).
@@ -406,7 +446,7 @@ provider de IA fresco e confirmar estabilidade antes de religar o flag.
 ```bash
 npm start              # API :3001 + frontend :3000
 npm run setup-db        # 1x por clone/worktree: sem isso ~11 suites falham com "no such table: main.alertas"
-npm test                # suíte completa (1492 testes em 15/10/2026)
+npm test                # suíte completa; consultar contagem no resultado atual
 ```
 
 Ordem de leitura pra retomar contexto: `QUICK_SUMMARY.md` → este arquivo →

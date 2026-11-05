@@ -20,6 +20,9 @@ function classifyAiError(error) {
   // incompleta da IA; o ZodError chega como lista JSON de issues.
   if (/^\s*\[\s*\{[\s\S]*"code"\s*:[\s\S]*"path"\s*:/.test(message)) {return 'contrato_rejeitado';}
   if (/contrato|zod|invalid|expected|required/i.test(message)) {return 'contrato_invalido';}
+  // The public PNCP endpoint has no AI credential. Keep its access refusal
+  // actionable without directing the operator to rotate an unrelated API key.
+  if (/\bPNCP HTTP 403\b/i.test(message)) {return 'fonte_bloqueada';}
   if (/api key|unauthorized|401|403/i.test(message)) {return 'credencial';}
   if (/network|fetch|connect|econn|enotfound|eai_again/i.test(message)) {return 'rede';}
   if (/chunks/i.test(message)) {return 'limite_tamanho';}

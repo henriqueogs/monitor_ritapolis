@@ -1,5 +1,7 @@
 'use strict';
 
+const { getFailureCounts } = require('./failure-counts');
+
 // Durable, single-flight queue. Only technical tables are added; public IDs
 // and source records are never renumbered or rebuilt.
 // Historical (non-recent) AI work is throttled so it never starves fresh
@@ -274,6 +276,7 @@ function createQueue(
           ) ORDER BY id DESC LIMIT 10`
         )
         .all(),
+      failure_counts: getFailureCounts(db),
       backup: meta('backup'),
     };
   }

@@ -11,6 +11,26 @@ beforeEach(() => {
 afterEach(() => db.close());
 const task = { kind: 'summary', entity: 7, hash: 'abc', version: '1.1' };
 
+test('failure totals include older unresolved failures beyond the ten displayed rows', () => {
+  const old = q.enqueue({ ...task, entity: 'old' }, now);
+  q.claim(now);
+  q.finish(old.id, { error: 'Request timed out.' }, now);
+  for (let i = 0; i < 11; i++) {
+    const job = q.enqueue({ ...task, entity: `review-${i}` }, now);
+    q.claim(now);
+    q.finish(job.id, { error: 'texto_baixa_qualidade_ocr' }, now);
+  }
+  const state = q.status();
+  expect(state.failures).toHaveLength(10);
+  expect(state.failure_counts).toEqual(expect.arrayContaining([
+    { categoria: 'timeout', total: 1 },
+    { categoria: 'revisao_fonte', total: 11 },
+  ]));
+  const replacement = q.enqueue({ ...task, entity: 'old', hash: 'new' }, now);
+  expect(replacement.status).toBe('pending');
+  expect(q.status().failure_counts).toEqual([{ categoria: 'revisao_fonte', total: 11 }]);
+});
+
 test('checkpoints survive interruption and are cleared only with committed queue success', () => {
   const job = q.enqueue(task, now);
   const progress = require('./progress').createProgress(db, job.identity);

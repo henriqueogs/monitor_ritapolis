@@ -17,7 +17,10 @@ entre si (se encontrar números diferentes pro mesmo dado em dois lugares,
 
 ```bash
 npm start     # API :3001 + frontend :3000
-npm test      # 1026 testes / 104 suites (verde em 17/09/2026)
+npm test      # suíte completa; consultar contagem no resultado atual
 ```
 
 Páginas-chave: `/na-lupa`, `/admin/alertas`.
+
+Última revisão operacional e prioridades:
+[`docs/STATUS_DESENVOLVIMENTO_2026-11-04.md`](docs/STATUS_DESENVOLVIMENTO_2026-11-04.md).

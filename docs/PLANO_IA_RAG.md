@@ -1,5 +1,10 @@
 # Plano — Camada de IA analítica (RAG + ferramentas) e núcleo agnóstico de município
 
+> **Decisão de 29/10, mantida em 04/11:** a pergunta pública à IA está
+> estacionada. Não indexar, habilitar a rota nem montar dataset agora.
+> As fases abaixo descrevem arquitetura/trabalho futuro, não a fila atual.
+> Ver [status e prioridades](STATUS_DESENVOLVIMENTO_2026-11-04.md).
+
 **Objetivo:** perguntas em linguagem natural sobre os dados do município, com resposta
 fundamentada e citada, em arquitetura reaproveitável por outras cidades.
 **Decisões:** ver [`docs/adr/`](adr/README.md). **Regras de produto:** CLAUDE.md §11
