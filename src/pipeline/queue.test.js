@@ -11,6 +11,18 @@ beforeEach(() => {
 afterEach(() => db.close());
 const task = { kind: 'summary', entity: 7, hash: 'abc', version: '1.1' };
 
+test('health counts scan a covering index instead of reading large job records or sorting', () => {
+  q.enqueue(task, now);
+  q.enqueue({ ...task, kind: 'items' }, now);
+  const plan = db.prepare('EXPLAIN QUERY PLAN SELECT status,kind,COUNT(*) AS total FROM pipeline_jobs GROUP BY status,kind')
+    .all().map(row => row.detail).join('\n');
+  expect(plan).toMatch(/USING COVERING INDEX/);
+  expect(plan).not.toMatch(/TEMP B-TREE/);
+  expect(q.status().counts).toEqual(expect.arrayContaining([
+    { status: 'pending', kind: 'summary', total: 1 }, { status: 'pending', kind: 'items', total: 1 },
+  ]));
+});
+
 test('failure totals include older unresolved failures beyond the ten displayed rows', () => {
   const old = q.enqueue({ ...task, entity: 'old' }, now);
   q.claim(now);

@@ -68,3 +68,18 @@ Coletas e despesas mantêm o replanejamento global; etapas de IA por documento
 mantêm o replanejamento da entidade. O teste de regressão falhou antes e passou
 após a correção. A varredura global periódica de cinco minutos permanece ativa.
 Medir novamente após o deploy; não atribuir melhoria apenas à mudança de código.
+
+## Gargalo isolado na consulta de saúde
+
+Perfil somente em leitura na VM (04/11, aproximadamente 22h18): a contagem
+`GROUP BY status,kind` de `pipeline_jobs` levou **34.022 ms**. O SQLite escolhia
+`pipeline_pending`, que não contém `kind`, lia os registros e ainda criava uma
+árvore temporária para agrupar. A consulta do último resumo `ok` levou 3.266 ms,
+com varredura de `documentos_resumos_ai` e ordenação temporária.
+
+Correção: índice cobrindo `(status,kind)` na fila e índice de resumos por
+`(status,atualizado_em DESC,id DESC)`. Os índices são criados idempotentemente
+na inicialização normal; nenhum documento ou resultado de IA é alterado.
+Testes reproduzem os planos antigos e exigem agrupamento por índice de
+cobertura e busca do último resumo sem ordenação temporária. Medir latência
+real após a criação inicial dos índices.
