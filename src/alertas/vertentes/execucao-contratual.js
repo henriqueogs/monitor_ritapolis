@@ -166,4 +166,5 @@ module.exports = {
     'A soma dos empenhos que citam um processo supera o valor do contrato publicado nesse processo.',
   detectar,
   sinalParaAlerta,
+  evidenciaEmpenho,
 };
