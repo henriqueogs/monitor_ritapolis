@@ -83,3 +83,10 @@ na inicialização normal; nenhum documento ou resultado de IA é alterado.
 Testes reproduzem os planos antigos e exigem agrupamento por índice de
 cobertura e busca do último resumo sem ordenação temporária. Medir latência
 real após a criação inicial dos índices.
+
+Após o #223, os tempos isolados foram 13 ms para contagens (antes 34.022 ms)
+e 9 ms para o último resumo (antes 3.266 ms). O perfil do serviço completo
+encontrou outro gargalo: a busca de erros históricos recentes levou 15.360 ms.
+Ela recebe índice parcial por `(historical,finished_at,kind)`, somente para
+linhas cujo erro não é nulo, evitando a varredura dos milhares de jobs antigos
+sem erro. O critério da consulta permanece igual.

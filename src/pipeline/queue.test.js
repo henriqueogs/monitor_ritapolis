@@ -23,6 +23,26 @@ test('health counts scan a covering index instead of reading large job records o
   ]));
 });
 
+test('recent historical errors use a selective index and preserve date, kind and error filters', () => {
+  const sql = `SELECT error FROM pipeline_jobs WHERE historical=1 AND error IS NOT NULL
+    AND finished_at >= ? AND kind IN ('summary','items')`;
+  const plan = db.prepare(`EXPLAIN QUERY PLAN ${sql}`).all('2026-11-04T00:00:00Z')
+    .map(row => row.detail).join('\n');
+  expect(plan).toMatch(/SEARCH pipeline_jobs USING INDEX pipeline_historical_errors/);
+  const cases = [
+    ['summary', true, '2026-11-04T10:00:00Z', 'timeout'],
+    ['summary', true, '2026-10-01T10:00:00Z', 'old'],
+    ['summary', false, '2026-11-04T10:00:00Z', 'recent publication'],
+    ['items', true, '2026-11-04T10:00:00Z', null],
+    ['source-check', true, '2026-11-04T10:00:00Z', 'wrong stage'],
+  ];
+  cases.forEach(([kind,historical,finished,error], entity) => {
+    const job = q.enqueue({ kind, entity, historical, hash: 'x' }, now);
+    db.prepare('UPDATE pipeline_jobs SET finished_at=?,error=? WHERE id=?').run(finished,error,job.id);
+  });
+  expect(db.prepare(sql).all('2026-11-04T00:00:00Z')).toEqual([{ error: 'timeout' }]);
+});
+
 test('failure totals include older unresolved failures beyond the ten displayed rows', () => {
   const old = q.enqueue({ ...task, entity: 'old' }, now);
   q.claim(now);
