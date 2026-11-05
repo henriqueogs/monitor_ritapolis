@@ -20,9 +20,9 @@ Estados: **verificado**, **em execução**, **a fazer**, **decisão pendente**,
 | OP02 | Medir I/O/CPU por dez minutos e progresso em 24 h, sem queda de cobertura | Em execução; aceite A11: leitura pelo menos 5× menor e limite de trabalho útil mantido |
 | OP03 | Drenagem efetiva de facts, source-check e despesas históricas | A fazer; comprovar redução da fila sem reprocessamento de entradas iguais |
 | OP04 | Alerta de ritmo A6 com medida de avanço útil | A fazer; não tratar repetição de execução como progresso |
-| OP05 | Backup e restauração real verificáveis | Em execução: restauração isolada do snapshot R2, checksum, integridade e hash lógico; não sobrescreve a base ativa |
+| OP05 | Backup e restauração real verificáveis | Verificado para snapshot de 04/11 06h UTC: 423.267.666 bytes comprimidos, SQLite 2.938.384.384 bytes, checksum/integridade ok e hash lógico coincidente. Contagens reconciliadas e cópia isolada preservada; ver `VALIDACAO_CONTINUACAO_2026-11-04.md` |
 | OP06 | Deep-links monitorados de uma origem que consiga acessar o portal | A fazer; diferenciar bloqueio de datacenter de link quebrado; monitor recorrente e evidência de execução |
-| OP07 | Resiliência do cache frontend (#218) e observabilidade de falhas | Em integração: fallback só de rede, máximo 30 minutos desde o sucesso, eventos de degradação/recuperação sem consulta nos logs. 2.585 testes / 246 suítes e build passaram; falta CI/deploy e comportamento em produção |
+| OP07 | Resiliência do cache frontend (#218) e observabilidade de falhas | Integrado por #225 em `8a6f3fb`; CI, deploy e navegação real verificados. Expiração/recuperação com falha injetada passaram em testes; não se induziu indisponibilidade em produção. Efeito sustentado nos logs continua em OP02 |
 | OP08 | Cinco timeouts persistentes de itens | Em execução; retomadas limitadas não resolveram. Ultra excedeu 30 s até em prompt mínimo e 120 s nos três resumos com raciocínio desativado; não aplicar essa hipótese. Lightning acessível em teste mínimo, avaliação real pendente |
 | OP09 | Três resumos faltantes (992, 1566, 1860) | Em execução; só conclui com registro ok pelo hash e contrato atuais; enfileiramento não basta |
 | OP10 | Arquivos grandes retidos A3 | A fazer; recuperação integral por disco/páginas com limites e checkpoints, ou indisponibilidade de origem comprovada |
@@ -69,8 +69,8 @@ Estados: **verificado**, **em execução**, **a fazer**, **decisão pendente**,
 | SEO01 | Metadados, og:image, compartilhamento e Sobre | Parcial; código integrado, aceites reais em produção pendentes de auditoria |
 | SEO02 | Search Console, sitemap e indexação | Parcial; histórico aponta verificações anteriores; auditar estado atual |
 | SEO03 | Analytics ativo e linha de base | Verificado em produção pela API Vercel: 335 visitantes / 392 pageviews na janela retornada 01/11–05/11 UTC; PR #182 redundante encerrado |
-| FE07 | Data pública do cabeçalho do documento | Falha confirmada no navegador em `/documento/1194`: cabeçalho mostra 27/09/2026 por `atualizado_em`, enquanto publicação está ausente. Remover fallback técnico e rotular ausência; regressão e fiscais de datas/proveniência antes da integração |
-| FE08 | Revisar consistência da página Sobre | Auditoria visual: soma estimada sem período e badges Câmara/PNCP desatualizados; reconciliar com dados reais e critérios de publicação |
+| FE07 | Data pública do cabeçalho do documento | Em correção: data civil exclusivamente de publicação; ausência explícita, testes de fronteira do ano/bissexto/inválida passaram. Falta integração e aceite real |
+| FE08 | Revisar consistência da página Sobre | Em correção: removida soma sem período, Câmara/PNCP como cobertura parcial, contato autorizado visível e limitações de citação explícitas. Falta integração e aceite real |
 | DIV01 | Template Resumo da semana, primeiro conteúdo e pitch revisáveis | A fazer; preparar artefatos com dados e fontes reais |
 | DIV02 | Canal, grupos locais, postagem e contato com instituições | Dependência de instrução explícita para envio/publicação; preparar rascunhos e destinos sem enviar mensagens |
 | NOT01 | Assinatura e notificações de novos documentos/alertas | A fazer; opt-in, confirmação e controle de envio/descadastro |

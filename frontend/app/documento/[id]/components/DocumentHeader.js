@@ -1,7 +1,8 @@
 import QualitySignals from '../../../components/QualitySignals';
 import ShareWhatsApp from '../../../components/ShareWhatsApp';
 import StatusBadge from '../../../components/StatusBadge';
-import { splitDocumentTitle, formatDate, labelFonte, labelTipo } from '../../../lib/format';
+import { splitDocumentTitle, labelFonte, labelTipo } from '../../../lib/format';
+import { publicationLabel } from '../../../../lib/publication-date';
 
 export default function DocumentHeader({ documento, licitacao }) {
   const { titulo, subtitulo } = splitDocumentTitle(documento);
@@ -11,7 +12,7 @@ export default function DocumentHeader({ documento, licitacao }) {
         <div className="document-row-meta">
           <span>{documento.fonte_nome || labelFonte(documento.fonte)}</span>
           <span>{documento.tipo_nome || labelTipo(documento.tipo)}</span>
-          <span>{formatDate(documento.data_publicacao || documento.atualizado_em)}</span>
+          <span>{publicationLabel(documento)}</span>
         </div>
         {subtitulo ? <p className="page-title-subtitle">{subtitulo}</p> : null}
         <h1>{titulo}</h1>

@@ -2,7 +2,7 @@ import SectionBlock from '../components/SectionBlock';
 import Link from 'next/link';
 import DataAvailabilityBadge from '../components/DataAvailabilityBadge';
 import { fetchEstatisticas } from '../lib/api';
-import { formatMoney, formatDate } from '../lib/format';
+import { formatDate } from '../lib/format';
 import styles from './styles.module.css';
 
 export const metadata = {
@@ -14,7 +14,6 @@ export default async function SobrePage() {
   const stats = await fetchEstatisticas().catch(() => null);
   const totalDocs = stats?.total_documentos ?? '—';
   const totalLics = stats?.total_licitacoes ?? '—';
-  const valorTotal = stats?.valor_estimado_total ?? null;
   const ultimaColeta = stats?.ultima_coleta?.coletado_em ?? null;
 
   return (
@@ -37,6 +36,10 @@ export default async function SobrePage() {
           <a href="https://github.com/henriqueogs" rel="author">Henrique (henriqueogs no GitHub)</a>.
           Não é um site oficial da Prefeitura ou da Câmara Municipal.
         </p>
+        <p>
+          Correções de dados e relatos de conduta: <a href="mailto:henriqueogs@gmail.com">henriqueogs@gmail.com</a>.
+          Se o relato envolver dados pessoais, envie por e-mail e evite expor identificadores em público.
+        </p>
       </SectionBlock>
 
       {/* Fontes monitoradas */}
@@ -54,14 +57,14 @@ export default async function SobrePage() {
               <strong>Câmara Municipal de Ritápolis</strong>
               <p>Leis, decretos, portarias, resoluções e atos legislativos disponíveis na área de <Link href="/legislacao">atos oficiais de Ritápolis</Link>. A ausência de um documento no projeto não comprova ausência de publicação no órgão de origem.</p>
             </div>
-            <DataAvailabilityBadge status="pendente" />
+            <DataAvailabilityBadge status="parcial" />
           </div>
           <div className={styles.statusRow}>
             <div>
               <strong>Portal Nacional de Contratações Públicas (PNCP)</strong>
               <p>Fonte complementar para consulta de contratações públicas. A disponibilidade dos registros e do cruzamento varia por processo; confira o documento e a fonte indicada em cada <Link href="/licitacoes">licitação</Link>.</p>
             </div>
-            <DataAvailabilityBadge status="pendente" />
+            <DataAvailabilityBadge status="parcial" />
           </div>
           <div className={styles.statusRow}>
             <div>
@@ -79,14 +82,14 @@ export default async function SobrePage() {
           <div className={styles.statusRow}>
             <div>
               <strong>{totalDocs} documentos cadastrados — {totalLics} licitações</strong>
-              <p>Inclui editais, dispensas, pregões, chamadas públicas, atas e extratos. Os demais são leis, decretos e portarias da Câmara.</p>
+              <p>Contagem do acervo histórico coletado, de vários anos, incluindo documentos da Prefeitura e da Câmara. Não é uma contagem de publicações do mandato atual.</p>
             </div>
             <DataAvailabilityBadge status="real" />
           </div>
           <div className={styles.statusRow}>
             <div>
-              <strong>{valorTotal ? `${formatMoney(valorTotal)} em valores estimados` : 'Valores em processamento'}</strong>
-              <p>Soma dos valores estimados de contratos e licitações coletadas. Vencedores e valores finais confirmados disponíveis em /inteligencia.</p>
+              <strong>Valores por processo e por período</strong>
+              <p>Consulte os valores e suas fontes em <Link href="/licitacoes">licitações</Link> e os gastos por período em <Link href="/transparencia">dinheiro público</Link>. Estimativa, homologação, empenho e pagamento são etapas distintas.</p>
             </div>
             <DataAvailabilityBadge status="real" />
           </div>
@@ -172,7 +175,7 @@ export default async function SobrePage() {
           <div className={styles.statusRow}>
             <div>
               <strong>Dados verificáveis</strong>
-              <p>Cada número tem origem rastreável: extração determinística, resumo IA com campo-fonte citado, ou dado do documento original.</p>
+              <p>Consulte os links e documentos originais para conferir cada informação. Trechos citados e resumos de IA podem conter erros e devem ser comparados com a fonte.</p>
             </div>
           </div>
         </div>
