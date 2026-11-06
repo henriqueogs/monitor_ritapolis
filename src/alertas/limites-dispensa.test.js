@@ -60,6 +60,7 @@ describe('motivoExclusao', () => {
     ['INSS retido', 'Recolhimento de INSS patronal', MOTIVOS_EXCLUSAO.PREVIDENCIA],
     ['regime próprio', 'Contribuição ao RPPS', MOTIVOS_EXCLUSAO.PREVIDENCIA],
     ['folha', 'Folha de pagamento outubro', MOTIVOS_EXCLUSAO.FOLHA],
+    ['folha sem "de"', 'FOLHA PAGAMENTO', MOTIVOS_EXCLUSAO.FOLHA],
     ['tributo', 'Pagamento de ISS e IPTU', MOTIVOS_EXCLUSAO.TRIBUTOS],
     ['repasse', 'EMPENHA REPASSE APAE PROGRAMA', MOTIVOS_EXCLUSAO.REPASSE],
     ['subvenção', 'Subvenção social à entidade', MOTIVOS_EXCLUSAO.REPASSE],

@@ -57,7 +57,7 @@ const PADROES_EXCLUSAO = [
     /\b(repasse\w*|subvencao|subvencoes|auxilio financeiro|contribuicao a entidade)\b/,
   ],
   [MOTIVOS_EXCLUSAO.PREVIDENCIA, /\b(inss|rpps|previdenc\w*|contribuicao patronal|fgts)\b/],
-  [MOTIVOS_EXCLUSAO.FOLHA, /\b(folha de pagamento|folha pgto|salario\w*|13o salario|ferias)\b/],
+  [MOTIVOS_EXCLUSAO.FOLHA, /\b(folha (de )?pag\w*|folha pgto|salario\w*|13o salario|ferias)\b/],
   [MOTIVOS_EXCLUSAO.TRIBUTOS, /\b(iss|iptu|irrf|imposto\w*|tributo\w*|taxa de)\b/],
   [
     MOTIVOS_EXCLUSAO.CONCESSIONARIA,
