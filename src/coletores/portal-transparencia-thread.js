@@ -173,6 +173,10 @@ function parseDetalhamentoDespesa(html) {
     coAux: campo('CO AUX'),
     credor,
     historico: campo('Histórico'),
+    // Licitação e modalidade (ex.: "Adesão a Registro de Preços - 00122025") vêm numa linha
+    // acima do número; as colunas licitacao_ref/modalidade existiam, mas nunca eram preenchidas.
+    licitacao: campo('Licitação'),
+    modalidade: campo('Modalidade'),
   };
 }
 
