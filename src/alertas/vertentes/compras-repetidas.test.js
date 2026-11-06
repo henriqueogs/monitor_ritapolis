@@ -141,6 +141,38 @@ describe('vertente compras-repetidas', () => {
     expect(vertente.detectar(ctx(anulacoes))).toEqual([]);
   });
 
+  it('escreve datas em pt-BR e objetos com acento, sem palavras internas', () => {
+    const e = [1, 8, 15, 22].map(d =>
+      empenho(d, { historico: 'Aquisição de peças para manutenção do caminhão' })
+    );
+    const [c] = vertente.detectar(ctx(e));
+    expect(c.titulo).toContain('01/03/2025 e 22/03/2025');
+    expect(c.titulo).toContain('peças manutenção caminhão');
+    expect(c.titulo).not.toMatch(/\d{4}-\d{2}-\d{2}/);
+    expect(c.alerta.valor_periodo_label).toBe('Empenhado entre 01/03/2025 e 22/03/2025');
+  });
+
+  it('declara quando o limite é estimado (ano sem decreto na tabela)', () => {
+    const e = [1, 8, 15, 22].map(d => empenho(d, { exercicio_orcamento: 2099 }));
+    const [c] = vertente.detectar(ctx(e));
+    expect(c.metrica.limite_estimado).toBe(true);
+    expect(c.narrativa).toMatch(/limite de dispensa de 2026.*o de 2099 ainda não consta/s);
+  });
+
+  it('não diz "estimado" quando o limite do ano é o do decreto', () => {
+    const [c] = vertente.detectar(ctx(quatro()));
+    expect(c.narrativa).toContain('limite de dispensa de 2025');
+    expect(c.narrativa).not.toMatch(/estimad|ainda não/i);
+  });
+
+  it('avisa que as evidências são só as maiores quando há mais empenhos', () => {
+    const muitos = Array.from({ length: 14 }, (_, i) =>
+      empenho((i % 28) + 1, { valor: 20000 + i })
+    );
+    const [c] = vertente.detectar(ctx(muitos));
+    expect(c.narrativa).toMatch(/10 maiores empenhos entre os 14/);
+  });
+
   it('linguagem sem acusação: fato, critério e o que falta confirmar', () => {
     const [c] = vertente.detectar(ctx(quatro()));
     expect(c.narrativa).toMatch(/não localizou/i);

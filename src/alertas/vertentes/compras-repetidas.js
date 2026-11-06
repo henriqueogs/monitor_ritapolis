@@ -158,28 +158,60 @@ function consolidar(janelas) {
   }
   return grupos.map(g => {
     const empenhos = g.empenhos.sort((a, b) => a.data_empenho.localeCompare(b.data_empenho));
-    return { empenhos, objetos: [...new Set(empenhos.map(e => e._chave))] };
+    const objetos = [...new Set(empenhos.map(e => e._chave))];
+    const rotulos = objetos.map(k =>
+      rotuloDoObjeto(empenhos.find(e => e._chave === k).historico, k)
+    );
+    return { empenhos, objetos, rotulos };
   });
 }
 
-function textos({ janela, soma, objetos }) {
+const dataBR = iso => iso.split('-').reverse().join('/');
+
+// A chave de objeto é interna (sem acento); o texto ao cidadão usa as palavras como foram
+// escritas no histórico do empenho.
+function rotuloDoObjeto(historico, chave) {
+  const palavras = String(historico || '')
+    .toLowerCase()
+    .split(/[^\p{L}]+/u);
+  return chave
+    .split(' ')
+    .map(token => palavras.find(p => semAcento(p) === token) || token)
+    .join(' ');
+}
+
+function frasesLimite(primeiro, limite) {
+  if (!limite.estimado) {
+    return `(limite de dispensa de ${primeiro.exercicio_orcamento})`;
+  }
+  return (
+    `(limite de dispensa de ${limite.ano}, o último atualizado por decreto na tabela do sistema; ` +
+    `o de ${primeiro.exercicio_orcamento} ainda não consta nela)`
+  );
+}
+
+function textos({ janela, soma, rotulos }) {
   const primeiro = janela[0];
   const ultimo = janela[janela.length - 1];
-  const objeto = objetos.slice(0, OBJETOS_NO_TEXTO).join('; ');
-  const outros = objetos.length > OBJETOS_NO_TEXTO ? ' e outros' : '';
+  const objeto = rotulos.slice(0, OBJETOS_NO_TEXTO).join('; ');
+  const outros = rotulos.length > OBJETOS_NO_TEXTO ? ' e outros' : '';
+  const periodo = `${dataBR(primeiro.data_empenho)} e ${dataBR(ultimo.data_empenho)}`;
+  const parcial =
+    janela.length > MAX_EVIDENCIAS
+      ? ` Abaixo estão os ${MAX_EVIDENCIAS} maiores empenhos entre os ${janela.length}; a soma considera todos.`
+      : '';
   return {
     titulo:
-      `${primeiro.credor_nome}: ${janela.length} empenhos (${objeto}${outros}) entre ` +
-      `${primeiro.data_empenho} e ${ultimo.data_empenho} somam ${formatBRL(soma)}, ` +
-      'sem contrato ou ata localizados no acervo',
+      `${primeiro.credor_nome}: ${janela.length} empenhos (${objeto}${outros}) entre ${periodo} ` +
+      `somam ${formatBRL(soma)}, sem contrato ou ata localizados no acervo`,
     narrativa:
       `O sistema encontrou ${janela.length} empenhos originais de ${primeiro.credor_nome} para ` +
-      `objetos semelhantes ("${objeto}${outros}") entre ${primeiro.data_empenho} e ` +
-      `${ultimo.data_empenho}, cada um abaixo de ${formatBRL(primeiro._limite.valor)} (limite de ` +
-      `dispensa de ${primeiro.exercicio_orcamento}), somando ${formatBRL(soma)}. O sistema não ` +
-      'localizou contrato, ata de registro de preços ou licitação desse credor no acervo. A ' +
-      'recorrência pode ter explicação (instrumento publicado fora do acervo, necessidade ' +
-      'contínua); confira os empenhos e se existe instrumento para o objeto.',
+      `objetos semelhantes ("${objeto}${outros}") entre ${periodo}, cada um abaixo de ` +
+      `${formatBRL(primeiro._limite.valor)} ${frasesLimite(primeiro, primeiro._limite)}, ` +
+      `somando ${formatBRL(soma)}. O sistema não localizou contrato, ata de registro de preços ` +
+      'ou licitação desse credor no acervo. A recorrência pode ter explicação (instrumento ' +
+      'publicado fora do acervo, necessidade contínua); confira os empenhos e se existe ' +
+      `instrumento para o objeto.${parcial}`,
   };
 }
 
@@ -191,7 +223,7 @@ function maioresEvidencias(janela) {
     .map(evidenciaEmpenho);
 }
 
-function janelaParaCandidato({ empenhos: janela, objetos }) {
+function janelaParaCandidato({ empenhos: janela, objetos, rotulos }) {
   const primeiro = janela[0];
   const ultimo = janela[janela.length - 1];
   const soma = arredonda(janela.reduce((t, e) => t + e.valor, 0));
@@ -199,7 +231,7 @@ function janelaParaCandidato({ empenhos: janela, objetos }) {
   const cnpj = soDigitos(primeiro.credor_cnpj);
   return {
     objeto: `${cnpj}|${primeiro.exercicio_orcamento}|${primeiro.data_empenho}`,
-    ...textos({ janela, soma, objetos }),
+    ...textos({ janela, soma, rotulos }),
     categoria: 'Compras e contratações',
     metrica: {
       nome: 'soma_janela',
@@ -220,7 +252,7 @@ function janelaParaCandidato({ empenhos: janela, objetos }) {
     alerta: {
       tipo: 'compras_repetidas',
       subcategoria: 'compras_repetidas_sem_instrumento',
-      valor_periodo_label: `Empenhado entre ${primeiro.data_empenho} e ${ultimo.data_empenho}`,
+      valor_periodo_label: `Empenhado entre ${dataBR(primeiro.data_empenho)} e ${dataBR(ultimo.data_empenho)}`,
       metadados: {
         regra: 'compras_repetidas_sem_instrumento',
         unidade: MOEDA,
