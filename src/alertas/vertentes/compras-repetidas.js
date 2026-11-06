@@ -56,6 +56,8 @@ const PALAVRAS_VAZIAS = new Set([
   'processo',
   'despesa',
   'empenho',
+  'empenha',
+  'empenhado',
   'contratacao',
   'empresa',
   'destinado',

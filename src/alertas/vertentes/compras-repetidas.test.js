@@ -34,6 +34,9 @@ describe('chaveDoObjeto', () => {
       chaveDoObjeto('aquisicao de pneus para frota - requisicao 98')
     );
   });
+  it('ignora o verbo "empenha" que abre quase todo histórico', () => {
+    expect(chaveDoObjeto('EMPENHA PECAS MANUTENCAO VEICULO')).toBe('pecas manutencao veiculo');
+  });
   it('objetos diferentes têm chaves diferentes', () => {
     expect(chaveDoObjeto('Aquisição de pneus')).not.toBe(chaveDoObjeto('Aquisição de combustível'));
   });

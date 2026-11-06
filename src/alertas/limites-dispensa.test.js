@@ -44,6 +44,8 @@ describe('motivoExclusao', () => {
     ['regime próprio', 'Contribuição ao RPPS', MOTIVOS_EXCLUSAO.PREVIDENCIA],
     ['folha', 'Folha de pagamento outubro', MOTIVOS_EXCLUSAO.FOLHA],
     ['tributo', 'Pagamento de ISS e IPTU', MOTIVOS_EXCLUSAO.TRIBUTOS],
+    ['repasse', 'EMPENHA REPASSE APAE PROGRAMA', MOTIVOS_EXCLUSAO.REPASSE],
+    ['subvenção', 'Subvenção social à entidade', MOTIVOS_EXCLUSAO.REPASSE],
     ['energia', 'Fornecimento de energia elétrica', MOTIVOS_EXCLUSAO.CONCESSIONARIA],
     ['água', 'Tarifa de água e esgoto', MOTIVOS_EXCLUSAO.CONCESSIONARIA],
   ])('exclui %s', (_n, historico, esperado) => {
