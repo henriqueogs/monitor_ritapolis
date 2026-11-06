@@ -11,6 +11,7 @@
 const { limiteDispensa, motivoExclusao, CATEGORIAS_LIMITE } = require('../limites-dispensa');
 const { formatBRL } = require('../tipos');
 const { evidenciaEmpenho } = require('./execucao-contratual');
+const { citacoesDoHistorico, resumirCitacoes, frasesDasCitacoes } = require('./citacoes');
 
 const TIPO_ORIGINAL = 'EO';
 const JANELA_DIAS = 90;
@@ -87,9 +88,11 @@ function ehCandidatoValido(e) {
   return !motivoExclusao({ credor_documento: e.credor_cnpj, historico: e.historico });
 }
 
-function elegiveis(empenhos) {
+// Empenho que cita um processo presente no acervo já tem instrumento localizado: fica de fora.
+function elegiveis(empenhos, processosNoAcervo) {
   return empenhos
     .filter(ehCandidatoValido)
+    .filter(e => !processosNoAcervo.has(citacoesDoHistorico(e.historico).processo))
     .map(e => ({
       ...e,
       _chave: chaveDoObjeto(e.historico),
@@ -190,7 +193,7 @@ function frasesLimite(primeiro, limite) {
   );
 }
 
-function textos({ janela, soma, rotulos }) {
+function textos({ janela, soma, rotulos, frases }) {
   const primeiro = janela[0];
   const ultimo = janela[janela.length - 1];
   const objeto = rotulos.slice(0, OBJETOS_NO_TEXTO).join('; ');
@@ -208,10 +211,9 @@ function textos({ janela, soma, rotulos }) {
       `O sistema encontrou ${janela.length} empenhos originais de ${primeiro.credor_nome} para ` +
       `objetos semelhantes ("${objeto}${outros}") entre ${periodo}, cada um abaixo de ` +
       `${formatBRL(primeiro._limite.valor)} ${frasesLimite(primeiro, primeiro._limite)}, ` +
-      `somando ${formatBRL(soma)}. O sistema não localizou contrato, ata de registro de preços ` +
-      'ou licitação desse credor no acervo. A recorrência pode ter explicação (instrumento ' +
-      'publicado fora do acervo, necessidade contínua); confira os empenhos e se existe ' +
-      `instrumento para o objeto.${parcial}`,
+      `somando ${formatBRL(soma)}. ${frases.achado} A recorrência pode ter explicação ` +
+      '(instrumento publicado fora do acervo, necessidade contínua); confira os empenhos e ' +
+      `se existe instrumento para o objeto.${parcial}`,
   };
 }
 
@@ -229,9 +231,11 @@ function janelaParaCandidato({ empenhos: janela, objetos, rotulos }) {
   const soma = arredonda(janela.reduce((t, e) => t + e.valor, 0));
   const limite = primeiro._limite;
   const cnpj = soDigitos(primeiro.credor_cnpj);
+  const citacoes = resumirCitacoes(janela);
+  const frases = frasesDasCitacoes(citacoes);
   return {
     objeto: `${cnpj}|${primeiro.exercicio_orcamento}|${primeiro.data_empenho}`,
-    ...textos({ janela, soma, rotulos }),
+    ...textos({ janela, soma, rotulos, frases }),
     categoria: 'Compras e contratações',
     metrica: {
       nome: 'soma_janela',
@@ -243,7 +247,7 @@ function janelaParaCandidato({ empenhos: janela, objetos, rotulos }) {
     },
     evidencias: maioresEvidencias(janela),
     periodo: { inicio: primeiro.data_empenho, fim: ultimo.data_empenho },
-    severidade: 'atencao',
+    severidade: frases.severidade,
     questionamentos: [
       'Existe contrato, ata de registro de preços ou licitação cobrindo esse objeto no período?',
       'Os empenhos se referem de fato ao mesmo objeto?',
@@ -259,15 +263,21 @@ function janelaParaCandidato({ empenhos: janela, objetos, rotulos }) {
         credor_cnpj: cnpj,
         credor_nome: primeiro.credor_nome,
         objetos_chave: objetos,
+        processos_citados: citacoes.processos,
+        adesoes_citadas: citacoes.adesoes,
         campos_a_verificar: CAMPOS_A_VERIFICAR,
       },
     },
   };
 }
 
-function detectar({ empenhos = [], credoresComInstrumento = new Set() } = {}) {
+function detectar({
+  empenhos = [],
+  credoresComInstrumento = new Set(),
+  processosNoAcervo = new Set(),
+} = {}) {
   const porCredorAno = new Map();
-  for (const grupo of agrupar(elegiveis(empenhos)).values()) {
+  for (const grupo of agrupar(elegiveis(empenhos, processosNoAcervo)).values()) {
     const cnpj = soDigitos(grupo[0].credor_cnpj);
     if (credoresComInstrumento.has(cnpj)) {
       continue;

@@ -37,4 +37,11 @@ function listarCnpjsComInstrumento() {
   return new Set(linhas.map(l => l.cnpj).filter(Boolean));
 }
 
-module.exports = { listarEmpenhosOriginais, listarCnpjsComInstrumento };
+function listarTitulosDeProcessos() {
+  return db
+    .prepare("SELECT titulo FROM documentos WHERE titulo LIKE 'Processo %'")
+    .all()
+    .map(l => l.titulo);
+}
+
+module.exports = { listarEmpenhosOriginais, listarCnpjsComInstrumento, listarTitulosDeProcessos };

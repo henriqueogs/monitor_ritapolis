@@ -13,14 +13,20 @@ const { gerarDescobertasComprasRepetidas } = require('./compras-repetidas-runner
 
 const CNPJ = '11111111000111';
 let seq = 0;
-function seedEmpenho({ dia, cnpj = CNPJ, valor = 20000, tipo = 'EO' }) {
+function seedEmpenho({
+  dia,
+  cnpj = CNPJ,
+  valor = 20000,
+  tipo = 'EO',
+  historico = 'Aquisição de pneus para a frota',
+}) {
   seq += 1;
   mockConn
     .prepare(
       `INSERT INTO transparencia_despesas
          (exercicio_orcamento, empenho, tipo, data_empenho, credor_cnpj, credor_nome,
           valor, historico, hash_despesa)
-       VALUES (2025, ?, ?, ?, ?, 'AUTO PECAS LTDA', ?, 'Aquisição de pneus para a frota', ?)`
+       VALUES (2025, ?, ?, ?, ?, 'AUTO PECAS LTDA', ?, ?, ?)`
     )
     .run(
       `${String(seq).padStart(5, '0')}-000`,
@@ -28,6 +34,7 @@ function seedEmpenho({ dia, cnpj = CNPJ, valor = 20000, tipo = 'EO' }) {
       `2025-03-${String(dia).padStart(2, '0')}`,
       cnpj,
       valor,
+      historico,
       `h-${seq}`
     );
 }
@@ -88,6 +95,35 @@ describe('compras-repetidas-runner', () => {
     seedInstrumento(CNPJ);
     const r = gerarDescobertasComprasRepetidas();
     expect(r.candidatos).toBe(0);
+  });
+
+  describe('processo citado nos históricos', () => {
+    const seedCitando = () =>
+      [1, 8, 15, 22].forEach(dia =>
+        seedEmpenho({ dia, historico: 'Aquisição de pneus CONFORME PROCESSO LICITATÓRIO N°52/25' })
+      );
+    const seedProcesso = titulo =>
+      mockConn
+        .prepare(
+          `INSERT INTO documentos (fonte, tipo, titulo, url_origem, hash_conteudo)
+           VALUES ('prefeitura', 'licitacao', ?, 'https://x.gov.br/p', 'hc-proc')`
+        )
+        .run(titulo);
+
+    it('processo presente no acervo: empenhos cobertos, nenhuma descoberta', () => {
+      seedCitando();
+      seedProcesso('Processo 0052/2025 - Adesão 0012/2025 - Peças');
+      expect(gerarDescobertasComprasRepetidas().candidatos).toBe(0);
+    });
+
+    it('processo ausente do acervo: descoberta com severidade info e o processo no texto', () => {
+      seedCitando();
+      const r = gerarDescobertasComprasRepetidas();
+      expect(r.candidatos).toBe(1);
+      const a = mockConn.prepare("SELECT * FROM alertas WHERE tipo = 'compras_repetidas'").get();
+      expect(a.severidade).toBe('info');
+      expect(a.narrativa).toContain('Processo 52/2025 (4 de 4 empenhos)');
+    });
   });
 
   it('dry-run não grava', () => {
