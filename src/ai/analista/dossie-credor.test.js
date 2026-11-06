@@ -80,6 +80,18 @@ describe('montarDossieCredor', () => {
     expect(d.fontes.some(f => f.fonte_id === 'E30')).toBe(true);
   });
 
+  it('mascara CPF no nome do credor e nos históricos (dado pessoal não vai ao modelo)', () => {
+    const d = montarDossieCredor({
+      credor: { nome: 'ELANILSON SANTOS 53014731668 - ME', cnpj: '27884788000100' },
+      empenhos: [empenho({ historico: 'Pago a fulano CPF 530.147.316-68 por serviço' })],
+    });
+    const tudo = JSON.stringify(d);
+    expect(tudo).not.toContain('53014731668');
+    expect(tudo).not.toContain('530.147.316-68');
+    expect(d.titulo).toContain('ELANILSON SANTOS ***');
+    expect(d.chave).toBe('credor:27884788000100');
+  });
+
   it('estima os tokens do dossiê', () => {
     const d = montarDossieCredor({ credor, empenhos: [empenho()] });
     expect(d.tokens_estimados).toBeGreaterThan(0);
