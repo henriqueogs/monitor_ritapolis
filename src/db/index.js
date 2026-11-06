@@ -10,6 +10,7 @@ const { parseResultadosItensLicitacao } = require('../parsers/licitacao-resultad
 const { agruparDocumentosLicitacao, papelLabel } = require('../licitacoes/grupos');
 const { normalizarNumeroDocumento, titulosCompativeis } = require('../licitacoes/processo');
 const { normalizarCnpj, formatarCnpj } = require('../licitacoes/cnpj');
+const { normalizarDataIso, parseDataBrasileira, extrairAnoInstrumento } = require('../utils/datas');
 const { agregarEmpenhosPorCredor, agregarVencedoresPorCnpj } = require('../transparencia/fornecedores-empenhos');
 const { sqlValorFinalHomologado, ocultarValorFinalDeEmpenho } = require('../transparencia/valor-final-empenho');
 
@@ -1402,8 +1403,8 @@ function upsertLicitacaoDetalhesExtraidos(documento, detalhes) {
       documento_id: documento.id,
       modalidade: documento.modalidade || null,
       status: detalhes.status || null,
-      vencedor_nome: detalhes.vencedor_nome || null,
-      vencedor_cnpj: detalhes.vencedor_cnpj || null,
+      vencedor_nome: sanitizarNomeFornecedor(cleanField(detalhes.vencedor_nome)),
+      vencedor_cnpj: sanitizarCnpjFornecedor(cleanField(detalhes.vencedor_cnpj)),
       valor_final: detalhes.valor_final ?? null,
       numero_pncp: normalizarControlePncp(detalhes.numero_pncp),
       data_homologacao: detalhes.data_homologacao || null,
@@ -2844,11 +2845,11 @@ function saveDocumento(documento) {
     fonte: documento.fonte,
     tipo: documento.tipo,
     numero: numeroNormalizado,
-    ano: documento.ano || null,
+    ano: documento.ano || extrairAnoInstrumento({ numero: numeroNormalizado, titulo: documento.titulo, dataPublicacao: normalizarDataIso(documento.data_publicacao), dataAbertura: normalizarDataIso(documento.data_abertura) }) || null,
     titulo: documento.titulo,
     resumo: documento.resumo || null,
-    data_publicacao: documento.data_publicacao || null,
-    data_abertura: documento.data_abertura || null,
+    data_publicacao: normalizarDataIso(documento.data_publicacao) || (Array.isArray(documento.dados_extras?.anexos) ? documento.dados_extras.anexos.map((a) => parseDataBrasileira(a?.datahora)).filter(Boolean).sort()[0] || null : null),
+    data_abertura: normalizarDataIso(documento.data_abertura) || null,
     valor_estimado: documento.valor_estimado ?? null,
     url_origem: documento.url_origem,
     url_pdf: documento.url_pdf || null,
@@ -2957,8 +2958,8 @@ function saveDocumento(documento) {
       documento_id: result.id,
       modalidade: documento.licitacao_detalhes.modalidade || null,
       status: documento.licitacao_detalhes.status || null,
-      vencedor_nome: documento.licitacao_detalhes.vencedor_nome || null,
-      vencedor_cnpj: documento.licitacao_detalhes.vencedor_cnpj || null,
+      vencedor_nome: sanitizarNomeFornecedor(cleanField(documento.licitacao_detalhes.vencedor_nome)),
+      vencedor_cnpj: sanitizarCnpjFornecedor(cleanField(documento.licitacao_detalhes.vencedor_cnpj)),
       valor_final: documento.licitacao_detalhes.valor_final ?? null,
       numero_pncp: normalizarControlePncp(documento.licitacao_detalhes.numero_pncp),
       data_homologacao: documento.licitacao_detalhes.data_homologacao || null,

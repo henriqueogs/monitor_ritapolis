@@ -10,6 +10,7 @@ const { db } = require('./connection');
 const logger = require('../logger');
 const { aplicarGatePlausibilidadeItemProcesso } = require('./produtos-plausibilidade-repo');
 const { normalizarControlePncp } = require('../licitacoes/pncp-resultados');
+const { ehCnpjDoEnte, sanitizarNomeFornecedor } = require('../licitacoes/fornecedor-sanitizador');
 
 const ORIGEM_PNCP = 'pncp_orgaos';
 const ORIGEM_DETALHE_RESULTADOS = 'pncp_resultados';
@@ -83,13 +84,15 @@ function gravarResultadoPncp(documentoId, dados) {
   const id = Number(documentoId);
   const agora = new Date().toISOString();
   const numeroPncp = normalizarControlePncp(dados.numero_pncp);
+  const cnpjValido = dados.vencedor_cnpj && !ehCnpjDoEnte(dados.vencedor_cnpj) ? dados.vencedor_cnpj : null;
+  const nomeValido = cnpjValido ? sanitizarNomeFornecedor(dados.vencedor_nome) : null;
   let changes = 0;
   db.exec('BEGIN');
   try {
     changes = db.prepare(SQL_GRAVAR_CANONICO).run({
       documento_id: id,
-      vencedor_nome: dados.vencedor_cnpj ? dados.vencedor_nome || null : null,
-      vencedor_cnpj: dados.vencedor_cnpj || null,
+      vencedor_nome: nomeValido,
+      vencedor_cnpj: cnpjValido,
       multiplos: dados.multiplos_fornecedores ? 1 : 0,
       valor_final: dados.valor_final,
       numero_pncp: numeroPncp,

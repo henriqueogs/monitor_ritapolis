@@ -6,7 +6,7 @@ const logger = require('../logger');
 const { assertSafeUrl, createSafeHttpsAgent } = require('../http/safe-network');
 const { isRetryableCollectorError, proxyCollectorRequest } = require('../http/collector-proxy');
 const { createColetaLog, finishColetaLog, saveDocumento, createResumoAiJob } = require('../db');
-const { extrairAno } = require('../utils/datas');
+const { extrairAnoInstrumento } = require('../utils/datas');
 
 class ColetorBase {
   constructor({ fonte, httpOptions = {} }) {
@@ -145,7 +145,7 @@ class ColetorBase {
   }
 
   inferirAno({ numero, dataPublicacao, dataAbertura = null, titulo = null }) {
-    return extrairAno({ dataPublicacao, dataAbertura, numero, titulo });
+    return extrairAnoInstrumento({ dataPublicacao, dataAbertura, numero, titulo });
   }
 
   async run() {
