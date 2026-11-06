@@ -5,7 +5,7 @@
  *
  * Uso:
  *   node scripts/analista-credor.js --top 10 [--ano-min 2025]   # credores PJ por valor empenhado
- *   node scripts/analista-credor.js --cnpj 18855014000152       # mede dossiê/prompt (sem modelo)
+ *   node scripts/analista-credor.js --cnpj <CNPJ>               # mede dossiê/prompt (sem modelo)
  *   node scripts/analista-credor.js --cnpj ... --chamar-modelo  # chama o modelo e verifica
  */
 
