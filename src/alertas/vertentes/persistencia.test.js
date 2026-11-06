@@ -21,6 +21,10 @@ describe('candidatoParaAlerta', () => {
     expect(alerta.estado_editorial_origem).toBe('gerador_factual');
   });
 
+  it('pede ao repositório para atualizar o texto a cada rodada (regra determinística)', () => {
+    expect(candidatoParaAlerta(candidato()).alerta.regenerar_conteudo).toBe(true);
+  });
+
   it('marca versão de qualidade da vertente e período anual', () => {
     const { alerta } = candidatoParaAlerta(candidato());
     expect(alerta.qualidade_versao).toBe('vertente-compras-repetidas-v2');

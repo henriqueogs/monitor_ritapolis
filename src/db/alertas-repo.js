@@ -281,7 +281,10 @@ function upsertAlerta(alerta, documentos = [], evidencias = []) {
     // era apagado e substituído pelo template genérico no próximo ciclo de
     // generateAlerts() que regenerasse o mesmo fato — mesmo com o estado
     // certo, o admin via só o texto mecânico, não a investigação de verdade.
-    const preservarConteudoInvestigado = preservarEstadoTerminal;
+    // Alerta de regra determinística (vertentes) não tem investigação de IA a proteger: o
+    // texto vem do código e deve acompanhá-lo. Publicado nunca é reescrito em silêncio.
+    const regenerar = Boolean(alerta.regenerar_conteudo) && existing.estado_editorial !== 'publicado';
+    const preservarConteudoInvestigado = preservarEstadoTerminal && !regenerar;
     // chave_unica não muda no UPDATE; node:sqlite rejeita parâmetros não usados.
     const { chave_unica: _chave, ...semChave } = campos;
     db.prepare(

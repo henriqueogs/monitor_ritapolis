@@ -72,6 +72,7 @@ function candidatoParaAlerta(candidato) {
     chave_unica: chaveUnica(candidato),
     estado_editorial: 'revisao',
     estado_editorial_origem: 'gerador_factual',
+    regenerar_conteudo: true,
     qualidade_versao: `vertente-${candidato.vertente}-v${candidato.versao}`,
     qualidade_motivos: [],
     metadados: {
