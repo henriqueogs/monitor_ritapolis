@@ -85,6 +85,35 @@ describe('vertente compras-repetidas', () => {
     expect(vertente.detectar(ctx(mesmoDia))).toEqual([]);
   });
 
+  it('junta janelas sobrepostas do mesmo credor (objetos diferentes) em um só candidato', () => {
+    const pneus = [1, 8, 15, 22].map(d => empenho(d));
+    const filtros = [3, 10, 17, 24].map(d =>
+      empenho(d, { historico: 'Aquisição de filtros para a frota municipal' })
+    );
+    const r = vertente.detectar(ctx([...pneus, ...filtros]));
+    expect(r).toHaveLength(1);
+    expect(r[0].metrica).toMatchObject({ empenhos: 8, valor: 160000 });
+    expect(r[0].alerta.metadados.objetos_chave.sort()).toEqual(['filtros frota', 'pneus frota']);
+    expect(r[0].evidencias).toHaveLength(8);
+  });
+
+  it('janelas do mesmo credor sem sobreposição continuam separadas', () => {
+    const marco = [1, 8, 15, 22].map(d => empenho(d));
+    const setembro = [1, 8, 15, 22].map(d =>
+      empenho(d, { data_empenho: `2025-09-${String(d).padStart(2, '0')}` })
+    );
+    expect(vertente.detectar(ctx([...marco, ...setembro]))).toHaveLength(2);
+  });
+
+  it('limita as evidências às de maior valor', () => {
+    const muitos = Array.from({ length: 14 }, (_, i) =>
+      empenho((i % 28) + 1, { valor: 20000 + i })
+    );
+    const [c] = vertente.detectar(ctx(muitos));
+    expect(c.metrica.empenhos).toBe(14);
+    expect(c.evidencias).toHaveLength(10);
+  });
+
   it('empenhos a mais de 90 dias não formam janela', () => {
     const espalhados = [
       empenho(1, { data_empenho: '2025-01-01' }),
