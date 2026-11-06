@@ -115,6 +115,23 @@ describe('portal-transparencia-thread', () => {
       expect(detalhe.credor).toMatch(/^BANCO DO BRASIL S\/A - CPF\/CNPJ: [\d./-]+$/);
     });
 
+    // Trecho real da página (empenho 00542-000/2026), onde a licitação e a modalidade vêm
+    // numa linha própria acima do número do empenho.
+    const comLicitacao = `<TR><TD><b>Licitação:</b> 00005225 / 0</TD><TD><b>Modalidade:</b> Adesão a Registro de Preços - 00122025</TD><TD><b>Requisição de Compra:</b> 26000350000 </TD></TR>
+      <TR><TD><b>Número:</b>&nbsp;<B>00542-000</B></TD><TD><b>Tipo:</b>&nbsp;EO</TD></TR>`;
+
+    it('extrai licitação e modalidade (antes ignoradas) quando a página as traz', () => {
+      const d = parseDetalhamentoDespesa(comLicitacao);
+      expect(d.licitacao).toBe('00005225 / 0');
+      expect(d.modalidade).toBe('Adesão a Registro de Preços - 00122025');
+    });
+
+    it('sem licitação/modalidade na página, os campos ficam nulos', () => {
+      const d = parseDetalhamentoDespesa('<TR><TD><b>Número:</b>&nbsp;<B>00001-000</B></TD></TR>');
+      expect(d.licitacao).toBeNull();
+      expect(d.modalidade).toBeNull();
+    });
+
     it('retorna null quando a página não tem o padrão esperado', () => {
       expect(parseDetalhamentoDespesa('<html>vazio</html>')).toBeNull();
     });
