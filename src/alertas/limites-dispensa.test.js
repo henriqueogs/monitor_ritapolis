@@ -15,6 +15,23 @@ describe('limiteDispensa', () => {
     expect(r.estimado).toBe(false);
   });
 
+  it.each([
+    [2022, 108040.82, 54020.41],
+    [2023, 114416.65, 57208.33],
+    [2024, 119812.02, 59906.02],
+    [2025, 125451.15, 62725.59],
+    [2026, 130984.2, 65492.11],
+  ])('valores de %i batem com o Anexo do decreto (conferido no Planalto)', (ano, obras, outros) => {
+    expect(limiteDispensa(ano, CATEGORIAS_LIMITE.OBRAS)).toMatchObject({
+      valor: obras,
+      estimado: false,
+    });
+    expect(limiteDispensa(ano, CATEGORIAS_LIMITE.OUTROS)).toMatchObject({
+      valor: outros,
+      estimado: false,
+    });
+  });
+
   it('obras e engenharia têm limite maior que compras e serviços', () => {
     const obras = limiteDispensa(2024, CATEGORIAS_LIMITE.OBRAS).valor;
     const outros = limiteDispensa(2024, CATEGORIAS_LIMITE.OUTROS).valor;

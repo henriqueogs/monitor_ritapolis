@@ -7,7 +7,9 @@
  *
  * Os valores vêm da legislação, não de dados do município: ano sem entrada usa o último
  * ano anterior e volta marcado `estimado`, para a vertente rotular isso em vez de fingir precisão.
- * Entradas copiadas dos decretos citados; confirmar contra o texto oficial ao incluir um ano novo.
+ * Valores de 2022 a 2026 conferidos no Anexo de cada decreto em planalto.gov.br (06/11/2026);
+ * 2019-2021 vêm da Lei 8.666/Decreto 9.412 e dos valores-base da Lei 14.133. Conferir o texto
+ * oficial ao incluir um ano novo (resumos de sites especializados trouxeram valores errados).
  */
 
 const CATEGORIAS_LIMITE = { OBRAS: 'obras', OUTROS: 'outros' };
@@ -16,9 +18,11 @@ const LIMITES_POR_ANO = {
   2019: { obras: 33000, outros: 17600, fonte: 'Decreto 9.412/2018 (Lei 8.666 art. 24)' },
   2020: { obras: 33000, outros: 17600, fonte: 'Decreto 9.412/2018 (Lei 8.666 art. 24)' },
   2021: { obras: 100000, outros: 50000, fonte: 'Lei 14.133/2021 art. 75 (valores-base)' },
+  2022: { obras: 108040.82, outros: 54020.41, fonte: 'Decreto 10.922/2021' },
   2023: { obras: 114416.65, outros: 57208.33, fonte: 'Decreto 11.317/2022' },
   2024: { obras: 119812.02, outros: 59906.02, fonte: 'Decreto 11.871/2023' },
   2025: { obras: 125451.15, outros: 62725.59, fonte: 'Decreto 12.343/2024' },
+  2026: { obras: 130984.2, outros: 65492.11, fonte: 'Decreto 12.807/2025' },
 };
 
 function limiteDispensa(ano, categoria) {
