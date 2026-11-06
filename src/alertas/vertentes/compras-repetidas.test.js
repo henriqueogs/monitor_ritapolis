@@ -173,6 +173,39 @@ describe('vertente compras-repetidas', () => {
     expect(c.narrativa).toMatch(/10 maiores empenhos entre os 14/);
   });
 
+  describe('processo e adesão citados nos históricos', () => {
+    const citando = (dia, historico) =>
+      empenho(dia, { historico: `Aquisição de pneus CONFORME ${historico}` });
+    const quatroCitando = historico => [1, 8, 15, 22].map(d => citando(d, historico));
+
+    it('ignora empenhos cujo processo citado está no acervo (há instrumento localizado)', () => {
+      const e = quatroCitando('PROCESSO LICITATÓRIO N°52/25');
+      const r = vertente.detectar(ctx(e, { processosNoAcervo: new Set(['52/2025']) }));
+      expect(r).toEqual([]);
+    });
+
+    it('processo citado e ausente do acervo: aponta onde conferir, severidade info', () => {
+      const e = quatroCitando('PROCESSO LICITATÓRIO N°52/25 ADESÃO N°12/2025');
+      const [c] = vertente.detectar(ctx(e, { processosNoAcervo: new Set() }));
+      expect(c.severidade).toBe('info');
+      expect(c.narrativa).toContain('Processo 52/2025 (4 de 4 empenhos)');
+      expect(c.narrativa).toContain('Adesão 12/2025 (4 de 4 empenhos)');
+      expect(c.alerta.metadados.processos_citados).toEqual([{ chave: '52/2025', n: 4 }]);
+      expect(c.alerta.metadados.adesoes_citadas).toEqual([{ chave: '12/2025', n: 4 }]);
+    });
+
+    it('sem citação: severidade atenção e texto diz que os históricos não citam processo', () => {
+      const [c] = vertente.detectar(ctx(quatro()));
+      expect(c.severidade).toBe('atencao');
+      expect(c.narrativa).toMatch(/não citam processo nem adesão/);
+    });
+
+    it('sem o conjunto processosNoAcervo no contexto, nada é considerado localizado', () => {
+      const e = quatroCitando('PROCESSO LICITATÓRIO N°52/25');
+      expect(vertente.detectar({ empenhos: e, credoresComInstrumento: new Set() })).toHaveLength(1);
+    });
+  });
+
   it('linguagem sem acusação: fato, critério e o que falta confirmar', () => {
     const [c] = vertente.detectar(ctx(quatro()));
     expect(c.narrativa).toMatch(/não localizou/i);
