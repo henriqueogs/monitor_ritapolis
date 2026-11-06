@@ -188,6 +188,47 @@ describe('alertas-repo', () => {
       expect(preservado.qualidade_motivos).toEqual(['EDITORIAL_GENERIC_TITLE']);
     });
 
+    it('regenerar_conteudo atualiza titulo/narrativa de alerta determinístico em revisão', () => {
+      seedDocumento(1, '2026-03-01');
+      const evidencia = [{ documento_id: 1, papel: 'evidencia', trecho_fonte: 'x' }];
+      const base = {
+        tipo: 'compras_repetidas',
+        titulo: 'Titulo antigo',
+        narrativa: 'Narrativa antiga.',
+        chave_unica: 'vertente|det',
+        severidade: 'atencao',
+        estado_editorial: 'revisao',
+        estado_editorial_origem: 'gerador_factual',
+        regenerar_conteudo: true,
+      };
+      const { id } = repo.upsertAlerta(base, [{ documento_id: 1 }], evidencia);
+      repo.upsertAlerta({ ...base, titulo: 'Titulo novo', narrativa: 'Narrativa nova.' }, [{ documento_id: 1 }], evidencia);
+      const a = repo.getAlerta(id);
+      expect(a.titulo).toBe('Titulo novo');
+      expect(a.narrativa).toBe('Narrativa nova.');
+      expect(a.estado_editorial).toBe('revisao');
+    });
+
+    it('regenerar_conteudo nunca reescreve o texto de um alerta já publicado', () => {
+      seedDocumento(1, '2026-03-01');
+      const evidencia = [{ documento_id: 1, papel: 'evidencia', trecho_fonte: 'x' }];
+      const base = {
+        tipo: 'compras_repetidas',
+        titulo: 'Titulo publicado',
+        narrativa: 'Narrativa publicada.',
+        chave_unica: 'vertente|pub',
+        severidade: 'atencao',
+        estado_editorial: 'publicado',
+        estado_editorial_origem: 'gerador_factual',
+        regenerar_conteudo: true,
+      };
+      const { id } = repo.upsertAlerta(base, [{ documento_id: 1 }], evidencia);
+      repo.upsertAlerta({ ...base, titulo: 'Titulo novo', narrativa: 'Narrativa nova.' }, [{ documento_id: 1 }], evidencia);
+      const a = repo.getAlerta(id);
+      expect(a.titulo).toBe('Titulo publicado');
+      expect(a.narrativa).toBe('Narrativa publicada.');
+    });
+
     it('nao reabre alerta rejeitado quando evidencia nova entra no bucket (hash muda)', () => {
       // Bug real: rejeitar em lote (scripts/rejeitar-legado-sem-gate.js) e depois
       // rodar gerar-alertas.js --full com novos fatos extraidos mudava o
