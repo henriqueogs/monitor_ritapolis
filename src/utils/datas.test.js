@@ -1,6 +1,13 @@
 'use strict';
 
-const { extrairAno, parseDataBrasileira, naoFutura } = require('./datas');
+const {
+  extrairAno,
+  extrairAnoInstrumento,
+  validarDataIso,
+  normalizarDataIso,
+  parseDataBrasileira,
+  naoFutura,
+} = require('./datas');
 
 describe('extrairAno', () => {
   it('prioriza data_publicacao/data_abertura', () => {
@@ -33,6 +40,48 @@ describe('extrairAno', () => {
   it('ignora anos implausíveis (fora de 2000..ano+1)', () => {
     expect(extrairAno({ titulo: 'Documento de 1850' })).toBeNull();
     expect(extrairAno({ titulo: 'Projeto para 2099' })).toBeNull();
+  });
+});
+
+describe('extrairAnoInstrumento', () => {
+  it('identifica o ano do instrumento quando publicado no ano seguinte (Processo 2023 publicado em jan/2024 e Emenda 2025 publicada em fev/2026)', () => {
+    expect(
+      extrairAnoInstrumento({
+        numero: '0117/2023',
+        titulo: 'Processo 0117/2023 - Tomada de Preços nº 006/2023',
+        dataPublicacao: '2024-01-03',
+      })
+    ).toBe(2023);
+
+    expect(
+      extrairAnoInstrumento({
+        titulo: 'Emenda Estadual 2025 Sargento Rodrigues',
+        dataPublicacao: '2026-02-19',
+      })
+    ).toBe(2025);
+
+    expect(
+      extrairAnoInstrumento({
+        numero: '001/2020',
+        titulo: 'Concursos Públicos 2020',
+        dataPublicacao: '2025-07-08',
+      })
+    ).toBe(2020);
+  });
+});
+
+describe('validarDataIso e normalizarDataIso', () => {
+  it('rejeita datas impossíveis encontradas no banco (2025-10-54, 0202-04-10, 0023-12-29)', () => {
+    expect(validarDataIso('2025-10-54')).toBeNull();
+    expect(validarDataIso('0202-04-10')).toBeNull();
+    expect(validarDataIso('0023-12-29')).toBeNull();
+    expect(validarDataIso('2025-02-29')).toBeNull();
+  });
+
+  it('normaliza datas DD/MM/YYYY e preserva YYYY-MM-DD válidas', () => {
+    expect(normalizarDataIso('26/12/2023')).toBe('2023-12-26');
+    expect(normalizarDataIso('2024-02-29')).toBe('2024-02-29');
+    expect(normalizarDataIso('2025-10-54')).toBeNull();
   });
 });
 

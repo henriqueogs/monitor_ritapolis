@@ -11,6 +11,7 @@ const config = require('../config');
 const { cnpjsDoEnte } = require('../ente');
 const { SQL_TIPO_ORDINARIO, sqlTipoOrdinario } = require('../transparencia/tipo-empenho');
 const { anosReferenciaYoY, janelaAnos, limiarDispensa } = require('../inteligencia/periodo-inteligencia');
+const { vinculoDocumentoExato } = require('../licitacoes/modalidade');
 
 // Exercícios com volume suficiente para análise (mesma regra do seletor do painel).
 const MIN_EMPENHOS_ANO_SIGNIFICATIVO = 100;
@@ -45,6 +46,20 @@ function isEntidadeGov(credor_nome, credor_cnpj) {
   if (CNPJS_EXCLUIR_CONCENTRACAO.includes(credor_cnpj)) {return true;}
   const nome = String(credor_nome || '').toUpperCase();
   return NOMES_EXCLUIR_CONCENTRACAO.some((n) => nome.includes(n));
+}
+
+function sanitizarVinculoDocumentoEmpenho(emp) {
+  if (!emp?.documento_id) {
+    return emp;
+  }
+  if (vinculoDocumentoExato(emp.modalidade, emp.documento_titulo)) {
+    return emp;
+  }
+  return {
+    ...emp,
+    documento_id: null,
+    documento_titulo: null,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -208,6 +223,7 @@ function getEmpenhoAtipicos(exercicio) {
       td.id, td.exercicio_orcamento, td.empenho, td.tipo,
       td.data_empenho, td.credor_nome, td.credor_cnpj,
       td.valor, td.funcao, td.subfuncao, td.historico,
+      td.modalidade, td.licitacao_ref,
       td.documento_id,
       d.titulo AS documento_titulo
     FROM transparencia_despesas td
@@ -218,7 +234,8 @@ function getEmpenhoAtipicos(exercicio) {
   `).all(exercicio);
 
   const outliers = [];
-  for (const emp of candidatos) {
+  for (const empRaw of candidatos) {
+    const emp = sanitizarVinculoDocumentoEmpenho(empRaw);
     const s = statsMap.get(emp.funcao);
     if (!s || s.stddev === 0) {continue;}
     const zscore = (emp.valor - s.media) / s.stddev;

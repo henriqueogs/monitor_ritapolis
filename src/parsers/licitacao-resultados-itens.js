@@ -3,11 +3,18 @@ const {
   extrairLoteNumero,
 } = require('../licitacoes/valor-final-tipo');
 const { ente, formatarCnpj } = require('../ente');
-
-const PREFEITURA_HEADER_PATTERN =
-  /\b1854\s+1963\s+Prefeitura\s+Municipal\s+de\s+Rit\S*polis\s+Pra\S*a\s+Tiradentes,\s*340\s+[-–]\s+Centro\s+[-–]\s+CEP\s+36335-000\s+CNPJ:\s*18\.557\.553\/0001-05\s+[-–]\s+Tel\.\s*\(32\)\s*3356-1136\s+\d*\b/gi;
+const {
+  sanitizarNomeFornecedor,
+  sanitizarCnpjFornecedor,
+} = require('../licitacoes/fornecedor-sanitizador');
 
 const CNPJ_PREFEITURA = formatarCnpj(ente.cnpjPrefeitura);
+const CNPJ_PREF_ESCAPED = String(CNPJ_PREFEITURA || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const PREFEITURA_HEADER_PATTERN = new RegExp(
+  `\\b1854\\s+1963\\s+Prefeitura\\s+Municipal\\s+de\\s+Rit\\S*polis\\s+Pra\\S*a\\s+Tiradentes,\\s*340\\s+[-–]\\s+Centro\\s+[-–]\\s+CEP\\s+\\d{5}-\\d{3}\\s+CNPJ:\\s*${CNPJ_PREF_ESCAPED}\\s+[-–]\\s+Tel\\.\\s*\\(32\\)\\s*3356-1136\\s+\\d*\\b`,
+  'gi'
+);
+
 const MONEY_RE = 'R\\$\\s*([\\d.]+,\\d{2})';
 const MONEY_OPTIONAL_SYMBOL_RE = '(?:R\\$\\s*)?([\\d.]+,\\d{2,4})';
 
@@ -59,7 +66,7 @@ function cleanFornecedorNome(value) {
   const text = compactText(value, 180);
   if (!text) {return null;}
 
-  return text
+  const preCleaned = text
     .replace(/\bFornecedor\b/gi, ' ')
     .replace(/\bValor\b/gi, ' ')
     .replace(/\bClassifica\S*o\b/gi, ' ')
@@ -71,7 +78,9 @@ function cleanFornecedorNome(value) {
     .replace(/\s+\w?\]\s*$/g, '')
     .replace(/^\d+\s+/, '')
     .replace(/\s+/g, ' ')
-    .trim() || null;
+    .trim();
+
+  return sanitizarNomeFornecedor(preCleaned);
 }
 
 function parseFornecedorCnpjMap(text) {
@@ -81,8 +90,8 @@ function parseFornecedorCnpjMap(text) {
   let match;
 
   while ((match = cnpjRe.exec(clean))) {
-    const cnpj = match[0];
-    if (cnpj === CNPJ_PREFEITURA) {continue;}
+    const cnpj = sanitizarCnpjFornecedor(match[0]);
+    if (!cnpj || cnpj === CNPJ_PREFEITURA) {continue;}
 
     const before = clean.slice(Math.max(0, match.index - 160), match.index);
     const nameMatch = before.match(/([A-ZÀ-Ú0-9][A-ZÀ-Ú0-9\s.&'/-]{3,130}?(?:LTDA|EIRELI|EPP|ME|S\/A|SA))\s*$/i);
@@ -98,16 +107,16 @@ function parseFornecedorCnpjMap(text) {
 
 function findFornecedorCnpj(cnpjMap, fornecedorNome) {
   const key = normalizeKey(fornecedorNome);
-  if (cnpjMap.has(key)) {return cnpjMap.get(key);}
+  if (cnpjMap.has(key)) {return sanitizarCnpjFornecedor(cnpjMap.get(key));}
 
   for (const [candidate, cnpj] of cnpjMap.entries()) {
-    if (candidate.includes(key) || key.includes(candidate)) {return cnpj;}
+    if (candidate.includes(key) || key.includes(candidate)) {return sanitizarCnpjFornecedor(cnpj);}
   }
 
   const raizMatch = String(fornecedorNome || '').match(/^\s*(\d{2}\.\d{3}\.\d{3})\b/);
   if (raizMatch) {
     for (const cnpj of cnpjMap.values()) {
-      if (String(cnpj).startsWith(raizMatch[1])) {return cnpj;}
+      if (String(cnpj).startsWith(raizMatch[1])) {return sanitizarCnpjFornecedor(cnpj);}
     }
   }
 
@@ -343,7 +352,7 @@ function parsePlataformaEletronicaSegment(segment, cnpjMap) {
     valor_total_final: null,
     valor_final_tipo: isLote ? 'lote' : inferValorFinalTipo(descricao),
     fornecedor_nome: fornecedorNome,
-    fornecedor_cnpj: match[2] || findFornecedorCnpj(cnpjMap, fornecedorNome),
+    fornecedor_cnpj: sanitizarCnpjFornecedor(match[2]) || findFornecedorCnpj(cnpjMap, fornecedorNome),
     origem: 'ata_resultado',
     origem_detalhe: isLote ? 'ata:plataforma_eletronica_lote' : 'ata:plataforma_eletronica_item',
     trecho_fonte: buildTrechoFonte(segment.numero, descricao, fornecedorNome, match[3], 'classificacao'),

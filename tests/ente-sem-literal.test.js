@@ -20,12 +20,6 @@ const CONFIGURACAO = new Set();
 
 // Exceções conhecidas, com motivo.
 const EXCECOES = {
-  'src/parsers/licitacao-resultados-itens.js':
-    'regex do cabeçalho impresso nos PDFs de Ritápolis (endereço, CEP, telefone e CNPJ juntos); ' +
-    'heurística de layout do documento, não identidade. Gerar a partir do ente é trabalho da Fase 3 (passo 4)',
-  'src/parsers/licitacao-produtos.js':
-    'mesmo cabeçalho impresso dos PDFs de Ritápolis, em variante própria (sem o número de página ' +
-    'final); consolidar com o de licitacao-resultados-itens.js é trabalho da Fase 3 (passo 4)',
   'scripts/resolver-lacunas-produtos-mapeadas.js':
     'correção histórica com CNPJs de FORNECEDORES (dados de produção), não do ente',
 };

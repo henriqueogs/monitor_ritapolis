@@ -12,14 +12,9 @@
 const logger = require('../logger');
 const { db } = require('../db');
 const { SEM_RESULTADO_PNCP, sqlValorComProcedencia } = require('../db/licitacoes-detalhes-sql');
+const { sanitizarFornecedor } = require('../licitacoes/fornecedor-sanitizador');
 
 // ── Helpers de extração ───────────────────────────────────────────────────────
-
-function normalizarCnpj(str) {
-  if (!str) {return null;}
-  const clean = String(str).replace(/\D/g, '');
-  return clean.length === 14 ? clean : null;
-}
 
 function extrairVencedor(resumoJson) {
   const partes = resumoJson?.partes_envolvidas;
@@ -29,10 +24,13 @@ function extrairVencedor(resumoJson) {
   const contratado = partes.find((p) => p.papel === 'contratado');
   if (!contratado?.nome) {return null;}
 
-  // Extrai CNPJ do campo documento (pode conter "CNPJ: 00.000.000/0000-00")
-  const cnpj = normalizarCnpj(contratado.documento);
+  const { nome, cnpj } = sanitizarFornecedor({
+    nome: contratado.nome,
+    cnpj: contratado.documento,
+  });
+  if (!nome && !cnpj) {return null;}
 
-  return { nome: String(contratado.nome).trim(), cnpj };
+  return { nome, cnpj };
 }
 
 function extrairValorFinal(resumoJson) {

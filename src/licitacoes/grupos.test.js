@@ -108,11 +108,15 @@ describe('buildGrupoKey', () => {
     expect(buildGrupoKey({ numero: 'PP-001', ano: 'inválido' })).toBeNull();
   });
 
-  it('retorna objeto com ano=0 quando ano é null (Number(null)=0)', () => {
-    // Number(null) === 0, que é finito — buildGrupoKey aceita e retorna ano:0
+  it('retorna null quando ano é null ou zero e não há ano no processo/título (evita grupos com ano=0)', () => {
     const key = buildGrupoKey({ numero: 'PP-001', ano: null });
+    expect(key).toBeNull();
+  });
+
+  it('infere o ano do processo/título quando documento.ano é null', () => {
+    const key = buildGrupoKey({ numero: '0060/20', ano: null, titulo: 'Processo 0060/20 - Concorrência 02/2020' });
     expect(key).not.toBeNull();
-    expect(key.ano).toBe(0);
+    expect(key.ano).toBe(2020);
   });
 });
 

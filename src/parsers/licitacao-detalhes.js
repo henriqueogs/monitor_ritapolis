@@ -1,5 +1,10 @@
-const { ente, formatarCnpj } = require('../ente');
+const { ente, formatarCnpj, isCnpjDoEnte } = require('../ente');
 const { normalizarControlePncp } = require('../licitacoes/pncp-resultados');
+const {
+  ehNomeFornecedorInvalido,
+  sanitizarNomeFornecedor,
+  sanitizarCnpjFornecedor,
+} = require('../licitacoes/fornecedor-sanitizador');
 
 const PREFEITURA_CNPJ = formatarCnpj(ente.cnpjPrefeitura);
 
@@ -42,26 +47,11 @@ function parseCurrency(value) {
 }
 
 function normalizeCnpj(value) {
-  const digits = String(value || '').replace(/\D/g, '');
-  if (digits.length !== 14) {return null;}
-  return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
+  return sanitizarCnpjFornecedor(value, { formatado: true });
 }
 
 function cleanName(value) {
-  const text = compactText(value, 180);
-  if (!text) {return null;}
-
-  return text
-    .replace(/^(?:a\s+)?empresa\s+/i, '')
-    .replace(/^contratada\s*:?\s*/i, '')
-    .replace(/\s*(?:,|-)?\s*CNPJ\s*(?:n[ºo]\s*)?$/i, '')
-    .replace(/\s*,?\s*(?:inscrita|inscrito)\s+no\s+cnpj.*$/i, '')
-    .replace(/\s*,?\s*neste\s+ato.*$/i, '')
-    .replace(/\s*,?\s*doravante.*$/i, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .replace(/[.,;:–-]+$/g, '')
-    .trim();
+  return sanitizarNomeFornecedor(value);
 }
 
 function isMunicipalityName(value) {
@@ -72,12 +62,7 @@ function isMunicipalityName(value) {
 }
 
 function isInvalidFornecedorName(value) {
-  const normalized = normalizeKey(value);
-  return !normalized ||
-    normalized === 'cnpj' ||
-    normalized === 'cnpj no' ||
-    normalized === 'de natureza publica' ||
-    normalized.includes('pessoa juridica de direito publico');
+  return ehNomeFornecedorInvalido(value);
 }
 
 function getDistinctCnpjs(text) {
@@ -112,13 +97,15 @@ function inferOrigem({ text, anexos }) {
 function parseFornecedor(text, cnpjs) {
   const source = String(text || '');
   const patterns = [
-    /Empresa\s+contratada\s*:\s*([^.,;]+(?:\s+[^,.;]+){0,12}?)\s*,?\s*(?:inscrita|inscrito)\s+no\s+CNPJ(?:\s+sob\s+o)?\s*(?:n[ºo]\s*)?([0-9.\-/\s]{14,24})/i,
-    /\be\s+a\s+empresa\s+([^,\n]{3,180}?)\s*,?\s*(?:inscrita|inscrito)\s+no\s+CNPJ(?:\s+sob\s+o)?\s*(?:n[ºo]\s*)?([0-9.\-/\s]{14,24})/i,
-    /\be\s+a\s+empresa\s+([^,\n]{3,180}?)\s*(?:,|-)?\s*CNPJ\s*(?:n[ºo]\s*)?([0-9.\-/\s]{14,24})/i,
-    /\ba\s+empresa\s+([^,\n]{3,180}?)\s*(?:,|-)?\s*CNPJ\s*(?:n[ºo]\s*)?([0-9.\-/\s]{14,24})/i,
-    /\be\s+o\s+(Cons[oó]rcio[^,\n]{3,220}?)\s*,[^.]{0,260}?inscrit[oa]\s+no\s+CNPJ(?:\s+sob\s+o)?\s*(?:n[ºo]\s*)?([0-9.\-/\s]{14,24})/i,
-    /\be\s+o\s+([^,\n]{3,220}?)\s*,\s*(?:com\s+endere[cç]o[^.]{0,240}?)?inscrit[oa]\s+no\s+CNPJ\s*(?:n[ºo]\s*)?([0-9.\-/\s]{14,24})/i,
-    /\b([A-ZÁÀÂÃÉÈÊÍÓÔÕÚÜÇ0-9][^,\n]{3,180}?)\s*,\s*(?:inscrita|inscrito)\s+no\s+CNPJ(?:\s+sob\s+o)?\s*(?:n[ºo]\s*)?([0-9.\-/\s]{14,24})/i
+    /Empresa\s+contratada\s*:\s*([^.,;]+(?:\s+[^,.;]+){0,12}?)\s*,?\s*(?:inscrita|inscrito)\s+no\s+CNPJ(?:\s+sob\s+o)?\s*(?:n[ºo°.]?\s*)?([0-9.\-/\s]{14,24})/i,
+    /Raz[aã]o\s+Social\s*:\s*([^,\n]{3,180}?)\s+Logradouro\s*:[^]*?CNPJ\s*:\s*([0-9.\-/\s]{14,24})/i,
+    /\be\s+a\s+empresa\s+([^,\n]{3,180}?)\s*,?\s*(?:inscrita|inscrito)\s+no\s+CNPJ(?:\s+sob\s+o)?\s*(?:n[ºo°.]?\s*)?([0-9.\-/\s]{14,24})/i,
+    /\be\s+a\s+empresa\s+([^,\n]{3,180}?)\s*,\s*com\s+sede[\s\S]{0,240}?(?:inscrita|inscrito)\s+no\s+CNPJ(?:\s+sob\s+o)?\s*(?:n[ºo°.]?\s*)?([0-9.\-/\s]{14,24})/i,
+    /\be\s+a\s+empresa\s+([^,\n]{3,180}?)\s*(?:,|-)?\s*CNPJ\s*(?:n[ºo°.]?\s*)?([0-9.\-/\s]{14,24})/i,
+    /\ba\s+empresa\s+([^,\n]{3,180}?)\s*(?:,|-)?\s*CNPJ\s*(?:n[ºo°.]?\s*)?([0-9.\-/\s]{14,24})/i,
+    /\be\s+o\s+(Cons[oó]rcio[^,\n]{3,220}?)\s*,[^.]{0,260}?inscrit[oa]\s+no\s+CNPJ(?:\s+sob\s+o)?\s*(?:n[ºo°.]?\s*)?([0-9.\-/\s]{14,24})/i,
+    /\be\s+o\s+([^,\n]{3,220}?)\s*,\s*(?:com\s+endere[cç]o[^.]{0,240}?)?inscrit[oa]\s+no\s+CNPJ\s*(?:n[ºo°.]?\s*)?([0-9.\-/\s]{14,24})/i,
+    /\b([A-ZÁÀÂÃÉÈÊÍÓÔÕÚÜÇ0-9][^,\n]{3,180}?)\s*,\s*(?:inscrita|inscrito)\s+no\s+CNPJ(?:\s+sob\s+o)?\s*(?:n[ºo°.]?\s*)?([0-9.\-/\s]{14,24})/i
   ];
 
   for (const pattern of patterns) {
@@ -127,7 +114,7 @@ function parseFornecedor(text, cnpjs) {
 
     const nome = cleanName(match[1]);
     const cnpj = normalizeCnpj(match[2]);
-    if (!nome || !cnpj || cnpj === PREFEITURA_CNPJ || isMunicipalityName(nome) || isInvalidFornecedorName(nome)) {continue;}
+    if (!nome || !cnpj || cnpj === PREFEITURA_CNPJ || isCnpjDoEnte(cnpj) || isMunicipalityName(nome) || isInvalidFornecedorName(nome)) {continue;}
 
     const index = match.index || source.indexOf(match[0]);
     return {
@@ -137,7 +124,7 @@ function parseFornecedor(text, cnpjs) {
     };
   }
 
-  const nonMunicipalityCnpjs = cnpjs.filter((cnpj) => cnpj !== PREFEITURA_CNPJ);
+  const nonMunicipalityCnpjs = cnpjs.filter((cnpj) => cnpj !== PREFEITURA_CNPJ && !isCnpjDoEnte(cnpj));
   if (nonMunicipalityCnpjs.length !== 1) {return null;}
 
   const cnpj = nonMunicipalityCnpjs[0];
@@ -145,8 +132,14 @@ function parseFornecedor(text, cnpjs) {
   const looseIndex = cnpjIndex >= 0 ? cnpjIndex : source.search(new RegExp(cnpj.replace(/[./-]/g, '[.\\-/\\s]*')));
   if (looseIndex < 0) {return null;}
 
-  const before = source.slice(Math.max(0, looseIndex - 180), looseIndex);
-  const looseMatch = before.match(/(?:empresa|contratada|contratado)\s+([^.,;\n]{3,160})$/i) ||
+  const beforeRaw = source.slice(Math.max(0, looseIndex - 240), looseIndex);
+  const before = beforeRaw
+    .replace(/\bCNPJ\s*:?\s*\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}\s*/gi, ' ')
+    .replace(/(?:\s*,\s*pessoa\s+jur[ií]dica[^,]*)*\s*,?\s*(?:inscrit[ao]\s+no\s+)?CNPJ(?:\s+sob\s+o)?\s*(?:n[ºo°.]?\s*)?:?\s*$/i, '')
+    .trim();
+  const looseMatch =
+    before.match(/(?:empresa|contratada|contratado)\s*:?\s*([^.,;\n]{3,160})$/i) ||
+    before.match(/([A-ZÁÀÂÃÉÈÊÍÓÔÕÚÜÇ0-9][A-ZÁÀÂÃÉÈÊÍÓÔÕÚÜÇ0-9\s.&'/-]{2,150}?(?:\s+|-\s*)(?:LTDA\.?|EIRELI|EPP|MEI?|S\/A|SA))\b[^,;\n]*$/i) ||
     before.match(/([A-ZÁÀÂÃÉÈÊÍÓÔÕÚÜÇ0-9][^.,;\n]{3,160})$/);
   const nome = cleanName(looseMatch?.[1]);
 
@@ -233,7 +226,7 @@ function parseLicitacaoDetalhes(text, { anexos = [] } = {}) {
 
   const cnpjs = getDistinctCnpjs(source);
   const origem = inferOrigem({ text: source, anexos });
-  const nonMunicipalityCnpjs = cnpjs.filter((cnpj) => cnpj !== PREFEITURA_CNPJ);
+  const nonMunicipalityCnpjs = cnpjs.filter((cnpj) => cnpj !== PREFEITURA_CNPJ && !isCnpjDoEnte(cnpj));
   const multipleContracts = anexos.filter((anexo) => /contrato/i.test(anexo.nome || '')).length > 1;
   const shouldAvoidSingleWinner = multipleContracts && nonMunicipalityCnpjs.length > 1;
   const fornecedor = shouldAvoidSingleWinner ? null : parseFornecedor(source, cnpjs);

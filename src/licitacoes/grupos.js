@@ -1,4 +1,5 @@
 const { normalizeProcessoChave } = require('./processo');
+const { extrairAno, anoValido } = require('../utils/datas');
 
 const PAPEL_LABELS = {
   edital: 'Edital',
@@ -55,10 +56,18 @@ function pickDocumentoCanonico(itens) {
 
 function buildGrupoKey(documento, modelo = {}) {
   const processo = modelo.processo || documento?.numero;
-  const ano = Number(documento?.ano);
+  const anoDoc = Number(documento?.ano);
+  const ano = anoValido(anoDoc)
+    ? anoDoc
+    : extrairAno({
+        numero: processo,
+        titulo: documento?.titulo,
+        dataPublicacao: documento?.data_publicacao,
+        dataAbertura: documento?.data_abertura,
+      });
   const chave = normalizeProcessoChave(processo);
 
-  if (!chave || !Number.isFinite(ano)) {return null;}
+  if (!chave || !anoValido(ano)) {return null;}
 
   return {
     processo_chave: chave,

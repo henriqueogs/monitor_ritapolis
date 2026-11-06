@@ -3,10 +3,10 @@
 /**
  * Gate de plausibilidade item×processo: quarentena produtos cujo valor final
  * excede o valor final do próprio processo (item não pode custar mais que a
- * licitação inteira). Não destrutivo — os valores ficam intactos; a exibição
- * é que respeita a quarentena (`status_revisao='rejeitado'` + validação
- * `implausivel`). Reversível: se o valor for corrigido, o gate libera; produto
- * validado por humano nunca é rebaixado.
+ * licitação inteira) ou o teto absoluto municipal. Não destrutivo — os valores
+ * ficam intactos; a exibição é que respeita a quarentena (`status_revisao='rejeitado'`
+ * + validação `implausivel`). Reversível: se o valor for corrigido, o gate libera;
+ * produto validado por humano nunca é rebaixado.
  */
 
 const { db } = require('./connection');
@@ -14,6 +14,7 @@ const {
   extrairValorFinalEstruturado,
   avaliarValorItemContraProcesso,
   FATOR_MAX_ITEM_VS_PROCESSO,
+  TETO_VALOR_PLAUSIVEL,
 } = require('../licitacoes/valores');
 
 const FONTE_VALIDACAO = 'plausibilidade_item_processo';
@@ -26,16 +27,21 @@ const MARCADOR_ORIGEM = 'valor_item_implausivel';
 const MARCADOR_RE = /\s*\|?\s*valor_item_implausivel\([^)]*\)/g;
 
 function listarAlvos({ documentoId, ano }) {
-  const filters = ['ld.valor_final > 0'];
+  const filters = [
+    `(ld.valor_final > 0 OR d.valor_estimado > 0 OR lp.valor_total_final > ${TETO_VALOR_PLAUSIVEL} OR (lp.valor_unitario_final * lp.quantidade) > ${TETO_VALOR_PLAUSIVEL})`
+  ];
   const params = [];
   if (documentoId) { filters.push('lp.documento_id = ?'); params.push(Number(documentoId)); }
   if (ano) { filters.push('lp.ano = ?'); params.push(Number(ano)); }
 
   return db
     .prepare(
-      `SELECT lp.*, ld.valor_final AS valor_final_processo, ld.origem AS valor_final_origem
+      `SELECT lp.*,
+              COALESCE(CASE WHEN ld.valor_final > 0 THEN ld.valor_final END, CASE WHEN d.valor_estimado > 0 THEN d.valor_estimado END) AS valor_final_processo,
+              ld.origem AS valor_final_origem
        FROM licitacoes_produtos lp
-       JOIN licitacoes_detalhes ld ON ld.documento_id = lp.documento_id
+       JOIN documentos d ON d.id = lp.documento_id
+       LEFT JOIN licitacoes_detalhes ld ON ld.documento_id = lp.documento_id
        WHERE ${filters.join(' AND ')}`
     )
     .all(...params);
@@ -63,7 +69,7 @@ function upsertValidacao(produtoId, { status, valorProcesso, campo, payload }) {
   ).run(produtoId, FONTE_VALIDACAO, valorProcesso, campo, status, payloadJson, agora);
 }
 
-function quarentenar(produto, { campo, valorItem, razao, fator }) {
+function quarentenar(produto, { campo, valorItem, razao, fator, motivo = 'item_excede_valor_processo' }) {
   const jaMarcado = String(produto.origem_detalhe || '').includes(MARCADOR_ORIGEM);
   if (!jaMarcado) {
     const anotacao = `${MARCADOR_ORIGEM}(item=${valorItem};processo=${produto.valor_final_processo};fator=${fator})`;
@@ -78,7 +84,7 @@ function quarentenar(produto, { campo, valorItem, razao, fator }) {
     status: STATUS_IMPLAUSIVEL,
     valorProcesso: produto.valor_final_processo,
     campo,
-    payload: { valor_item: valorItem, razao, fator, motivo: 'item_excede_valor_processo' },
+    payload: { valor_item: valorItem, razao, fator, motivo },
   });
   return jaMarcado;
 }
@@ -125,7 +131,7 @@ function aplicarGatePlausibilidadeItemProcesso({
     if (!estruturado) {continue;}
     resumo.avaliados += 1;
 
-    const { plausivel, razao } = avaliarValorItemContraProcesso({
+    const { plausivel, razao, motivo } = avaliarValorItemContraProcesso({
       valorItem: estruturado.valor,
       valorFinalProcesso: produto.valor_final_processo,
       fator,
@@ -133,7 +139,7 @@ function aplicarGatePlausibilidadeItemProcesso({
     const jaMarcado = String(produto.origem_detalhe || '').includes(MARCADOR_ORIGEM);
     const referenciaEmpenho = produto.valor_final_origem === ORIGEM_VALOR_EMPENHO_AGREGADO;
 
-    if (!plausivel && referenciaEmpenho) {
+    if (!plausivel && referenciaEmpenho && motivo !== 'item_acima_do_teto_absoluto') {
       // Teto homologado acima do empenhado: dado legítimo. Grava nota de
       // contexto e desfaz quarentena antiga baseada nessa comparação.
       resumo.contexto_empenho += 1;
@@ -160,28 +166,26 @@ function aplicarGatePlausibilidadeItemProcesso({
         valor_item: estruturado.valor,
         valor_processo: produto.valor_final_processo,
         razao,
+        motivo,
       });
       const humanoValidado = produto.status_revisao === 'validado';
       if (jaMarcado) {
         resumo.ja_quarentenados += 1;
       } else if (humanoValidado) {
-        // status_revisao intocado, mas a validação 'implausivel' é gravada —
-        // a exibição quarentena por ela, independente do workflow admin.
         resumo.validados_nao_rebaixados += 1;
       } else {
         resumo.quarentenados += 1;
       }
       if (!dryRun) {
         if (humanoValidado) {
-          // Humano validou — não rebaixa, mas registra a validação pra auditoria
           upsertValidacao(produto.id, {
             status: STATUS_IMPLAUSIVEL,
             valorProcesso: produto.valor_final_processo,
             campo: estruturado.campo,
-            payload: { valor_item: estruturado.valor, razao, fator, motivo: 'item_excede_valor_processo' },
+            payload: { valor_item: estruturado.valor, razao, fator, motivo: motivo || 'item_excede_valor_processo' },
           });
         } else {
-          quarentenar(produto, { campo: estruturado.campo, valorItem: estruturado.valor, razao, fator });
+          quarentenar(produto, { campo: estruturado.campo, valorItem: estruturado.valor, razao, fator, motivo });
         }
       }
       continue;

@@ -84,18 +84,31 @@ function extrairValorFinalEstruturado(produto = {}) {
 
 /**
  * Gate de plausibilidade item×processo: item não pode exceder o valor final
- * do processo. Sem valor de referência (null/0) → plausível: lacuna explícita,
- * nunca inventa julgamento.
+ * do processo nem o teto absoluto municipal (R$ 100 milhões).
+ * Sem valor de referência (null/0) → plausível dentro do teto absoluto:
+ * lacuna explícita, nunca inventa julgamento.
  * @returns {{ plausivel: boolean, motivo: string|null, razao: number|null }}
  */
 function avaliarValorItemContraProcesso({
   valorItem,
   valorFinalProcesso,
   fator = FATOR_MAX_ITEM_VS_PROCESSO,
+  tetoAbsoluto = TETO_VALOR_PLAUSIVEL,
 } = {}) {
   const item = positivo(valorItem);
+  if (!item) {return { plausivel: true, motivo: null, razao: null };}
+
   const processo = positivo(valorFinalProcesso);
-  if (!item || !processo) {return { plausivel: true, motivo: null, razao: null };}
+  if (!processo) {
+    if (tetoAbsoluto && item > tetoAbsoluto) {
+      return {
+        plausivel: false,
+        motivo: 'item_acima_do_teto_absoluto',
+        razao: Math.round((item / tetoAbsoluto) * 100) / 100,
+      };
+    }
+    return { plausivel: true, motivo: null, razao: null };
+  }
 
   const razao = item / processo;
   if (razao > fator) {

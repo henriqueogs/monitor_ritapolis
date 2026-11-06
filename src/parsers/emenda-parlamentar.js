@@ -20,7 +20,9 @@ const ROTULOS = [
   'OBJETO DETALHADO', 'OBJETO', 'VALOR DO REPASSE', 'VALOR DA CONTRAPARTIDA',
   'ÓRGÃO TRANSFERIDOR', 'ORGAO TRANSFERIDOR', 'INSTRUMENTO LEGAL',
   'CATEGORIA ECONÔMICA', 'CATEGORIA ECONOMICA', 'UNIDADE EXECUTORA',
-  'GESTOR RESPONSÁVEL', 'GESTOR RESPONSAVEL', 'DATA DE RECEBIMENTO DO RECURSO',
+  'GESTOR RESPONSÁVEL', 'GESTOR RESPONSAVEL',
+  'CONTA BANCÁRIA', 'CONTA BANCARIA', 'AGÊNCIA', 'AGENCIA', 'BANCO',
+  'DATA DE RECEBIMENTO DO RECURSO',
   'DADOS DA DESPESA', 'INÍCIO', 'INICIO', 'TÉRMINO', 'TERMINO',
 ];
 
@@ -39,11 +41,6 @@ const PROXIMO_ROTULO =
 
 function extrairCampo(texto, rotulo) {
   const escaped = rotulo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  // Exige ':' logo após o rótulo (com espaços opcionais). Sem isto, 'OBJETO'
-  // casava dentro de 'OBJETO DETALHADO' (separador aceitava só espaço).
-  // {0,800}: campo pode ser vazio (federais "OBJETO :" seguido do próximo rótulo)
-  // e objetos longos passam dos 300 chars. \\s* no lookahead porque os espaços
-  // após o ':' já foram consumidos.
   const stop = PROXIMO_ROTULO.replace('(?=\\s+(?:', '(?=\\s*(?:');
   const pattern = new RegExp(escaped + '\\s*:\\s*(.{0,800}?)' + stop, 'i');
   const match = String(texto || '').match(pattern);
@@ -124,6 +121,116 @@ function anoReferenciaEmenda(
   );
 }
 
+/**
+ * Remove eventual vazamento de BANCO / AGÊNCIA / CONTA BANCÁRIA do campo gestor_responsavel.
+ */
+function higienizarGestorResponsavel(texto) {
+  if (!texto) { return null; }
+  const limpo = String(texto)
+    .replace(/\s*\b(?:BANCO|AG[ÊE]NCIA|CONTA\s+BANC[ÁA]RIA)\s*:[\s\S]*$/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return limpo || null;
+}
+
+/**
+ * Extrai banco, agência e conta bancária de um texto completo ou de gestor_responsavel legado.
+ */
+function extrairDadosBancariosEmenda(texto) {
+  const src = String(texto || '');
+  const banco = extrairCampo(src, 'BANCO');
+  const agencia = extrairCampo(src, 'AGÊNCIA') || extrairCampo(src, 'AGENCIA');
+  const conta = extrairCampo(src, 'CONTA BANCÁRIA') || extrairCampo(src, 'CONTA BANCARIA');
+  if (!banco && !agencia && !conta) { return null; }
+  return {
+    banco: banco || null,
+    agencia: agencia || null,
+    conta_bancaria: conta || null,
+  };
+}
+
+/**
+ * Discrimina códigos de empenho e valores citados em dados_despesa (ex.: "EO 03099-000 VALOR: R$ 140.900,00").
+ */
+function extrairEmpenhosDadosDespesa(dadosDespesa) {
+  const src = String(dadosDespesa || '');
+  if (!src) { return []; }
+  const re = /(?:(EO|EE|EG|OP)\s*|N[.º°o]*\s*DO\s*EMPENHO\s*:\s*)(\d{4,5}-\d{3})\b(?:\s*VALOR\s*:\s*R\$\s*([\d.,]+))?/gi;
+  const itens = [];
+  const vistos = new Set();
+  let m;
+  while ((m = re.exec(src))) {
+    const tipo = (m[1] || 'EO').toUpperCase();
+    const numeroEmpenho = m[2];
+    const valor = m[3] ? parsearValorMonetario(`R$ ${m[3]}`) : null;
+    if (vistos.has(numeroEmpenho)) { continue; }
+    vistos.add(numeroEmpenho);
+    itens.push({
+      codigo: `${tipo} ${numeroEmpenho}`,
+      tipo,
+      numero_empenho: numeroEmpenho,
+      valor,
+    });
+  }
+  return itens;
+}
+
+/**
+ * Unifica registros de emendas que pertencem ao mesmo instrumento/resolução e mesmo parlamentar
+ * (ex.: Resolução N.10088/2025 publicada em dois PDFs de indicação),
+ * somando as parcelas de repasse e discriminando cada indicação original.
+ */
+function unificarEmendasPorInstrumento(rows = []) {
+  const grupos = new Map();
+  const resultado = [];
+
+  for (const row of rows) {
+    const chave = row.numero_emenda && row.nome_parlamentar
+      ? `${row.esfera || ''}|${String(row.numero_emenda).trim().toLowerCase()}|${String(row.nome_parlamentar).trim().toLowerCase()}`
+      : `id:${row.id}`;
+
+    const gestorLimpo = higienizarGestorResponsavel(row.gestor_responsavel);
+    const dadosBancarios = row.dados_bancarios || extrairDadosBancariosEmenda(row.gestor_responsavel);
+    const indicacao = {
+      documento_id: row.id,
+      titulo: row.titulo || null,
+      valor_repasse: Number(row.valor_repasse || 0),
+      objeto: row.objeto || null,
+      objeto_detalhado: row.objeto_detalhado || null,
+      url_pdf: row.url_pdf || null,
+      data_publicacao: row.data_publicacao || null,
+    };
+
+    if (!grupos.has(chave)) {
+      const item = {
+        ...row,
+        gestor_responsavel: gestorLimpo,
+        dados_bancarios: dadosBancarios,
+        emenda_unificada: false,
+        indicacoes_discriminadas: [indicacao],
+      };
+      grupos.set(chave, item);
+      resultado.push(item);
+    } else {
+      const existente = grupos.get(chave);
+      existente.emenda_unificada = true;
+      existente.indicacoes_discriminadas.push(indicacao);
+      existente.valor_repasse = Math.round((Number(existente.valor_repasse || 0) + Number(row.valor_repasse || 0)) * 100) / 100;
+      if (
+        row.objeto_detalhado &&
+        (!existente.objeto_detalhado || row.objeto_detalhado.length > existente.objeto_detalhado.length)
+      ) {
+        existente.objeto_detalhado = row.objeto_detalhado;
+      }
+      if (!existente.dados_bancarios && dadosBancarios) {
+        existente.dados_bancarios = dadosBancarios;
+      }
+    }
+  }
+
+  return resultado;
+}
+
 function parseEmendaParlamentar(texto, opts) {
   const titulo = (opts && opts.titulo) || null;
   const src = String(texto || '');
@@ -137,6 +244,10 @@ function parseEmendaParlamentar(texto, opts) {
   const dataInicioRaw = extrairCampo(src, 'INICIO') || extrairCampo(src, 'INÍCIO');
   const dataTerminoRaw = extrairCampo(src, 'TERMINO') || extrairCampo(src, 'TÉRMINO');
   const dataRecebimentoRaw = extrairCampo(src, 'DATA DE RECEBIMENTO DO RECURSO');
+  const gestorRaw =
+    extrairCampo(src, 'GESTOR RESPONSÁVEL') ||
+    extrairCampo(src, 'GESTOR RESPONSAVEL');
+  const dadosBancarios = extrairDadosBancariosEmenda(src);
 
   const numeroEmenda =
     extrairCampo(src, 'N.o DA EMENDA') ||
@@ -169,9 +280,10 @@ function parseEmendaParlamentar(texto, opts) {
       extrairCampo(src, 'CATEGORIA ECONÔMICA') ||
       extrairCampo(src, 'CATEGORIA ECONOMICA'),
     unidade_executora: extrairCampo(src, 'UNIDADE EXECUTORA'),
-    gestor_responsavel:
-      extrairCampo(src, 'GESTOR RESPONSÁVEL') ||
-      extrairCampo(src, 'GESTOR RESPONSAVEL'),
+    gestor_responsavel: higienizarGestorResponsavel(gestorRaw),
+    banco: dadosBancarios?.banco || null,
+    agencia: dadosBancarios?.agencia || null,
+    conta_bancaria: dadosBancarios?.conta_bancaria || null,
     data_inicio: dataInicio,
     data_termino: parsearDataBR(dataTerminoRaw),
     data_recebimento: dataRecebimento,
@@ -192,5 +304,9 @@ module.exports = {
   extrairCampo,
   inferirEsfera,
   extrairParlamentar,
+  higienizarGestorResponsavel,
+  extrairDadosBancariosEmenda,
+  extrairEmpenhosDadosDespesa,
+  unificarEmendasPorInstrumento,
   ESFERA,
 };

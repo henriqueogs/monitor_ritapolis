@@ -1,5 +1,10 @@
-const HEADER_FOOTER_PATTERN =
-  /\b1854\s+1963\s+Prefeitura\s+Municipal\s+de\s+Rit\S*polis\s+Pra\S*a\s+Tiradentes,\s*340\s+[-–]\s+Centro\s+[-–]\s+CEP\s+36335-000\s+CNPJ:\s*18\.557\.553\/0001-05\s+[-–]\s+Tel\.\s*\(32\)\s*3356-1136\b/gi;
+const { ente, formatarCnpj } = require('../ente');
+
+const CNPJ_PREF_ESCAPED = String(formatarCnpj(ente.cnpjPrefeitura) || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const HEADER_FOOTER_PATTERN = new RegExp(
+  `\\b1854\\s+1963\\s+Prefeitura\\s+Municipal\\s+de\\s+Rit\\S*polis\\s+Pra\\S*a\\s+Tiradentes,\\s*340\\s+[-–]\\s+Centro\\s+[-–]\\s+CEP\\s+\\d{5}-\\d{3}\\s+CNPJ:\\s*${CNPJ_PREF_ESCAPED}\\s+[-–]\\s+Tel\\.\\s*\\(32\\)\\s*3356-1136\\b`,
+  'gi'
+);
 
 const TABLE_HEADER_PATTERN =
   /\b(?:ITEM\s+UNI\s+QUANT|Item\s+Unid\s+Quant\.?)\s+Especifica\S*o\b/gi;
@@ -42,22 +47,11 @@ const UNIT_PATTERN = [
   'D\\S*zia'
 ].join('|');
 
-const UNIT_START_RE = new RegExp(
-  `^(${UNIT_PATTERN})\\s+(\\d+(?:[,.]\\d+)?)\\s+([\\s\\S]+)$`,
-  'i'
-);
-
-const UNIT_INSIDE_RE = new RegExp(
-  `^([\\s\\S]+?)\\s+(${UNIT_PATTERN})\\s+(\\d+(?:[,.]\\d+)?)\\s+([\\s\\S]+)$`,
-  'i'
-);
+const UNIT_START_RE = new RegExp(`^(${UNIT_PATTERN})\\s+(\\d+(?:[,.]\\d+)?)\\s+([\\s\\S]+)$`, 'i');
+const UNIT_INSIDE_RE = new RegExp(`^([\\s\\S]+?)\\s+(${UNIT_PATTERN})\\s+(\\d+(?:[,.]\\d+)?)\\s+([\\s\\S]+)$`, 'i');
 
 function compactText(value, maxLength = 900) {
-  const text = String(value || '')
-    .replace(/\r/g, '\n')
-    .replace(/\s+/g, ' ')
-    .trim();
-
+  const text = String(value || '').replace(/\r/g, '\n').replace(/\s+/g, ' ').trim();
   if (!text) {return null;}
   return text.length > maxLength ? `${text.slice(0, maxLength - 1).trim()}...` : text;
 }
@@ -65,7 +59,6 @@ function compactText(value, maxLength = 900) {
 function normalizeUnit(value) {
   const text = compactText(value, 120);
   if (!text) {return null;}
-
   return text
     .replace(/Embal\s*agem/gi, 'Embalagem')
     .replace(/Garraf\s*a/gi, 'Garrafa')
@@ -79,11 +72,17 @@ function normalizeUnit(value) {
 }
 
 function parseNumber(value) {
-  if (value === null || value === '') {return null;}
-  const text = String(value)
-    .replace(/[^\d,.-]/g, '')
-    .replace(/\.(?=\d{3}(?:\D|$))/g, '')
-    .replace(',', '.');
+  if (value === null || value === undefined || value === '') {return null;}
+  if (typeof value === 'number') {
+    return Number.isFinite(value) && value > 0 ? value : null;
+  }
+  const raw = String(value).replace(/^\s*R\$\s*/i, '').trim();
+  if (!raw) {return null;}
+  // Nunca concatenar números separados por texto ou especificações técnicas (ex.: "Contator 60A 3RT1044 220V")
+  if (!/^-?(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d+)?$|^-?\d+(?:\.\d+)?$/.test(raw)) {
+    return null;
+  }
+  const text = raw.replace(/\.(?=\d{3}(?:\D|$))/g, '').replace(',', '.');
   const parsed = Number(text);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
@@ -102,14 +101,11 @@ function getTableRegion(text) {
   const source = String(text || '');
   const startMatch = source.match(TABLE_HEADER_PATTERN);
   if (!startMatch) {return null;}
-
   const start = source.search(TABLE_HEADER_PATTERN);
   if (start < 0) {return null;}
-
   const afterStart = source.slice(start);
   const endMatch = afterStart.search(/\b2\.\s+DA\s+JUSTIFICATIVA\b/i);
   const end = endMatch >= 0 ? start + endMatch : source.length;
-
   return source.slice(start, end);
 }
 
@@ -117,17 +113,11 @@ function splitItemSegments(region) {
   const itemRe = /(?:^|\s)(\d{1,4})\.\s+/g;
   const markers = [];
   let match;
-
   while ((match = itemRe.exec(region))) {
     const itemNumber = Number(match[1]);
     if (!Number.isInteger(itemNumber) || itemNumber < 1) {continue;}
-    markers.push({
-      item_numero: String(itemNumber),
-      start: match.index,
-      contentStart: itemRe.lastIndex
-    });
+    markers.push({ item_numero: String(itemNumber), start: match.index, contentStart: itemRe.lastIndex });
   }
-
   return markers.map((marker, index) => ({
     item_numero: marker.item_numero,
     texto: region.slice(marker.contentStart, markers[index + 1]?.start ?? region.length)
@@ -139,18 +129,13 @@ function parseItemSegment(segment) {
   if (!textoLimpo) {return null;}
 
   let match = textoLimpo.match(UNIT_START_RE);
-  let unidade;
-  let quantidade;
-  let descricao;
+  let unidade, quantidade, descricao;
 
   if (match) {
-    unidade = match[1];
-    quantidade = match[2];
-    descricao = match[3];
+    [, unidade, quantidade, descricao] = match;
   } else {
     match = textoLimpo.match(UNIT_INSIDE_RE);
     if (!match) {return null;}
-
     unidade = match[2];
     quantidade = match[3];
     descricao = `${match[1]} ${match[4]}`;
@@ -198,10 +183,7 @@ function normalizeHeader(value) {
 function parseSpreadsheetLine(line) {
   const match = String(line || '').match(/^LINHA\s+\d+\s*\|\s*(.+)$/i);
   if (!match) {return null;}
-
-  return match[1]
-    .split(/\s+\|\s+/)
-    .map((cell) => cell.trim());
+  return match[1].split(/\s+\|\s+/).map((cell) => cell.trim());
 }
 
 function findColumn(headers, patterns) {
@@ -211,31 +193,16 @@ function findColumn(headers, patterns) {
 function getSpreadsheetHeader(cells) {
   const headers = cells.map(normalizeHeader);
   const item = findColumn(headers, [/^item$/, /^it$/, /^codigo$/, /^cod$/]);
-  const descricao = findColumn(headers, [
-    /descricao/,
-    /especificacao/,
-    /discriminacao/,
-    /produto/,
-    /material/,
-    /servico/,
-    /objeto/,
-    /insumo/
-  ]);
+  const descricao = findColumn(headers, [/descricao/, /especificacao/, /discriminacao/, /produto/, /material/, /servico/, /objeto/, /insumo/]);
   const unidade = findColumn(headers, [/^unid/, /^und$/, /^un$/, /unidade/]);
   const quantidade = findColumn(headers, [/^quant/, /^qtd/, /quantidade/]);
   const valorUnitario = findColumn(headers, [/unitario/, /vlr unit/, /valor unit/]);
   const valorTotal = findColumn(headers, [/total/, /valor global/, /vlr total/]);
 
   if (descricao < 0) {return null;}
-
   const score = [item, unidade, quantidade, valorUnitario, valorTotal].filter((idx) => idx >= 0).length;
   if (score < 2) {return null;}
-
   return { item, descricao, unidade, quantidade, valorUnitario, valorTotal };
-}
-
-function looksLikeHeader(cells) {
-  return Boolean(getSpreadsheetHeader(cells));
 }
 
 function getCell(cells, index) {
@@ -244,11 +211,7 @@ function getCell(cells, index) {
 
 function parseSpreadsheetRows(text) {
   if (!String(text || '').includes('[PLANILHA')) {return [];}
-
-  const rows = String(text)
-    .split(/\n+/)
-    .map(parseSpreadsheetLine)
-    .filter(Boolean);
+  const rows = String(text).split(/\n+/).map(parseSpreadsheetLine).filter(Boolean);
   const produtos = [];
   let header = null;
 
@@ -258,14 +221,12 @@ function parseSpreadsheetRows(text) {
       header = candidate;
       continue;
     }
-
-    if (!header || looksLikeHeader(cells)) {continue;}
+    if (!header || Boolean(getSpreadsheetHeader(cells))) {continue;}
 
     const descricao = compactText(getCell(cells, header.descricao), 900);
     if (!descricao || descricao.length < 4 || /^\d+(?:[,.]\d+)?$/.test(descricao)) {continue;}
 
-    const itemRaw = getCell(cells, header.item);
-    const itemNumero = parseNumber(itemRaw) || produtos.length + 1;
+    const itemNumero = parseNumber(getCell(cells, header.item)) || produtos.length + 1;
     const quantidade = parseNumber(getCell(cells, header.quantidade));
     const unidade = normalizeUnit(getCell(cells, header.unidade));
     const valorUnitario = parseNumber(getCell(cells, header.valorUnitario));
@@ -293,22 +254,15 @@ function parseSpreadsheetRows(text) {
       status_revisao: 'pendente'
     });
   }
-
   return produtos;
 }
 
 function parseProdutosLicitados(text) {
   const planilha = parseSpreadsheetRows(text);
   if (planilha.length) {return planilha;}
-
   const region = getTableRegion(text);
   if (!region) {return [];}
-
-  return splitItemSegments(removeTableNoise(region))
-    .map(parseItemSegment)
-    .filter(Boolean);
+  return splitItemSegments(removeTableNoise(region)).map(parseItemSegment).filter(Boolean);
 }
 
-module.exports = {
-  parseProdutosLicitados
-};
+module.exports = { parseProdutosLicitados };

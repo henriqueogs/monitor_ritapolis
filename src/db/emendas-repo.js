@@ -10,6 +10,13 @@
 
 const { db } = require('./connection');
 const { parseJson } = require('./documentos-repo');
+const { anoDeData } = require('../utils/datas');
+const {
+  higienizarGestorResponsavel,
+  extrairDadosBancariosEmenda,
+  extrairEmpenhosDadosDespesa,
+  unificarEmendasPorInstrumento,
+} = require('../parsers/emenda-parlamentar');
 
 const TIPO_EMENDA = 'emenda_parlamentar';
 
@@ -17,13 +24,74 @@ const TIPO_EMENDA = 'emenda_parlamentar';
 // em que a ficha foi postada no site: só vale quando a emenda ainda não tem ano de referência.
 const ANO_EMENDA = 'COALESCE(ed.ano_referencia, d.ano)';
 
+// Chave de instrumento+parlamentar para unificar indicações da mesma resolução (ex.: Resolução N.10088/2025)
+// sem fundir parlamentares distintos que compartilham o processo (ex.: 627 e 646).
+const CHAVE_UNIFICADA_SQL = `CASE
+  WHEN ed.numero_emenda IS NOT NULL AND ed.nome_parlamentar IS NOT NULL
+  THEN IFNULL(ed.esfera, '') || '|' || LOWER(TRIM(ed.numero_emenda)) || '|' || LOWER(TRIM(ed.nome_parlamentar))
+  ELSE 'id:' || CAST(d.id AS TEXT)
+END`;
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
+
+function buscarDespesaPorNumeroEmpenho(numeroEmpenho, anoReferencia) {
+  if (!numeroEmpenho) { return null; }
+  const rows = db
+    .prepare(
+      `SELECT id, empenho, exercicio_orcamento, data_empenho, data_liquidacao, data_pagamento,
+              credor_nome, credor_cnpj, valor, historico
+       FROM transparencia_despesas
+       WHERE empenho = :empenho
+       ORDER BY CASE WHEN exercicio_orcamento = :ano THEN 0 ELSE 1 END, data_empenho DESC
+       LIMIT 1`
+    )
+    .all({ empenho: numeroEmpenho, ano: Number(anoReferencia) || 2025 });
+  return rows[0] || null;
+}
+
+function enriquecerEmpenhosEmenda(row) {
+  const extraidos = extrairEmpenhosDadosDespesa(row.dados_despesa);
+  const anoRef = row.ano || anoDeData(row.data_recebimento) || 2025;
+  return extraidos.map((item) => {
+    const despesa = buscarDespesaPorNumeroEmpenho(item.numero_empenho, anoRef);
+    return {
+      ...item,
+      despesa_id: despesa?.id || null,
+      data_empenho: despesa?.data_empenho || null,
+      data_liquidacao: despesa?.data_liquidacao || null,
+      data_pagamento: despesa?.data_pagamento || null,
+      credor_nome: despesa?.credor_nome || null,
+      credor_cnpj: despesa?.credor_cnpj || null,
+      valor_empenhado: despesa?.valor ?? null,
+    };
+  });
+}
 
 function rowToEmenda(row) {
   if (!row) { return null; }
+  const dadosExtras = parseJson(row.dados_extras);
+  const anoInstrumento = row.ano || null;
+  const anoPublicacao = anoDeData(row.data_publicacao) || row.ano_publicacao || null;
+  const divergenciaAno = Boolean(
+    anoInstrumento && anoPublicacao && Number(anoInstrumento) !== Number(anoPublicacao)
+  );
+  const dadosBancarios =
+    dadosExtras?.emenda_dados_bancarios ||
+    extrairDadosBancariosEmenda(row.gestor_responsavel) ||
+    extrairDadosBancariosEmenda(row.texto_completo);
+
   return {
     ...row,
-    dados_extras: parseJson(row.dados_extras),
+    gestor_responsavel: higienizarGestorResponsavel(row.gestor_responsavel),
+    dados_bancarios: dadosBancarios,
+    empenhos_discriminados: enriquecerEmpenhosEmenda(row),
+    ano_instrumento: anoInstrumento,
+    ano_publicacao: anoPublicacao,
+    divergencia_ano_publicacao: divergenciaAno,
+    divergencia_ano_descricao: divergenciaAno
+      ? `Emenda de ${anoInstrumento} publicada no portal em ${anoPublicacao}`
+      : null,
+    dados_extras: dadosExtras,
   };
 }
 
@@ -76,7 +144,31 @@ function salvarEmendaDetalhes(documentoId, campos) {
       dados_despesa = excluded.dados_despesa,
       ano_referencia = excluded.ano_referencia,
       atualizado_em = CURRENT_TIMESTAMP
-  `).run({ documento_id: documentoId, ...campos });
+  `).run({
+    documento_id: documentoId,
+    esfera: campos.esfera ?? null,
+    numero_emenda: campos.numero_emenda ?? null,
+    nome_parlamentar: campos.nome_parlamentar ?? null,
+    cargo_parlamentar: campos.cargo_parlamentar ?? null,
+    partido: campos.partido ?? null,
+    tipo_emenda: campos.tipo_emenda ?? null,
+    tipo_transferencia: campos.tipo_transferencia ?? null,
+    objeto: campos.objeto ?? null,
+    objeto_detalhado: campos.objeto_detalhado ?? null,
+    valor_repasse: campos.valor_repasse ?? null,
+    valor_repasse_raw: campos.valor_repasse_raw ?? null,
+    valor_contrapartida: campos.valor_contrapartida ?? null,
+    orgao_transferidor: campos.orgao_transferidor ?? null,
+    instrumento_legal: campos.instrumento_legal ?? null,
+    categoria_economica: campos.categoria_economica ?? null,
+    unidade_executora: campos.unidade_executora ?? null,
+    gestor_responsavel: higienizarGestorResponsavel(campos.gestor_responsavel),
+    data_inicio: campos.data_inicio ?? null,
+    data_termino: campos.data_termino ?? null,
+    data_recebimento: campos.data_recebimento ?? null,
+    dados_despesa: campos.dados_despesa ?? null,
+    ano_referencia: campos.ano_referencia ?? null,
+  });
 }
 
 function getEmendaDetalhesByDocumentoId(documentoId) {
@@ -89,7 +181,9 @@ function getEmendaDetalhesByDocumentoId(documentoId) {
 
 const BASE_SELECT = `
   SELECT
-    d.id, d.titulo, d.tipo, ${ANO_EMENDA} AS ano, d.ano AS ano_publicacao, d.data_publicacao, d.url_origem, d.url_pdf,
+    d.id, d.titulo, d.tipo, ${ANO_EMENDA} AS ano,
+    COALESCE(CAST(substr(d.data_publicacao, 1, 4) AS INTEGER), d.ano) AS ano_publicacao,
+    d.data_publicacao, d.url_origem, d.url_pdf,
     d.resumo, d.dados_extras,
     ed.esfera, ed.numero_emenda, ed.nome_parlamentar, ed.cargo_parlamentar,
     ed.partido, ed.tipo_emenda, ed.tipo_transferencia,
@@ -97,15 +191,21 @@ const BASE_SELECT = `
     ed.valor_repasse, ed.valor_contrapartida,
     ed.orgao_transferidor, ed.instrumento_legal, ed.categoria_economica,
     ed.unidade_executora, ed.gestor_responsavel,
-    ed.data_inicio, ed.data_termino, ed.data_recebimento, ed.dados_despesa
+    ed.data_inicio, ed.data_termino, ed.data_recebimento, ed.dados_despesa,
+    ed.ano_referencia
   FROM documentos d
   LEFT JOIN emendas_detalhes ed ON ed.documento_id = d.id
   WHERE d.tipo = '${TIPO_EMENDA}'
 `;
 
+function filtroAnoDualSql() {
+  return `(${ANO_EMENDA} = :ano OR CAST(substr(d.data_publicacao, 1, 4) AS INTEGER) = :ano)`;
+}
+
 /**
- * Lista emendas com filtros opcionais.
- * @param {object} filtros - { esfera, partido, nome_parlamentar, ano, limit, offset }
+ * Lista emendas com filtros opcionais, unificando parcelas da mesma resolução/parlamentar
+ * e retornando registros quando filtrados tanto pelo ano do instrumento quanto
+ * pelo ano de publicação.
  */
 function listarEmendas({ esfera, partido, nome_parlamentar, ano, limit = 50, offset = 0 } = {}) {
   const conditions = [];
@@ -124,63 +224,59 @@ function listarEmendas({ esfera, partido, nome_parlamentar, ano, limit = 50, off
     params.nome_parlamentar = `%${nome_parlamentar}%`;
   }
   if (ano) {
-    conditions.push(`${ANO_EMENDA} = :ano`);
+    conditions.push(filtroAnoDualSql());
     params.ano = Number(ano);
   }
 
   const where = conditions.length ? ` AND ${conditions.join(' AND ')}` : '';
-  const sql = `${BASE_SELECT}${where} ORDER BY d.data_publicacao DESC, d.id DESC LIMIT :limit OFFSET :offset`;
+  const sql = `${BASE_SELECT}${where} ORDER BY d.data_publicacao DESC, d.id ASC`;
 
-  return db.prepare(sql).all({ ...params, limit, offset }).map(rowToEmenda);
+  const rows = db.prepare(sql).all(params).map(rowToEmenda);
+  const unificadas = unificarEmendasPorInstrumento(rows);
+  return unificadas.slice(offset, offset + limit);
 }
 
 function contarEmendas({ esfera, partido, nome_parlamentar, ano } = {}) {
-  const conditions = [];
-  const params = {};
-
-  if (esfera) { conditions.push('ed.esfera = :esfera'); params.esfera = esfera; }
-  if (partido) { conditions.push('ed.partido = :partido'); params.partido = partido; }
-  if (nome_parlamentar) {
-    conditions.push('ed.nome_parlamentar LIKE :nome_parlamentar');
-    params.nome_parlamentar = `%${nome_parlamentar}%`;
-  }
-  if (ano) { conditions.push(`${ANO_EMENDA} = :ano`); params.ano = Number(ano); }
-
-  const where = conditions.length ? ` AND ${conditions.join(' AND ')}` : '';
-  const sql = `
-    SELECT COUNT(*) as total
-    FROM documentos d
-    LEFT JOIN emendas_detalhes ed ON ed.documento_id = d.id
-    WHERE d.tipo = '${TIPO_EMENDA}'${where}
-  `;
-
-  return db.prepare(sql).get(params).total;
+  return listarEmendas({ esfera, partido, nome_parlamentar, ano, limit: 1000, offset: 0 }).length;
 }
 
 function getEmendaById(id) {
   const row = db.prepare(`${BASE_SELECT} AND d.id = :id`).get({ id });
-  return rowToEmenda(row);
+  if (!row) { return null; }
+  if (row.numero_emenda && row.nome_parlamentar) {
+    const irmas = db
+      .prepare(
+        `${BASE_SELECT}
+         AND ed.numero_emenda = :numero_emenda
+         AND ed.nome_parlamentar = :nome_parlamentar
+         AND IFNULL(ed.esfera, '') = IFNULL(:esfera, '')
+         ORDER BY d.id ASC`
+      )
+      .all({
+        numero_emenda: row.numero_emenda,
+        nome_parlamentar: row.nome_parlamentar,
+        esfera: row.esfera,
+      })
+      .map(rowToEmenda);
+    if (irmas.length > 1) {
+      const [unificada] = unificarEmendasPorInstrumento(irmas);
+      return { ...unificada, id: Number(id) };
+    }
+  }
+  return unificarEmendasPorInstrumento([rowToEmenda(row)])[0];
 }
 
 /**
  * Totais por ano para exibição no frontend (regra 11.1 do CLAUDE.md).
- * Retorna [{ ano, total_emendas, soma_repasse, esfera }]
- *
- * Unidade de contagem = ficha publicada (documento). NÃO deduplicar por numero_emenda:
- * o campo identifica o instrumento (resolução/processo), compartilhado por emendas distintas.
- * Conferência em produção (29/10/2026, 10 fichas, 8 numero_emenda distintos):
- *  - docs 627 e 646, "N.1490.01.0002389/2025-98": parlamentares e objetos diferentes
- *    (R$ 154.354 e R$ 500.000) — emendas distintas;
- *  - docs 645 e 649, "Resolução N.10088/2025": PDFs distintos na fonte, mesmo parlamentar,
- *    objeto e empenho, valores R$ 73.490 + R$ 76.510 = R$ 150.000 — tratadas como parcelas.
- * Só reabrir com documento da Prefeitura/ALMG provando que duas fichas são a mesma transferência.
+ * Retorna [{ ano, ano_publicacao, total_emendas, soma_repasse, esfera }]
  */
 function totaisPorAno() {
   return db.prepare(`
     SELECT
       ${ANO_EMENDA} AS ano,
+      MAX(CAST(substr(d.data_publicacao, 1, 4) AS INTEGER)) AS ano_publicacao,
       ed.esfera,
-      COUNT(*) as total_emendas,
+      COUNT(DISTINCT ${CHAVE_UNIFICADA_SQL}) as total_emendas,
       SUM(ed.valor_repasse) as soma_repasse
     FROM documentos d
     LEFT JOIN emendas_detalhes ed ON ed.documento_id = d.id
@@ -197,7 +293,7 @@ function parlamentaresComTotais({ esfera, ano } = {}) {
   const conditions = [];
   const params = {};
   if (esfera) { conditions.push('ed.esfera = :esfera'); params.esfera = esfera; }
-  if (ano) { conditions.push(`${ANO_EMENDA} = :ano`); params.ano = Number(ano); }
+  if (ano) { conditions.push(filtroAnoDualSql()); params.ano = Number(ano); }
   const where = conditions.length ? ` AND ${conditions.join(' AND ')}` : '';
 
   return db.prepare(`
@@ -206,7 +302,7 @@ function parlamentaresComTotais({ esfera, ano } = {}) {
       ed.cargo_parlamentar,
       ed.partido,
       ed.esfera,
-      COUNT(*) as total_emendas,
+      COUNT(DISTINCT ${CHAVE_UNIFICADA_SQL}) as total_emendas,
       SUM(ed.valor_repasse) as soma_repasse
     FROM documentos d
     LEFT JOIN emendas_detalhes ed ON ed.documento_id = d.id

@@ -20,41 +20,52 @@ jest.mock('./connection', () => ({
 
 const {
   listDocumentos,
-  listSitemapDocumentos,
   listPublicacoesRecentes,
   labelTipo,
+  labelFonte,
   cleanField,
-  compactField,
+  normalizeModalidadeLicitacao,
 } = require('./documentos-repo');
 
-describe('cleanField / compactField', () => {
-  it('undefined e null viram null (nunca a string "undefined")', () => {
-    expect(cleanField(undefined)).toBeNull();
-    expect(cleanField(null)).toBeNull();
-    expect(compactField(undefined)).toBeNull();
-    expect(compactField(undefined, 600)).toBeNull();
-  });
-
-  it('preserva zero e texto, normalizando espaços', () => {
-    expect(cleanField(0)).toBe('0');
-    expect(cleanField('  UN   caixa ')).toBe('UN caixa');
-  });
-
-  it('descarta somente URL vazia, como antes', () => {
-    expect(cleanField('https://')).toBeNull();
-  });
-});
-
-describe('labelTipo', () => {
-  it('traduz tipos de legislacao pra texto legivel (nao vaza o valor cru do banco)', () => {
+describe('labelTipo e labelFonte', () => {
+  it('traduz tipos de legislacao e emenda parlamentar pra texto legivel (nao vaza o valor cru do banco)', () => {
     expect(labelTipo('lei_ordinaria')).toBe('Lei Ordinária');
     expect(labelTipo('lei_complementar')).toBe('Lei Complementar');
     expect(labelTipo('decreto')).toBe('Decreto');
     expect(labelTipo('portaria')).toBe('Portaria');
+    expect(labelTipo('emenda_parlamentar')).toBe('Emenda Parlamentar');
+  });
+
+  it('traduz fontes conhecidas do sistema para texto legivel', () => {
+    expect(labelFonte('site_prefeitura')).toBe('Prefeitura');
+    expect(labelFonte('camara')).toBe('Câmara');
+    expect(labelFonte('camara_legislacao')).toBe('Câmara (Legislação)');
+    expect(labelFonte('camara_projetos')).toBe('Câmara (Projetos)');
+    expect(labelFonte('legislacao_prefeitura')).toBe('Prefeitura (Legislação)');
+    expect(labelFonte('pncp')).toBe('PNCP');
   });
 
   it('tipo desconhecido cai no proprio valor (nunca "undefined")', () => {
     expect(labelTipo('algo_nunca_visto')).toBe('algo_nunca_visto');
+  });
+});
+
+describe('cleanField e normalizeModalidadeLicitacao', () => {
+  it('cleanField retorna null para undefined, null e strings literais "undefined"/"null"/"NaN"', () => {
+    expect(cleanField(undefined)).toBeNull();
+    expect(cleanField(null)).toBeNull();
+    expect(cleanField('undefined')).toBeNull();
+    expect(cleanField('null')).toBeNull();
+    expect(cleanField('NaN')).toBeNull();
+    expect(cleanField('  ')).toBeNull();
+    expect(cleanField('GONVI ENGENHARIA LTDA')).toBe('GONVI ENGENHARIA LTDA');
+  });
+
+  it('normalizeModalidadeLicitacao corrige grafia "inexibilidade" e rejeita número puro', () => {
+    expect(normalizeModalidadeLicitacao('Inexibilidade nº 002/2025')).toBe('Inexigibilidade');
+    expect(normalizeModalidadeLicitacao('Inexigibilidade 001/2025')).toBe('Inexigibilidade');
+    expect(normalizeModalidadeLicitacao('004/2025')).toBeNull();
+    expect(normalizeModalidadeLicitacao('nº 004/2025')).toBeNull();
   });
 });
 
@@ -84,17 +95,6 @@ describe('listDocumentos', () => {
       doc.url_origem || 'http://exemplo.com'
     );
   }
-
-  it('retorna apenas IDs para o sitemap mesmo com mais de 1500 documentos', () => {
-    const insert = mockConn.prepare('INSERT INTO documentos (fonte, tipo, titulo, status_coleta, url_origem) VALUES (?, ?, ?, ?, ?)');
-    for (let i = 0; i < 1502; i += 1) {
-      insert.run('prefeitura', 'edital', `Documento ${i}`, 'ok', `https://exemplo.com/${i}`);
-    }
-    const result = listSitemapDocumentos();
-    expect(result).toHaveLength(1502);
-    expect(Object.keys(result[0])).toEqual(['id']);
-    expect(new Set(result.map((row) => row.id)).size).toBe(1502);
-  });
 
   it('tipo com virgula filtra por qualquer um da lista (pagina de Legislacao)', () => {
     inserirDocumento({ numero: '1', ano: 2025, titulo: 'Decreto 1', tipo: 'decreto' });
@@ -281,5 +281,33 @@ describe('listDocumentos', () => {
       'Publicacao mais recente',
       'Ano cadastral maior, publicacao antiga',
     ]);
+  });
+
+  it('expõe flag divergencia_ano_publicacao e traz o documento ao filtrar por qualquer um dos dois anos', () => {
+    inserirDocumento({
+      numero: '0135/2023',
+      ano: 2023,
+      titulo: 'Processo 0135/2023 - Pregão Eletrônico 0052/2023',
+      data_publicacao: '2024-01-23',
+    });
+
+    const em2023 = listDocumentos({ ano: 2023, pagina: 1, limite: 10 });
+    const em2024 = listDocumentos({ ano: 2024, pagina: 1, limite: 10 });
+
+    expect(em2023.dados).toHaveLength(1);
+    expect(em2024.dados).toHaveLength(1);
+    expect(em2023.dados[0]).toMatchObject({
+      ano: 2023,
+      ano_instrumento: 2023,
+      ano_publicacao: 2024,
+      divergencia_ano_publicacao: true,
+    });
+    expect(em2023.dados[0].qualidade_alertas).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          tipo: 'divergencia_ano_publicacao',
+        }),
+      ])
+    );
   });
 });

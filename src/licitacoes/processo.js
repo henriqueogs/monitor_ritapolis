@@ -5,7 +5,11 @@ function onlyDigits(value) {
 }
 
 function normalizeProcessoChave(value) {
-  const text = normalizeText(String(value || ''))
+  let raw = normalizeText(String(value || '')).trim();
+  // Expande ano de 2 dígitos em números de processo ("0060/20" → "0060/2020")
+  raw = raw.replace(/\b(\d{1,4})\s*\/\s*(\d{2})\b/g, (_, num, aa) => `${num}/20${aa}`);
+
+  const text = raw
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
@@ -70,7 +74,8 @@ function refsNumericas(value) {
   const matches = String(value || '').match(/\d{1,5}\s*\/\s*\d{2,4}/g) || [];
   return new Set(
     matches.map((ref) => {
-      const [num, ano] = ref.replace(/\s+/g, '').split('/');
+      const [num, anoRaw] = ref.replace(/\s+/g, '').split('/');
+      const ano = anoRaw.length === 2 ? `20${anoRaw}` : anoRaw;
       return `${Number(num)}/${ano}`;
     })
   );

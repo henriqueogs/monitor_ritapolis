@@ -43,8 +43,15 @@ const aiJobsRepo = require('./ai-jobs-repo');
 const documentosRepo = require('./documentos-repo');
 const produtosRepo = require('./produtos-repo');
 const inteligenciaFatosRepo = require('./inteligencia-fatos-repo');
+const emendasRepo = require('./emendas-repo');
 const { normalizarControlePncp } = require('../licitacoes/pncp-resultados');
 const { SEM_RESULTADO_PNCP, sqlValorComProcedencia } = require('./licitacoes-detalhes-sql');
+const {
+  sanitizarNomeFornecedor,
+  sanitizarCnpjFornecedor,
+  sanitizarFornecedor,
+} = require('../licitacoes/fornecedor-sanitizador');
+const { isCnpjDoEnte } = require('../ente');
 
 // Desestrutura helpers do documentos-repo para uso nas funções restantes
 const {
@@ -518,8 +525,8 @@ function normalizeProdutoLicitadoFromAi(item, contexto) {
     valor_final_tipo: valorFinalTipo,
     valor_lote_final: valorFinalTipo === 'lote' ? valorLoteFinal || valorTotalFinal || valorUnitarioFinal : null,
     valor_global_final: valorFinalTipo === 'global' ? valorGlobalFinal || valorTotalFinal || valorUnitarioFinal : null,
-    fornecedor_nome: cleanField(item?.fornecedor_nome),
-    fornecedor_cnpj: cleanField(item?.fornecedor_cnpj),
+    fornecedor_nome: sanitizarNomeFornecedor(cleanField(item?.fornecedor_nome)),
+    fornecedor_cnpj: sanitizarCnpjFornecedor(cleanField(item?.fornecedor_cnpj)),
     origem: 'ia_resumo',
     origem_detalhe: `documentos_resumos_ai:${contexto.resumoAiId}`,
     trecho_fonte: trechoFonte,
@@ -637,8 +644,8 @@ function normalizeProdutoSinteticoFromObjeto({ documento, modelo, resumo, resumo
     valor_final_tipo: 'global',
     valor_lote_final: null,
     valor_global_final: valorGlobalFinal,
-    fornecedor_nome: cleanField(documento.licitacao_detalhes?.vencedor_nome),
-    fornecedor_cnpj: cleanField(documento.licitacao_detalhes?.vencedor_cnpj),
+    fornecedor_nome: sanitizarNomeFornecedor(cleanField(documento.licitacao_detalhes?.vencedor_nome)),
+    fornecedor_cnpj: sanitizarCnpjFornecedor(cleanField(documento.licitacao_detalhes?.vencedor_cnpj)),
     origem: 'objeto_global',
     origem_detalhe: resumoAiId ? `documentos_resumos_ai:${resumoAiId}:objeto_global` : 'titulo:objeto_global',
     trecho_fonte: trechoFonte,
@@ -742,7 +749,7 @@ function listLicitacoesParaDiagnosticoPncp({
   const params = {};
 
   if (ano) {
-    filters.push('d.ano = @ano');
+    filters.push('(d.ano = @ano OR CAST(substr(d.data_publicacao, 1, 4) AS INTEGER) = @ano)');
     params.ano = Number(ano);
   }
 
@@ -876,7 +883,7 @@ function listLicitacaoFontesRelacionadas({
   };
 
   if (ano) {
-    filters.push('d.ano = @ano');
+    filters.push('(d.ano = @ano OR CAST(substr(d.data_publicacao, 1, 4) AS INTEGER) = @ano)');
     params.ano = Number(ano);
   }
 
@@ -956,7 +963,7 @@ function listDocumentosEditalParaGrupos({ ano } = {}) {
   const params = {};
 
   if (ano) {
-    filters.push('d.ano = @ano');
+    filters.push('(d.ano = @ano OR CAST(substr(d.data_publicacao, 1, 4) AS INTEGER) = @ano)');
     params.ano = Number(ano);
   }
 
@@ -1421,7 +1428,7 @@ function estruturarDetalhesLicitacoes({ ano = new Date().getFullYear(), limite }
   const params = {};
 
   if (ano) {
-    filters.push('d.ano = @ano');
+    filters.push('(d.ano = @ano OR CAST(substr(d.data_publicacao, 1, 4) AS INTEGER) = @ano)');
     params.ano = Number(ano);
   }
 
@@ -1558,6 +1565,8 @@ function upsertLicitacaoProduto(produto) {
     )
     .run({
       ...produto,
+      fornecedor_nome: sanitizarNomeFornecedor(cleanField(produto.fornecedor_nome)),
+      fornecedor_cnpj: sanitizarCnpjFornecedor(cleanField(produto.fornecedor_cnpj)),
       valor_final_tipo: normalizeValorFinalTipo(produto.valor_final_tipo),
       valor_lote_final: parsePositiveNumericField(produto.valor_lote_final),
       valor_global_final: parsePositiveNumericField(produto.valor_global_final),
@@ -1652,7 +1661,7 @@ function estruturarProdutosLicitacoes({ ano = new Date().getFullYear(), limite, 
   const params = {};
 
   if (ano) {
-    filters.push('d.ano = @ano');
+    filters.push('(d.ano = @ano OR CAST(substr(d.data_publicacao, 1, 4) AS INTEGER) = @ano)');
     params.ano = Number(ano);
   }
 
@@ -1782,7 +1791,7 @@ function syncDocumentoAnexosLicitacao({ ano = new Date().getFullYear(), document
   const params = {};
 
   if (ano) {
-    filters.push('d.ano = @ano');
+    filters.push('(d.ano = @ano OR CAST(substr(d.data_publicacao, 1, 4) AS INTEGER) = @ano)');
     params.ano = Number(ano);
   }
 
@@ -1864,7 +1873,7 @@ function listDocumentoAnexosParaExtracao({
   const params = {};
 
   if (ano) {
-    filters.push('d.ano = @ano');
+    filters.push('(d.ano = @ano OR CAST(substr(d.data_publicacao, 1, 4) AS INTEGER) = @ano)');
     params.ano = Number(ano);
   }
 
@@ -1935,7 +1944,7 @@ function listDocumentoAnexosTextoResultados({ ano = new Date().getFullYear(), do
   const params = {};
 
   if (ano) {
-    filters.push('d.ano = @ano');
+    filters.push('(d.ano = @ano OR CAST(substr(d.data_publicacao, 1, 4) AS INTEGER) = @ano)');
     params.ano = Number(ano);
   }
 
@@ -2429,7 +2438,14 @@ function getLicitacaoAnaliseAnual({ ano = new Date().getFullYear() } = {}) {
          ROUND(IFNULL(SUM(valor_lote_final), 0), 2) AS valor_lote_total_identificado,
          ROUND(IFNULL(SUM(valor_global_final), 0), 2) AS valor_global_total_identificado
        FROM licitacoes_produtos
-       WHERE ano = @ano`
+       WHERE ano = @ano
+         AND IFNULL(status_revisao, 'pendente') <> 'rejeitado'
+         AND NOT EXISTS (
+           SELECT 1 FROM licitacoes_produtos_validacoes vq
+           WHERE vq.produto_id = licitacoes_produtos.id
+             AND vq.fonte = 'plausibilidade_item_processo'
+             AND vq.status = 'implausivel'
+         )`
     )
     .get(yearParams);
 
@@ -2444,6 +2460,13 @@ function getLicitacaoAnaliseAnual({ ano = new Date().getFullYear() } = {}) {
        FROM licitacoes_produtos
        WHERE ano = @ano
          AND IFNULL(fornecedor_nome, '') <> ''
+         AND IFNULL(status_revisao, 'pendente') <> 'rejeitado'
+         AND NOT EXISTS (
+           SELECT 1 FROM licitacoes_produtos_validacoes vq
+           WHERE vq.produto_id = licitacoes_produtos.id
+             AND vq.fonte = 'plausibilidade_item_processo'
+             AND vq.status = 'implausivel'
+         )
        GROUP BY fornecedor_nome, fornecedor_cnpj
        ORDER BY produtos DESC, fornecedor_nome ASC
        LIMIT 8`
@@ -2707,10 +2730,10 @@ function parseDateForSort(value) {
 
 function compareLicitacoesRecentes(a, b) {
   const aDate = parseDateForSort(
-    a.licitacao_modelo?.data_sessao || a.data_abertura || a.data_publicacao || a.atualizado_em
+    a.licitacao_modelo?.data_sessao || a.data_abertura || a.data_publicacao
   );
   const bDate = parseDateForSort(
-    b.licitacao_modelo?.data_sessao || b.data_abertura || b.data_publicacao || b.atualizado_em
+    b.licitacao_modelo?.data_sessao || b.data_abertura || b.data_publicacao
   );
 
   if (aDate !== bDate) {return bDate - aDate;}
@@ -3010,7 +3033,7 @@ function listLicitacoes({ fonte, ano, status, termo, categoria, fornecedor, pagi
   }
 
   if (ano) {
-    filters.push('d.ano = @ano');
+    filters.push('(d.ano = @ano OR CAST(substr(d.data_publicacao, 1, 4) AS INTEGER) = @ano)');
     params.ano = Number(ano);
   }
 
@@ -3385,6 +3408,7 @@ function getDocumentoById(id) {
     licitacao_fontes_relacionadas: licitacaoFontesRelacionadas,
     licitacao_grupo: licitacaoGrupo,
     licitacao_detalhes: licitacao || null,
+    emendas_detalhes: documento.tipo === 'emenda_parlamentar' ? emendasRepo.getEmendaById(documento.id) : null,
     licitacao_modelo: documento.tipo === 'edital' ? buildLicitacaoModelo(documento, licitacao || {}) : null,
     produtos_licitados_resumo: documento.tipo === 'edital' ? getLicitacaoProdutosResumo(documento.id) : null,
     anexos: inteligenciaFatosRepo.listarAnexosDocumento(documento.id),
@@ -3487,7 +3511,7 @@ function saveResumoAi({
 // (empenhos), unificando por CNPJ normalizado (14 dígitos) — os formatos mistos
 // nas tabelas fragmentavam o mesmo CNPJ em perfis separados.
 function consolidarFornecedores() {
-  // Agrega via produtos
+  // Agrega via produtos (excluindo itens rejeitados ou em quarentena de plausibilidade)
   const porProdutos = db
     .prepare(
       `SELECT
@@ -3499,6 +3523,13 @@ function consolidarFornecedores() {
          GROUP_CONCAT(DISTINCT CAST(ano AS TEXT)) AS anos
        FROM licitacoes_produtos
        WHERE fornecedor_cnpj IS NOT NULL AND fornecedor_cnpj <> ''
+         AND IFNULL(status_revisao, 'pendente') <> 'rejeitado'
+         AND NOT EXISTS (
+           SELECT 1 FROM licitacoes_produtos_validacoes vq
+           WHERE vq.produto_id = licitacoes_produtos.id
+             AND vq.fonte = 'plausibilidade_item_processo'
+             AND vq.status = 'implausivel'
+         )
        GROUP BY fornecedor_cnpj`
     )
     .all();
@@ -3512,16 +3543,17 @@ function consolidarFornecedores() {
   const mapa = new Map();
 
   // Chave canônica = 14 dígitos; exibição = formatado. Acumula fragmentos.
-  function obter(cnpjRaw, nome) {
+  function obter(cnpjRaw, nomeRaw) {
     const chave = normalizarCnpj(cnpjRaw);
-    if (!chave) {
+    if (!chave || isCnpjDoEnte(chave)) {
       return null;
     }
+    const nomeLimpo = sanitizarNomeFornecedor(nomeRaw);
     let perfil = mapa.get(chave);
     if (!perfil) {
       perfil = {
         cnpj: formatarCnpj(chave),
-        nome_canonico: nome || null,
+        nome_canonico: nomeLimpo || null,
         total_valor_produtos: 0,
         total_valor_vencedor: 0,
         total_valor_pago: 0,
@@ -3534,6 +3566,8 @@ function consolidarFornecedores() {
         anosPago: new Set(),
       };
       mapa.set(chave, perfil);
+    } else if (!perfil.nome_canonico && nomeLimpo) {
+      perfil.nome_canonico = nomeLimpo;
     }
     return perfil;
   }
@@ -3558,8 +3592,9 @@ function consolidarFornecedores() {
     perfil.n_vitorias += row.n_vitorias || 0;
     perfil.n_licitacoes_vencedor += row.n_licitacoes || 0;
     (row.anos || '').split(',').filter(Boolean).forEach((a) => perfil.anos.add(a));
-    // Prefere o nome do vencedor (geralmente mais limpo)
-    if (row.nome) {perfil.nome_canonico = row.nome;}
+    // Prefere o nome do vencedor quando válido (geralmente mais limpo)
+    const nomeVencedor = sanitizarNomeFornecedor(row.nome);
+    if (nomeVencedor) {perfil.nome_canonico = nomeVencedor;}
   }
 
   for (const row of porEmpenhos) {
@@ -3569,9 +3604,13 @@ function consolidarFornecedores() {
     }
     perfil.total_valor_pago += row.total_valor || 0;
     perfil.n_empenhos += row.n_empenhos || 0;
-    (row.anos || '').split(',').filter(Boolean).forEach((a) => perfil.anosPago.add(a));
-    // nome de empenho só como último recurso (nomes do SH3 podem vir abreviados)
-    if (!perfil.nome_canonico && row.nome) {perfil.nome_canonico = row.nome;}
+    (row.anos || '').split(',').filter(Boolean).forEach((a) => {
+      perfil.anosPago.add(a);
+      perfil.anos.add(a);
+    });
+    // nome de empenho quando ainda não há nome canônico válido
+    const nomeEmpenho = sanitizarNomeFornecedor(row.nome);
+    if (!perfil.nome_canonico && nomeEmpenho) {perfil.nome_canonico = nomeEmpenho;}
   }
 
   // Limpa perfis antigos (chaves em formato inconsistente) antes de regravar
@@ -3700,7 +3739,17 @@ function getInteligenciaPanorama() {
     .get().total;
 
   const valorProdutos = db
-    .prepare("SELECT ROUND(COALESCE(SUM(valor_total_final),0),2) AS total FROM licitacoes_produtos WHERE valor_total_final IS NOT NULL AND valor_total_final > 0 AND fornecedor_cnpj IS NOT NULL")
+    .prepare(`SELECT ROUND(COALESCE(SUM(valor_total_final),0),2) AS total
+              FROM licitacoes_produtos
+              WHERE valor_total_final IS NOT NULL AND valor_total_final > 0
+                AND fornecedor_cnpj IS NOT NULL AND fornecedor_cnpj <> ''
+                AND IFNULL(status_revisao, 'pendente') <> 'rejeitado'
+                AND NOT EXISTS (
+                  SELECT 1 FROM licitacoes_produtos_validacoes vq
+                  WHERE vq.produto_id = licitacoes_produtos.id
+                    AND vq.fonte = 'plausibilidade_item_processo'
+                    AND vq.status = 'implausivel'
+                )`)
     .get().total;
 
   const nFornecedores = db
@@ -3922,7 +3971,7 @@ function getAuditoria({ ano, tipo, fonte } = {}) {
   const params = {};
 
   if (ano) {
-    filters.push('d.ano = @ano');
+    filters.push('(d.ano = @ano OR CAST(substr(d.data_publicacao, 1, 4) AS INTEGER) = @ano)');
     params.ano = Number(ano);
   }
   if (tipo) {

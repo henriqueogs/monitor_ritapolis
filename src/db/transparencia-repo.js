@@ -381,6 +381,10 @@ function desempatarPorCnpjVencedor(candidatos, credorCnpj) {
 function crosswalkDespesasDocumentos({ relink = false } = {}) {
   if (relink) {
     db.prepare('UPDATE transparencia_despesas SET documento_id = NULL WHERE documento_id IS NOT NULL').run();
+  } else {
+    db.prepare(
+      "UPDATE transparencia_despesas SET documento_id = NULL, atualizado_em = CURRENT_TIMESTAMP WHERE documento_id IS NOT NULL AND (modalidade IS NULL OR TRIM(modalidade) = '')"
+    ).run();
   }
 
   const pendentes = db
@@ -403,6 +407,11 @@ function crosswalkDespesasDocumentos({ relink = false } = {}) {
   for (const desp of pendentes) {
     const mod = parseModalidadeDespesa(desp.modalidade);
     if (!mod || mod.numero === null) {
+      if (desp.documento_id !== null) {
+        limpar.run(desp.id);
+        vinculados += 1;
+        idsVinculados.push(desp.id);
+      }
       continue;
     }
     const chave = `${mod.tipo}|${mod.numero}|${mod.ano}`;

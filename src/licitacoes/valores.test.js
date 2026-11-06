@@ -64,10 +64,14 @@ describe('licitacoes/valores · avaliarValorItemContraProcesso', () => {
     expect(avaliarValorItemContraProcesso({ valorItem: 106, valorFinalProcesso: 100 }).plausivel).toBe(false);
   });
 
-  it('sem valor do processo (null/0) → plausível, nunca inventa', () => {
+  it('sem valor do processo (null/0) → plausível dentro do teto municipal, mas bloqueia distorções acima do teto absoluto (ex.: R$ 213,5T do doc #321)', () => {
     expect(avaliarValorItemContraProcesso({ valorItem: 999999, valorFinalProcesso: null }).plausivel).toBe(true);
     expect(avaliarValorItemContraProcesso({ valorItem: 999999, valorFinalProcesso: 0 }).plausivel).toBe(true);
     expect(avaliarValorItemContraProcesso({ valorItem: null, valorFinalProcesso: 100 }).plausivel).toBe(true);
+
+    const trilhao = avaliarValorItemContraProcesso({ valorItem: 213498961501788, valorFinalProcesso: null });
+    expect(trilhao.plausivel).toBe(false);
+    expect(trilhao.motivo).toBe('item_acima_do_teto_absoluto');
   });
 });
 

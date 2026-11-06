@@ -164,6 +164,34 @@ describe('inteligencia-repo — só empenho ordinário (fiscal-valores V2/V3)', 
 
       expect(a.possivel_fracionamento.map((f) => f.credor_nome)).toEqual(['FRACIONADOR LTDA']);
     });
+
+    it('oculta documento_id inexato nos outliers para nao vincular empenho a licitacao errada', () => {
+      for (let i = 0; i < 15; i += 1) {
+        seedDespesa({ valor: 100, cnpj: String(30000000000000 + i), nome: `F${i}`, data: '2026-03-10' });
+      }
+      mockConn
+        .prepare(
+          `INSERT INTO documentos (id, fonte, tipo, numero, ano, titulo, status_coleta, url_origem)
+           VALUES (4, 'site_prefeitura', 'edital', '0033/2026', 2026, 'Processo 0033/2026 - Pregão Presencial 007/2026 - Informática', 'ok', 'http://ex')`
+        )
+        .run();
+      mockConn
+        .prepare(
+          `INSERT INTO transparencia_despesas
+             (exercicio_orcamento, empenho, tipo, data_empenho, credor_cnpj, credor_nome,
+              credor_chave, valor, funcao, modalidade, documento_id, hash_despesa)
+           VALUES (2026, '00817-000', ?, '2026-03-13', '02685002000450', 'PRODOESTE VEICULOS',
+                   '02685002000450', 549700, '10 - SAÚDE', 'Pregão - 00032026', 4, 'hash-outlier')`
+        )
+        .run(TIPO_EO);
+
+      const a = getEmpenhoAtipicos(2026);
+
+      expect(a.outliers_valor).toHaveLength(1);
+      expect(a.outliers_valor[0].empenho).toBe('00817-000');
+      expect(a.outliers_valor[0].documento_id).toBeNull();
+      expect(a.outliers_valor[0].documento_titulo).toBeNull();
+    });
   });
 });
 

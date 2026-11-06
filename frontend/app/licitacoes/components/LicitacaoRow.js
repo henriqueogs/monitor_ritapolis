@@ -21,6 +21,10 @@ export default function LicitacaoRow({ item }) {
   const valorExibido = detalhes.valor_final ?? (modelo.valor_estimado ?? item.valor_estimado);
   const labelValor = detalhes.valor_final != null ? rotuloValorFinal({ origem: detalhes.origem, periodo: item.ano }) : 'Valor estimado';
   const badges = [
+    item.divergencia_ano_publicacao &&
+      item.ano_instrumento &&
+      item.ano_publicacao &&
+      `Processo ${item.ano_instrumento} · Publicado em ${item.ano_publicacao}`,
     correlacao.tem_grupo && `${correlacao.grupo_total_documentos} publicações`,
     correlacao.tem_leitura_integrada && 'Análise do processo',
   ].filter(Boolean);

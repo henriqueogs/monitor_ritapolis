@@ -19,6 +19,16 @@ const { listarAnexosDocumento } = require('./inteligencia-fatos-repo');
 // substitui — melhor manter o fallback do que expor um resultado raso.
 const CONFIANCA_MINIMA_IA = 0.5;
 
+const SQL_NAO_QUARENTENADO = `
+  IFNULL(status_revisao, 'pendente') <> 'rejeitado'
+  AND NOT EXISTS (
+    SELECT 1 FROM licitacoes_produtos_validacoes vq
+    WHERE vq.produto_id = licitacoes_produtos.id
+      AND vq.fonte = 'plausibilidade_item_processo'
+      AND vq.status = 'implausivel'
+  )
+`;
+
 function normalizeProdutoRow(row) {
   if (!row) { return null; }
 
@@ -233,18 +243,19 @@ function getLicitacaoProdutosResumo(documentoId) {
       `SELECT
          COUNT(*) AS total,
          SUM(CASE WHEN valor_unitario_estimado IS NOT NULL OR valor_total_estimado IS NOT NULL THEN 1 ELSE 0 END) AS com_preco_estimado,
-         SUM(CASE WHEN valor_unitario_final IS NOT NULL OR valor_total_final IS NOT NULL OR valor_lote_final IS NOT NULL OR valor_global_final IS NOT NULL THEN 1 ELSE 0 END) AS com_preco_final,
-         SUM(CASE WHEN valor_lote_final IS NOT NULL THEN 1 ELSE 0 END) AS com_valor_lote_final,
-         SUM(CASE WHEN valor_global_final IS NOT NULL THEN 1 ELSE 0 END) AS com_valor_global_final,
+         SUM(CASE WHEN (${SQL_NAO_QUARENTENADO}) AND (valor_unitario_final IS NOT NULL OR valor_total_final IS NOT NULL OR valor_lote_final IS NOT NULL OR valor_global_final IS NOT NULL) THEN 1 ELSE 0 END) AS com_preco_final,
+         SUM(CASE WHEN (${SQL_NAO_QUARENTENADO}) AND valor_lote_final IS NOT NULL THEN 1 ELSE 0 END) AS com_valor_lote_final,
+         SUM(CASE WHEN (${SQL_NAO_QUARENTENADO}) AND valor_global_final IS NOT NULL THEN 1 ELSE 0 END) AS com_valor_global_final,
          SUM(CASE WHEN IFNULL(fornecedor_nome, '') <> '' THEN 1 ELSE 0 END) AS com_fornecedor,
          ROUND(IFNULL(SUM(valor_total_estimado), 0), 2) AS valor_estimado_total_identificado,
          ROUND(IFNULL(SUM(CASE
+           WHEN NOT (${SQL_NAO_QUARENTENADO}) THEN 0
            WHEN valor_total_final IS NOT NULL THEN valor_total_final
            WHEN valor_unitario_final IS NOT NULL AND quantidade IS NOT NULL THEN valor_unitario_final * quantidade
            ELSE 0
          END), 0), 2) AS valor_final_total_identificado,
-         ROUND(IFNULL(SUM(valor_lote_final), 0), 2) AS valor_lote_total_identificado,
-         ROUND(IFNULL(SUM(valor_global_final), 0), 2) AS valor_global_total_identificado,
+         ROUND(IFNULL(SUM(CASE WHEN (${SQL_NAO_QUARENTENADO}) THEN valor_lote_final ELSE 0 END), 0), 2) AS valor_lote_total_identificado,
+         ROUND(IFNULL(SUM(CASE WHEN (${SQL_NAO_QUARENTENADO}) THEN valor_global_final ELSE 0 END), 0), 2) AS valor_global_total_identificado,
          SUM(CASE WHEN NOT EXISTS (
            SELECT 1
            FROM licitacoes_produtos_validacoes v
@@ -282,6 +293,7 @@ function getProdutosGruposComparaveis({ limite = 50 } = {}) {
          FROM produtos_grupos g
          JOIN licitacoes_produtos p ON p.grupo_id = g.id
         WHERE p.valor_unitario_final IS NOT NULL AND p.valor_unitario_final > 0 AND p.ano IS NOT NULL
+          AND IFNULL(p.status_revisao, 'pendente') <> 'rejeitado'
         GROUP BY g.id
        HAVING n_anos >= 2
         ORDER BY n_anos DESC, n_itens DESC
@@ -304,6 +316,7 @@ function getEvolucaoPrecoGrupo(grupoId) {
          FROM licitacoes_produtos p
         WHERE p.grupo_id = @grupoId AND p.valor_unitario_final IS NOT NULL
           AND p.valor_unitario_final > 0 AND p.ano IS NOT NULL
+          AND IFNULL(p.status_revisao, 'pendente') <> 'rejeitado'
         GROUP BY p.ano
         ORDER BY p.ano`
     )

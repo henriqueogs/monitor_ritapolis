@@ -6,11 +6,13 @@
  * Recebe o handle do banco por parâmetro (evita ciclo com src/db/index.js).
  */
 
+const { isCnpjDoEnte } = require('../ente');
+const { sanitizarNomeFornecedor, sanitizarCnpjFornecedor } = require('../licitacoes/fornecedor-sanitizador');
 const { SQL_TIPO_ORDINARIO } = require('./tipo-empenho');
 const { sqlValorFinalDeEmpenho } = require('./valor-final-empenho');
 
 function agregarEmpenhosPorCredor(db) {
-  return db
+  const rows = db
     .prepare(
       `SELECT
          credor_cnpj AS cnpj,
@@ -29,6 +31,13 @@ function agregarEmpenhosPorCredor(db) {
        GROUP BY credor_cnpj`
     )
     .all();
+
+  return rows
+    .filter((row) => !isCnpjDoEnte(row.cnpj) && sanitizarCnpjFornecedor(row.cnpj))
+    .map((row) => ({
+      ...row,
+      nome: sanitizarNomeFornecedor(row.nome) || row.nome,
+    }));
 }
 
 /**
@@ -37,7 +46,7 @@ function agregarEmpenhosPorCredor(db) {
  * conta, o valor não.
  */
 function agregarVencedoresPorCnpj(db) {
-  return db
+  const rows = db
     .prepare(
       `SELECT
          vencedor_cnpj AS cnpj,
@@ -53,6 +62,13 @@ function agregarVencedoresPorCnpj(db) {
        GROUP BY vencedor_cnpj`
     )
     .all();
+
+  return rows
+    .filter((row) => !isCnpjDoEnte(row.cnpj) && sanitizarCnpjFornecedor(row.cnpj))
+    .map((row) => ({
+      ...row,
+      nome: sanitizarNomeFornecedor(row.nome),
+    }));
 }
 
 module.exports = { agregarEmpenhosPorCredor, agregarVencedoresPorCnpj };

@@ -93,6 +93,11 @@ function EmendaCard({ emenda }) {
           <BadgeEsfera esfera={emenda.esfera} />
           {partido && <span className={styles.badgePartido}>{partido}</span>}
           {ano && <span className={styles.badgeAno}>{ano}</span>}
+          {emenda.divergencia_ano_publicacao && emenda.ano_publicacao && (
+            <span className={styles.badgePartido} title={emenda.divergencia_ano_descricao || ''}>
+              Publicada em {emenda.ano_publicacao}
+            </span>
+          )}
         </div>
         <h3 className={styles.emendaCardTitulo}>
           {emenda.nome_parlamentar || emenda.titulo || 'Emenda parlamentar'}
@@ -108,6 +113,44 @@ function EmendaCard({ emenda }) {
 
       {emenda.objeto && (
         <p className={styles.emendaCardObjeto}>{emenda.objeto}</p>
+      )}
+      {emenda.objeto_detalhado && (
+        <p className={styles.emendaCardObjeto} style={{ fontSize: 13, marginTop: 4 }}>
+          <strong> Aplicação:</strong> {emenda.objeto_detalhado}
+        </p>
+      )}
+      {emenda.emenda_unificada && Array.isArray(emenda.indicacoes_discriminadas) && emenda.indicacoes_discriminadas.length > 1 && (
+        <div style={{ fontSize: 12, marginTop: 8, padding: '8px 10px', background: 'var(--surface-muted, #f5f5f5)', borderRadius: 6 }}>
+          <strong>Indicações discriminadas ({emenda.indicacoes_discriminadas.length} parcelas na mesma resolução):</strong>
+          <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>
+            {emenda.indicacoes_discriminadas.map((ind) => (
+              <li key={ind.documento_id}>
+                Parcela #{ind.documento_id}: <strong>{formatMoney(ind.valor_repasse)}</strong>
+                {ind.objeto_detalhado ? ` — ${ind.objeto_detalhado}` : ''}
+                {ind.url_pdf && (
+                  <>
+                    {' '}
+                    <a href={ind.url_pdf} target="_blank" rel="noopener noreferrer" className={styles.emendaCardPdf}>
+                      (PDF ↗)
+                    </a>
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {Array.isArray(emenda.empenhos_discriminados) && emenda.empenhos_discriminados.length > 0 && (
+        <div style={{ fontSize: 12, marginTop: 8, color: 'var(--text-muted)' }}>
+          <strong>Empenho vinculado:</strong>{' '}
+          {emenda.empenhos_discriminados.map((emp) => (
+            <span key={emp.numero_empenho}>
+              {emp.codigo}
+              {emp.valor != null ? ` (${formatMoney(emp.valor)})` : ''}
+              {emp.credor_nome ? ` · ${emp.credor_nome}` : ''}
+            </span>
+          ))}
+        </div>
       )}
 
       <footer className={styles.emendaCardFooter}>

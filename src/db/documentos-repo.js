@@ -54,6 +54,12 @@ function buildJsonHash(value) {
 const FONTE_LABELS = {
   site_prefeitura: 'Prefeitura',
   camara: 'Câmara',
+  camara_legislacao: 'Câmara (Legislação)',
+  camara_projetos: 'Câmara (Projetos)',
+  legislacao_prefeitura: 'Prefeitura (Legislação)',
+  pncp: 'PNCP',
+  portal_transparencia: 'Portal da Transparência',
+  portal_transparencia_folha: 'Portal da Transparência (Folha)',
 };
 
 const TIPO_LABELS = {
@@ -66,6 +72,7 @@ const TIPO_LABELS = {
   documento: 'Documento',
   documento_publico: 'Documento Público',
   resolucao: 'Resolução',
+  emenda_parlamentar: 'Emenda Parlamentar',
   // Legislacao municipal (coletor de decretos/leis/portarias) -- sem essas
   // entradas, `tipo_nome` (o que o frontend efetivamente usa, ver
   // DocumentPreview.js) vazava o valor cru do banco em vez de texto legivel.
@@ -122,6 +129,35 @@ function labelStatus(value) {
   return STATUS_LABELS[value] || value || 'Sem status';
 }
 
+// ── Divergência entre ano do instrumento e ano de publicação ──────────────────
+
+function extrairAnoPublicacaoIso(dataPublicacao) {
+  if (!dataPublicacao || typeof dataPublicacao !== 'string') { return null; }
+  const match = dataPublicacao.trim().match(/^(\d{4})-\d{2}-\d{2}/);
+  if (!match) { return null; }
+  const ano = Number(match[1]);
+  return ano >= 1988 && ano <= 2050 ? ano : null;
+}
+
+function calcularDivergenciaAnoPublicacao(documento) {
+  const anoInstrumento = documento?.ano ? Number(documento.ano) : null;
+  const anoPublicacao = extrairAnoPublicacaoIso(documento?.data_publicacao);
+  const divergencia = Boolean(
+    anoInstrumento &&
+    anoPublicacao &&
+    anoInstrumento !== anoPublicacao
+  );
+
+  return {
+    ano_instrumento: anoInstrumento,
+    ano_publicacao: anoPublicacao,
+    divergencia_ano_publicacao: divergencia,
+    divergencia_ano_descricao: divergencia
+      ? `Instrumento do exercício ${anoInstrumento} publicado em ${anoPublicacao}.`
+      : null,
+  };
+}
+
 // ── Qualidade e indicadores ───────────────────────────────────────────────────
 
 function buildQualidadeAlertas(documento) {
@@ -161,6 +197,15 @@ function buildQualidadeAlertas(documento) {
     });
   }
 
+  const divAno = calcularDivergenciaAnoPublicacao(documento);
+  if (divAno.divergencia_ano_publicacao) {
+    alertas.push({
+      tipo: 'divergencia_ano_publicacao',
+      label: `Instrumento de ${divAno.ano_instrumento} publicado em ${divAno.ano_publicacao}`,
+      descricao: divAno.divergencia_ano_descricao,
+    });
+  }
+
   return alertas;
 }
 
@@ -171,13 +216,14 @@ function buildDocumentoIndicadores(documento) {
   );
   const temResumoAi = Boolean(documento.tem_resumo_ai || documento.resumo_ai);
   const alertas = buildQualidadeAlertas(documento);
+  const alertasIncompletude = alertas.filter((a) => a.tipo !== 'divergencia_ano_publicacao');
 
   return {
     tem_pdf: temPdf,
     tem_texto_extraido: temTextoExtraido,
     tem_resumo_ai: temResumoAi,
     tem_alertas_qualidade: alertas.length > 0,
-    dados_incompletos: alertas.length > 0,
+    dados_incompletos: alertasIncompletude.length > 0,
     total_alertas_qualidade: alertas.length,
   };
 }
@@ -200,12 +246,14 @@ function buildOrigemResumo(documento) {
 function decorateDocumento(documento) {
   if (!documento) { return null; }
   const qualidadeAlertas = buildQualidadeAlertas(documento);
+  const divAno = calcularDivergenciaAnoPublicacao(documento);
 
   return {
     ...documento,
     fonte_nome: labelFonte(documento.fonte),
     tipo_nome: labelTipo(documento.tipo),
     status_coleta_nome: labelStatus(documento.status_coleta),
+    ...divAno,
     origem_resumo: buildOrigemResumo(documento),
     indicadores: buildDocumentoIndicadores(documento),
     qualidade_alertas: qualidadeAlertas,
@@ -231,6 +279,7 @@ function cleanField(value) {
   if (value === null || value === undefined) { return null; }
   const text = normalizeText(String(value)).replace(/\s+/g, ' ').trim();
   if (!text || /^https?:\/\/$/i.test(text)) { return null; }
+  if (/^(undefined|null|nan)$/i.test(text)) { return null; }
   return text;
 }
 
@@ -284,13 +333,13 @@ function normalizeModalidadeLicitacao(value) {
   if (text.includes('pregao')) { return 'Pregao presencial'; }
   if (text.includes('dispensa') || text.includes('dispnsa')) { return 'Dispensa'; }
   if (text.includes('adesao')) { return 'Adesao'; }
-  if (text.includes('inexigibilidade')) { return 'Inexigibilidade'; }
+  if (text.includes('inexig') || text.includes('inexibil')) { return 'Inexigibilidade'; }
   if (text.includes('tomada')) { return 'Tomada de precos'; }
   if (text.includes('concorrencia')) { return 'Concorrencia'; }
   if (text.includes('chamamento') || text.includes('chamada')) { return 'Chamamento publico'; }
   if (text.includes('credenciamento') || text.includes('credencimento')) { return 'Credenciamento'; }
   if (text.includes('leilao')) { return 'Leilao'; }
-  if (/^\d+\/\d+$/.test(text)) { return null; }
+  if (/^\s*(?:n[ºo°]\s*)?\d+\s*\/\s*\d+\s*$/i.test(text)) { return null; }
   return cleanField(value);
 }
 
@@ -320,7 +369,10 @@ function buildDocumentoWhere({ fonte, tipo, ano, status, termo, qualidade }, par
       params.tipo = tipos[0] || tipo;
     }
   }
-  if (ano) { filters.push('ano = @ano'); params.ano = Number(ano); }
+  if (ano) {
+    filters.push('(ano = @ano OR CAST(substr(data_publicacao, 1, 4) AS INTEGER) = @ano)');
+    params.ano = Number(ano);
+  }
   if (status) { filters.push('status_coleta = @status'); params.status = status; }
 
   if (termo) {
@@ -341,6 +393,11 @@ function buildDocumentoWhere({ fonte, tipo, ano, status, termo, qualidade }, par
   if (qualidade === 'sem_pdf') { filters.push("IFNULL(url_pdf, '') = ''"); }
   if (qualidade === 'erro_pdf') { filters.push("status_coleta = 'erro_pdf'"); }
   if (qualidade === 'sem_data') { filters.push("IFNULL(data_publicacao, '') = ''"); }
+  if (qualidade === 'divergencia_ano') {
+    filters.push(
+      'ano IS NOT NULL AND data_publicacao IS NOT NULL AND CAST(substr(data_publicacao, 1, 4) AS INTEGER) <> ano'
+    );
+  }
 
   return filters.length ? `WHERE ${filters.join(' AND ')}` : '';
 }
@@ -472,6 +529,8 @@ module.exports = {
   labelFonte,
   labelTipo,
   labelStatus,
+  // Divergência de ano
+  calcularDivergenciaAnoPublicacao,
   // Qualidade e indicadores
   buildQualidadeAlertas,
   buildDocumentoIndicadores,

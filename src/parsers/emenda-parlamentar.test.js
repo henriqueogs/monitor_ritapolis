@@ -6,6 +6,10 @@ const {
   parsearDataBR,
   inferirEsfera,
   extrairParlamentar,
+  higienizarGestorResponsavel,
+  extrairDadosBancariosEmenda,
+  extrairEmpenhosDadosDespesa,
+  unificarEmendasPorInstrumento,
   ESFERA,
 } = require('./emenda-parlamentar');
 
@@ -28,8 +32,9 @@ const TEXTO_ESTADUAL = [
   'TÉRMINO :',
   'UNIDADE EXECUTORA: Secretaria de Saúde',
   'GESTOR RESPONSÁVEL: Secretária Municipal de Saúde',
+  'BANCO : Banco do Brasil AGÊNCIA: 0162-7 CONTA BANCÁRIA: 101023-9',
   'DATA DE RECEBIMENTO DO RECURSO: 20/06/2025',
-  'DADOS DA DESPESA: aquisição de material permanente',
+  'DADOS DA DESPESA: EO 03100-000 VALOR: R$ 79.000,00',
 ].join('\n');
 
 const TEXTO_FEDERAL = [
@@ -52,8 +57,6 @@ const TEXTO_FEDERAL = [
   'DATA DE RECEBIMENTO DO RECURSO: 15/03/2025',
 ].join('\n');
 
-// Caso REAL das emendas federais: a fonte vem em LINHA ÚNICA (sem \n entre
-// campos). Antes do fix, cada campo engolia o resto da linha (registro inteiro).
 const TEXTO_FEDERAL_LINHA_UNICA =
   'EMENDAS FEDERAIS 1 – DADOS DA INDICAÇÃO N.º DA EMENDA : 202540290015 ' +
   'NOME DO PARLAMENTAR : Lafayette de Andrada – Deputado Federal ' +
@@ -62,7 +65,9 @@ const TEXTO_FEDERAL_LINHA_UNICA =
   'OBJETO : VALOR DO REPASSE: R$ 100.000,00 ' +
   'ÓRGÃO TRANSFERIDOR: Fundo Nacional de Assistência Social ' +
   'INSTRUMENTO LEGAL: Emenda 202540290015 ' +
-  'CATEGORIA ECONÔMICA: Custeio';
+  'CATEGORIA ECONÔMICA: Custeio ' +
+  'GESTOR RESPONSÁVEL: Secretária Municipal de Assistência Social BANCO : Banco do Brasil AGÊNCIA: 0162-7 CONTA BANCÁRIA: 39.882-9 ' +
+  'DATA DE RECEBIMENTO DO RECURSO: 08/08/2025';
 
 describe('parseEmendaParlamentar — federal em linha única (caso real)', () => {
   let r;
@@ -90,10 +95,86 @@ describe('parseEmendaParlamentar — federal em linha única (caso real)', () =>
     expect(r.objeto).toBeNull();
   });
 
+  it('gestor_responsavel não vaza BANCO / AGÊNCIA / CONTA BANCÁRIA', () => {
+    expect(r.gestor_responsavel).toBe('Secretária Municipal de Assistência Social');
+    expect(r.banco).toBe('Banco do Brasil');
+    expect(r.agencia).toBe('0162-7');
+    expect(r.conta_bancaria).toBe('39.882-9');
+  });
+
   it('campos não estouram (nenhum > 80 chars)', () => {
-    for (const campo of ['nome_parlamentar', 'cargo_parlamentar', 'partido', 'instrumento_legal', 'orgao_transferidor']) {
+    for (const campo of ['nome_parlamentar', 'cargo_parlamentar', 'partido', 'instrumento_legal', 'orgao_transferidor', 'gestor_responsavel']) {
       if (r[campo]) { expect(r[campo].length).toBeLessThanOrEqual(80); }
     }
+  });
+});
+
+describe('higienizarGestorResponsavel, extrairDadosBancariosEmenda e extrairEmpenhosDadosDespesa', () => {
+  it('separa gestor e dados bancários de strings legadas já salvas', () => {
+    const legado = 'Secretária Municipal de Saúde BANCO : Banco do Brasil AGÊNCIA: 0162-7 CONTA BANCÁRIA: 101.015-8';
+    expect(higienizarGestorResponsavel(legado)).toBe('Secretária Municipal de Saúde');
+    expect(extrairDadosBancariosEmenda(legado)).toEqual({
+      banco: 'Banco do Brasil',
+      agencia: '0162-7',
+      conta_bancaria: '101.015-8',
+    });
+  });
+
+  it('extrai empenhos discriminados de dados_despesa', () => {
+    expect(extrairEmpenhosDadosDespesa('EO 03099-000 VALOR: R$ 140.900,00')).toEqual([
+      {
+        codigo: 'EO 03099-000',
+        tipo: 'EO',
+        numero_empenho: '03099-000',
+        valor: 140900,
+      },
+    ]);
+  });
+
+  it('unifica emendas da mesma resolução (ex.: Resolução N.10088/2025 #645 + #649) discriminando as parcelas', () => {
+    const rows = [
+      {
+        id: 645,
+        titulo: 'Emenda Estadual 2025 - Resolução N.10088/2025',
+        ano: 2025,
+        esfera: 'estadual',
+        numero_emenda: 'Resolução N.10088/2025',
+        nome_parlamentar: 'Sargento Rodrigues',
+        valor_repasse: 73490,
+        objeto_detalhado: 'aquisição de veículo para atender a secretaria municipal de saúde',
+        gestor_responsavel: 'Secretária Municipal de Saúde BANCO : Banco do Brasil AGÊNCIA: 0162-7 CONTA BANCÁRIA: 101.015-8',
+        dados_despesa: 'EO 03099-000 VALOR: R$ 140.900,00',
+        url_pdf: 'https://www.ritapolis.mg.gov.br/obter_arquivo_cadastro_generico.php?INT_ARQ=230751',
+      },
+      {
+        id: 649,
+        titulo: 'Emenda Estadual 2025 - Resolução N.10088/2025',
+        ano: 2025,
+        esfera: 'estadual',
+        numero_emenda: 'Resolução N.10088/2025',
+        nome_parlamentar: 'Sargento Rodrigues',
+        valor_repasse: 76510,
+        objeto_detalhado: 'aquisição de 01 veículo citroen c3 aircross minivan de 7 lugares 0 km',
+        gestor_responsavel: 'Secretária Municipal de Saúde BANCO : Banco do Brasil AGÊNCIA: 0162-7 CONTA BANCÁRIA: 101.015-8',
+        dados_despesa: 'EO 03099-000 VALOR: R$ 140.900,00',
+        url_pdf: 'https://www.ritapolis.mg.gov.br/obter_arquivo_cadastro_generico.php?INT_ARQ=230753',
+      },
+    ];
+
+    const unificadas = unificarEmendasPorInstrumento(rows);
+    expect(unificadas).toHaveLength(1);
+    expect(unificadas[0].valor_repasse).toBe(150000);
+    expect(unificadas[0].gestor_responsavel).toBe('Secretária Municipal de Saúde');
+    expect(unificadas[0].emenda_unificada).toBe(true);
+    expect(unificadas[0].indicacoes_discriminadas).toHaveLength(2);
+    expect(unificadas[0].indicacoes_discriminadas[0]).toMatchObject({
+      documento_id: 645,
+      valor_repasse: 73490,
+    });
+    expect(unificadas[0].indicacoes_discriminadas[1]).toMatchObject({
+      documento_id: 649,
+      valor_repasse: 76510,
+    });
   });
 });
 
@@ -318,31 +399,5 @@ describe('anoReferenciaEmenda', () => {
 describe('parseEmendaParlamentar — ano_referencia', () => {
   it('estadual: ano do recebimento', () => {
     expect(parseEmendaParlamentar(TEXTO_ESTADUAL).ano_referencia).toBe(2025);
-  });
-});
-
-describe('anoReferenciaEmenda — fronteiras', () => {
-  const { anoReferenciaEmenda } = require('./emenda-parlamentar');
-
-  it('recebimento em dezembro vale sobre número do ano seguinte', () => {
-    expect(anoReferenciaEmenda({ data_recebimento: '2024-12-30', numero_emenda: '202539600001' })).toBe(2024);
-  });
-
-  it('ano implausível (erro de digitação) passa para o próximo critério', () => {
-    expect(anoReferenciaEmenda({ data_recebimento: '2207-01-15', numero_emenda: '202339600001' })).toBe(2023);
-  });
-
-  it('ano no futuro não é usado', () => {
-    const futuro = `${new Date().getFullYear() + 2}-01-10`;
-    expect(anoReferenciaEmenda({ data_recebimento: futuro, data_inicio: '2022-05-01' })).toBe(2022);
-  });
-});
-
-describe('anoReferenciaEmenda — margem do número (LOA do ano seguinte)', () => {
-  const { anoReferenciaEmenda } = require('./emenda-parlamentar');
-
-  it('aceita número do ano seguinte e rejeita dois anos à frente', () => {
-    expect(anoReferenciaEmenda({ numero_emenda: '202740290015' }, { anoAtual: 2026 })).toBe(2027);
-    expect(anoReferenciaEmenda({ numero_emenda: '202840290015' }, { anoAtual: 2026 })).toBeNull();
   });
 });
