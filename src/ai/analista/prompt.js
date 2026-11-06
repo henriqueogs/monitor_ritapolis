@@ -44,7 +44,9 @@ function lerRespostaAnalista(bruto) {
   try {
     return extrairObjetoJson(bruto);
   } catch (error) {
-    if (error instanceof RespostaNaoJsonError) {return null;}
+    if (error instanceof RespostaNaoJsonError) {
+      return null;
+    }
     throw error;
   }
 }
