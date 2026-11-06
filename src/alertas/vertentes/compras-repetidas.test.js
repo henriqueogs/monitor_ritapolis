@@ -37,6 +37,11 @@ describe('chaveDoObjeto', () => {
   it('ignora o verbo "empenha" que abre quase todo histórico', () => {
     expect(chaveDoObjeto('EMPENHA PECAS MANUTENCAO VEICULO')).toBe('pecas manutencao veiculo');
   });
+  it('a 4ª palavra do histórico não fragmenta o mesmo objeto', () => {
+    expect(chaveDoObjeto('EMPENHA PECAS MANUTENCAO VEICULO PLACA ABC')).toBe(
+      chaveDoObjeto('EMPENHA PECAS MANUTENCAO VEICULO MARCA FIAT')
+    );
+  });
   it('objetos diferentes têm chaves diferentes', () => {
     expect(chaveDoObjeto('Aquisição de pneus')).not.toBe(chaveDoObjeto('Aquisição de combustível'));
   });
