@@ -32,7 +32,9 @@ describe('montarPromptAnalista', () => {
     expect(prompt).toMatch(/literal/i);
     expect(prompt).toMatch(/não some|nao some|não calcule/i);
     expect(prompt).toMatch(/acus/i);
-    for (const tipo of TIPOS_ACHADO) {expect(prompt).toContain(tipo);}
+    for (const tipo of TIPOS_ACHADO) {
+      expect(prompt).toContain(tipo);
+    }
   });
 
   it('permite resposta sem achados (não força suspeita)', () => {
