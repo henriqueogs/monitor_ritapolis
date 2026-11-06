@@ -16,6 +16,7 @@ const TIPO_ORIGINAL = 'EO';
 const JANELA_DIAS = 90;
 const MIN_DATAS = 4;
 const MAX_EVIDENCIAS = 10;
+const OBJETOS_NO_TEXTO = 2;
 const TOKENS_NO_OBJETO = 4;
 const TAMANHO_MIN_TOKEN = 4;
 const MS_DIA = 86400000;
@@ -139,35 +140,66 @@ function janelasQueAtingem(grupo) {
   return achadas;
 }
 
-function textos({ janela, soma }) {
+// Janelas do mesmo credor e ano que se sobrepõem no tempo viram um só achado (o mesmo
+// fornecedor aparece por vários objetos: veículo, caminhão, retroescavadeira...).
+function consolidar(janelas) {
+  const porInicio = janelas
+    .map(j => ({ inicio: j[0].data_empenho, fim: j[j.length - 1].data_empenho, empenhos: j }))
+    .sort((a, b) => a.inicio.localeCompare(b.inicio));
+  const grupos = [];
+  for (const j of porInicio) {
+    const atual = grupos[grupos.length - 1];
+    if (atual && j.inicio <= atual.fim) {
+      atual.empenhos.push(...j.empenhos);
+      atual.fim = j.fim > atual.fim ? j.fim : atual.fim;
+    } else {
+      grupos.push({ inicio: j.inicio, fim: j.fim, empenhos: [...j.empenhos] });
+    }
+  }
+  return grupos.map(g => {
+    const empenhos = g.empenhos.sort((a, b) => a.data_empenho.localeCompare(b.data_empenho));
+    return { empenhos, objetos: [...new Set(empenhos.map(e => e._chave))] };
+  });
+}
+
+function textos({ janela, soma, objetos }) {
   const primeiro = janela[0];
   const ultimo = janela[janela.length - 1];
-  const objeto = primeiro._chave;
-  const dias = Math.round(diasEntre(primeiro.data_empenho, ultimo.data_empenho));
+  const objeto = objetos.slice(0, OBJETOS_NO_TEXTO).join('; ');
+  const outros = objetos.length > OBJETOS_NO_TEXTO ? ' e outros' : '';
   return {
     titulo:
-      `${primeiro.credor_nome}: ${janela.length} empenhos de "${objeto}" em ${dias} dias somam ` +
-      `${formatBRL(soma)}, sem contrato ou ata localizados no acervo`,
+      `${primeiro.credor_nome}: ${janela.length} empenhos (${objeto}${outros}) entre ` +
+      `${primeiro.data_empenho} e ${ultimo.data_empenho} somam ${formatBRL(soma)}, ` +
+      'sem contrato ou ata localizados no acervo',
     narrativa:
       `O sistema encontrou ${janela.length} empenhos originais de ${primeiro.credor_nome} para ` +
-      `objeto semelhante ("${objeto}") entre ${primeiro.data_empenho} e ${ultimo.data_empenho}, ` +
-      `cada um abaixo de ${formatBRL(primeiro._limite.valor)} (limite de dispensa de ` +
-      `${primeiro.exercicio_orcamento}), somando ${formatBRL(soma)}. O sistema não localizou ` +
-      'contrato, ata de registro de preços ou licitação desse credor no acervo. A recorrência ' +
-      'pode ter explicação (instrumento publicado fora do acervo, necessidade contínua); confira ' +
-      'os empenhos e se existe instrumento para o objeto.',
+      `objetos semelhantes ("${objeto}${outros}") entre ${primeiro.data_empenho} e ` +
+      `${ultimo.data_empenho}, cada um abaixo de ${formatBRL(primeiro._limite.valor)} (limite de ` +
+      `dispensa de ${primeiro.exercicio_orcamento}), somando ${formatBRL(soma)}. O sistema não ` +
+      'localizou contrato, ata de registro de preços ou licitação desse credor no acervo. A ' +
+      'recorrência pode ter explicação (instrumento publicado fora do acervo, necessidade ' +
+      'contínua); confira os empenhos e se existe instrumento para o objeto.',
   };
 }
 
-function janelaParaCandidato(janela) {
+function maioresEvidencias(janela) {
+  return [...janela]
+    .sort((a, b) => b.valor - a.valor)
+    .slice(0, MAX_EVIDENCIAS)
+    .sort((a, b) => a.data_empenho.localeCompare(b.data_empenho))
+    .map(evidenciaEmpenho);
+}
+
+function janelaParaCandidato({ empenhos: janela, objetos }) {
   const primeiro = janela[0];
   const ultimo = janela[janela.length - 1];
   const soma = arredonda(janela.reduce((t, e) => t + e.valor, 0));
   const limite = primeiro._limite;
   const cnpj = soDigitos(primeiro.credor_cnpj);
   return {
-    objeto: `${cnpj}|${primeiro._chave}|${primeiro.exercicio_orcamento}|${primeiro.data_empenho}`,
-    ...textos({ janela, soma }),
+    objeto: `${cnpj}|${primeiro.exercicio_orcamento}|${primeiro.data_empenho}`,
+    ...textos({ janela, soma, objetos }),
     categoria: 'Compras e contratações',
     metrica: {
       nome: 'soma_janela',
@@ -177,7 +209,7 @@ function janelaParaCandidato(janela) {
       limite: limite.valor,
       limite_estimado: limite.estimado,
     },
-    evidencias: janela.slice(0, MAX_EVIDENCIAS).map(evidenciaEmpenho),
+    evidencias: maioresEvidencias(janela),
     periodo: { inicio: primeiro.data_empenho, fim: ultimo.data_empenho },
     severidade: 'atencao',
     questionamentos: [
@@ -194,7 +226,7 @@ function janelaParaCandidato(janela) {
         unidade: MOEDA,
         credor_cnpj: cnpj,
         credor_nome: primeiro.credor_nome,
-        objeto_chave: primeiro._chave,
+        objetos_chave: objetos,
         campos_a_verificar: CAMPOS_A_VERIFICAR,
       },
     },
@@ -202,14 +234,18 @@ function janelaParaCandidato(janela) {
 }
 
 function detectar({ empenhos = [], credoresComInstrumento = new Set() } = {}) {
-  const candidatos = [];
+  const porCredorAno = new Map();
   for (const grupo of agrupar(elegiveis(empenhos)).values()) {
-    if (credoresComInstrumento.has(soDigitos(grupo[0].credor_cnpj))) {
+    const cnpj = soDigitos(grupo[0].credor_cnpj);
+    if (credoresComInstrumento.has(cnpj)) {
       continue;
     }
-    candidatos.push(...janelasQueAtingem(grupo).map(janelaParaCandidato));
+    const k = `${cnpj}|${grupo[0].exercicio_orcamento}`;
+    porCredorAno.set(k, [...(porCredorAno.get(k) || []), ...janelasQueAtingem(grupo)]);
   }
-  return candidatos;
+  return [...porCredorAno.values()].flatMap(janelas =>
+    consolidar(janelas).map(janelaParaCandidato)
+  );
 }
 
 module.exports = {
