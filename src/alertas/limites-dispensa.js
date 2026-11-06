@@ -40,12 +40,18 @@ const MOTIVOS_EXCLUSAO = {
   FOLHA: 'folha',
   TRIBUTOS: 'tributos',
   CONCESSIONARIA: 'concessionaria',
+  REPASSE: 'repasse',
 };
 
 const TAMANHO_CNPJ = 14;
 
 // Ordem importa: o primeiro padrão que casa dá o motivo.
 const PADROES_EXCLUSAO = [
+  // Repasse/subvenção a entidade não é compra: dispensa de licitação não se aplica.
+  [
+    MOTIVOS_EXCLUSAO.REPASSE,
+    /\b(repasse\w*|subvencao|subvencoes|auxilio financeiro|contribuicao a entidade)\b/,
+  ],
   [MOTIVOS_EXCLUSAO.PREVIDENCIA, /\b(inss|rpps|previdenc\w*|contribuicao patronal|fgts)\b/],
   [MOTIVOS_EXCLUSAO.FOLHA, /\b(folha de pagamento|folha pgto|salario\w*|13o salario|ferias)\b/],
   [MOTIVOS_EXCLUSAO.TRIBUTOS, /\b(iss|iptu|irrf|imposto\w*|tributo\w*|taxa de)\b/],
