@@ -9,6 +9,7 @@
 
 const { buildPortalDespesaLink } = require('../../transparencia/portal-links');
 const { estimateTokensFromText } = require('../estimate-tokens');
+const { mascararCpf } = require('./selecao');
 const { formatBRL: formatarMoeda } = require('../../alertas/tipos');
 
 const TIPO_ORIGINAL = 'EO';
@@ -37,7 +38,7 @@ function fonteDeEmpenho(e) {
     exercicio: e.exercicio_orcamento,
     tipo: e.tipo,
   });
-  const historico = String(e.historico ?? '')
+  const historico = mascararCpf(e.historico)
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, TRECHO_HISTORICO_MAX);
@@ -55,7 +56,7 @@ function fonteDeLicitacao(l) {
     fonte_id: `L${l.documento_id}`,
     url_origem: l.url_origem,
     texto:
-      `${l.titulo} — vencedor CNPJ ${soDigitos(l.vencedor_cnpj)}` +
+      `${mascararCpf(l.titulo)} — vencedor CNPJ ${soDigitos(l.vencedor_cnpj)}` +
       (l.valor_final ? `, valor final ${formatBRL(l.valor_final)}` : ''),
   };
 }
@@ -93,7 +94,7 @@ function textoResumo({ credor, originais, mostrados }) {
     .sort();
   const total = arredonda(originais.reduce((t, e) => t + e.valor, 0));
   return (
-    `Resumo calculado pelo sistema: ${originais.length} empenhos originais (EO) de ${credor.nome} ` +
+    `Resumo calculado pelo sistema: ${originais.length} empenhos originais (EO) de ${mascararCpf(credor.nome)} ` +
     `(CNPJ ${soDigitos(credor.cnpj)}) entre ${dataBR(datas[0])} e ${dataBR(datas[datas.length - 1])}, ` +
     `total ${formatBRL(total)}. Por ano — ${linhaPorAno(originais)}.` +
     (mostrados < originais.length
@@ -122,7 +123,7 @@ function montarDossieCredor({
   return {
     tipo: 'credor',
     chave: `credor:${soDigitos(credor.cnpj)}`,
-    titulo: `${credor.nome} (CNPJ ${soDigitos(credor.cnpj)})`,
+    titulo: `${mascararCpf(credor.nome)} (CNPJ ${soDigitos(credor.cnpj)})`,
     amostra: escolhidos.length < originais.length,
     fontes,
     tokens_estimados: estimateTokensFromText(fontes.map(f => f.texto).join('\n')),

@@ -26,7 +26,9 @@ async function analisarCredor({
   chamarModelo = false,
 }) {
   const credor = repo.buscarCredor(cnpj);
-  if (!credor) {throw new Error(`Credor ${cnpj} não encontrado nos empenhos`);}
+  if (!credor) {
+    throw new Error(`Credor ${cnpj} não encontrado nos empenhos`);
+  }
   const dossie = montarDossieCredor({
     credor,
     empenhos: repo.listarEmpenhosDoCredor(cnpj),
@@ -44,7 +46,9 @@ async function analisarCredor({
     aceitos: [],
     descartados: [],
   };
-  if (!chamarModelo) {return medida;}
+  if (!chamarModelo) {
+    return medida;
+  }
 
   const { bruto, duracao_ms: duracao } = await perguntarAoModelo({ provider, prompt });
   const resposta = lerRespostaAnalista(bruto);
@@ -54,12 +58,13 @@ async function analisarCredor({
     duracao_ms: duracao,
     tokens_resposta_estimados: estimateTokensFromText(bruto),
   };
-  if (!resposta)
-    {return {
+  if (!resposta) {
+    return {
       ...base,
       erro: 'Resposta do modelo não contém JSON válido',
       bruta: String(bruto).slice(0, 500),
-    };}
+    };
+  }
   return { ...base, ...verificarAchados(resposta, dossie) };
 }
 
