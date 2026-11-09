@@ -18,6 +18,7 @@ const {
   parseDetalhamentoDespesa,
 } = require('./portal-transparencia-thread');
 const { upsertDespesa, getDespesaPorEmpenho } = require('../db/transparencia-repo');
+const { substituirItens } = require('../db/despesa-itens-repo');
 const { csvConfereComRegistro } = require('./despesa-csv');
 
 // ponytail: delay fixo entre requisições — o fluxo faz várias por despesa
@@ -190,6 +191,34 @@ async function baixarCsv(cliente, sessao, pathResultadoHtml) {
   return String(csvResp.data || '');
 }
 
+// Registro de despesa a partir da linha do CSV e da página de detalhe. Licitação, modalidade e
+// itens vêm só do detalhe (o CSV não os traz).
+function montarRegistroDespesa({ item, exercicio, detalhe }) {
+  return {
+    empenho: item.empenho,
+    exercicio,
+    tipo: item.tipo,
+    dataDoEmpenho: paraFormatoIso(item.dataEmpenho),
+    dataDeLiquidacao: paraFormatoIso(item.dataLiquidacao),
+    dataDePagamento: paraFormatoIso(item.dataPagamento),
+    valor: item.valor,
+    credor: detalhe?.credor || item.credorNomeParcial,
+    unidade: detalhe?.unidade,
+    funcao: detalhe?.funcao,
+    subfuncao: detalhe?.subfuncao,
+    programa: detalhe?.programa,
+    projetoAtividade: detalhe?.projetoAtividade,
+    categoriaEconomica: detalhe?.categoriaEconomica,
+    fonteDeRecurso: detalhe?.fonteDeRecurso,
+    coTce: detalhe?.coTce,
+    coAux: detalhe?.coAux,
+    historico: detalhe?.historico,
+    licitacao: detalhe?.licitacao,
+    modalidade: detalhe?.modalidade,
+    itens: detalhe?.itens,
+  };
+}
+
 async function buscarDetalhe(cliente, sessao, { empenho, exercicio }) {
   const id8Desp = empenho.replace(/\D/g, '');
   await sleep(DELAY_MS);
@@ -259,32 +288,23 @@ async function coletarDespesasJanelaViaThread(
         empenho: item.empenho,
         exercicio,
       });
-      return {
-        empenho: item.empenho,
-        exercicio,
-        tipo: item.tipo,
-        dataDoEmpenho: paraFormatoIso(item.dataEmpenho),
-        dataDeLiquidacao: paraFormatoIso(item.dataLiquidacao),
-        dataDePagamento: paraFormatoIso(item.dataPagamento),
-        valor: item.valor,
-        credor: detalhe.credor || item.credorNomeParcial,
-        unidade: detalhe?.unidade,
-        funcao: detalhe?.funcao,
-        subfuncao: detalhe?.subfuncao,
-        programa: detalhe?.programa,
-        projetoAtividade: detalhe?.projetoAtividade,
-        categoriaEconomica: detalhe?.categoriaEconomica,
-        fonteDeRecurso: detalhe?.fonteDeRecurso,
-        coTce: detalhe?.coTce,
-        coAux: detalhe?.coAux,
-        historico: detalhe?.historico,
-      };
+      return montarRegistroDespesa({ item, exercicio, detalhe });
     },
-    row => (row.jaConfere ? 'unchanged' : upsertDespesa(row))
+    row => {
+      if (row.jaConfere) {
+        return 'unchanged';
+      }
+      const resultado = upsertDespesa(row);
+      if (row.itens?.length) {
+        substituirItens(row.exercicio, row.empenho, row.itens);
+      }
+      return resultado;
+    }
   );
 }
 
 module.exports = {
+  montarRegistroDespesa,
   paraFormatoBr,
   paraFormatoIso,
   coletarDespesasJanelaViaThread,

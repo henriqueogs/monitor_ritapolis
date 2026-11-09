@@ -48,9 +48,44 @@ async function backfillLicitacaoModalidade({
       total.falhas += 1;
     }
     aoProgredir(total);
-    if (delayMs) {await esperar(delayMs);}
+    if (delayMs) {
+      await esperar(delayMs);
+    }
   }
   return total;
 }
 
-module.exports = { backfillLicitacaoModalidade };
+// Mesma leitura da página, para gravar os itens da nota fiscal dos empenhos que já têm modalidade.
+async function backfillItens({
+  repo,
+  buscarHtml,
+  anoMin = 0,
+  limite,
+  apply = false,
+  delayMs = ESPERA_PADRAO_MS,
+}) {
+  const alvos = repo.listarSemItens({ anoMin, ...(limite ? { limite } : {}) });
+  const total = { lidos: 0, comItens: 0, gravados: 0, semDado: 0, falhas: 0, apply };
+  for (const alvo of alvos) {
+    total.lidos += 1;
+    try {
+      const detalhe = parseDetalhamentoDespesa(await buscarHtml(alvo));
+      if (!detalhe || detalhe.empenho !== alvo.empenho || !detalhe.itens?.length) {
+        total.semDado += 1;
+      } else {
+        total.comItens += 1;
+        if (apply && repo.substituirItens(alvo.exercicio_orcamento, alvo.empenho, detalhe.itens)) {
+          total.gravados += 1;
+        }
+      }
+    } catch {
+      total.falhas += 1;
+    }
+    if (delayMs) {
+      await esperar(delayMs);
+    }
+  }
+  return total;
+}
+
+module.exports = { backfillLicitacaoModalidade, backfillItens };

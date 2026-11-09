@@ -9,7 +9,8 @@ mockConn.exec(fs.readFileSync(path.resolve(__dirname, '../db/schema.sql'), 'utf8
 jest.mock('../db/connection', () => ({ db: mockConn }));
 
 const repo = require('../db/backfill-detalhe-repo');
-const { backfillLicitacaoModalidade } = require('./backfill-licitacao-modalidade');
+const itensRepo = require('../db/despesa-itens-repo');
+const { backfillLicitacaoModalidade, backfillItens } = require('./backfill-licitacao-modalidade');
 
 const HTML_ADESAO = `<TR><TD><b>Licitação:</b> 00005225 / 0</TD><TD><b>Modalidade:</b> Adesão a Registro de Preços - 00122025</TD></TR>
   <TR><TD><b>Número:</b>&nbsp;<B>{EMP}</B></TD></TR>`;
@@ -75,6 +76,50 @@ describe('backfill-detalhe-repo', () => {
   });
 });
 
+describe('backfillItens', () => {
+  const PAGINA = emp => `${htmlDe(emp)}
+    <TR><TH colspan='3'>Item 1</TH></TR>
+    <TR><TD colspan='3'><b>Produto:</b> 00000001283 - ENGRENAGEM</TD></TR>
+    <TR><TD colspan='3'><b>Unidade:</b> PÇ</TD></TR>
+    <TR><TD><b>Quantidade:</b> 1,00</TD><TD><b>Valor Unitário:</b> 3.187,26</TD><TD><b>Total:</b> 3.187,26</TD></TR>`;
+  const base = (extra = {}) => ({ repo: itensRepo, delayMs: 0, anoMin: 2025, ...extra });
+  const contar = () =>
+    mockConn.prepare('SELECT COUNT(*) n FROM transparencia_despesas_itens').get().n;
+
+  beforeEach(() => {
+    mockConn.exec('DELETE FROM transparencia_despesas_itens; DELETE FROM transparencia_despesas;');
+    seq = 0;
+  });
+
+  it('dry-run conta mas não grava; apply grava os itens do empenho com modalidade', async () => {
+    seed({ modalidade: 'Adesão a Registro de Preços' });
+    seed({});
+    const seco = await backfillItens(base({ buscarHtml: async x => PAGINA(x.empenho) }));
+    expect(seco).toMatchObject({ lidos: 1, comItens: 1, gravados: 0, apply: false });
+    expect(contar()).toBe(0);
+    const r = await backfillItens(base({ buscarHtml: async x => PAGINA(x.empenho), apply: true }));
+    expect(r).toMatchObject({ lidos: 1, comItens: 1, gravados: 1 });
+    expect(contar()).toBe(1);
+  });
+
+  it('página de outro empenho ou sem itens não grava; falha não interrompe', async () => {
+    seed({ modalidade: 'Pregão' });
+    seed({ modalidade: 'Pregão' });
+    seed({ modalidade: 'Pregão' });
+    const r = await backfillItens(
+      base({
+        apply: true,
+        buscarHtml: async x => {
+          if (x.empenho === '00001-000') {return '<html>sem itens</html>';}
+          if (x.empenho === '00002-000') {throw new Error('timeout');}
+          return PAGINA('99999-000');
+        },
+      })
+    );
+    expect(r).toMatchObject({ lidos: 3, gravados: 0, semDado: 2, falhas: 1 });
+  });
+});
+
 describe('backfillLicitacaoModalidade', () => {
   beforeEach(() => {
     mockConn.exec('DELETE FROM transparencia_despesas');
@@ -126,7 +171,9 @@ describe('backfillLicitacaoModalidade', () => {
     const r = await backfillLicitacaoModalidade(
       opcoes(
         async x => {
-          if (x.empenho === '00002-000') {throw new Error('timeout');}
+          if (x.empenho === '00002-000') {
+            throw new Error('timeout');
+          }
           return htmlDe(x.empenho);
         },
         { apply: true }

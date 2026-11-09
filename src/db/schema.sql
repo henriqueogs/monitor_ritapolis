@@ -379,6 +379,26 @@ CREATE TABLE IF NOT EXISTS transparencia_despesas (
 -- Índice de credor_chave é criado em transparencia-migracoes.js (após o
 -- ALTER TABLE em bancos existentes — aqui quebraria em banco pré-migração).
 
+-- Itens da nota fiscal de cada empenho (página de detalhe da despesa): base para comparar
+-- preço unitário entre empenhos. Substituídos por inteiro a cada coleta do empenho.
+CREATE TABLE IF NOT EXISTS transparencia_despesas_itens (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  despesa_id INTEGER NOT NULL REFERENCES transparencia_despesas(id) ON DELETE CASCADE,
+  nota_fiscal TEXT,
+  item INTEGER NOT NULL,
+  produto_codigo TEXT,
+  produto TEXT,
+  complemento TEXT,
+  unidade TEXT,
+  marca TEXT,
+  quantidade REAL,
+  valor_unitario REAL,
+  valor_total REAL,
+  coletado_em TEXT DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_transp_despesas_itens_despesa ON transparencia_despesas_itens(despesa_id);
+CREATE INDEX IF NOT EXISTS idx_transp_despesas_itens_produto ON transparencia_despesas_itens(produto_codigo);
+
 CREATE TABLE IF NOT EXISTS transparencia_despesas_classificacoes (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   despesa_id INTEGER NOT NULL REFERENCES transparencia_despesas(id) ON DELETE CASCADE,
