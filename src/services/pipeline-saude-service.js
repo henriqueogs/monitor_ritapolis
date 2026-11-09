@@ -83,10 +83,16 @@ function getSaudePipeline({ agora = new Date() } = {}) {
   }
   const failureCounts = state?.failure_counts || (state?.failures || [])
     .map(f => ({ categoria: classifyAiError(f.error), total: 1 }));
+  const somarReais = counts => counts.reduce(
+    (total, f) => total + (CATEGORIAS_REVISAO.has(f.categoria) ? 0 : f.total), 0
+  );
   const revisao = failureCounts.reduce(
     (total, f) => total + (CATEGORIAS_REVISAO.has(f.categoria) ? f.total : 0), 0
   );
-  const falhasReais = failureCounts.reduce((total, f) => total + f.total, 0) - revisao;
+  // Só falha recente derruba o status; a esgotada e antiga fica como aviso (senão um timeout
+  // de semanas atrás mantém o workflow vermelho e o e-mail do GitHub a cada 6h).
+  const falhasReais = somarReais(state?.failure_counts_recentes || failureCounts);
+  const falhasAntigas = somarReais(failureCounts) - falhasReais;
   if (falhasReais > 0) {
     avaliacao.motivos.push('tarefas_atuais_com_falha');
   }
@@ -95,6 +101,9 @@ function getSaudePipeline({ agora = new Date() } = {}) {
     avaliacao.motivos.push(...campanha.motivos);
   }
   const avisos = revisao ? ['documentos_aguardando_revisao'] : [];
+  if (falhasAntigas > 0) {
+    avisos.push('falhas_antigas_sem_reprocesso');
+  }
   if (
     state?.oldest_pending_recent &&
     agora.getTime() - Date.parse(state.oldest_pending_recent) > DIA_MS
@@ -117,6 +126,7 @@ function getSaudePipeline({ agora = new Date() } = {}) {
               oldest_pending_recent: state.oldest_pending_recent,
               waiting: state.waiting,
               falhas_reais: falhasReais,
+              falhas_antigas: falhasAntigas,
               aguardando_revisao: revisao,
               failure_counts: failureCounts,
               safety: { paused: state.safety.paused, reason: state.safety.reason },

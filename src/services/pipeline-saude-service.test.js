@@ -171,6 +171,35 @@ describe('pipeline-saude-service', () => {
   });
 });
 
+describe('pipeline-saude-service: falhas esgotadas antigas', () => {
+  const montar = (recentes) => {
+    const pipeline = require('../pipeline/coordinator');
+    pipeline.enabled.mockReturnValue(true);
+    pipeline.status.mockReturnValue({
+      counts: [], safety: { paused: false }, failures: [],
+      failure_counts: [{ categoria: 'timeout', total: 2 }],
+      failure_counts_recentes: recentes,
+    });
+    repo.getUltimoResumoOk.mockReturnValue({ em: AGORA.toISOString() });
+    repo.contarRecentesSemResumo.mockReturnValue({ total: 9, semResumo: 0, semTexto: 0 });
+    return getSaudePipeline({ agora: AGORA });
+  };
+
+  it('falha esgotada e antiga vira aviso, não derruba o status (nem o e-mail do workflow)', () => {
+    const result = montar([]);
+    expect(result.motivos).not.toContain('tarefas_atuais_com_falha');
+    expect(result.status).toBe('ok');
+    expect(result.avisos).toContain('falhas_antigas_sem_reprocesso');
+    expect(result.pipeline).toMatchObject({ falhas_reais: 0, falhas_antigas: 2 });
+  });
+
+  it('falha recente continua gerando alerta', () => {
+    const result = montar([{ categoria: 'timeout', total: 1 }]);
+    expect(result.motivos).toContain('tarefas_atuais_com_falha');
+    expect(result.pipeline).toMatchObject({ falhas_reais: 1, falhas_antigas: 1 });
+  });
+});
+
 describe('pipeline-saude-service: campanha historica', () => {
   const config = require('../config');
   const original = config.pipelineHistoricalDocsPerDay;
