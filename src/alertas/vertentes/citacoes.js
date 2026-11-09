@@ -28,7 +28,9 @@ function citacoesDoHistorico(historico) {
 
 function contar(chaves) {
   const contagem = new Map();
-  for (const c of chaves) {contagem.set(c, (contagem.get(c) || 0) + 1);}
+  for (const c of chaves) {
+    contagem.set(c, (contagem.get(c) || 0) + 1);
+  }
   return [...contagem.entries()]
     .sort((a, b) => b[1] - a[1])
     .map(([chaveCitada, n]) => ({ chave: chaveCitada, n }));
@@ -66,4 +68,37 @@ function frasesDasCitacoes({ processos, adesoes, total }) {
   };
 }
 
-module.exports = { citacoesDoHistorico, resumirCitacoes, frasesDasCitacoes };
+// Modalidade registrada no portal (campo "Modalidade" do detalhe da despesa). Procedimento
+// (registro de preços, pregão, concorrência...) significa que o empenho foi feito sob um
+// instrumento; "Dispensa" não: continua sendo o caso que a vertente quer ver.
+const RE_COM_PROCEDIMENTO =
+  /registro de precos|pregao|concorrencia|tomada de precos|convite|leilao|credenciamento|chamamento/;
+const semAcentoMinusculo = texto =>
+  String(texto ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase();
+
+const coberturaPorModalidade = modalidade =>
+  RE_COM_PROCEDIMENTO.test(semAcentoMinusculo(modalidade));
+
+function resumirModalidades(empenhos) {
+  return contar(empenhos.map(e => String(e.modalidade ?? '').trim()).filter(Boolean)).map(
+    ({ chave: modalidade, n }) => ({ modalidade, n })
+  );
+}
+
+function fraseModalidades(modalidades, total) {
+  if (!modalidades.length) {return '';}
+  const partes = modalidades.map(m => `${m.modalidade} (${m.n} de ${total} empenhos)`);
+  return ` No portal, os empenhos constam como: ${partes.join('; ')}.`;
+}
+
+module.exports = {
+  citacoesDoHistorico,
+  resumirCitacoes,
+  frasesDasCitacoes,
+  coberturaPorModalidade,
+  resumirModalidades,
+  fraseModalidades,
+};

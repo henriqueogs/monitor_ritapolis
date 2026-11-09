@@ -19,14 +19,15 @@ function seedEmpenho({
   valor = 20000,
   tipo = 'EO',
   historico = 'Aquisição de pneus para a frota',
+  modalidade = null,
 }) {
   seq += 1;
   mockConn
     .prepare(
       `INSERT INTO transparencia_despesas
          (exercicio_orcamento, empenho, tipo, data_empenho, credor_cnpj, credor_nome,
-          valor, historico, hash_despesa)
-       VALUES (2025, ?, ?, ?, ?, 'AUTO PECAS LTDA', ?, ?, ?)`
+          valor, historico, modalidade, hash_despesa)
+       VALUES (2025, ?, ?, ?, ?, 'AUTO PECAS LTDA', ?, ?, ?, ?)`
     )
     .run(
       `${String(seq).padStart(5, '0')}-000`,
@@ -35,6 +36,7 @@ function seedEmpenho({
       cnpj,
       valor,
       historico,
+      modalidade,
       `h-${seq}`
     );
 }
@@ -124,6 +126,13 @@ describe('compras-repetidas-runner', () => {
       expect(a.severidade).toBe('info');
       expect(a.narrativa).toContain('Processo 52/2025 (4 de 4 empenhos)');
     });
+  });
+
+  it('empenhos com modalidade de procedimento (adesão a registro de preços) saem da análise', () => {
+    [1, 8, 15, 22].forEach(dia =>
+      seedEmpenho({ dia, modalidade: 'Adesão a Registro de Preços - 00122025' })
+    );
+    expect(gerarDescobertasComprasRepetidas().candidatos).toBe(0);
   });
 
   it('dry-run não grava', () => {

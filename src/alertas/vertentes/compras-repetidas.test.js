@@ -206,6 +206,34 @@ describe('vertente compras-repetidas', () => {
     });
   });
 
+  describe('modalidade registrada no portal', () => {
+    const comModalidade = modalidade =>
+      [1, 8, 15, 22].map(d => empenho(d, { modalidade, licitacao_ref: '00005225 / 0' }));
+
+    it.each([
+      'Adesão a Registro de Preços - 00122025',
+      'Pregão Eletrônico - 00012025',
+      'Concorrência - 00032025',
+    ])('empenhos com procedimento (%s) estão cobertos e saem', modalidade => {
+      expect(vertente.detectar(ctx(comModalidade(modalidade)))).toEqual([]);
+    });
+
+    it('dispensa continua candidata, com a modalidade no texto e nos metadados', () => {
+      const [c] = vertente.detectar(ctx(comModalidade('Dispensa de Licitação - 00042025')));
+      expect(c).toBeDefined();
+      expect(c.narrativa).toContain('Dispensa de Licitação - 00042025 (4 de 4 empenhos)');
+      expect(c.alerta.metadados.modalidades).toEqual([
+        { modalidade: 'Dispensa de Licitação - 00042025', n: 4 },
+      ]);
+    });
+
+    it('sem modalidade (ainda não coletada) o comportamento não muda', () => {
+      const [c] = vertente.detectar(ctx(quatro()));
+      expect(c.alerta.metadados.modalidades).toEqual([]);
+      expect(c.narrativa).not.toMatch(/modalidade|constam no portal/i);
+    });
+  });
+
   it('linguagem sem acusação: fato, critério e o que falta confirmar', () => {
     const [c] = vertente.detectar(ctx(quatro()));
     expect(c.narrativa).toMatch(/não localizou/i);
