@@ -1,5 +1,7 @@
 'use strict';
 
+const { parseItensDespesa } = require('./despesa-itens');
+
 /**
  * Coleta de despesas do Portal da Transparência via o fluxo "thread" que a
  * página humana usa (sessão + token por carregamento + geração assíncrona +
@@ -177,6 +179,7 @@ function parseDetalhamentoDespesa(html) {
     // acima do número; as colunas licitacao_ref/modalidade existiam, mas nunca eram preenchidas.
     licitacao: campo('Licitação'),
     modalidade: campo('Modalidade'),
+    itens: parseItensDespesa(texto),
   };
 }
 
