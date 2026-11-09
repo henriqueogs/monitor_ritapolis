@@ -53,6 +53,17 @@ function compactar(valor) {
  * - Rejeita CNPJ da Prefeitura ou da Câmara do ente (isCnpjDoEnte)
  * - Rejeita strings que não tenham exatamente 14 dígitos válidos
  */
+function ehCnpjDoEnte(valor) {
+  if (!valor) {
+    return false;
+  }
+  if (isCnpjDoEnte(valor)) {
+    return true;
+  }
+  const dig = normalizarCnpj(String(valor));
+  return Boolean(dig && dig.length >= 8 && RAIZES_CNPJ_ENTE.includes(dig.slice(0, 8)));
+}
+
 function sanitizarCnpjFornecedor(valor, { formatado = true } = {}) {
   const texto = compactar(valor);
   if (!texto || /^(?:undefined|null|nan|-+)$/i.test(texto)) {
@@ -177,7 +188,7 @@ function sanitizarNomeFornecedor(valor) {
     .replace(/\s+\w?\]\s*$/g, '')
     .replace(/\s+/g, ' ')
     .trim()
-    .replace(/^[.,;:–-]+|[.,;:–-]+$/g, '')
+    .replace(/^[.,;:–-]+|[,;:–-]+$/g, '')
     .trim();
 
   if (ehNomeFornecedorInvalido(texto)) {
@@ -200,7 +211,7 @@ function sanitizarFornecedor({ nome = null, cnpj = null } = {}, opts = {}) {
 }
 
 module.exports = {
-  ehCnpjDoEnte: isCnpjDoEnte,
+  ehCnpjDoEnte,
   isCnpjDoEnte,
   ehNomeFornecedorInvalido,
   isNomeFornecedorInvalido: ehNomeFornecedorInvalido,

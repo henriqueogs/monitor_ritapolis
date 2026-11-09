@@ -49,9 +49,7 @@ const { normalizarControlePncp } = require('../licitacoes/pncp-resultados');
 const { SEM_RESULTADO_PNCP, sqlValorComProcedencia } = require('./licitacoes-detalhes-sql');
 const {
   sanitizarNomeFornecedor,
-  sanitizarCnpjFornecedor,
-  sanitizarFornecedor,
-} = require('../licitacoes/fornecedor-sanitizador');
+  sanitizarCnpjFornecedor,} = require('../licitacoes/fornecedor-sanitizador');
 const { isCnpjDoEnte } = require('../ente');
 
 // Desestrutura helpers do documentos-repo para uso nas funções restantes

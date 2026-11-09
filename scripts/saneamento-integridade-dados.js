@@ -369,7 +369,7 @@ function sanearProdutosQuantidadesEPlausibilidade() {
     let novaQtd = item.quantidade;
     let novoTotalEst = item.valor_total_estimado;
     let novoTotalFin = item.valor_total_final;
-    let novoStatus = 'rejeitado';
+    const novoStatus = 'rejeitado';
 
     if (novaQtd > 10000000) {
       novaQtd = null;

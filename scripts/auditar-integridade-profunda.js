@@ -16,9 +16,7 @@
  */
 
 const {
-  db,
-  listDocumentos,
-  listLicitacoes,
+  db,  listLicitacoes,
   getLicitacaoAnaliseAnual,
   getFornecedoresRanking,
 } = require('../src/db/index');

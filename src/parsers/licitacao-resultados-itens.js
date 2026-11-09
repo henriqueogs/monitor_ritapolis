@@ -4,6 +4,7 @@ const {
 } = require('../licitacoes/valor-final-tipo');
 const { ente, formatarCnpj } = require('../ente');
 const {
+  ehCnpjDoEnte,
   sanitizarNomeFornecedor,
   sanitizarCnpjFornecedor,
 } = require('../licitacoes/fornecedor-sanitizador');
@@ -352,7 +353,7 @@ function parsePlataformaEletronicaSegment(segment, cnpjMap) {
     valor_total_final: null,
     valor_final_tipo: isLote ? 'lote' : inferValorFinalTipo(descricao),
     fornecedor_nome: fornecedorNome,
-    fornecedor_cnpj: sanitizarCnpjFornecedor(match[2]) || findFornecedorCnpj(cnpjMap, fornecedorNome),
+    fornecedor_cnpj: (!ehCnpjDoEnte(match[2]) && match[2]) || findFornecedorCnpj(cnpjMap, fornecedorNome),
     origem: 'ata_resultado',
     origem_detalhe: isLote ? 'ata:plataforma_eletronica_lote' : 'ata:plataforma_eletronica_item',
     trecho_fonte: buildTrechoFonte(segment.numero, descricao, fornecedorNome, match[3], 'classificacao'),

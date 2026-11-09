@@ -6,8 +6,7 @@
  * Recebe o handle do banco por parâmetro (evita ciclo com src/db/index.js).
  */
 
-const { isCnpjDoEnte } = require('../ente');
-const { sanitizarNomeFornecedor, sanitizarCnpjFornecedor } = require('../licitacoes/fornecedor-sanitizador');
+const { ehCnpjDoEnte, sanitizarNomeFornecedor } = require('../licitacoes/fornecedor-sanitizador');
 const { SQL_TIPO_ORDINARIO } = require('./tipo-empenho');
 const { sqlValorFinalDeEmpenho } = require('./valor-final-empenho');
 
@@ -33,7 +32,7 @@ function agregarEmpenhosPorCredor(db) {
     .all();
 
   return rows
-    .filter((row) => !isCnpjDoEnte(row.cnpj) && sanitizarCnpjFornecedor(row.cnpj))
+    .filter((row) => !ehCnpjDoEnte(row.cnpj))
     .map((row) => ({
       ...row,
       nome: sanitizarNomeFornecedor(row.nome) || row.nome,
@@ -64,10 +63,10 @@ function agregarVencedoresPorCnpj(db) {
     .all();
 
   return rows
-    .filter((row) => !isCnpjDoEnte(row.cnpj) && sanitizarCnpjFornecedor(row.cnpj))
+    .filter((row) => !ehCnpjDoEnte(row.cnpj))
     .map((row) => ({
       ...row,
-      nome: sanitizarNomeFornecedor(row.nome),
+      nome: sanitizarNomeFornecedor(row.nome) || row.nome,
     }));
 }
 
