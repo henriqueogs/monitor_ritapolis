@@ -16,7 +16,7 @@ function listarEmpenhosOriginais() {
   return db
     .prepare(
       `SELECT id, empenho, credor_nome, credor_cnpj, valor, tipo, historico,
-              exercicio_orcamento, data_empenho
+              exercicio_orcamento, data_empenho, modalidade, licitacao_ref
          FROM transparencia_despesas
         WHERE tipo LIKE 'EO%' AND data_empenho IS NOT NULL AND valor > 0
           AND credor_cnpj IS NOT NULL AND TRIM(credor_cnpj) <> ''`

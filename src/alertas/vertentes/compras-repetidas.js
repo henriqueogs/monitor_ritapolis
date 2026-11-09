@@ -11,15 +11,21 @@
 const { limiteDispensa, motivoExclusao, CATEGORIAS_LIMITE } = require('../limites-dispensa');
 const { formatBRL } = require('../tipos');
 const { evidenciaEmpenho } = require('./execucao-contratual');
-const { citacoesDoHistorico, resumirCitacoes, frasesDasCitacoes } = require('./citacoes');
+const { chaveDoObjeto, rotuloDoObjeto } = require('./objeto');
+const {
+  citacoesDoHistorico,
+  resumirCitacoes,
+  frasesDasCitacoes,
+  coberturaPorModalidade,
+  resumirModalidades,
+  fraseModalidades,
+} = require('./citacoes');
 
 const TIPO_ORIGINAL = 'EO';
 const JANELA_DIAS = 90;
 const MIN_DATAS = 4;
 const MAX_EVIDENCIAS = 10;
 const OBJETOS_NO_TEXTO = 2;
-const TOKENS_NO_OBJETO = 3;
-const TAMANHO_MIN_TOKEN = 4;
 const MS_DIA = 86400000;
 const CENTAVOS = 100;
 const MOEDA = 'R$';
@@ -30,53 +36,9 @@ const CAMPOS_A_VERIFICAR = [
   'se o objeto é o mesmo nos empenhos',
 ];
 
-const PALAVRAS_VAZIAS = new Set([
-  'para',
-  'pela',
-  'pelo',
-  'como',
-  'dessa',
-  'desse',
-  'municipal',
-  'prefeitura',
-  'municipio',
-  'aquisicao',
-  'compra',
-  'fornecimento',
-  'requisicao',
-  'pagamento',
-  'referente',
-  'objeto',
-  'conforme',
-  'valor',
-  'nota',
-  'fiscal',
-  'material',
-  'materiais',
-  'servico',
-  'servicos',
-  'processo',
-  'despesa',
-  'empenho',
-  'empenha',
-  'empenhado',
-  'contratacao',
-  'empresa',
-  'destinado',
-  'atender',
-]);
-
-const semAcento = texto => texto.normalize('NFD').replace(/[̀-ͯ]/g, '');
 const soDigitos = valor => String(valor ?? '').replace(/\D/g, '');
 const arredonda = n => Math.round(n * CENTAVOS) / CENTAVOS;
 const diasEntre = (a, b) => (Date.parse(b) - Date.parse(a)) / MS_DIA;
-
-function chaveDoObjeto(historico) {
-  const tokens = semAcento(String(historico || '').toLowerCase())
-    .split(/[^a-z]+/)
-    .filter(t => t.length >= TAMANHO_MIN_TOKEN && !PALAVRAS_VAZIAS.has(t));
-  return tokens.slice(0, TOKENS_NO_OBJETO).join(' ');
-}
 
 function ehCandidatoValido(e) {
   const original = String(e.tipo || '')
@@ -93,6 +55,7 @@ function elegiveis(empenhos, processosNoAcervo) {
   return empenhos
     .filter(ehCandidatoValido)
     .filter(e => !processosNoAcervo.has(citacoesDoHistorico(e.historico).processo))
+    .filter(e => !coberturaPorModalidade(e.modalidade))
     .map(e => ({
       ...e,
       _chave: chaveDoObjeto(e.historico),
@@ -171,18 +134,6 @@ function consolidar(janelas) {
 
 const dataBR = iso => iso.split('-').reverse().join('/');
 
-// A chave de objeto é interna (sem acento); o texto ao cidadão usa as palavras como foram
-// escritas no histórico do empenho.
-function rotuloDoObjeto(historico, chave) {
-  const palavras = String(historico || '')
-    .toLowerCase()
-    .split(/[^\p{L}]+/u);
-  return chave
-    .split(' ')
-    .map(token => palavras.find(p => semAcento(p) === token) || token)
-    .join(' ');
-}
-
 function frasesLimite(primeiro, limite) {
   if (!limite.estimado) {
     return `(limite de dispensa de ${primeiro.exercicio_orcamento})`;
@@ -193,7 +144,7 @@ function frasesLimite(primeiro, limite) {
   );
 }
 
-function textos({ janela, soma, rotulos, frases }) {
+function textos({ janela, soma, rotulos, frases, modalidades }) {
   const primeiro = janela[0];
   const ultimo = janela[janela.length - 1];
   const objeto = rotulos.slice(0, OBJETOS_NO_TEXTO).join('; ');
@@ -211,7 +162,7 @@ function textos({ janela, soma, rotulos, frases }) {
       `O sistema encontrou ${janela.length} empenhos originais de ${primeiro.credor_nome} para ` +
       `objetos semelhantes ("${objeto}${outros}") entre ${periodo}, cada um abaixo de ` +
       `${formatBRL(primeiro._limite.valor)} ${frasesLimite(primeiro, primeiro._limite)}, ` +
-      `somando ${formatBRL(soma)}. ${frases.achado} A recorrência pode ter explicação ` +
+      `somando ${formatBRL(soma)}. ${frases.achado}${fraseModalidades(modalidades, janela.length)} A recorrência pode ter explicação ` +
       '(instrumento publicado fora do acervo, necessidade contínua); confira os empenhos e ' +
       `se existe instrumento para o objeto.${parcial}`,
   };
@@ -233,9 +184,10 @@ function janelaParaCandidato({ empenhos: janela, objetos, rotulos }) {
   const cnpj = soDigitos(primeiro.credor_cnpj);
   const citacoes = resumirCitacoes(janela);
   const frases = frasesDasCitacoes(citacoes);
+  const modalidades = resumirModalidades(janela);
   return {
     objeto: `${cnpj}|${primeiro.exercicio_orcamento}|${primeiro.data_empenho}`,
-    ...textos({ janela, soma, rotulos, frases }),
+    ...textos({ janela, soma, rotulos, frases, modalidades }),
     categoria: 'Compras e contratações',
     metrica: {
       nome: 'soma_janela',
@@ -265,6 +217,7 @@ function janelaParaCandidato({ empenhos: janela, objetos, rotulos }) {
         objetos_chave: objetos,
         processos_citados: citacoes.processos,
         adesoes_citadas: citacoes.adesoes,
+        modalidades,
         campos_a_verificar: CAMPOS_A_VERIFICAR,
       },
     },
