@@ -85,6 +85,16 @@ describe('vertente preco-itens', () => {
     expect(r[0].metrica.maior_preco).toBe(650);
   });
 
+  it('peça de manutenção de veículo/máquina não é comparável (a especificação depende do equipamento)', () => {
+    const manutencao = grupo().map(i => ({
+      ...i,
+      historico: 'AQUISIÇÃO DE PEÇAS PARA A MANUTENÇÃO DO CAMINHÃO PLACA HMG7088 DA FROTA',
+    }));
+    expect(vertente.detectar({ itens: manutencao })).toEqual([]);
+    const porPlaca = grupo().map(i => ({ ...i, historico: 'peças do veículo placa ABC1D23' }));
+    expect(vertente.detectar({ itens: porPlaca })).toEqual([]);
+  });
+
   it('exclui pessoa física e empenhos que não são originais', () => {
     const pf = grupo().map(i => ({ ...i, credor_cnpj: '12345678901' }));
     const ee = grupo().map(i => ({ ...i, tipo: 'EE' }));

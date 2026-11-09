@@ -30,6 +30,15 @@ const CAMPOS_A_VERIFICAR = [
   'quantidade, unidade e nota fiscal de cada empenho',
 ];
 
+// Peça para manutenção de um equipamento específico: o mesmo código de catálogo cobre peças de
+// especificações muito diferentes (carro, caminhão, motoniveladora), então o preço não compara.
+const SOB_MEDIDA = /manutencao d[oa]s? |\bplaca\b|pecas de reposicao/;
+const normalizar = texto =>
+  String(texto ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase();
+
 const arredonda = n => Math.round(n * CENTAVOS) / CENTAVOS;
 const dataBR = iso => String(iso).split('-').reverse().join('/');
 const digitos = v => String(v ?? '').replace(/\D/g, '');
@@ -49,7 +58,8 @@ function comparavel(i) {
     String(i.unidade ?? '').trim() &&
     i.valor_unitario > 0 &&
     i.quantidade > 0 &&
-    !motivoExclusao({ credor_documento: i.credor_cnpj, historico: i.historico })
+    !motivoExclusao({ credor_documento: i.credor_cnpj, historico: i.historico }) &&
+    !SOB_MEDIDA.test(normalizar(i.historico))
   );
 }
 
@@ -57,7 +67,9 @@ function agrupar(itens) {
   const grupos = new Map();
   for (const i of itens.filter(comparavel)) {
     const k = `${i.produto_codigo}|${String(i.unidade).trim().toUpperCase()}`;
-    if (!grupos.has(k)) {grupos.set(k, []);}
+    if (!grupos.has(k)) {
+      grupos.set(k, []);
+    }
     grupos.get(k).push(i);
   }
   return grupos;
@@ -111,10 +123,13 @@ function textoDoAchado({ grupo, ref, altos, razao }) {
 }
 
 function candidatoDoGrupo(grupo) {
-  if (grupo.length < MIN_ITENS || new Set(grupo.map(i => i.despesa_id)).size < MIN_EMPENHOS)
-    {return null;}
+  if (grupo.length < MIN_ITENS || new Set(grupo.map(i => i.despesa_id)).size < MIN_EMPENHOS) {
+    return null;
+  }
   const ref = mediana(grupo.map(i => i.valor_unitario));
-  if (!temReferenciaEstavel(grupo, ref)) {return null;}
+  if (!temReferenciaEstavel(grupo, ref)) {
+    return null;
+  }
   const altos = grupo
     .filter(
       i =>
@@ -122,7 +137,9 @@ function candidatoDoGrupo(grupo) {
         (i.valor_unitario - ref) * i.quantidade >= EXCESSO_MINIMO_REAIS
     )
     .sort((a, b) => a.valor_unitario - b.valor_unitario);
-  if (!altos.length) {return null;}
+  if (!altos.length) {
+    return null;
+  }
   const maior = altos[altos.length - 1];
   const razao = maior.valor_unitario / ref;
   const referencia = grupo
