@@ -63,6 +63,23 @@ test('failure totals include older unresolved failures beyond the ten displayed 
   expect(q.status().failure_counts).toEqual([{ categoria: 'revisao_fonte', total: 11 }]);
 });
 
+test('failure_counts_recentes conta só falhas dentro da janela de 3 dias', () => {
+  const velha = q.enqueue({ ...task, entity: 'velha' }, now);
+  q.claim(now);
+  q.finish(velha.id, { error: 'Request timed out.' }, now);
+  const nova = q.enqueue({ ...task, entity: 'nova' }, now);
+  q.claim(now);
+  q.finish(nova.id, { error: 'Request timed out.' }, now);
+  const dia = 24 * 3600000;
+  db.prepare('UPDATE pipeline_jobs SET finished_at=? WHERE id=?')
+    .run(new Date(now.getTime() - 5 * dia).toISOString(), velha.id);
+  db.prepare('UPDATE pipeline_jobs SET finished_at=? WHERE id=?')
+    .run(new Date(now.getTime() - 1 * dia).toISOString(), nova.id);
+  const state = q.status(now);
+  expect(state.failure_counts).toEqual([{ categoria: 'timeout', total: 2 }]);
+  expect(state.failure_counts_recentes).toEqual([{ categoria: 'timeout', total: 1 }]);
+});
+
 test('checkpoints survive interruption and are cleared only with committed queue success', () => {
   const job = q.enqueue(task, now);
   const progress = require('./progress').createProgress(db, job.identity);

@@ -23,6 +23,9 @@ const ITEMS_BUDGET_SHARE = 0.25;
 const ITEMS_JOB_CAP_MS = 30 * 60000;
 const ITEMS_JOB_CAP_ERROR = 'Itens: leitura excede o limite de tempo por documento; exige revisao';
 
+// Falha esgotada há mais tempo que isso deixa de ser "atual" para o alerta de saúde (vira aviso).
+const JANELA_FALHAS_ATUAIS_MS = 3 * 24 * 3600000;
+
 function createQueue(
   db,
   {
@@ -280,6 +283,9 @@ function createQueue(
         )
         .all(),
       failure_counts: getFailureCounts(db),
+      failure_counts_recentes: getFailureCounts(db, {
+        desde: new Date(now.getTime() - JANELA_FALHAS_ATUAIS_MS).toISOString(),
+      }),
       backup: meta('backup'),
     };
   }
