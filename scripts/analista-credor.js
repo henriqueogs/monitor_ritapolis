@@ -9,13 +9,18 @@
  *   node scripts/analista-credor.js --cnpj ... --chamar-modelo  # chama o modelo e verifica
  *   node scripts/analista-credor.js --lote 10 [--ano-min 2025] --saida lote.json
  *                                                               # top N em sequência, JSON p/ revisão
+ *   node scripts/analista-credor.js --gravar-de lote.json --so "trecho do titulo|outro" [--apply]
+ *                                      # grava em REVISÃO os achados escolhidos (dry-run sem --apply)
  */
 
 process.loadEnvFile?.() || require('dotenv').config();
 
 const { setupDatabase } = require('../src/db/setup');
 const repo = require('../src/db/analista-repo');
+const { upsertAlerta } = require('../src/db/alertas-repo');
 const fs = require('node:fs');
+const { achadoParaCandidato } = require('../src/ai/analista/para-candidato');
+const { persistirCandidatos } = require('../src/alertas/vertentes/persistencia');
 const { analisarCredor, analisarLote } = require('../src/ai/analista/analista-runner');
 const { filtrarAnalisaveis, mascararCpf } = require('../src/ai/analista/selecao');
 
@@ -40,14 +45,39 @@ async function rodarLote() {
     aoConcluir: r => {
       parciais.push(r);
       console.warn(`${r.chave} | aceitos ${r.aceitos.length} | ${r.erro || 'ok'}`);
-      if (saida) {fs.writeFileSync(saida, JSON.stringify(parciais, null, 2));}
+      if (saida) {
+        fs.writeFileSync(saida, JSON.stringify(parciais, null, 2));
+      }
     },
   });
   console.warn(`lote concluído: ${resultados.length} credores`);
 }
 
+function gravarEscolhidos() {
+  const resultados = JSON.parse(fs.readFileSync(argumento('--gravar-de'), 'utf8'));
+  const termos = String(argumento('--so') || '')
+    .split('|')
+    .filter(Boolean);
+  const ano = new Date().getFullYear();
+  const candidatos = resultados.flatMap(resultado =>
+    resultado.aceitos
+      .filter(a => termos.some(t => a.achado.includes(t)))
+      .map(achado => achadoParaCandidato({ resultado, achado, ano }))
+  );
+  for (const c of candidatos) {
+    console.warn(`- ${c.titulo}`);
+  }
+  const apply = process.argv.includes('--apply');
+  const r = persistirCandidatos(candidatos, { upsert: upsertAlerta, dryRun: !apply });
+  console.warn(`${candidatos.length} selecionados | gravados ${r.gravados} | falhas ${r.falhas}`);
+}
+
 async function main() {
   setupDatabase();
+  if (process.argv.includes('--gravar-de')) {
+    gravarEscolhidos();
+    return;
+  }
   if (process.argv.includes('--lote')) {
     await rodarLote();
     return;
