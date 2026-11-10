@@ -12,9 +12,11 @@ const { montarDossieCredor } = require('./dossie-credor');
 const { montarPromptAnalista, lerRespostaAnalista } = require('./prompt');
 const { verificarAchados } = require('./verificador');
 
-async function perguntarAoModelo({ provider, prompt }) {
+const TIMEOUT_PADRAO_MS = 420000;
+
+async function perguntarAoModelo({ provider, prompt, timeoutMs }) {
   const inicio = Date.now();
-  const bruto = await provider.generateJson({ prompt });
+  const bruto = await provider.generateJson({ prompt, timeoutMs });
   return { bruto, duracao_ms: Date.now() - inicio };
 }
 
@@ -24,6 +26,7 @@ async function analisarCredor({
   repo = analistaRepo,
   maxEmpenhos,
   chamarModelo = false,
+  timeoutMs = TIMEOUT_PADRAO_MS,
 }) {
   const credor = repo.buscarCredor(cnpj);
   if (!credor) {
@@ -50,7 +53,7 @@ async function analisarCredor({
     return medida;
   }
 
-  const { bruto, duracao_ms: duracao } = await perguntarAoModelo({ provider, prompt });
+  const { bruto, duracao_ms: duracao } = await perguntarAoModelo({ provider, prompt, timeoutMs });
   const resposta = lerRespostaAnalista(bruto);
   const base = {
     ...medida,
@@ -68,4 +71,21 @@ async function analisarCredor({
   return { ...base, ...verificarAchados(resposta, dossie) };
 }
 
-module.exports = { analisarCredor };
+// Credores em sequência (o modelo grande é lento e a cota é compartilhada). Falha de um credor
+// vira erro registrado e o lote segue. `aoConcluir` recebe cada resultado assim que sai.
+async function analisarLote({ credores, aoConcluir = () => {}, ...opcoes }) {
+  const resultados = [];
+  for (const { cnpj } of credores) {
+    let resultado;
+    try {
+      resultado = await analisarCredor({ chamarModelo: true, ...opcoes, cnpj });
+    } catch (erro) {
+      resultado = { chave: cnpj, chamou: false, aceitos: [], descartados: [], erro: erro.message };
+    }
+    resultados.push(resultado);
+    aoConcluir(resultado);
+  }
+  return resultados;
+}
+
+module.exports = { analisarCredor, analisarLote };

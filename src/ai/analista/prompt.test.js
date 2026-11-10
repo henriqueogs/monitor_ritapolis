@@ -37,6 +37,13 @@ describe('montarPromptAnalista', () => {
     }
   });
 
+  it('manda ignorar o trivial (numeração reiniciada, erro de digitação, campo truncado)', () => {
+    expect(prompt).toMatch(/não relate/i);
+    expect(prompt).toMatch(/numeração/i);
+    expect(prompt).toMatch(/digitação/i);
+    expect(prompt).toMatch(/truncad/i);
+  });
+
   it('permite resposta sem achados (não força suspeita)', () => {
     expect(prompt).toMatch(/"achados": \[\]/);
     expect(prompt).toMatch(/nada incomum|nenhum achado/i);
