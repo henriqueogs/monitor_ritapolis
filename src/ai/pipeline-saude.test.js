@@ -61,17 +61,23 @@ describe('PipelineSaude', () => {
     });
 
     it('não devido antes do intervalo', () => {
-      expect(cicloDevido({ agora: AGORA, ultimoCicloEm: horasAtras(1), intervaloMs: 4 * HORA })).toBe(false);
+      expect(
+        cicloDevido({ agora: AGORA, ultimoCicloEm: horasAtras(1), intervaloMs: 4 * HORA })
+      ).toBe(false);
     });
 
     it('devido quando o intervalo passou', () => {
-      expect(cicloDevido({ agora: AGORA, ultimoCicloEm: horasAtras(5), intervaloMs: 4 * HORA })).toBe(true);
+      expect(
+        cicloDevido({ agora: AGORA, ultimoCicloEm: horasAtras(5), intervaloMs: 4 * HORA })
+      ).toBe(true);
     });
   });
 
   describe('classifyAiError (modelo encerrado)', () => {
     it('reconhece modelo em fim de vida / removido', () => {
-      expect(classifyAiError('410 Gone: model has reached its end of life')).toBe('modelo_indisponivel');
+      expect(classifyAiError('410 Gone: model has reached its end of life')).toBe(
+        'modelo_indisponivel'
+      );
       expect(classifyAiError('404 model moonshotai/kimi-k3 not found')).toBe('modelo_indisponivel');
     });
 
@@ -91,49 +97,82 @@ describe('PipelineSaude', () => {
       expect(['limite_tamanho', 'revisao_fonte']).toContain(classifyAiError(erro));
     });
     it('fonte ilegível ou alterada aguarda revisão', () => {
-      expect(classifyAiError('Texto insuficiente: extracao/OCR exige revisao')).toBe('revisao_fonte');
+      expect(classifyAiError('Texto insuficiente: extracao/OCR exige revisao')).toBe(
+        'revisao_fonte'
+      );
     });
     it('gates de qualidade do conteudo (OCR ruim, tabela contraditoria) aguardam revisao', () => {
       expect(classifyAiError('texto_baixa_qualidade_ocr')).toBe('revisao_fonte');
-      expect(classifyAiError('Itens: ausencia de tabela contradiz as linhas extraidas')).toBe('revisao_fonte');
+      expect(classifyAiError('Itens: ausencia de tabela contradiz as linhas extraidas')).toBe(
+        'revisao_fonte'
+      );
     });
     it('documento sem arquivo oficial (fonte sem PDF) e condicao da fonte, nao falha', () => {
-      expect(classifyAiError('Texto insuficiente: documento sem arquivo oficial')).toBe('revisao_fonte');
+      expect(classifyAiError('Texto insuficiente: documento sem arquivo oficial')).toBe(
+        'revisao_fonte'
+      );
     });
     it('erro de contrato continua sendo falha real', () => {
-      expect(classifyAiError('Too big: expected string to have <=700 characters')).toBe('contrato_invalido');
+      expect(classifyAiError('Too big: expected string to have <=700 characters')).toBe(
+        'contrato_invalido'
+      );
     });
     it('saida da IA rejeitada pelo contrato estrito (lista de issues do Zod) aguarda revisao', () => {
-      const issues = JSON.stringify([
-        {
-          expected: 'string',
-          code: 'invalid_type',
-          path: ['itens_solicitados', 0, 'trecho_fonte'],
-          message: 'Invalid input: expected string, received undefined',
-        },
-      ], null, 2);
+      const issues = JSON.stringify(
+        [
+          {
+            expected: 'string',
+            code: 'invalid_type',
+            path: ['itens_solicitados', 0, 'trecho_fonte'],
+            message: 'Invalid input: expected string, received undefined',
+          },
+        ],
+        null,
+        2
+      );
       expect(classifyAiError(issues)).toBe('contrato_rejeitado');
     });
   });
 });
 
 describe('avaliarCampanhaHistorica (força-tarefa de resumos históricos)', () => {
-  const base = { agora: AGORA, ativa: true, pendentes: 40, ultimaExecucaoEm: horasAtras(3), errosLimiteProvider: 0 };
+  const base = {
+    agora: AGORA,
+    ativa: true,
+    pendentes: 40,
+    ultimaExecucaoEm: horasAtras(3),
+    errosLimiteProvider: 0,
+  };
 
   it('campanha desligada nunca alerta', () => {
-    expect(avaliarCampanhaHistorica({ ...base, ativa: false, ultimaExecucaoEm: null, errosLimiteProvider: 9 })).toEqual([]);
+    expect(
+      avaliarCampanhaHistorica({
+        ...base,
+        ativa: false,
+        ultimaExecucaoEm: null,
+        errosLimiteProvider: 9,
+      })
+    ).toEqual([]);
   });
   it('andando normalmente: sem motivos', () => {
     expect(avaliarCampanhaHistorica(base)).toEqual([]);
   });
   it('429 do provedor nas ultimas 24h alerta', () => {
-    expect(avaliarCampanhaHistorica({ ...base, errosLimiteProvider: 1 })).toEqual(['campanha_limite_provider']);
+    expect(avaliarCampanhaHistorica({ ...base, errosLimiteProvider: 1 })).toEqual([
+      'campanha_limite_provider',
+    ]);
   });
   it('fila pendente e nada executado ha mais de 36h = sem progresso', () => {
-    expect(avaliarCampanhaHistorica({ ...base, ultimaExecucaoEm: horasAtras(37) })).toEqual(['campanha_sem_progresso']);
-    expect(avaliarCampanhaHistorica({ ...base, ultimaExecucaoEm: null })).toEqual(['campanha_sem_progresso']);
+    expect(avaliarCampanhaHistorica({ ...base, ultimaExecucaoEm: horasAtras(37) })).toEqual([
+      'campanha_sem_progresso',
+    ]);
+    expect(avaliarCampanhaHistorica({ ...base, ultimaExecucaoEm: null })).toEqual([
+      'campanha_sem_progresso',
+    ]);
   });
   it('sem pendencias e parada nao e problema (campanha concluida)', () => {
-    expect(avaliarCampanhaHistorica({ ...base, pendentes: 0, ultimaExecucaoEm: horasAtras(100) })).toEqual([]);
+    expect(
+      avaliarCampanhaHistorica({ ...base, pendentes: 0, ultimaExecucaoEm: horasAtras(100) })
+    ).toEqual([]);
   });
 });

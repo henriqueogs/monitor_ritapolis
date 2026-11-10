@@ -6,7 +6,7 @@ const {
   getResumoAiByDocumentoHash,
   markResumoAiJobProcessing,
   recoverStaleResumoAiJobs,
-  estruturarProdutosDeResumoAi
+  estruturarProdutosDeResumoAi,
 } = require('../db');
 const { summarizeDocument } = require('./summarize-document');
 
@@ -22,11 +22,11 @@ async function processJob(job) {
     logger.info('Processando job de resumo IA', {
       jobId: lockedJob.id,
       documentoId: lockedJob.documento_id,
-      force: lockedJob.force
+      force: lockedJob.force,
     });
 
     const result = await summarizeDocument(lockedJob.documento_id, {
-      force: lockedJob.force
+      force: lockedJob.force,
     });
     const resumoAi = getResumoAiByDocumentoHash(
       lockedJob.documento_id,
@@ -39,17 +39,23 @@ async function processJob(job) {
     logger.info('Job de resumo IA concluido', {
       jobId: lockedJob.id,
       documentoId: lockedJob.documento_id,
-      reutilizado: result.reutilizado
+      reutilizado: result.reutilizado,
     });
 
     if (resumoAi) {
       try {
         const prodResult = estruturarProdutosDeResumoAi(lockedJob.documento_id, resumoAi);
         if (prodResult.produtos_salvos > 0) {
-          logger.info('Produtos extraidos do resumo IA', { documentoId: lockedJob.documento_id, ...prodResult });
+          logger.info('Produtos extraidos do resumo IA', {
+            documentoId: lockedJob.documento_id,
+            ...prodResult,
+          });
         }
       } catch (err) {
-        logger.warn('Erro ao estruturar produtos do resumo IA', { documentoId: lockedJob.documento_id, erro: err.message });
+        logger.warn('Erro ao estruturar produtos do resumo IA', {
+          documentoId: lockedJob.documento_id,
+          erro: err.message,
+        });
       }
     }
   } catch (error) {
@@ -57,7 +63,7 @@ async function processJob(job) {
     logger.error('Job de resumo IA falhou', {
       jobId: lockedJob.id,
       documentoId: lockedJob.documento_id,
-      erro: error.message
+      erro: error.message,
     });
   }
 }
@@ -77,7 +83,9 @@ async function runPendingResumoAiJobs() {
     // eslint-disable-next-line no-constant-condition
     while (true) {
       const job = getNextPendingResumoAiJob();
-      if (!job) {break;}
+      if (!job) {
+        break;
+      }
       await processJob(job);
     }
   } finally {
@@ -87,9 +95,12 @@ async function runPendingResumoAiJobs() {
 
 function scheduleResumoAiJobWorker() {
   const pipeline = require('../pipeline/coordinator');
-  if (pipeline.enabled()) { pipeline.enqueueLegacy('summary'); return; }
+  if (pipeline.enabled()) {
+    pipeline.enqueueLegacy('summary');
+    return;
+  }
   setTimeout(() => {
-    runPendingResumoAiJobs().catch((error) => {
+    runPendingResumoAiJobs().catch(error => {
       logger.error('Worker de resumo IA falhou', { erro: error.message });
     });
   }, 0);
@@ -98,5 +109,5 @@ function scheduleResumoAiJobWorker() {
 module.exports = {
   processJob,
   runPendingResumoAiJobs,
-  scheduleResumoAiJobWorker
+  scheduleResumoAiJobWorker,
 };

@@ -3,7 +3,7 @@ const logger = require('../logger');
 const {
   buildLicitacaoLeituraIntegradaPayload,
   getResumoAiByDocumentoHash,
-  saveResumoAi
+  saveResumoAi,
 } = require('../db');
 const { estimateTokensFromText } = require('./estimate-tokens');
 const { buildIntegratedReadingPrompt } = require('./prompts/integrated-reading-prompt');
@@ -40,7 +40,7 @@ function validateIntegratedReading(value) {
   const parsed = IntegratedReadingContract.safeParse(value);
   if (!parsed.success) {
     const issues = parsed.error.issues
-      .map((issue) => `${issue.path.join('.') || 'raiz'}: ${issue.message}`)
+      .map(issue => `${issue.path.join('.') || 'raiz'}: ${issue.message}`)
       .join('; ');
     throw new Error(`Leitura integrada fora do contrato 2.0: ${issues}`);
   }
@@ -55,7 +55,9 @@ function normalizeForQuality(value) {
 }
 
 function normalizeFieldName(value) {
-  return normalizeForQuality(value).replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  return normalizeForQuality(value)
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
 }
 
 function buildReadingText(reading) {
@@ -63,8 +65,10 @@ function buildReadingText(reading) {
     reading?.titulo,
     reading?.leitura_integrada,
     ...(Array.isArray(reading?.pontos_principais) ? reading.pontos_principais : []),
-    ...(Array.isArray(reading?.consistencia) ? reading.consistencia.map((item) => item.descricao) : []),
-    ...(Array.isArray(reading?.alertas) ? reading.alertas.map((item) => item.descricao) : [])
+    ...(Array.isArray(reading?.consistencia)
+      ? reading.consistencia.map(item => item.descricao)
+      : []),
+    ...(Array.isArray(reading?.alertas) ? reading.alertas.map(item => item.descricao) : []),
   ].join(' ');
 }
 
@@ -73,13 +77,27 @@ function estimateIntegratedReadingConfidence(payload) {
   const produtosResumo = payload?.produtos_resumo || {};
   const detalhes = payload?.licitacao_detalhes || {};
 
-  if (Number(produtosResumo.total || 0) > 0) {score += 0.12;}
-  if (Number(produtosResumo.com_preco_final || 0) > 0) {score += 0.16;}
-  if (Number(produtosResumo.com_fornecedor || 0) > 0) {score += 0.12;}
-  if (detalhes.valor_final !== null) {score += 0.12;}
-  if (detalhes.vencedor_nome || detalhes.vencedor_cnpj) {score += 0.1;}
-  if (payload?.grupo) {score += 0.06;}
-  if (Array.isArray(payload?.fontes_pncp) && payload.fontes_pncp.length) {score += 0.1;}
+  if (Number(produtosResumo.total || 0) > 0) {
+    score += 0.12;
+  }
+  if (Number(produtosResumo.com_preco_final || 0) > 0) {
+    score += 0.16;
+  }
+  if (Number(produtosResumo.com_fornecedor || 0) > 0) {
+    score += 0.12;
+  }
+  if (detalhes.valor_final !== null) {
+    score += 0.12;
+  }
+  if (detalhes.vencedor_nome || detalhes.vencedor_cnpj) {
+    score += 0.1;
+  }
+  if (payload?.grupo) {
+    score += 0.06;
+  }
+  if (Array.isArray(payload?.fontes_pncp) && payload.fontes_pncp.length) {
+    score += 0.1;
+  }
 
   return Number(Math.min(score, 0.86).toFixed(2));
 }
@@ -92,11 +110,9 @@ function findIntegratedReadingQualityIssues(reading, payload) {
 
   if (
     produtosComPrecoFinal > 0 &&
-    (
-      /os valores ainda nao (foram )?definidos/.test(text) ||
+    (/os valores ainda nao (foram )?definidos/.test(text) ||
       /precos ainda nao (foram )?definidos/.test(text) ||
-      /nao ha precos finais/.test(text)
-    )
+      /nao ha precos finais/.test(text))
   ) {
     issues.push(
       `Ha ${produtosComPrecoFinal} produto(s) com preco final estruturado; nao diga que os valores/precos ainda nao foram definidos. Diferencie isso de valor final/global consolidado.`
@@ -107,7 +123,9 @@ function findIntegratedReadingQualityIssues(reading, payload) {
     payload?.licitacao_detalhes?.valor_final !== null &&
     /valor final (nao|sem|ausente|nao informado)/.test(text)
   ) {
-    issues.push('Ha valor final local consolidado em licitacao_detalhes.valor_final; nao marque valor_final como ausente.');
+    issues.push(
+      'Ha valor final local consolidado em licitacao_detalhes.valor_final; nao marque valor_final como ausente.'
+    );
   }
 
   return issues;
@@ -116,7 +134,7 @@ function findIntegratedReadingQualityIssues(reading, payload) {
 function normalizeIntegratedReadingQuality(reading, payload) {
   const normalized = {
     ...reading,
-    confianca: Number(reading.confianca || 0)
+    confianca: Number(reading.confianca || 0),
   };
   const hiddenGapFields = new Set([
     'confianca',
@@ -125,63 +143,71 @@ function normalizeIntegratedReadingQuality(reading, payload) {
     'trecho_fonte',
     'hash_conteudo',
     'texto_hash',
-    'payload_json'
+    'payload_json',
   ]);
   const lowSignalConsistencyFields = new Set([
     'produtos_total_estruturado',
     'produtos_resumo_com_preco_final',
     'produtos_resumo_com_fornecedor',
-    'contrato_versao'
+    'contrato_versao',
   ]);
   const knownGapLabels = {
     sem_produtos_estruturados: {
       campo: 'produtos_estruturados',
-      descricao: 'Produtos ou itens não foram estruturados nesta licitação.'
+      descricao: 'Produtos ou itens não foram estruturados nesta licitação.',
     },
     produtos_estruturados: {
       campo: 'produtos_estruturados',
-      descricao: 'Produtos ou itens não foram estruturados nesta licitação.'
+      descricao: 'Produtos ou itens não foram estruturados nesta licitação.',
     },
     sem_correspondencia_pncp: {
       campo: 'pncp',
-      descricao: 'Não há correspondência PNCP salva para esta licitação.'
+      descricao: 'Não há correspondência PNCP salva para esta licitação.',
     },
     correspondencia_pncp: {
       campo: 'pncp',
-      descricao: 'Não há correspondência PNCP salva para esta licitação.'
+      descricao: 'Não há correspondência PNCP salva para esta licitação.',
     },
     sem_valor_final_local: {
       campo: 'valor_final',
-      descricao: 'Não há valor final ou global consolidado nos dados locais.'
+      descricao: 'Não há valor final ou global consolidado nos dados locais.',
     },
     sem_vencedor_local: {
       campo: 'vencedor',
-      descricao: 'Não há vencedor consolidado nos dados locais.'
-    }
+      descricao: 'Não há vencedor consolidado nos dados locais.',
+    },
   };
   const hasPncp = Array.isArray(payload?.fontes_pncp) && payload.fontes_pncp.length > 0;
   const hasDivergencias = Array.isArray(payload?.divergencias) && payload.divergencias.length > 0;
-  const normalizeGap = (item) => {
+  const normalizeGap = item => {
     const field = normalizeFieldName(item?.campo);
     if (knownGapLabels[field]) {
       return knownGapLabels[field];
     }
     return item;
   };
-  const isMissingDescription = (value) =>
+  const isMissingDescription = value =>
     /(\bausente\b|ausencia|nao informado|não informado|nao ha|não há|sem correspondencia|sem correspondência|nao localizado|não localizado)/.test(
       normalizeForQuality(value)
     );
 
   normalized.lacunas = (Array.isArray(normalized.lacunas) ? normalized.lacunas : [])
     .map(normalizeGap)
-    .filter((item) => {
+    .filter(item => {
       const field = normalizeFieldName(item?.campo);
-      if (hiddenGapFields.has(field)) {return false;}
-      if (payload?.licitacao_detalhes?.vencedor_nome && ['fornecedor_nome', 'vencedor_nome'].includes(field)) {
+      if (hiddenGapFields.has(field)) {
         return false;
       }
-      if (payload?.licitacao_detalhes?.vencedor_cnpj && ['fornecedor_cnpj', 'vencedor_cnpj'].includes(field)) {
+      if (
+        payload?.licitacao_detalhes?.vencedor_nome &&
+        ['fornecedor_nome', 'vencedor_nome'].includes(field)
+      ) {
+        return false;
+      }
+      if (
+        payload?.licitacao_detalhes?.vencedor_cnpj &&
+        ['fornecedor_cnpj', 'vencedor_cnpj'].includes(field)
+      ) {
         return false;
       }
       if (payload?.licitacao_detalhes?.valor_final !== null && field === 'valor_final') {
@@ -190,7 +216,7 @@ function normalizeIntegratedReadingQuality(reading, payload) {
       return true;
     });
   normalized.consistencia = (Array.isArray(normalized.consistencia) ? normalized.consistencia : [])
-    .map((item) => {
+    .map(item => {
       const _field = normalizeFieldName(item?.campo);
       if (
         item?.status === 'divergente' &&
@@ -199,14 +225,16 @@ function normalizeIntegratedReadingQuality(reading, payload) {
       ) {
         return {
           ...item,
-          status: 'incompleto'
+          status: 'incompleto',
         };
       }
       return item;
     })
-    .filter((item) => {
+    .filter(item => {
       const field = normalizeFieldName(item?.campo);
-      if (hiddenGapFields.has(field) || lowSignalConsistencyFields.has(field)) {return false;}
+      if (hiddenGapFields.has(field) || lowSignalConsistencyFields.has(field)) {
+        return false;
+      }
       if (
         ['numero_pncp', 'pncp'].includes(field) &&
         !hasPncp &&
@@ -225,9 +253,13 @@ function normalizeIntegratedReadingQuality(reading, payload) {
     });
 
   normalized.alertas = (Array.isArray(normalized.alertas) ? normalized.alertas : [])
-    .filter((item) => {
+    .filter(item => {
       const text = normalizeForQuality(item?.descricao);
-      if (!hasPncp && /pncp/.test(text) && /(ausente|ausencia|nao ha|nao informado|sem correspondencia|nao localizado)/.test(text)) {
+      if (
+        !hasPncp &&
+        /pncp/.test(text) &&
+        /(ausente|ausencia|nao ha|nao informado|sem correspondencia|nao localizado)/.test(text)
+      ) {
         return false;
       }
       if (/nao ha divergencia de conteudo/.test(text)) {
@@ -238,12 +270,12 @@ function normalizeIntegratedReadingQuality(reading, payload) {
       }
       return true;
     })
-    .map((item) => {
+    .map(item => {
       const text = normalizeForQuality(item?.descricao);
       if (item?.nivel === 'alto' && /(ausente|ausencia|nao informado|nao ha|sem )/.test(text)) {
         return {
           ...item,
-          nivel: 'medio'
+          nivel: 'medio',
         };
       }
       return item;
@@ -274,7 +306,7 @@ function buildResultPayload({ documentoId, registro, textoHash, payload, reused 
     criado_em: registro.criado_em,
     atualizado_em: registro.atualizado_em,
     reutilizado: reused,
-    status: registro.status
+    status: registro.status,
   };
 }
 
@@ -291,7 +323,7 @@ async function correlateLicitation(documentoId, options = {}) {
       registro: cached,
       textoHash,
       payload,
-      reused: true
+      reused: true,
     });
   }
 
@@ -308,7 +340,7 @@ async function correlateLicitation(documentoId, options = {}) {
         : '';
       const rawResponse = await provider.generateJson({
         prompt: `${prompt}${qualityInstruction}`,
-        temperature: 0
+        temperature: 0,
       });
       const candidate = normalizeIntegratedReadingQuality(
         validateIntegratedReading(extractJsonObject(rawResponse)),
@@ -322,7 +354,9 @@ async function correlateLicitation(documentoId, options = {}) {
     }
 
     if (!validated) {
-      throw new Error(`Leitura integrada contradiz dados estruturados: ${lastQualityIssues.join('; ')}`);
+      throw new Error(
+        `Leitura integrada contradiz dados estruturados: ${lastQualityIssues.join('; ')}`
+      );
     }
 
     const registro = saveResumoAi({
@@ -334,7 +368,7 @@ async function correlateLicitation(documentoId, options = {}) {
       texto_hash: textoHash,
       tokens_estimados: estimateTokensFromText(payloadJson),
       status: 'ok',
-      erro: null
+      erro: null,
     });
 
     return buildResultPayload({
@@ -342,7 +376,7 @@ async function correlateLicitation(documentoId, options = {}) {
       registro,
       textoHash,
       payload,
-      reused: false
+      reused: false,
     });
   } catch (error) {
     saveResumoAi({
@@ -354,14 +388,14 @@ async function correlateLicitation(documentoId, options = {}) {
       texto_hash: textoHash,
       tokens_estimados: estimateTokensFromText(payloadJson),
       status: 'erro',
-      erro: error.message
+      erro: error.message,
     });
 
     logger.error('Falha ao gerar leitura integrada de licitacao', {
       documentoId,
       provider: provider.provider,
       modelo: provider.model,
-      erro: error.message
+      erro: error.message,
     });
 
     throw error;
@@ -373,5 +407,5 @@ module.exports = {
   correlateLicitation,
   normalizeIntegratedReadingQuality,
   normalizeSavedIntegratedReading,
-  validateIntegratedReading
+  validateIntegratedReading,
 };

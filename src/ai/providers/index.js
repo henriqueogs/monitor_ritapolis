@@ -19,13 +19,15 @@ function createAiProvider(env = process.env, overrides = {}) {
       baseURL: env.NVIDIA_BASE_URL || config.nvidiaBaseUrl,
       model: overrides.model || env.NVIDIA_MODEL || config.nvidiaModel,
       embedModel: env.NVIDIA_EMBED_MODEL || config.nvidiaEmbedModel,
-      timeoutMs: Number(env.AI_REQUEST_TIMEOUT_MS || config.aiRequestTimeoutMs)
+      timeoutMs: Number(env.AI_REQUEST_TIMEOUT_MS || config.aiRequestTimeoutMs),
     });
   }
 
-  throw new Error(`AI_PROVIDER nao suportado para uso operacional: ${provider}. Use AI_PROVIDER=nvidia.`);
+  throw new Error(
+    `AI_PROVIDER nao suportado para uso operacional: ${provider}. Use AI_PROVIDER=nvidia.`
+  );
 }
 
 module.exports = {
-  createAiProvider
+  createAiProvider,
 };

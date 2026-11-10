@@ -29,12 +29,18 @@ Use somente o texto fornecido. Nao invente numeros, nomes, datas ou valores
 que nao estejam no texto.
 
 Regras obrigatorias:
-${parciais ? `- Consolide TODOS os resumos parciais fornecidos, sem adicionar fatos externos.
+${
+  parciais
+    ? `- Consolide TODOS os resumos parciais fornecidos, sem adicionar fatos externos.
   Elimine repeticoes entre trechos sobrepostos. Nao some valores repetidos nem
   associe pessoas/valores de trechos diferentes sem uma relacao explicita.
   Uma lacuna de um trecho nao e uma ausencia no anexo inteiro: outros trechos
-  podem conter a informacao. Nao transforme lacunas parciais em afirmacoes globais.` : trecho ? `- Esta entrada e apenas um trecho do anexo. Resuma o que esta neste trecho;
-  nao afirme que uma informacao ausente aqui esta ausente no anexo inteiro.` : ''}
+  podem conter a informacao. Nao transforme lacunas parciais em afirmacoes globais.`
+    : trecho
+      ? `- Esta entrada e apenas um trecho do anexo. Resuma o que esta neste trecho;
+  nao afirme que uma informacao ausente aqui esta ausente no anexo inteiro.`
+      : ''
+}
 - POSTURA (obrigatoria): o texto e informativo e organizacional, NUNCA
   afirmacao de verdade absoluta nem recomendacao. Atribua a fonte ("segundo o
   documento", "conforme consta no texto"). Nao oriente acoes, nao de

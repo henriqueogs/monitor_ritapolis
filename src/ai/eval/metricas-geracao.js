@@ -31,6 +31,9 @@ const RADICAIS_ACUSATORIOS = [
   'malversa',
   'sobrepre',
   'irregular',
+  'fachada',
+  'conluio',
+  'esquema',
 ];
 
 const normalizar = t =>

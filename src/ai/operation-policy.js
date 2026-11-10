@@ -19,7 +19,7 @@ function getAiOperationPlan({ texto = '', caracteres = null } = {}) {
       modo: 'indisponivel',
       chunks_previstos: 0,
       limite_direto_chars: directLimit,
-      recomendado_frontend: false
+      recomendado_frontend: false,
     };
   }
 
@@ -31,7 +31,7 @@ function getAiOperationPlan({ texto = '', caracteres = null } = {}) {
       modo: 'direto',
       chunks_previstos: 0,
       limite_direto_chars: directLimit,
-      recomendado_frontend: true
+      recomendado_frontend: true,
     };
   }
 
@@ -43,7 +43,7 @@ function getAiOperationPlan({ texto = '', caracteres = null } = {}) {
       chunks_previstos: Math.ceil(totalChars / config.aiChunkSizeChars),
       limite_direto_chars: directLimit,
       chunk_min_chars: config.aiMinChunkSizeChars,
-      recomendado_frontend: false
+      recomendado_frontend: false,
     };
   }
 
@@ -51,7 +51,7 @@ function getAiOperationPlan({ texto = '', caracteres = null } = {}) {
     const chunks = splitTextIntoChunks(text, {
       chunkSizeChars: config.aiChunkSizeChars,
       chunkOverlapChars: config.aiChunkOverlapChars,
-      maxChunksPerDocument: config.aiMaxChunksPerDocument
+      maxChunksPerDocument: config.aiMaxChunksPerDocument,
     });
 
     return {
@@ -63,7 +63,7 @@ function getAiOperationPlan({ texto = '', caracteres = null } = {}) {
       chunk_size_chars: config.aiChunkSizeChars,
       chunk_min_chars: config.aiMinChunkSizeChars,
       chunk_overlap_chars: config.aiChunkOverlapChars,
-      recomendado_frontend: true
+      recomendado_frontend: true,
     };
   } catch (error) {
     return {
@@ -76,7 +76,7 @@ function getAiOperationPlan({ texto = '', caracteres = null } = {}) {
       chunk_size_chars: config.aiChunkSizeChars,
       chunk_min_chars: config.aiMinChunkSizeChars,
       chunk_overlap_chars: config.aiChunkOverlapChars,
-      recomendado_frontend: false
+      recomendado_frontend: false,
     };
   }
 }
@@ -84,5 +84,5 @@ function getAiOperationPlan({ texto = '', caracteres = null } = {}) {
 module.exports = {
   classifyAiError,
   getAiDirectCharLimit,
-  getAiOperationPlan
+  getAiOperationPlan,
 };

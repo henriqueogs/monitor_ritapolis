@@ -22,7 +22,7 @@ function buildAlertNarrativePrompt({
   sinais,
   motivos,
 }) {
-  const docsResumidos = documentos.slice(0, 20).map((d) => ({
+  const docsResumidos = documentos.slice(0, 20).map(d => ({
     id: d.id,
     titulo: (d.titulo || '').slice(0, 120),
     data_publicacao: d.data_publicacao || null,

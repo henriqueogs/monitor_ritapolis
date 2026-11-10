@@ -1,10 +1,6 @@
 'use strict';
 
-const {
-  fallbackInvestigation,
-  investigarDescoberta,
-  validateDiscoveryInvestigation,
-} = (() => {
+const { fallbackInvestigation, investigarDescoberta, validateDiscoveryInvestigation } = (() => {
   const mod = require('./discovery-investigation');
   const contract = require('./contracts/discovery-investigation-contract');
   return { ...mod, validateDiscoveryInvestigation: contract.validateDiscoveryInvestigation };
@@ -51,7 +47,7 @@ describe('discovery-investigation', () => {
     const result = fallbackInvestigation(alertaBase(), 'teste');
     expect(result.hipotese_publica).toContain('70 arvores');
     expect(result.o_que_os_dados_mostram.join(' ')).toContain('70');
-    expect(result.lacunas_encontradas.some((item) => item.includes('laudo tecnico'))).toBe(true);
+    expect(result.lacunas_encontradas.some(item => item.includes('laudo tecnico'))).toBe(true);
     expect(result.analise_admin).toContain('Fallback deterministico');
   });
 
@@ -63,40 +59,47 @@ describe('discovery-investigation', () => {
   });
 
   it('fallback nao produz narrativa_consolidada quando o toggle esta desligado', () => {
-    const result = fallbackInvestigation(alertaBase(), 'teste', { narrativaConsolidadaAtiva: false });
+    const result = fallbackInvestigation(alertaBase(), 'teste', {
+      narrativaConsolidadaAtiva: false,
+    });
     expect(result.narrativa_consolidada).toBeUndefined();
   });
 
   it('contrato rejeita linguagem acusatoria no publico', () => {
-    expect(() => validateDiscoveryInvestigation({
-      hipotese_publica: 'Ha suspeita de irregularidade nos documentos.',
-      pergunta_cidada: 'O que os documentos mostram?',
-      resposta_direta: 'Os documentos registram 70 arvores.',
-      por_que_olhar: 'Vale conferir o laudo tecnico.',
-      narrativa_consolidada: 'Os documentos registram 70 arvores. Vale conferir o laudo tecnico publicado.',
-      o_que_os_dados_mostram: ['70 arvores'],
-      lacunas_encontradas: [],
-      perguntas_abertas: [],
-      evidencias_usadas: [{ documento_id: 607, anexo_id: null, descricao: 'trecho' }],
-      nivel_confianca: 0.8,
-      analise_admin: 'admin pode ser incisivo',
-    })).toThrow(/acusatorio/);
+    expect(() =>
+      validateDiscoveryInvestigation({
+        hipotese_publica: 'Ha suspeita de irregularidade nos documentos.',
+        pergunta_cidada: 'O que os documentos mostram?',
+        resposta_direta: 'Os documentos registram 70 arvores.',
+        por_que_olhar: 'Vale conferir o laudo tecnico.',
+        narrativa_consolidada:
+          'Os documentos registram 70 arvores. Vale conferir o laudo tecnico publicado.',
+        o_que_os_dados_mostram: ['70 arvores'],
+        lacunas_encontradas: [],
+        perguntas_abertas: [],
+        evidencias_usadas: [{ documento_id: 607, anexo_id: null, descricao: 'trecho' }],
+        nivel_confianca: 0.8,
+        analise_admin: 'admin pode ser incisivo',
+      })
+    ).toThrow(/acusatorio/);
   });
 
   it('contrato rejeita linguagem acusatoria dentro de narrativa_consolidada', () => {
-    expect(() => validateDiscoveryInvestigation({
-      hipotese_publica: 'Vale conferir os documentos.',
-      pergunta_cidada: 'O que os documentos mostram?',
-      resposta_direta: 'Os documentos registram 70 arvores.',
-      por_que_olhar: 'Vale conferir o laudo tecnico.',
-      narrativa_consolidada: 'Ha indicio de fraude nos documentos analisados.',
-      o_que_os_dados_mostram: ['70 arvores'],
-      lacunas_encontradas: [],
-      perguntas_abertas: [],
-      evidencias_usadas: [{ documento_id: 607, anexo_id: null, descricao: 'trecho' }],
-      nivel_confianca: 0.8,
-      analise_admin: 'admin pode ser incisivo',
-    })).toThrow(/acusatorio/);
+    expect(() =>
+      validateDiscoveryInvestigation({
+        hipotese_publica: 'Vale conferir os documentos.',
+        pergunta_cidada: 'O que os documentos mostram?',
+        resposta_direta: 'Os documentos registram 70 arvores.',
+        por_que_olhar: 'Vale conferir o laudo tecnico.',
+        narrativa_consolidada: 'Ha indicio de fraude nos documentos analisados.',
+        o_que_os_dados_mostram: ['70 arvores'],
+        lacunas_encontradas: [],
+        perguntas_abertas: [],
+        evidencias_usadas: [{ documento_id: 607, anexo_id: null, descricao: 'trecho' }],
+        nivel_confianca: 0.8,
+        analise_admin: 'admin pode ser incisivo',
+      })
+    ).toThrow(/acusatorio/);
   });
 
   it('aceita a chave com typo evidencias_usada (singular) que o modelo as vezes devolve', () => {
@@ -105,7 +108,8 @@ describe('discovery-investigation', () => {
       pergunta_cidada: 'Quantos contratos houve?',
       resposta_direta: 'Foram 7 contratos.',
       por_que_olhar: 'Vale conferir o objeto.',
-      narrativa_consolidada: 'Foram 7 contratos no periodo, sem detalhe do objeto nos documentos analisados.',
+      narrativa_consolidada:
+        'Foram 7 contratos no periodo, sem detalhe do objeto nos documentos analisados.',
       o_que_os_dados_mostram: ['7 contratos'],
       nivel_confianca: 0.7,
       analise_admin: 'revisar',
@@ -124,7 +128,8 @@ describe('discovery-investigation', () => {
       pergunta_cidada: 'Quantos contratos houve?',
       resposta_direta: 'Foram 7 contratos.',
       por_que_olhar: 'Vale conferir o objeto.',
-      narrativa_consolidada: 'Foram 7 contratos no periodo, sem detalhe do objeto nos documentos analisados.',
+      narrativa_consolidada:
+        'Foram 7 contratos no periodo, sem detalhe do objeto nos documentos analisados.',
       o_que_os_dados_mostram: ['7 contratos'],
       nivel_confianca: 0.7,
       analise_admin: 'revisar',
@@ -132,7 +137,11 @@ describe('discovery-investigation', () => {
     const certa = [{ documento_id: 1, descricao: 'certa' }];
     const errada = [{ documento_id: 2, descricao: 'errada' }];
 
-    const validado = validateDiscoveryInvestigation({ ...base, evidencias_usadas: certa, evidencias_usada: errada });
+    const validado = validateDiscoveryInvestigation({
+      ...base,
+      evidencias_usadas: certa,
+      evidencias_usada: errada,
+    });
     expect(validado.evidencias_usadas[0].documento_id).toBe(1);
     expect(() => validateDiscoveryInvestigation(base)).toThrow(/evidencias_usadas/);
   });
@@ -143,7 +152,8 @@ describe('discovery-investigation', () => {
       pergunta_cidada: 'O que os documentos mostram?',
       resposta_direta: 'Os documentos registram 70 arvores.',
       por_que_olhar: 'Vale conferir o laudo tecnico.',
-      narrativa_consolidada: 'A prefeitura contratou a supressao de 70 arvores em 2026, sem registro de laudo tecnico nos documentos analisados.',
+      narrativa_consolidada:
+        'A prefeitura contratou a supressao de 70 arvores em 2026, sem registro de laudo tecnico nos documentos analisados.',
       o_que_os_dados_mostram: ['70 arvores'],
       lacunas_encontradas: [],
       perguntas_abertas: [],
@@ -168,19 +178,28 @@ describe('discovery-investigation', () => {
     const provider = {
       provider: 'mock',
       model: 'mock-model',
-      generateJson: jest.fn().mockResolvedValue(JSON.stringify({
-        hipotese_publica: 'A supressao de arvores em 2026 merece leitura dos documentos tecnicos publicados.',
-        pergunta_cidada: 'O que os documentos mostram sobre 70 arvores em 2026?',
-        resposta_direta: 'Os documentos 607 e 12 registram a supressao de 70 arvores em 2026.',
-        por_que_olhar: 'Os trechos analisados nao registram laudo tecnico ou compensacao ambiental.',
-        narrativa_consolidada: 'A prefeitura contratou a supressao de 70 arvores em 2026 (documentos 607 e 12), sem registro de laudo tecnico nos documentos analisados.',
-        o_que_os_dados_mostram: ['A contagem informada soma 70 arvores.'],
-        lacunas_encontradas: ['Nao encontrado nos documentos analisados: compensacao ou replantio.'],
-        perguntas_abertas: ['Existe laudo tecnico vinculado?'],
-        evidencias_usadas: [{ documento_id: 607, anexo_id: null, descricao: 'Supressao de 60 arvores.' }],
-        nivel_confianca: 0.82,
-        analise_admin: 'Sinal sensivel para revisar documentacao ambiental.',
-      })),
+      generateJson: jest.fn().mockResolvedValue(
+        JSON.stringify({
+          hipotese_publica:
+            'A supressao de arvores em 2026 merece leitura dos documentos tecnicos publicados.',
+          pergunta_cidada: 'O que os documentos mostram sobre 70 arvores em 2026?',
+          resposta_direta: 'Os documentos 607 e 12 registram a supressao de 70 arvores em 2026.',
+          por_que_olhar:
+            'Os trechos analisados nao registram laudo tecnico ou compensacao ambiental.',
+          narrativa_consolidada:
+            'A prefeitura contratou a supressao de 70 arvores em 2026 (documentos 607 e 12), sem registro de laudo tecnico nos documentos analisados.',
+          o_que_os_dados_mostram: ['A contagem informada soma 70 arvores.'],
+          lacunas_encontradas: [
+            'Nao encontrado nos documentos analisados: compensacao ou replantio.',
+          ],
+          perguntas_abertas: ['Existe laudo tecnico vinculado?'],
+          evidencias_usadas: [
+            { documento_id: 607, anexo_id: null, descricao: 'Supressao de 60 arvores.' },
+          ],
+          nivel_confianca: 0.82,
+          analise_admin: 'Sinal sensivel para revisar documentacao ambiental.',
+        })
+      ),
     };
     const result = await investigarDescoberta(alertaBase(), { provider });
     expect(result.metadados.discovery_v2.status).toBe('ok');
@@ -195,15 +214,20 @@ describe('discovery-investigation', () => {
     const provider = {
       provider: 'mock',
       model: 'mock-model',
-      generateJson: jest.fn().mockResolvedValue(JSON.stringify({
-        hipotese_publica: 'A supressao de arvores em 2026 merece leitura dos documentos tecnicos publicados.',
-        o_que_os_dados_mostram: ['A contagem informada soma 70 arvores.'],
-        lacunas_encontradas: [],
-        perguntas_abertas: [],
-        evidencias_usadas: [{ documento_id: 607, anexo_id: null, descricao: 'Supressao de 60 arvores.' }],
-        nivel_confianca: 0.82,
-        analise_admin: 'Sinal sensivel para revisar documentacao ambiental.',
-      })),
+      generateJson: jest.fn().mockResolvedValue(
+        JSON.stringify({
+          hipotese_publica:
+            'A supressao de arvores em 2026 merece leitura dos documentos tecnicos publicados.',
+          o_que_os_dados_mostram: ['A contagem informada soma 70 arvores.'],
+          lacunas_encontradas: [],
+          perguntas_abertas: [],
+          evidencias_usadas: [
+            { documento_id: 607, anexo_id: null, descricao: 'Supressao de 60 arvores.' },
+          ],
+          nivel_confianca: 0.82,
+          analise_admin: 'Sinal sensivel para revisar documentacao ambiental.',
+        })
+      ),
     };
     const result = await investigarDescoberta(alertaBase(), { provider });
     expect(result.metadados.discovery_v2.status).toBe('fallback');

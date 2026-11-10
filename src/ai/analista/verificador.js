@@ -28,6 +28,17 @@ const normalizar = texto =>
     .replace(/\s+/g, ' ')
     .trim();
 
+// Percentual e ano que o modelo escreveu mas as fontes não trazem: são contas ou palpites dele
+// (ex.: "aumento de 1.484%", "a partir de 2033"), não fatos do dossiê.
+const PERCENTUAL = /\d[\d.,]*\s*%/g;
+const ANO = /(?<!\d)(?:19|20)\d{2}(?!\d)/g;
+
+function derivadosForaDasFontes(texto, fontes) {
+  const base = normalizar([...fontes.values()].map(f => f.texto).join(' '));
+  const achados = [...texto.matchAll(PERCENTUAL), ...texto.matchAll(ANO)].map(m => m[0]);
+  return achados.filter(v => !base.includes(normalizar(v)));
+}
+
 function verificarEvidencia(evidencia, fontes) {
   const fonte = fontes.get(String(evidencia?.fonte_id));
   if (!fonte) {
@@ -62,6 +73,10 @@ function motivosDoAchado(achado, fontes, contexto) {
   const inventados = numerosInventados(texto, contexto);
   if (inventados.length) {
     motivos.push(`número fora das fontes: ${inventados.join(', ')}`);
+  }
+  const derivados = derivadosForaDasFontes(texto, fontes);
+  if (derivados.length) {
+    motivos.push(`percentual ou ano fora das fontes: ${derivados.join(', ')}`);
   }
   const acusatorios = termosAcusatorios(texto);
   if (acusatorios.length) {

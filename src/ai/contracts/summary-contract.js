@@ -8,7 +8,7 @@ const tipoDocumentoEnum = z.enum([
   'contrato',
   'despesa',
   'ata',
-  'outro'
+  'outro',
 ]);
 
 const dataTipoEnum = z.enum([
@@ -17,18 +17,21 @@ const dataTipoEnum = z.enum([
   'vigencia',
   'homologacao',
   'assinatura',
-  'outro'
+  'outro',
 ]);
 
 const valorTipoEnum = z.enum(['estimado', 'final', 'global', 'mensal', 'unitario', 'outro']);
-const valorFinalTipoEnum = z.enum(['unitario', 'total_item', 'lote', 'global', 'indefinido']).nullable().default(null);
+const valorFinalTipoEnum = z
+  .enum(['unitario', 'total_item', 'lote', 'global', 'indefinido'])
+  .nullable()
+  .default(null);
 const papelEnum = z.enum([
   'contratante',
   'contratado',
   'autoridade',
   'fornecedor',
   'orgao_publico',
-  'outro'
+  'outro',
 ]);
 const nivelRiscoEnum = z.enum(['baixo', 'medio', 'alto']);
 
@@ -45,9 +48,12 @@ const SummaryContract = z.object({
     .array(
       z.object({
         tipo: dataTipoEnum,
-        data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+        data: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .nullable(),
         descricao: z.string().trim().min(1),
-        trecho_fonte: z.string().trim().min(1)
+        trecho_fonte: z.string().trim().min(1),
       })
     )
     .default([]),
@@ -58,7 +64,7 @@ const SummaryContract = z.object({
         valor: z.number().finite(),
         moeda: z.string().trim().min(1).default('BRL'),
         descricao: z.string().trim().min(1),
-        trecho_fonte: z.string().trim().min(1)
+        trecho_fonte: z.string().trim().min(1),
       })
     )
     .default([]),
@@ -68,7 +74,7 @@ const SummaryContract = z.object({
         nome: z.string().trim().min(1),
         papel: papelEnum,
         documento: z.string().trim().min(1).nullable(),
-        trecho_fonte: z.string().trim().min(1)
+        trecho_fonte: z.string().trim().min(1),
       })
     )
     .default([]),
@@ -89,27 +95,27 @@ const SummaryContract = z.object({
         valor_global_final: nullableNumber,
         fornecedor_nome: nullableText,
         fornecedor_cnpj: nullableText,
-        trecho_fonte: z.string().trim().min(1)
+        trecho_fonte: z.string().trim().min(1),
       })
     )
     .default([]),
   objeto: z.object({
     descricao: z.string().trim().min(1).nullable(),
-    trecho_fonte: z.string().trim().min(1).nullable()
+    trecho_fonte: z.string().trim().min(1).nullable(),
   }),
   riscos_ou_alertas: z
     .array(
       z.object({
         nivel: nivelRiscoEnum,
         descricao: z.string().trim().min(1),
-        motivo: z.string().trim().min(1)
+        motivo: z.string().trim().min(1),
       })
     )
     .default([]),
   campos_nao_encontrados: z.array(z.string().trim().min(1)).default([]),
-  confianca: z.number().min(0).max(1)
+  confianca: z.number().min(0).max(1),
 });
 
 module.exports = {
-  SummaryContract
+  SummaryContract,
 };

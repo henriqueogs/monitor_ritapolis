@@ -22,11 +22,15 @@ const CONTRACT_VERSION_HEURISTICO = 'anexo-1.0';
 
 function getAnexoSummaryVersion(texto) {
   return String(texto || '').length > MAX_TEXTO_CHARS
-    ? CONTRACT_VERSION_FULL_IA : CONTRACT_VERSION_IA;
+    ? CONTRACT_VERSION_FULL_IA
+    : CONTRACT_VERSION_IA;
 }
 
 function textoHash(texto) {
-  return crypto.createHash('sha256').update(String(texto || ''), 'utf8').digest('hex');
+  return crypto
+    .createHash('sha256')
+    .update(String(texto || ''), 'utf8')
+    .digest('hex');
 }
 
 // Saída quebrada da IA (JSON inválido ou fora do contrato) costuma sumir numa
@@ -76,19 +80,36 @@ function heuristico(anexo, motivo) {
 
 async function gerarViaIa(anexo, documento, provider, progress) {
   const version = getAnexoSummaryVersion(anexo.texto_completo);
-  const chunkSize = Math.min(MAX_TEXTO_CHARS, Math.max(1000, Number(config.aiChunkSizeChars) || 6000));
-  const chunks = version === CONTRACT_VERSION_IA ? [String(anexo.texto_completo)] :
-    splitTextIntoChunks(anexo.texto_completo, {
-      chunkSizeChars: chunkSize,
-      chunkOverlapChars: Math.min(Math.max(0, Number(config.aiChunkOverlapChars) || 0), Math.floor(chunkSize / 10)),
-      maxChunksPerDocument: config.aiMaxChunksPerDocument,
-    });
+  const chunkSize = Math.min(
+    MAX_TEXTO_CHARS,
+    Math.max(1000, Number(config.aiChunkSizeChars) || 6000)
+  );
+  const chunks =
+    version === CONTRACT_VERSION_IA
+      ? [String(anexo.texto_completo)]
+      : splitTextIntoChunks(anexo.texto_completo, {
+          chunkSizeChars: chunkSize,
+          chunkOverlapChars: Math.min(
+            Math.max(0, Number(config.aiChunkOverlapChars) || 0),
+            Math.floor(chunkSize / 10)
+          ),
+          maxChunksPerDocument: config.aiMaxChunksPerDocument,
+        });
   // Bind checkpoints to the ENTIRE input, metadata, model and chunk policy.
   // A prefix shared by two versions of a file is not evidence for that file.
-  const input = textoHash(JSON.stringify([version, provider.provider, provider.model,
-    anexo.texto_completo, anexo.nome, anexo.tipo,
-    [documento?.titulo, documento?.tipo, documento?.ano], chunkSize,
-    config.aiChunkOverlapChars]));
+  const input = textoHash(
+    JSON.stringify([
+      version,
+      provider.provider,
+      provider.model,
+      anexo.texto_completo,
+      anexo.nome,
+      anexo.tipo,
+      [documento?.titulo, documento?.tipo, documento?.ano],
+      chunkSize,
+      config.aiChunkOverlapChars,
+    ])
+  );
   async function validatedRequest(prompt) {
     const step = `anexo-summary:${input}:${textoHash(prompt)}`;
     const saved = progress?.load(step);
@@ -102,7 +123,12 @@ async function gerarViaIa(anexo, documento, provider, progress) {
     for (let tentativa = 0; tentativa < tentativas; tentativa++) {
       progress?.checkTime();
       const temperature = TEMPERATURA_BASE + tentativa * TEMPERATURA_RETRY_PASSO;
-      const raw = await generateWithProgress(provider, { prompt, temperature }, progress, config.aiRequestTimeoutMs);
+      const raw = await generateWithProgress(
+        provider,
+        { prompt, temperature },
+        progress,
+        config.aiRequestTimeoutMs
+      );
       try {
         const summary = validateAnexoResumo(extractJsonObject(raw));
         progress?.save(step, { summary });
@@ -112,16 +138,27 @@ async function gerarViaIa(anexo, documento, provider, progress) {
           throw err;
         }
         ultimoErro = err;
-        logger.warn('Resumo de anexo: saida invalida da IA; nova tentativa', { anexoId: anexo.id, tentativa: tentativa + 1, erro: err.message });
+        logger.warn('Resumo de anexo: saida invalida da IA; nova tentativa', {
+          anexoId: anexo.id,
+          tentativa: tentativa + 1,
+          erro: err.message,
+        });
       }
     }
     throw ultimoErro;
   }
   let summaries = [];
   for (let i = 0; i < chunks.length; i++) {
-    summaries.push(await validatedRequest(buildAnexoResumoPrompt({ anexo, documento,
-      texto: chunks[i], trecho: chunks.length > 1 ? { indice: i + 1, total: chunks.length } : null,
-    })));
+    summaries.push(
+      await validatedRequest(
+        buildAnexoResumoPrompt({
+          anexo,
+          documento,
+          texto: chunks[i],
+          trecho: chunks.length > 1 ? { indice: i + 1, total: chunks.length } : null,
+        })
+      )
+    );
   }
   // Bounded tree: every leaf must have completed before publishing a canonical
   // result. A failed consolidation resumes without sending completed text again.
@@ -136,7 +173,9 @@ async function gerarViaIa(anexo, documento, provider, progress) {
       if (JSON.stringify(group).length > 24000) {
         throw new Error('Resumos parciais de anexo excedem o limite seguro de consolidacao');
       }
-      next.push(await validatedRequest(buildAnexoResumoPrompt({ anexo, documento, parciais: group })));
+      next.push(
+        await validatedRequest(buildAnexoResumoPrompt({ anexo, documento, parciais: group }))
+      );
     }
     summaries = next;
   }
@@ -147,10 +186,18 @@ async function gerarViaIa(anexo, documento, provider, progress) {
     modelo: provider.model,
     resumo_json: {
       aviso: 'Resumo gerado por IA a partir do texto extraído do anexo.',
-      anexo: { nome: anexo.nome || null, tipo: anexo.tipo || null, status_extracao: anexo.status_extracao || null },
+      anexo: {
+        nome: anexo.nome || null,
+        tipo: anexo.tipo || null,
+        status_extracao: anexo.status_extracao || null,
+      },
       ...validado,
-      cobertura: { texto_hash: textoHash(anexo.texto_completo), caracteres: String(anexo.texto_completo).length,
-        trechos: chunks.length, completa: true },
+      cobertura: {
+        texto_hash: textoHash(anexo.texto_completo),
+        caracteres: String(anexo.texto_completo).length,
+        trechos: chunks.length,
+        completa: true,
+      },
     },
     confianca: validado.confianca,
     erro: null,
@@ -164,13 +211,26 @@ async function gerarViaIa(anexo, documento, provider, progress) {
 async function summarizeAnexo(anexo, options = {}) {
   const hash = textoHash(anexo.texto_completo);
   const cached = anexo.resumo_ai;
-  if (!options.force && cached?.texto_hash === hash && cached.contrato_versao === getAnexoSummaryVersion(anexo.texto_completo)
-      && cached.status === 'ok' && !cached.erro) {
+  if (
+    !options.force &&
+    cached?.texto_hash === hash &&
+    cached.contrato_versao === getAnexoSummaryVersion(anexo.texto_completo) &&
+    cached.status === 'ok' &&
+    !cached.erro
+  ) {
     try {
       validateAnexoResumo(cached.dados);
-      return { id: cached.id, contrato_versao: cached.contrato_versao, texto_hash: hash,
-        resumo_json: cached.dados, provider: cached.provider, modelo: cached.modelo,
-        confianca: cached.confianca, erro: null, cached: true };
+      return {
+        id: cached.id,
+        contrato_versao: cached.contrato_versao,
+        texto_hash: hash,
+        resumo_json: cached.dados,
+        provider: cached.provider,
+        modelo: cached.modelo,
+        confianca: cached.confianca,
+        erro: null,
+        cached: true,
+      };
     } catch {
       logger.warn('Resumo de anexo armazenado invalido; precisa regenerar', { anexoId: anexo.id });
     }

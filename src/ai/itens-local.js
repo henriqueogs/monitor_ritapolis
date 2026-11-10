@@ -32,7 +32,7 @@ const CAMPOS_DOCUMENTO = [
 
 function montarPacote({ documento, atas = [] }) {
   const enxuto = Object.fromEntries(
-    CAMPOS_DOCUMENTO.filter((campo) => campo in documento).map((campo) => [campo, documento[campo]])
+    CAMPOS_DOCUMENTO.filter(campo => campo in documento).map(campo => [campo, documento[campo]])
   );
   return {
     documento: enxuto,

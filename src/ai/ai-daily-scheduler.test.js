@@ -1,7 +1,9 @@
 'use strict';
 
 jest.mock('./summarize-pending-documents', () => ({
-  summarizePendingDocuments: jest.fn().mockResolvedValue({ total_selecionados: 1, total_ok: 0, total_erro: 0 }),
+  summarizePendingDocuments: jest
+    .fn()
+    .mockResolvedValue({ total_selecionados: 1, total_ok: 0, total_erro: 0 }),
 }));
 jest.mock('./extract-entities', () => ({ extractEntitiesFromResumes: jest.fn() }));
 jest.mock('../alertas/alert-generator', () => ({ generateAlerts: jest.fn() }));

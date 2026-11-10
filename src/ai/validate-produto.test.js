@@ -11,7 +11,9 @@ describe('ai/validate-produto · interpretarVeredito', () => {
   });
 
   it('confere=nao → rejeitado', () => {
-    expect(interpretarVeredito({ confere: 'nao', motivo: 'valor difere' }).status).toBe('rejeitado');
+    expect(interpretarVeredito({ confere: 'nao', motivo: 'valor difere' }).status).toBe(
+      'rejeitado'
+    );
   });
 
   it('confere=parcial → pendente (precisa humano)', () => {

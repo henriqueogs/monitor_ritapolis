@@ -55,5 +55,5 @@ ${payloadJson}
 }
 
 module.exports = {
-  buildIntegratedReadingPrompt
+  buildIntegratedReadingPrompt,
 };

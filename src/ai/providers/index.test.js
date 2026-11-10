@@ -1,7 +1,7 @@
 'use strict';
 
 jest.mock('./nvidia-provider', () => ({
-  NvidiaProvider: jest.fn().mockImplementation((cfg) => ({ ...cfg, provider: 'nvidia' })),
+  NvidiaProvider: jest.fn().mockImplementation(cfg => ({ ...cfg, provider: 'nvidia' })),
 }));
 jest.mock('../../config', () => ({
   aiProvider: 'nvidia',

@@ -47,7 +47,7 @@ function validateNarrative(value) {
   const parsed = AlertNarrativeContract.safeParse(value);
   if (!parsed.success) {
     const issues = parsed.error.issues
-      .map((issue) => `${issue.path.join('.') || 'raiz'}: ${issue.message}`)
+      .map(issue => `${issue.path.join('.') || 'raiz'}: ${issue.message}`)
       .join('; ');
     throw new Error(`Narrativa de alerta fora do contrato: ${issues}`);
   }
