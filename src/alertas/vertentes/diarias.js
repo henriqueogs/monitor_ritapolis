@@ -75,57 +75,99 @@ const base = () => ({
   campos_a_verificar: ['soma e período dos empenhos de diárias', 'finalidade das viagens'],
 });
 
+// Regime legal vigente: Lei 1.696/2025 (26/03/2025) e Decretos 73 e 74 (31/03/2025) trocaram a
+// regra e a tabela de diárias. Antes de abril/2025 o regime era outro, então o ano que o contém
+// só é comparável a partir de 01/04 (fiscal-datas: comparar o comparável).
+const REGIME_LEGAL = { desde: 2025, mesDia: '04-01', rotulo: 'Lei 1.696/2025' };
+const VALOR_ALTO = 1000;
+
+function resumoDoPeriodo(lista) {
+  const total = arredonda(soma(lista));
+  return {
+    total,
+    n: lista.length,
+    media: lista.length ? arredonda(total / lista.length) : 0,
+    altos: lista.filter(e => e.valor >= VALOR_ALTO).length,
+  };
+}
+
+function variacaoDe(atual, anterior) {
+  return anterior ? atual / anterior - 1 : null;
+}
+
 function candidatoCrescimento(porAno) {
   const anos = [...porAno.keys()].sort((a, b) => b - a);
   const atual = anos[0];
-  if (!porAno.has(atual - 1) || mandatoInicio(atual) !== mandatoInicio(atual - 1)) {return null;}
+  if (!porAno.has(atual - 1) || mandatoInicio(atual) !== mandatoInicio(atual - 1)) {
+    return null;
+  }
+  const desde = atual >= REGIME_LEGAL.desde ? REGIME_LEGAL.mesDia : '01-01';
   const ate = porAno
     .get(atual)
     .map(e => e.data_empenho.slice(5))
     .sort()
     .pop();
-  const noPeriodo = ano => porAno.get(ano).filter(e => e.data_empenho.slice(5) <= ate);
-  const valorAtual = arredonda(soma(noPeriodo(atual)));
-  const valorAnterior = arredonda(soma(noPeriodo(atual - 1)));
-  if (!valorAnterior || valorAtual < valorAnterior * (1 + ALTA_MINIMA)) {return null;}
-  if (valorAtual - valorAnterior < ALTA_MINIMA_REAIS) {return null;}
-  const variacao = valorAtual / valorAnterior - 1;
+  const noPeriodo = ano =>
+    porAno.get(ano).filter(e => e.data_empenho.slice(5) >= desde && e.data_empenho.slice(5) <= ate);
+  const a = resumoDoPeriodo(noPeriodo(atual));
+  const p = resumoDoPeriodo(noPeriodo(atual - 1));
+  if (!p.total || a.total < p.total * (1 + ALTA_MINIMA) || a.total - p.total < ALTA_MINIMA_REAIS) {
+    return null;
+  }
+  const variacao = variacaoDe(a.total, p.total);
+  const fim = dataBR(`${atual}-${ate}`);
+  const regime = desde === '01-01' ? '' : ` (sob a ${REGIME_LEGAL.rotulo})`;
   return {
     ...base(),
     objeto: `diarias|crescimento|${atual}`,
-    titulo: `Diárias de ${atual} somam ${formatBRL(valorAtual)} até ${dataBR(`${atual}-${ate}`)}, ${pct(variacao)} acima do mesmo período de ${atual - 1}`,
+    titulo: `Diárias de ${atual} somam ${formatBRL(a.total)} de ${dataBR(`${atual}-${desde}`)} a ${fim}, ${pct(variacao)} acima do mesmo período de ${atual - 1}`,
     narrativa:
-      `Os empenhos originais de diárias de 01/01/${atual} a ${dataBR(`${atual}-${ate}`)} somam ${formatBRL(valorAtual)}; ` +
-      `no mesmo período de ${atual - 1} foram ${formatBRL(valorAnterior)} (alta de ${pct(variacao)}). ` +
+      `Os empenhos originais de diárias de ${dataBR(`${atual}-${desde}`)} a ${fim}${regime} somam ${formatBRL(a.total)} em ${a.n} empenhos; ` +
+      `no mesmo período de ${atual - 1} foram ${formatBRL(p.total)} em ${p.n} empenhos (alta de ${pct(variacao)}). ` +
+      `O número de empenhos variou ${pct(variacaoDe(a.n, p.n))} e o valor médio por empenho foi de ${formatBRL(p.media)} para ${formatBRL(a.media)} ` +
+      `(${pct(variacaoDe(a.media, p.media))}); empenhos de ${formatBRL(VALOR_ALTO)} ou mais passaram de ${p.altos} para ${a.altos}. ` +
       `Os dois anos estão no mesmo mandato (${mandatoLabel(mandatoInicio(atual))}). ` +
-      'O aumento pode ter explicação (mais viagens autorizadas, reajuste do valor da diária); ' +
+      'O valor por empenho pode refletir mais viagens longas ou mudança na tabela de valores; ' +
       'confira a finalidade das viagens nos empenhos.',
     metrica: {
       nome: 'diarias_periodo',
       unidade: MOEDA,
-      valor: valorAtual,
-      anterior: valorAnterior,
+      valor: a.total,
+      anterior: p.total,
       variacao: arredonda(variacao),
+      empenhos: a.n,
+      empenhos_anterior: p.n,
+      media: a.media,
+      media_anterior: p.media,
     },
     evidencias: evidenciasDosMaiores(noPeriodo(atual)),
-    periodo: { inicio: `${atual}-01-01`, fim: `${atual}-${ate}` },
+    periodo: { inicio: `${atual}-${desde}`, fim: `${atual}-${ate}` },
     alerta: {
       tipo: 'diarias',
       subcategoria: 'diarias_crescimento',
-      metadados: { regra: 'diarias_crescimento', unidade: MOEDA },
+      metadados: {
+        regra: 'diarias_crescimento',
+        unidade: MOEDA,
+        regime_legal: REGIME_LEGAL.rotulo,
+      },
     },
   };
 }
 
 function candidatoConcentracao(ano, lista) {
   const porBeneficiario = new Map();
-  for (const e of lista)
-    {porBeneficiario.set(e.credor_chave, (porBeneficiario.get(e.credor_chave) || 0) + e.valor);}
+  for (const e of lista) {
+    porBeneficiario.set(e.credor_chave, (porBeneficiario.get(e.credor_chave) || 0) + e.valor);
+  }
   const total = soma(lista);
-  if (porBeneficiario.size < MIN_BENEFICIARIOS || total < TOTAL_MINIMO_REAIS) {return null;}
+  if (porBeneficiario.size < MIN_BENEFICIARIOS || total < TOTAL_MINIMO_REAIS) {
+    return null;
+  }
   const top = [...porBeneficiario.values()].sort((a, b) => b - a).slice(0, TOP_N);
   const share = top.reduce((t, v) => t + v, 0) / total;
-  if (share < SHARE_MINIMO) {return null;}
+  if (share < SHARE_MINIMO) {
+    return null;
+  }
   return {
     ...base(),
     objeto: `diarias|concentracao|${ano}`,
@@ -156,10 +198,14 @@ function detectar({ empenhos = [] } = {}) {
   const porAno = new Map();
   for (const e of empenhos.filter(ehDiaria)) {
     const ano = Number(e.exercicio_orcamento);
-    if (!porAno.has(ano)) {porAno.set(ano, []);}
+    if (!porAno.has(ano)) {
+      porAno.set(ano, []);
+    }
     porAno.get(ano).push(e);
   }
-  if (!porAno.size) {return [];}
+  if (!porAno.size) {
+    return [];
+  }
   const concentracoes = [...porAno].map(([ano, lista]) => candidatoConcentracao(ano, lista));
   return [candidatoCrescimento(porAno), ...concentracoes].filter(Boolean);
 }

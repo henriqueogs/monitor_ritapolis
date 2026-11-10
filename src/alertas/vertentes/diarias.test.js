@@ -28,60 +28,62 @@ describe('vertente diarias', () => {
     expect(validarVertente(vertente)).toEqual([]);
   });
 
-  describe('crescimento no mesmo período, dentro do mesmo mandato', () => {
-    // 2025 até 06/11: 4 × 5.000; 2026 até 06/11: 8 × 5.000. Depois de 06/11 de 2025 há mais uma,
-    // que não entra na comparação (o ano corrente ainda não chegou lá).
+  describe('crescimento sob o mesmo regime legal (Lei 1.696/2025), no mesmo mandato', () => {
+    const subcat = lista => lista.filter(c => c.alerta.subcategoria === 'diarias_crescimento');
+    // Antes de abril/2025 vigorava outro regime: o que veio antes (valores altos em 2025) não
+    // entra. Na janela 01/04 a 06/11: 2025 = 2 × 5.000; 2026 = 7 × 5.000. Depois de 06/11 de 2025
+    // há mais uma, que não entra (o ano corrente ainda não chegou lá).
     const base = () => [
-      ...['01-10', '03-10', '05-10', '09-10'].map(d => diaria(2025, d, 5000)),
+      diaria(2025, '01-10', 30000),
+      diaria(2025, '02-10', 30000),
+      ...['05-10', '09-10'].map(d => diaria(2025, d, 5000)),
       diaria(2025, '12-15', 5000),
-      ...['01-12', '02-12', '03-12', '04-12', '05-12', '06-12', '08-12', '11-06'].map(d =>
+      diaria(2026, '01-12', 1000),
+      ...['04-12', '05-12', '06-12', '07-12', '08-12', '09-12', '11-06'].map(d =>
         diaria(2026, d, 5000)
       ),
     ];
 
-    it('sinaliza alta acima de 30% e R$ 20 mil, comparando o mesmo período do ano anterior', () => {
+    it('compara só a janela sob a lei e separa quantidade de empenhos do valor médio', () => {
       const { candidatos, resumo } = rodarVertentes({ empenhos: base() }, [vertente]);
       expect(resumo.diarias.erro).toBeNull();
-      const c = candidatos.find(x => x.alerta.subcategoria === 'diarias_crescimento');
+      const [c] = subcat(candidatos);
       expect(c).toBeDefined();
-      expect(c.periodo).toEqual({ inicio: '2026-01-01', fim: '2026-11-06' });
+      expect(c.periodo).toEqual({ inicio: '2026-04-01', fim: '2026-11-06' });
       expect(c.metrica).toMatchObject({
         nome: 'diarias_periodo',
         unidade: 'R$',
-        valor: 40000,
-        anterior: 20000,
+        valor: 35000,
+        anterior: 10000,
+        empenhos: 7,
+        empenhos_anterior: 2,
+        media: 5000,
+        media_anterior: 5000,
       });
-      expect(c.narrativa).toContain('01/01/2026 a 06/11/2026');
+      expect(c.narrativa).toContain('01/04/2026 a 06/11/2026');
       expect(c.narrativa).toContain('mesmo período de 2025');
+      expect(c.narrativa).toContain('Lei 1.696/2025');
+      expect(c.narrativa).toMatch(/número de empenhos.*valor médio por empenho/s);
       expect(c.narrativa).toMatch(/mesmo mandato/);
-      expect(c.evidencias.length).toBeGreaterThan(0);
       expect(c.evidencias[0].url_origem).toMatch(/^https?:\/\//);
     });
 
     it('não sinaliza alta pequena', () => {
       const e = [
-        ...['01-10', '03-10', '05-10', '09-10'].map(d => diaria(2025, d, 5000)),
-        ...['01-12', '03-12', '05-12', '09-12', '10-12'].map(d => diaria(2026, d, 5000)),
+        ...['05-10', '09-10', '10-10', '10-20'].map(d => diaria(2025, d, 5000)),
+        ...['04-12', '05-12', '06-12', '08-12', '09-12'].map(d => diaria(2026, d, 5000)),
       ];
-      expect(
-        vertente
-          .detectar({ empenhos: e })
-          .filter(c => c.alerta.subcategoria === 'diarias_crescimento')
-      ).toEqual([]);
+      expect(subcat(vertente.detectar({ empenhos: e }))).toEqual([]);
     });
 
     it('não compara anos de mandatos diferentes', () => {
       const e = [
-        ...['01-10', '03-10'].map(d => diaria(2024, d, 5000)),
-        ...['01-12', '02-12', '03-12', '04-12', '05-12', '06-12', '08-12', '11-06'].map(d =>
+        ...['05-10', '06-10'].map(d => diaria(2024, d, 5000)),
+        ...['04-12', '05-12', '06-12', '07-12', '08-12', '09-12', '11-06'].map(d =>
           diaria(2025, d, 5000)
         ),
       ];
-      expect(
-        vertente
-          .detectar({ empenhos: e })
-          .filter(c => c.alerta.subcategoria === 'diarias_crescimento')
-      ).toEqual([]);
+      expect(subcat(vertente.detectar({ empenhos: e }))).toEqual([]);
     });
   });
 
