@@ -54,10 +54,14 @@ diagnóstico N0 em [`docs/NA_LUPA_V4_N0_DIAGNOSTICO_2026-10-29.md`](docs/NA_LUPA
   Servidor do ai-memory sobe no logon (tarefa `ai-memory-server`, sem janela via
   `conhost --headless`).
 
-Pendências diretas: revisão humana dos achados do Analista (gravar só os fortes),
-medição sustentada do A11 (leitura de disco da API: 34 KB/s em 10/11 ocioso, contra
-~1,3 MB/s pós-deploy e ~4,2 MB/s antes), normalização das 7.779 unidades nulas dos
-produtos de licitação, demais vertentes do plano (documentais e legislação).
+Fechado em 10/11: **A11** medido sob tráfego (leitura de disco da API 1,4 MB/s e load 0,14,
+contra ~4,2 MB/s e ~1,0 antes: efeito confirmado). **Unidades nulas** de
+`licitacoes_produtos` (7.780): 7.057 vêm de atas de resultado, que não trazem unidade na
+fonte; preencher seria inventar, então ficam nulas (preço compara só com unidade conhecida).
+Lixo de parser em `unidade` ('|', '| BDI 1', '-': ~1.050 linhas) fica como melhoria opcional.
+
+Pendências diretas: revisão humana dos alertas 438–448 do Analista (em `revisao`), VM ARM
+(tentativa horária em curso), demais vertentes do plano (documentais e legislação).
 
 ## Referência — status em 04/11/2026
 
