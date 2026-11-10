@@ -62,6 +62,20 @@ describe('despesa-itens-repo', () => {
     expect(linha).toMatchObject({ produto: 'ENGRENAGEM', unidade: 'PÇ', valor_unitario: 3187.26 });
   });
 
+  it('funciona dentro de uma transação externa (o coletor grava em lote) e respeita o rollback dela', () => {
+    const e = seedDespesa();
+    mockConn.exec('BEGIN');
+    expect(repo.substituirItens(2026, e, itens)).toBe(2);
+    expect(total()).toBe(2);
+    mockConn.exec('ROLLBACK');
+    expect(total()).toBe(0);
+
+    mockConn.exec('BEGIN');
+    repo.substituirItens(2026, e, itens);
+    mockConn.exec('COMMIT');
+    expect(total()).toBe(2);
+  });
+
   it('empenho inexistente não grava nada', () => {
     expect(repo.substituirItens(2026, '99999-000', itens)).toBe(0);
     expect(total()).toBe(0);
