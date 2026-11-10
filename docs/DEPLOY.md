@@ -230,6 +230,15 @@ na migração em si.
 `NEXT_PUBLIC_API_URL=https://api.ritapolis.com/api` — configurado como
 variável de ambiente de produção no projeto Vercel, não no repo.
 
+`FRONTEND_SSR_TOKEN` — segredo compartilhado (≥ 32 caracteres, ex.:
+`openssl rand -hex 32`), o **mesmo valor** na Vercel (produção, sem
+`NEXT_PUBLIC_`) e no `.env` da API na VM. Com ele, as leituras públicas que o
+frontend faz no servidor usam a cota `RATE_LIMIT_FRONTENDSSR` (padrão 3000 por
+15 min, somando todos os IPs da Vercel) em vez da cota por IP de
+`RATE_LIMIT_PUBLICREAD`, que as funções da Vercel dividiam e estourava em
+varredura de robô (429 em `/credores`, 10/11). Sem o segredo, tudo segue como
+antes. Depois de configurar, é preciso redeploy na Vercel e reiniciar a API.
+
 `/api` é o prefixo das rotas, não uma página ou endpoint de diagnóstico.
 Para verificar saúde, use
 [`/api/saude/pipeline`](https://api.ritapolis.com/api/saude/pipeline).

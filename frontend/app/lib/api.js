@@ -1,5 +1,6 @@
 import { fetchComRetry, descreverErroDeRede } from '../../lib/fetch-retry';
 import { criarUltimoBom } from '../../lib/ultimo-bom';
+import { cabecalhoFrontendSsr } from '../../lib/frontend-token';
 
 const backendApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 const adminProxyUrl = '/api/admin-proxy';
@@ -50,7 +51,7 @@ async function getServerCookieHeader() {
 }
 
 async function buildRequestHeaders(path, headers = {}) {
-  const finalHeaders = { ...headers };
+  const finalHeaders = { ...cabecalhoFrontendSsr(), ...headers };
   if (typeof window === 'undefined' && isProtectedApiPath(path) && !finalHeaders.Authorization) {
     const cookie = await getServerCookieHeader();
     if (cookie) {

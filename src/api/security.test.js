@@ -131,8 +131,9 @@ describe('api security middleware', () => {
 });
 
 describe('rate limit', () => {
-  function fakeReq({ path = '/api/documentos', ip = '10.0.0.1', method = 'GET' } = {}) {
-    return { path, ip, method, query: {}, socket: {} };
+  function fakeReq({ path = '/api/documentos', ip = '10.0.0.1', method = 'GET', headers = {} } = {}) {
+    const lower = Object.fromEntries(Object.entries(headers).map(([k, v]) => [k.toLowerCase(), v]));
+    return { path, ip, method, query: {}, socket: {}, get: (name) => lower[name.toLowerCase()] };
   }
 
   function fakeRes() {
@@ -217,6 +218,56 @@ describe('rate limit', () => {
       } finally {
         warn.mockRestore();
       }
+    });
+
+    describe('revalidação do frontend (SSR da Vercel)', () => {
+      // Monitor 10/11: varredura de robô em /credores virou rajada de revalidações saindo de
+      // poucos IPs da Vercel, e a própria API devolvia 429 ao frontend.
+      const TOKEN = 'x'.repeat(40);
+      const comToken = (extra = {}) => ({ headers: { 'X-Frontend-Token': TOKEN }, ...extra });
+      let anterior;
+
+      beforeEach(() => {
+        anterior = process.env.FRONTEND_SSR_TOKEN;
+        process.env.FRONTEND_SSR_TOKEN = TOKEN;
+      });
+
+      afterEach(() => {
+        if (anterior === undefined) { delete process.env.FRONTEND_SSR_TOKEN; } else { process.env.FRONTEND_SSR_TOKEN = anterior; }
+      });
+
+      it('frontend com token usa a cota própria (200/min), não a de 40/min por IP', () => {
+        expect(disparar(200, comToken()).bloqueadas).toBe(0);
+        expect(disparar(1, comToken()).bloqueadas).toBe(1);
+      });
+
+      it('a cota do frontend é uma só para todos os IPs da Vercel', () => {
+        expect(disparar(150, comToken({ ip: '10.0.0.1' })).bloqueadas).toBe(0);
+        expect(disparar(51, comToken({ ip: '10.0.0.2' })).bloqueadas).toBe(1);
+      });
+
+      it('não consome a cota pública do mesmo IP', () => {
+        disparar(100, comToken());
+        expect(disparar(40).bloqueadas).toBe(0);
+      });
+
+      it('token errado ou ausente cai na cota pública por IP', () => {
+        expect(disparar(41, { headers: { 'X-Frontend-Token': 'y'.repeat(40) } }).bloqueadas).toBe(1);
+        security.resetRateLimitForTests();
+        expect(disparar(41).bloqueadas).toBe(1);
+      });
+
+      it('sem FRONTEND_SSR_TOKEN configurado (ou curto demais) ninguém ganha a cota própria', () => {
+        delete process.env.FRONTEND_SSR_TOKEN;
+        expect(disparar(41, comToken()).bloqueadas).toBe(1);
+        security.resetRateLimitForTests();
+        process.env.FRONTEND_SSR_TOKEN = 'curto';
+        expect(disparar(41, { headers: { 'X-Frontend-Token': 'curto' } }).bloqueadas).toBe(1);
+      });
+
+      it('login e escrita não mudam com o token', () => {
+        expect(disparar(21, comToken({ path: '/api/auth/login', method: 'POST' })).bloqueadas).toBe(1);
+      });
     });
 
     it('login continua bloqueado após 1 minuto quando estourou a cota', () => {
