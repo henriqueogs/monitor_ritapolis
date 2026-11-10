@@ -1,13 +1,10 @@
 const config = require('../config');
-const {
-  listDocumentosPendentesResumoAi,
-  getResumoAiByDocumentoHash
-} = require('../db');
+const { listDocumentosPendentesResumoAi, getResumoAiByDocumentoHash } = require('../db');
 const { createAiProvider } = require('./providers');
 const { summarizeDocument, buildTextoHash } = require('./summarize-document');
 
 function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 async function summarizePendingDocuments({
@@ -19,7 +16,7 @@ async function summarizePendingDocuments({
   tipo = null,
   fonte = null,
   delayBetweenDocsMs = 0,
-  dryRun = false
+  dryRun = false,
 } = {}) {
   const candidateLimit = Math.max(limite * 20, 200);
   const documentos = listDocumentosPendentesResumoAi({
@@ -27,9 +24,9 @@ async function summarizePendingDocuments({
     contratoVersao: config.aiContractVersion,
     ano,
     tipo,
-    fonte
+    fonte,
   })
-    .filter((documento) => {
+    .filter(documento => {
       const textoCompleto = documento.texto_completo || '';
       if (maxChars && textoCompleto.length > maxChars) {
         return false;
@@ -55,21 +52,21 @@ async function summarizePendingDocuments({
         min_chars: minChars,
         ano,
         tipo,
-        fonte
+        fonte,
       },
       total_selecionados: documentos.length,
       total_processados: 0,
       total_ok: 0,
       total_erro: 0,
-      candidatos: documentos.map((documento) => ({
+      candidatos: documentos.map(documento => ({
         documento_id: documento.id,
         ano: documento.ano,
         tipo: documento.tipo,
         fonte: documento.fonte,
         titulo: documento.titulo,
-        texto_chars: (documento.texto_completo || '').length
+        texto_chars: (documento.texto_completo || '').length,
       })),
-      resultados: []
+      resultados: [],
     };
   }
 
@@ -86,13 +83,13 @@ async function summarizePendingDocuments({
           documento_id: documento.id,
           status: 'ok',
           reutilizado: result.reutilizado,
-          confianca: result.confianca
+          confianca: result.confianca,
         });
       } catch (error) {
         resultados.push({
           documento_id: documento.id,
           status: 'erro',
-          erro: error.message
+          erro: error.message,
         });
       }
       // Pausa entre docs (exceto após o último)
@@ -105,7 +102,7 @@ async function summarizePendingDocuments({
     const { default: pLimit } = await import('p-limit');
     const limit = pLimit(Math.max(concorrencia, 1));
     await Promise.all(
-      documentos.map((documento) =>
+      documentos.map(documento =>
         limit(async () => {
           try {
             const result = await summarizeDocument(documento.id, { provider });
@@ -113,13 +110,13 @@ async function summarizePendingDocuments({
               documento_id: documento.id,
               status: 'ok',
               reutilizado: result.reutilizado,
-              confianca: result.confianca
+              confianca: result.confianca,
             });
           } catch (error) {
             resultados.push({
               documento_id: documento.id,
               status: 'erro',
-              erro: error.message
+              erro: error.message,
             });
           }
         })
@@ -136,16 +133,16 @@ async function summarizePendingDocuments({
       min_chars: minChars,
       ano,
       tipo,
-      fonte
+      fonte,
     },
     total_selecionados: documentos.length,
     total_processados: resultados.length,
-    total_ok: resultados.filter((item) => item.status === 'ok').length,
-    total_erro: resultados.filter((item) => item.status === 'erro').length,
-    resultados
+    total_ok: resultados.filter(item => item.status === 'ok').length,
+    total_erro: resultados.filter(item => item.status === 'erro').length,
+    resultados,
   };
 }
 
 module.exports = {
-  summarizePendingDocuments
+  summarizePendingDocuments,
 };

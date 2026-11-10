@@ -23,11 +23,16 @@ const DiscoveryInvestigationContract = z.object({
   o_que_os_dados_mostram: z.array(textoPublico).min(1).max(8),
   lacunas_encontradas: z.array(textoPublico).default([]),
   perguntas_abertas: z.array(textoPublico).default([]),
-  evidencias_usadas: z.array(z.object({
-    documento_id: z.number().int().positive().nullable().optional(),
-    anexo_id: z.number().int().positive().nullable().optional(),
-    descricao: textoPublico,
-  })).min(1).max(12),
+  evidencias_usadas: z
+    .array(
+      z.object({
+        documento_id: z.number().int().positive().nullable().optional(),
+        anexo_id: z.number().int().positive().nullable().optional(),
+        descricao: textoPublico,
+      })
+    )
+    .min(1)
+    .max(12),
   nivel_confianca: z.number().min(0).max(1),
   analise_admin: z.string().trim().min(1).max(3000),
 });
@@ -37,11 +42,15 @@ const DiscoveryInvestigationV2Contract = DiscoveryInvestigationContract.extend({
   tipo_investigacao: z.string().trim().min(1).max(160).optional(),
   metricas: z.record(z.string(), z.any()).optional(),
   comparativos: z.record(z.string(), z.any()).optional(),
-  documentos_relacionados: z.array(z.object({
-    documento_id: z.number().int().positive(),
-    papel: z.string().trim().min(1).max(120).optional(),
-    observacao: z.string().trim().max(500).optional(),
-  })).default([]),
+  documentos_relacionados: z
+    .array(
+      z.object({
+        documento_id: z.number().int().positive(),
+        papel: z.string().trim().min(1).max(120).optional(),
+        observacao: z.string().trim().max(500).optional(),
+      })
+    )
+    .default([]),
   campos_a_verificar: z.array(textoPublico).default([]),
   limites_publicacao: z.array(textoPublico).default([]),
 });
@@ -69,7 +78,7 @@ function assertPublicoCauteloso(data) {
     ...(data.perguntas_abertas || []),
   ].join('\n');
 
-  const termo = TERMOS_ACUSATORIOS_PUBLICOS.find((regex) => regex.test(campos));
+  const termo = TERMOS_ACUSATORIOS_PUBLICOS.find(regex => regex.test(campos));
   if (termo) {
     throw new Error(`Investigacao publica contem termo acusatorio: ${termo}`);
   }
@@ -80,8 +89,12 @@ function assertPublicoCauteloso(data) {
 // ficaram presos em AI_PROVIDER_ERROR). Só renomeia a chave; a forma e o
 // conteúdo continuam validados pelo contrato.
 function normalizarChaves(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) { return value; }
-  if (value.evidencias_usadas !== undefined || value.evidencias_usada === undefined) { return value; }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return value;
+  }
+  if (value.evidencias_usadas !== undefined || value.evidencias_usada === undefined) {
+    return value;
+  }
   const { evidencias_usada: evidencias, ...resto } = value;
   return { ...resto, evidencias_usadas: evidencias };
 }
@@ -90,7 +103,7 @@ function validateDiscoveryInvestigation(value) {
   const parsed = DiscoveryInvestigationV2Contract.safeParse(normalizarChaves(value));
   if (!parsed.success) {
     const issues = parsed.error.issues
-      .map((issue) => `${issue.path.join('.') || 'raiz'}: ${issue.message}`)
+      .map(issue => `${issue.path.join('.') || 'raiz'}: ${issue.message}`)
       .join('; ');
     throw new Error(`Investigacao de descoberta fora do contrato: ${issues}`);
   }

@@ -7,7 +7,9 @@
 const { parseSummaryResponse } = require('./validate-summary');
 
 function fmtValor(v) {
-  return v === null || v === undefined ? '—' : Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  return v === null || v === undefined
+    ? '—'
+    : Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
 }
 
 function buildValidacaoProdutoPrompt(produto) {

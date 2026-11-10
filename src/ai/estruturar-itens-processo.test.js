@@ -4,7 +4,7 @@ jest.mock('../db/inteligencia-fatos-repo', () => ({
   listarAnexosDocumento: jest.fn(),
 }));
 jest.mock('../db/itens-estruturacao-jobs-repo', () => ({
-  salvarItensEstruturados: jest.fn((args) => ({ id: 99, ...args })),
+  salvarItensEstruturados: jest.fn(args => ({ id: 99, ...args })),
   getUltimoItensEstruturadosPorDocumento: jest.fn(() => null),
 }));
 jest.mock('../db', () => ({ getDocumentoById: jest.fn() }));
@@ -39,7 +39,9 @@ describe('estruturarItensProcesso', () => {
   it('reextrai itens com sucesso e persiste', async () => {
     const provider = providerMock({
       tem_tabela_itens: true,
-      itens_solicitados: [{ descricao: 'Cobertura fotográfica', trecho_fonte: 'Item 1 - Cobertura fotográfica' }],
+      itens_solicitados: [
+        { descricao: 'Cobertura fotográfica', trecho_fonte: 'Item 1 - Cobertura fotográfica' },
+      ],
       resultado_lotes: [],
       resultado_global: null,
       lacunas: [],
@@ -68,11 +70,16 @@ describe('estruturarItensProcesso', () => {
       itens_solicitados: [],
       resultado_lotes: [],
       resultado_global: null,
-      lacunas: ['O texto é um cronograma físico-financeiro de medição de obra, não uma lista de itens.'],
+      lacunas: [
+        'O texto é um cronograma físico-financeiro de medição de obra, não uma lista de itens.',
+      ],
       confianca: 0.9,
     });
 
-    const r = await estruturarItensProcesso({ ...documentoEdital, id: 605 }, { provider, atas: [] });
+    const r = await estruturarItensProcesso(
+      { ...documentoEdital, id: 605 },
+      { provider, atas: [] }
+    );
 
     expect(r.itens_json.tem_tabela_itens).toBe(false);
     expect(r.itens_json.lacunas[0]).toMatch(/cronograma/);
@@ -83,7 +90,14 @@ describe('estruturarItensProcesso', () => {
       { tipo: 'ata', nome: 'Ata.pdf', texto_completo: 'ATA: Item 1 LOTE 1 R$195.000,00' },
       { tipo: 'edital_anexo', nome: 'Outro.pdf', texto_completo: 'irrelevante' },
     ]);
-    const provider = providerMock({ tem_tabela_itens: true, itens_solicitados: [], resultado_lotes: [], resultado_global: null, lacunas: [], confianca: 0.5 });
+    const provider = providerMock({
+      tem_tabela_itens: true,
+      itens_solicitados: [],
+      resultado_lotes: [],
+      resultado_global: null,
+      lacunas: [],
+      confianca: 0.5,
+    });
 
     await estruturarItensProcesso(documentoEdital, { provider });
 
@@ -101,12 +115,25 @@ describe('estruturarItensProcesso', () => {
 
   it('documento sem texto_completo lança erro claro', async () => {
     await expect(
-      estruturarItensProcesso({ ...documentoEdital, texto_completo: '' }, { provider: providerMock({}) })
+      estruturarItensProcesso(
+        { ...documentoEdital, texto_completo: '' },
+        { provider: providerMock({}) }
+      )
     ).rejects.toThrow(/texto/);
   });
   it('source change during generation cannot publish a stale result', async () => {
-    require('../db').getDocumentoById.mockReturnValue({ ...documentoEdital, url_origem: 'https://different.example' });
-    const provider = providerMock({ tem_tabela_itens: false, itens_solicitados: [], resultado_lotes: [], resultado_global: null, lacunas: [], confianca: 0.8 });
+    require('../db').getDocumentoById.mockReturnValue({
+      ...documentoEdital,
+      url_origem: 'https://different.example',
+    });
+    const provider = providerMock({
+      tem_tabela_itens: false,
+      itens_solicitados: [],
+      resultado_lotes: [],
+      resultado_global: null,
+      lacunas: [],
+      confianca: 0.8,
+    });
     await expect(estruturarItensProcesso(documentoEdital, { provider })).rejects.toThrow(/mudou/);
     expect(salvarItensEstruturados).not.toHaveBeenCalled();
   });

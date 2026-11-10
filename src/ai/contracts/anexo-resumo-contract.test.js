@@ -6,7 +6,13 @@ function base(overrides = {}) {
   return {
     resumo_curto: 'O anexo traz a ata de julgamento com o vencedor e o valor homologado.',
     pontos_relevantes: [
-      { tipo: 'valor', subtipo: 'homologado', descricao: 'Valor final registrado na ata.', quantidade: 1200.5, unidade: 'R$' },
+      {
+        tipo: 'valor',
+        subtipo: 'homologado',
+        descricao: 'Valor final registrado na ata.',
+        quantidade: 1200.5,
+        unidade: 'R$',
+      },
     ],
     lacunas: [],
     confianca: 0.8,
@@ -22,7 +28,9 @@ describe('anexo-resumo-contract', () => {
   });
 
   it('aceita pontos_relevantes e lacunas vazios (default)', () => {
-    const validado = validateAnexoResumo(base({ pontos_relevantes: undefined, lacunas: undefined }));
+    const validado = validateAnexoResumo(
+      base({ pontos_relevantes: undefined, lacunas: undefined })
+    );
     expect(validado.pontos_relevantes).toEqual([]);
     expect(validado.lacunas).toEqual([]);
   });
@@ -44,11 +52,13 @@ describe('anexo-resumo-contract', () => {
   });
 
   it('texto de resumo_curto/descricao/lacunas acima do limite e cortado, nao rejeita o resumo', () => {
-    const validado = validateAnexoResumo(base({
-      resumo_curto: 'a'.repeat(700),
-      pontos_relevantes: [{ tipo: 'valor', descricao: 'b'.repeat(450) }],
-      lacunas: ['c'.repeat(500)],
-    }));
+    const validado = validateAnexoResumo(
+      base({
+        resumo_curto: 'a'.repeat(700),
+        pontos_relevantes: [{ tipo: 'valor', descricao: 'b'.repeat(450) }],
+        lacunas: ['c'.repeat(500)],
+      })
+    );
     expect(validado.resumo_curto).toHaveLength(600);
     expect(validado.pontos_relevantes[0].descricao).toHaveLength(300);
     expect(validado.lacunas[0]).toHaveLength(300);
@@ -59,7 +69,9 @@ describe('anexo-resumo-contract', () => {
   });
 
   it('rejeita ponto relevante sem tipo', () => {
-    expect(() => validateAnexoResumo(base({ pontos_relevantes: [{ descricao: 'sem tipo' }] }))).toThrow(/fora do contrato/);
+    expect(() =>
+      validateAnexoResumo(base({ pontos_relevantes: [{ descricao: 'sem tipo' }] }))
+    ).toThrow(/fora do contrato/);
   });
 
   it('converte quantidade em formato BR (string) para numero', () => {

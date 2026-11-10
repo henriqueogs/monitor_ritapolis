@@ -29,9 +29,15 @@ async function processJob(job, { progress } = {}) {
       throw new Error(`Anexo ${lockedJob.anexo_id} nao tem texto_completo para resumir`);
     }
 
-    logger.info('Processando job de resumo de anexo', { jobId: lockedJob.id, anexoId: lockedJob.anexo_id });
-    const resultado = await summarizeAnexo(anexo, { documento: anexo.documento_pai,
-      force: Boolean(lockedJob.force), progress });
+    logger.info('Processando job de resumo de anexo', {
+      jobId: lockedJob.id,
+      anexoId: lockedJob.anexo_id,
+    });
+    const resultado = await summarizeAnexo(anexo, {
+      documento: anexo.documento_pai,
+      force: Boolean(lockedJob.force),
+      progress,
+    });
     finishAnexoResumoJobOk(lockedJob.id, resultado.id);
     logger.info('Job de resumo de anexo concluido', {
       jobId: lockedJob.id,
@@ -43,7 +49,11 @@ async function processJob(job, { progress } = {}) {
       throw error;
     }
     finishAnexoResumoJobError(lockedJob.id, error.message);
-    logger.error('Job de resumo de anexo falhou', { jobId: lockedJob.id, anexoId: lockedJob.anexo_id, erro: error.message });
+    logger.error('Job de resumo de anexo falhou', {
+      jobId: lockedJob.id,
+      anexoId: lockedJob.anexo_id,
+      erro: error.message,
+    });
     if (progress) {
       throw error;
     }
@@ -65,7 +75,9 @@ async function runPendingAnexoResumoJobs() {
     // eslint-disable-next-line no-constant-condition
     while (true) {
       const job = getNextPendingAnexoResumoJob();
-      if (!job) { break; }
+      if (!job) {
+        break;
+      }
       await processJob(job);
     }
   } finally {
@@ -75,9 +87,12 @@ async function runPendingAnexoResumoJobs() {
 
 function scheduleAnexoResumoJobWorker() {
   const pipeline = require('../pipeline/coordinator');
-  if (pipeline.enabled()) { pipeline.enqueueLegacy('anexo'); return; }
+  if (pipeline.enabled()) {
+    pipeline.enqueueLegacy('anexo');
+    return;
+  }
   setTimeout(() => {
-    runPendingAnexoResumoJobs().catch((error) => {
+    runPendingAnexoResumoJobs().catch(error => {
       logger.error('Worker de resumo de anexo falhou', { erro: error.message });
     });
   }, 0);

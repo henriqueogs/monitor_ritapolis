@@ -4,17 +4,22 @@ jest.mock('../db', () => ({ getDocumentoById: jest.fn() }));
 jest.mock('../db/itens-estruturacao-jobs-repo', () => ({
   listDocumentosPendentesItens: jest.fn(),
   getUltimoItensEstruturadosPorDocumento: jest.fn(),
-  createItensEstruturacaoJob: jest.fn((args) => ({ id: 1, ...args, status: 'pendente' })),
+  createItensEstruturacaoJob: jest.fn(args => ({ id: 1, ...args, status: 'pendente' })),
 }));
 jest.mock('./estruturar-itens-processo', () => ({
   listarAtasDoDocumento: jest.fn().mockReturnValue([]),
   computeTextoHash: jest.fn(() => 'hash-atual'),
-  computeInputHash: (doc) => require('./estruturar-itens-processo').computeTextoHash(doc),
+  computeInputHash: doc => require('./estruturar-itens-processo').computeTextoHash(doc),
   CONTRACT_VERSION: 'itens-processo-v1.0',
-  assessItemsResult: (record, doc) => ({ valid: record?.texto_hash === require('./estruturar-itens-processo').computeTextoHash(doc, []) }),
+  assessItemsResult: (record, doc) => ({
+    valid: record?.texto_hash === require('./estruturar-itens-processo').computeTextoHash(doc, []),
+  }),
 }));
 jest.mock('./providers', () => ({
-  createAiProvider: jest.fn(() => ({ provider: 'nvidia', model: 'nvidia/nemotron-3-nano-30b-a3b' })),
+  createAiProvider: jest.fn(() => ({
+    provider: 'nvidia',
+    model: 'nvidia/nemotron-3-nano-30b-a3b',
+  })),
 }));
 
 const { getDocumentoById } = require('../db');
@@ -33,7 +38,11 @@ describe('enfileirarItensPendentes', () => {
 
     const r = await enfileirarItensPendentes({ limite: 10 });
 
-    expect(repo.listDocumentosPendentesItens).toHaveBeenCalledWith({ limite: 10, ano: undefined, fonte: undefined });
+    expect(repo.listDocumentosPendentesItens).toHaveBeenCalledWith({
+      limite: 10,
+      ano: undefined,
+      fonte: undefined,
+    });
     expect(r.selecionados).toHaveLength(1);
     expect(r.enfileirados).toHaveLength(1);
   });
@@ -51,7 +60,10 @@ describe('enfileirarItensPendentes', () => {
 
   it('pula documento já processado com o mesmo hash (sem --force)', async () => {
     repo.listDocumentosPendentesItens.mockReturnValue([documentoBase]);
-    repo.getUltimoItensEstruturadosPorDocumento.mockReturnValue({ texto_hash: 'hash-atual', status: 'ok' });
+    repo.getUltimoItensEstruturadosPorDocumento.mockReturnValue({
+      texto_hash: 'hash-atual',
+      status: 'ok',
+    });
 
     const r = await enfileirarItensPendentes({});
 
@@ -62,7 +74,10 @@ describe('enfileirarItensPendentes', () => {
 
   it('--force reprocessa mesmo com hash igual', async () => {
     repo.listDocumentosPendentesItens.mockReturnValue([documentoBase]);
-    repo.getUltimoItensEstruturadosPorDocumento.mockReturnValue({ texto_hash: 'hash-atual', status: 'ok' });
+    repo.getUltimoItensEstruturadosPorDocumento.mockReturnValue({
+      texto_hash: 'hash-atual',
+      status: 'ok',
+    });
 
     const r = await enfileirarItensPendentes({ force: true });
 
@@ -75,7 +90,10 @@ describe('enfileirarItensPendentes', () => {
   it('reprocessa quando o hash mudou (texto do edital foi atualizado)', async () => {
     computeTextoHash.mockReturnValue('hash-novo');
     repo.listDocumentosPendentesItens.mockReturnValue([documentoBase]);
-    repo.getUltimoItensEstruturadosPorDocumento.mockReturnValue({ texto_hash: 'hash-velho', status: 'ok' });
+    repo.getUltimoItensEstruturadosPorDocumento.mockReturnValue({
+      texto_hash: 'hash-velho',
+      status: 'ok',
+    });
 
     const r = await enfileirarItensPendentes({});
 

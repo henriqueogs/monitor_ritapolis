@@ -47,20 +47,20 @@ async function runCycle() {
 
   logger.info('AI scheduler: iniciando ciclo', {
     docs_por_ciclo: config.aiSchedulerDocsPerCycle,
-    delay_entre_docs_s: Math.round(config.aiSchedulerDelayBetweenDocsMs / 1000)
+    delay_entre_docs_s: Math.round(config.aiSchedulerDelayBetweenDocsMs / 1000),
   });
 
   try {
     const resultado = await summarizePendingDocuments({
       limite: config.aiSchedulerDocsPerCycle,
       concorrencia: 1,
-      delayBetweenDocsMs: config.aiSchedulerDelayBetweenDocsMs
+      delayBetweenDocsMs: config.aiSchedulerDelayBetweenDocsMs,
     });
 
     lastRunStats = {
       total_selecionados: resultado.total_selecionados,
       total_ok: resultado.total_ok,
-      total_erro: resultado.total_erro
+      total_erro: resultado.total_erro,
     };
 
     logger.info('AI scheduler: ciclo concluido', lastRunStats);
@@ -76,7 +76,6 @@ async function runCycle() {
       } catch (errEntidades) {
         logger.warn('AI scheduler: falha na extração pós-ciclo', { erro: errEntidades.message });
       }
-
     }
 
     // Pós-ciclo: estruturação de itens via IA pra editais novos/atualizados.
@@ -91,7 +90,9 @@ async function runCycle() {
         await runPendingItensEstruturacaoJobs();
       }
     } catch (errItens) {
-      logger.warn('AI scheduler: falha na estruturação de itens pós-ciclo', { erro: errItens.message });
+      logger.warn('AI scheduler: falha na estruturação de itens pós-ciclo', {
+        erro: errItens.message,
+      });
     }
 
     // Pós-ciclo: gerar alertas de inteligência de forma incremental. Roda mesmo
@@ -107,7 +108,9 @@ async function runCycle() {
           erros: alertasResult.erros,
         });
       } catch (errAlertas) {
-        logger.warn('AI scheduler: falha na geração de alertas pós-ciclo', { erro: errAlertas.message });
+        logger.warn('AI scheduler: falha na geração de alertas pós-ciclo', {
+          erro: errAlertas.message,
+        });
       }
     }
   } catch (error) {
@@ -125,8 +128,10 @@ function tick() {
     ultimoCicloEm: lastRunAt,
     intervaloMs: config.aiSchedulerIntervalMs,
   });
-  if (!devido) {return;}
-  runCycle().catch((e) => logger.error('AI scheduler: erro no ciclo', { erro: e.message }));
+  if (!devido) {
+    return;
+  }
+  runCycle().catch(e => logger.error('AI scheduler: erro no ciclo', { erro: e.message }));
 }
 
 function start() {
@@ -135,7 +140,9 @@ function start() {
     return;
   }
 
-  if (timer) { return; }
+  if (timer) {
+    return;
+  }
 
   const intervalHoras = Math.round(config.aiSchedulerIntervalMs / 3600000);
   const estimativaDias = Math.ceil(430 / (config.aiSchedulerDocsPerCycle * (24 / intervalHoras)));
@@ -144,7 +151,7 @@ function start() {
     docs_por_ciclo: config.aiSchedulerDocsPerCycle,
     intervalo_horas: intervalHoras,
     delay_entre_docs_s: Math.round(config.aiSchedulerDelayBetweenDocsMs / 1000),
-    estimativa_cobertura_dias: estimativaDias
+    estimativa_cobertura_dias: estimativaDias,
   });
 
   // Primeira checagem 3 min após o servidor subir; depois a cada 15 min.
@@ -176,8 +183,16 @@ function getStatus() {
   const pipeline = require('../pipeline/coordinator');
   if (pipeline.enabled()) {
     const state = pipeline.getQueue().status();
-    return { enabled: true, running: true, cycle_running: Boolean(state.active), docs_por_ciclo: 1,
-      intervalo_horas: null, ultimo_ciclo: state.active?.started_at || null, ultimo_resultado: null, modo: 'pipeline_unico' };
+    return {
+      enabled: true,
+      running: true,
+      cycle_running: Boolean(state.active),
+      docs_por_ciclo: 1,
+      intervalo_horas: null,
+      ultimo_ciclo: state.active?.started_at || null,
+      ultimo_resultado: null,
+      modo: 'pipeline_unico',
+    };
   }
   const intervalHoras = Math.round(config.aiSchedulerIntervalMs / 3600000);
   return {
@@ -188,7 +203,7 @@ function getStatus() {
     delay_entre_docs_s: Math.round(config.aiSchedulerDelayBetweenDocsMs / 1000),
     intervalo_horas: intervalHoras,
     ultimo_ciclo: lastRunAt,
-    ultimo_resultado: lastRunStats
+    ultimo_resultado: lastRunStats,
   };
 }
 

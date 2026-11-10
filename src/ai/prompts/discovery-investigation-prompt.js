@@ -45,7 +45,7 @@ const CHECKLISTS = {
 };
 
 function resumirEvidencias(evidencias = []) {
-  return evidencias.slice(0, 12).map((ev) => ({
+  return evidencias.slice(0, 12).map(ev => ({
     documento_id: ev.documento_id || null,
     anexo_id: ev.anexo_id || null,
     quantidade: ev.metadados?.quantidade ?? null,
@@ -56,7 +56,11 @@ function resumirEvidencias(evidencias = []) {
   }));
 }
 
-function buildDiscoveryInvestigationPrompt({ alerta, lacunasDeterministicas = [], narrativaConsolidadaAtiva = true }) {
+function buildDiscoveryInvestigationPrompt({
+  alerta,
+  lacunasDeterministicas = [],
+  narrativaConsolidadaAtiva = true,
+}) {
   const tipoInvestigacao =
     alerta.metadados?.investigacao_tipo ||
     alerta.metadados?.tipo_fato ||
@@ -83,7 +87,8 @@ function buildDiscoveryInvestigationPrompt({ alerta, lacunasDeterministicas = []
     },
     janelas: alerta.metadados?.janelas || [],
     metricas: alerta.metadados?.metricas_deterministicas || alerta.metadados?.metricas || {},
-    comparativos: alerta.metadados?.comparativos_deterministicos || alerta.metadados?.comparativos || {},
+    comparativos:
+      alerta.metadados?.comparativos_deterministicos || alerta.metadados?.comparativos || {},
     documentos_relacionados: (alerta.documentos || []).slice(0, 16),
     lacunas_deterministicas: lacunasDeterministicas,
     campos_a_verificar: checklist,
@@ -120,13 +125,17 @@ Regras obrigatorias:
   sem preambulo tipo "os dados mostram". Ex.: "Foram R$ X em N contratos de eventos em 2025."
 - por_que_olhar: UMA frase dizendo por que vale um segundo olhar, em linguagem simples e sem alarmismo
   (ex.: concentracao de fornecedor, valor alto para o porte, informacao ausente na fonte).
-${narrativaConsolidadaAtiva ? `- narrativa_consolidada: paragrafo UNICO (2-4 frases) que e a leitura principal do publico.
+${
+  narrativaConsolidadaAtiva
+    ? `- narrativa_consolidada: paragrafo UNICO (2-4 frases) que e a leitura principal do publico.
   Some/consolide os fatos relevantes (o_que_os_dados_mostram) e a lacuna mais relevante
   (lacunas_encontradas) na MESMA prosa, em vez de listar fatos soltos. Cite os documentos
   entre colchetes quando fizer sentido (ex.: "[607]"). NAO calcule media, razao, proporcao
   ou qualquer numero derivado que nao esteja explicitamente em metricas ou comparativos.
   Nao force calculos em temas qualitativos. o_que_os_dados_mostram e lacunas_encontradas continuam
-  obrigatorios (evidencia auditavel), mas narrativa_consolidada e o texto que o publico le.` : ''}
+  obrigatorios (evidencia auditavel), mas narrativa_consolidada e o texto que o publico le.`
+    : ''
+}
 
 Formato:
 {
@@ -135,8 +144,12 @@ Formato:
   "pergunta_cidada": "pergunta curta que o morador faria",
   "resposta_direta": "uma frase respondendo com o fato principal",
   "por_que_olhar": "uma frase sobre por que vale um segundo olhar",
-  "hipotese_publica": "frase cautelosa sobre por que vale olhar",${narrativaConsolidadaAtiva ? `
-  "narrativa_consolidada": "paragrafo unico consolidando fatos + lacuna relevante em prosa",` : ''}
+  "hipotese_publica": "frase cautelosa sobre por que vale olhar",${
+    narrativaConsolidadaAtiva
+      ? `
+  "narrativa_consolidada": "paragrafo unico consolidando fatos + lacuna relevante em prosa",`
+      : ''
+  }
   "o_que_os_dados_mostram": ["fato verificavel 1"],
   "lacunas_encontradas": ["nao encontrado nos documentos analisados: ..."],
   "perguntas_abertas": ["pergunta publica em aberto"],

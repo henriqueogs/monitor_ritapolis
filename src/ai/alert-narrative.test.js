@@ -19,8 +19,20 @@ const alertaBase = {
   categoria: 'Meio Ambiente',
   ano: 2026,
   documentos: [
-    { id: 1, titulo: 'Corte de arvores - aditivo 1', data_publicacao: '2026-01-15', url_origem: 'https://exemplo/1', valor: 50000 },
-    { id: 2, titulo: 'Corte de arvores - aditivo 2', data_publicacao: '2026-03-20', url_origem: 'https://exemplo/2', valor: 60000 },
+    {
+      id: 1,
+      titulo: 'Corte de arvores - aditivo 1',
+      data_publicacao: '2026-01-15',
+      url_origem: 'https://exemplo/1',
+      valor: 50000,
+    },
+    {
+      id: 2,
+      titulo: 'Corte de arvores - aditivo 2',
+      data_publicacao: '2026-03-20',
+      url_origem: 'https://exemplo/2',
+      valor: 60000,
+    },
   ],
   valor_total: 110000,
   valor_periodo_label: 'Estimado em 2026',
@@ -61,16 +73,12 @@ describe('gerarNarrativaAlerta', () => {
 
   it('lanca erro quando resposta nao contem JSON', async () => {
     const provider = mockProvider('sem json aqui');
-    await expect(gerarNarrativaAlerta(alertaBase, { provider })).rejects.toThrow(
-      /JSON valido/
-    );
+    await expect(gerarNarrativaAlerta(alertaBase, { provider })).rejects.toThrow(/JSON valido/);
   });
 
   it('lanca erro quando narrativa esta fora do contrato', async () => {
     const provider = mockProvider(JSON.stringify({ titulo: 'T' }));
-    await expect(gerarNarrativaAlerta(alertaBase, { provider })).rejects.toThrow(
-      /contrato/
-    );
+    await expect(gerarNarrativaAlerta(alertaBase, { provider })).rejects.toThrow(/contrato/);
   });
 
   it('lanca erro quando IA esta desativada', async () => {

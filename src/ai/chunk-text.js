@@ -1,7 +1,4 @@
-function splitTextIntoChunks(
-  text,
-  { chunkSizeChars, chunkOverlapChars, maxChunksPerDocument }
-) {
+function splitTextIntoChunks(text, { chunkSizeChars, chunkOverlapChars, maxChunksPerDocument }) {
   const source = String(text || '').trim();
   if (!source) {
     return [];
@@ -34,5 +31,5 @@ function splitTextIntoChunks(
 }
 
 module.exports = {
-  splitTextIntoChunks
+  splitTextIntoChunks,
 };

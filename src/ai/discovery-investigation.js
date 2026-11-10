@@ -3,7 +3,10 @@
 const config = require('../config');
 const logger = require('../logger');
 const { createAiProvider } = require('./providers');
-const { buildDiscoveryInvestigationPrompt, CHECKLISTS } = require('./prompts/discovery-investigation-prompt');
+const {
+  buildDiscoveryInvestigationPrompt,
+  CHECKLISTS,
+} = require('./prompts/discovery-investigation-prompt');
 const { validateDiscoveryInvestigation } = require('./contracts/discovery-investigation-contract');
 const {
   validarFactual,
@@ -35,13 +38,16 @@ function textoBase(alerta) {
   return [
     alerta.titulo,
     alerta.narrativa,
-    ...(alerta.evidencias || []).map((ev) => ev.trecho_fonte || ''),
-  ].join('\n').toLowerCase();
+    ...(alerta.evidencias || []).map(ev => ev.trecho_fonte || ''),
+  ]
+    .join('\n')
+    .toLowerCase();
 }
 
 const PADROES_CAMPO = {
   'laudo tecnico': /\b(laudo|parecer tecnico|relatorio tecnico)\b/i,
-  'autorizacao/licenca ambiental': /\b(autorizacao ambiental|licenca ambiental|licenciamento|codema|semad)\b/i,
+  'autorizacao/licenca ambiental':
+    /\b(autorizacao ambiental|licenca ambiental|licenciamento|codema|semad)\b/i,
   'compensacao ou replantio': /\b(compensacao|compensar|replantio|plantio|reposicao)\b/i,
   'localizacao detalhada': /\b(rua|praca|bairro|area urbana|municipio|cidade)\b/i,
   especies: /\b(especie|especies|ipe|sibipiruna|mangueira|eucalipto|aroeira)\b/i,
@@ -68,7 +74,7 @@ function camposDoAlerta(alerta) {
 
 function lacunasDeterministicas(alerta) {
   const texto = textoBase(alerta);
-  return camposDoAlerta(alerta).map((campo) => {
+  return camposDoAlerta(alerta).map(campo => {
     const encontrado = PADROES_CAMPO[campo]?.test(texto) || false;
     return {
       campo,
@@ -84,11 +90,15 @@ function evidenciasFortes(alerta) {
 function narrativaConsolidadaFallback(alerta, { total, unidade, ano, ausentes, documentosIds }) {
   const partes = [
     `A prefeitura registrou ${total} ${unidade} em ${alerta.categoria || 'um tema publico'} no ${ano}` +
-    (documentosIds.length ? ` (documento${documentosIds.length > 1 ? 's' : ''} ${documentosIds.join(', ')})` : '') +
-    '.',
+      (documentosIds.length
+        ? ` (documento${documentosIds.length > 1 ? 's' : ''} ${documentosIds.join(', ')})`
+        : '') +
+      '.',
   ];
   if (ausentes.length) {
-    partes.push(`${ausentes[0]} Vale conferir as informacoes na fonte oficial antes de qualquer conclusao.`);
+    partes.push(
+      `${ausentes[0]} Vale conferir as informacoes na fonte oficial antes de qualquer conclusao.`
+    );
   } else {
     partes.push('Vale conferir as informacoes na fonte oficial antes de qualquer conclusao.');
   }
@@ -98,30 +108,43 @@ function narrativaConsolidadaFallback(alerta, { total, unidade, ano, ausentes, d
 function fallbackInvestigation(alerta, motivo = null, { narrativaConsolidadaAtiva = true } = {}) {
   const lacunas = lacunasDeterministicas(alerta);
   const ausentes = lacunas
-    .filter((item) => item.status === 'nao_encontrado_nos_documentos_analisados')
-    .map((item) => `Nao encontrado nos documentos analisados: ${item.campo}.`);
+    .filter(item => item.status === 'nao_encontrado_nos_documentos_analisados')
+    .map(item => `Nao encontrado nos documentos analisados: ${item.campo}.`);
   const total = Number(alerta.valor_total || alerta.metadados?.total_quantidade || 0);
-  const ano = String(alerta.valor_periodo_label || alerta.metadados?.ano || '').match(/\d{4}/)?.[0] || 'periodo analisado';
+  const ano =
+    String(alerta.valor_periodo_label || alerta.metadados?.ano || '').match(/\d{4}/)?.[0] ||
+    'periodo analisado';
   const unidade = alerta.metadados?.unidade || 'itens';
-  const tipo = alerta.metadados?.investigacao_tipo || alerta.metadados?.tipo_fato || alerta.subcategoria || 'descoberta';
+  const tipo =
+    alerta.metadados?.investigacao_tipo ||
+    alerta.metadados?.tipo_fato ||
+    alerta.subcategoria ||
+    'descoberta';
   const documentosIds = alerta.documentos_ids || [];
-  const evidencias = (alerta.evidencias || []).slice(0, 8).map((ev) => ({
+  const evidencias = (alerta.evidencias || []).slice(0, 8).map(ev => ({
     documento_id: ev.documento_id || null,
     anexo_id: ev.anexo_id || null,
-    descricao:
-      `${ev.metadados?.quantidade ?? ev.metadados?.valor ?? total} ${ev.metadados?.unidade || unidade} em documento oficial relacionado.`,
+    descricao: `${ev.metadados?.quantidade ?? ev.metadados?.valor ?? total} ${ev.metadados?.unidade || unidade} em documento oficial relacionado.`,
   }));
 
   return {
     tema: alerta.metadados?.tema || alerta.categoria || 'Descoberta',
     tipo_investigacao: tipo,
-    hipotese_publica:
-      `Os documentos indicam ${total} ${unidade} em ${alerta.categoria || 'um tema publico'} no ${ano}; vale conferir as informacoes e lacunas associadas.`,
+    hipotese_publica: `Os documentos indicam ${total} ${unidade} em ${alerta.categoria || 'um tema publico'} no ${ano}; vale conferir as informacoes e lacunas associadas.`,
     pergunta_cidada: `${alerta.titulo || alerta.categoria || 'O que os documentos mostram'}?`,
     resposta_direta: `Os documentos analisados registram ${total} ${unidade} no ${ano}.`,
-    por_que_olhar: ausentes[0] || 'O caso reúne dados de documentos oficiais que merecem leitura conjunta.',
+    por_que_olhar:
+      ausentes[0] || 'O caso reúne dados de documentos oficiais que merecem leitura conjunta.',
     ...(narrativaConsolidadaAtiva
-      ? { narrativa_consolidada: narrativaConsolidadaFallback(alerta, { total, unidade, ano, ausentes, documentosIds }) }
+      ? {
+          narrativa_consolidada: narrativaConsolidadaFallback(alerta, {
+            total,
+            unidade,
+            ano,
+            ausentes,
+            documentosIds,
+          }),
+        }
       : {}),
     o_que_os_dados_mostram: [
       `A metrica principal do candidato soma ${total} ${unidade}.`,
@@ -133,17 +156,20 @@ function fallbackInvestigation(alerta, motivo = null, { narrativaConsolidadaAtiv
       'As fontes publicadas permitem conferir valores, fornecedores, datas e escopo?',
       'Ha documentos complementares que ainda nao apareceram nos trechos analisados?',
     ],
-    evidencias_usadas: evidencias.length ? evidencias : [{
-      documento_id: alerta.documentos_ids?.[0] || null,
-      anexo_id: null,
-      descricao: 'Evidencia factual extraida dos documentos analisados.',
-    }],
+    evidencias_usadas: evidencias.length
+      ? evidencias
+      : [
+          {
+            documento_id: alerta.documentos_ids?.[0] || null,
+            anexo_id: null,
+            descricao: 'Evidencia factual extraida dos documentos analisados.',
+          },
+        ],
     nivel_confianca: alerta.confianca ?? 0.68,
-    analise_admin:
-      `Fallback deterministico (${motivo || 'sem IA'}). O caso tem sinal publico relevante, mas deve ser revisado pelos trechos crus antes de qualquer conclusao externa.`,
+    analise_admin: `Fallback deterministico (${motivo || 'sem IA'}). O caso tem sinal publico relevante, mas deve ser revisado pelos trechos crus antes de qualquer conclusao externa.`,
     metricas: alerta.metadados?.metricas || {},
     comparativos: alerta.metadados?.comparativos || {},
-    documentos_relacionados: (alerta.documentos || []).slice(0, 12).map((doc) => ({
+    documentos_relacionados: (alerta.documentos || []).slice(0, 12).map(doc => ({
       documento_id: doc.documento_id,
       papel: doc.papel || 'evidencia',
       observacao: doc.trecho_fonte || undefined,
@@ -181,10 +207,13 @@ function discoveryV3Reprovado(alerta, gateFactual, motivosAdicionais = []) {
   };
 }
 
-function montarResultadoEditorial(alerta, investigation, gateFactual, gateEditorial, {
-  provider = null,
-  model = null,
-} = {}) {
+function montarResultadoEditorial(
+  alerta,
+  investigation,
+  gateFactual,
+  gateEditorial,
+  { provider = null, model = null } = {}
+) {
   const discoveryV3 = montarDiscoveryV3({
     alerta,
     investigation,
@@ -198,10 +227,9 @@ function montarResultadoEditorial(alerta, investigation, gateFactual, gateEditor
     ...alerta,
     titulo: investigation.pergunta_cidada,
     narrativa: investigation.narrativa_consolidada,
-    questionamentos: [...new Set([
-      ...(alerta.questionamentos || []),
-      ...(investigation.perguntas_abertas || []),
-    ])].slice(0, 10),
+    questionamentos: [
+      ...new Set([...(alerta.questionamentos || []), ...(investigation.perguntas_abertas || [])]),
+    ].slice(0, 10),
     estado_editorial: aprovado ? 'publicado' : 'revisao',
     estado_editorial_origem: aprovado ? 'publicacao_automatica' : 'gate_editorial',
     qualidade_versao: gateFactual.versao,
@@ -221,12 +249,17 @@ function aplicarRegrasPublicacao(investigation, gateEditorial, cfg = {}) {
   if (cfg.publicacaoAutomatica === false) {
     gateEditorial.aprovado = false;
     gateEditorial.status = 'revisao';
-    gateEditorial.motivos = [...new Set([...gateEditorial.motivos, 'AUTOMATIC_PUBLICATION_DISABLED'])];
+    gateEditorial.motivos = [
+      ...new Set([...gateEditorial.motivos, 'AUTOMATIC_PUBLICATION_DISABLED']),
+    ];
   }
   return gateEditorial;
 }
 
-async function processarDescobertaParaPublicacao(alerta, { provider, cfg = {}, force = false } = {}) {
+async function processarDescobertaParaPublicacao(
+  alerta,
+  { provider, cfg = {}, force = false } = {}
+) {
   const gateFactual = validarFactual(alerta);
   if (!gateFactual.aprovado) {
     const discoveryV3 = discoveryV3Reprovado(alerta, gateFactual);
@@ -242,7 +275,11 @@ async function processarDescobertaParaPublicacao(alerta, { provider, cfg = {}, f
   }
 
   const discoveryV3Existente = alerta.metadados?.discovery_v3;
-  if (!force && discoveryV3Existente?.pergunta_cidada && discoveryV3Existente?.narrativa_consolidada) {
+  if (
+    !force &&
+    discoveryV3Existente?.pergunta_cidada &&
+    discoveryV3Existente?.narrativa_consolidada
+  ) {
     const investigation = normalizarInvestigacaoEditorial({
       ...discoveryV3Existente,
       nivel_confianca: discoveryV3Existente.nivel_confianca ?? alerta.confianca ?? 0,
@@ -261,7 +298,9 @@ async function processarDescobertaParaPublicacao(alerta, { provider, cfg = {}, f
   }
 
   const discoveryV2 = alerta.metadados?.discovery_v2;
-  const statusV2Aproveitavel = ['ok', 'publicado', 'publicado_automaticamente'].includes(discoveryV2?.status);
+  const statusV2Aproveitavel = ['ok', 'publicado', 'publicado_automaticamente'].includes(
+    discoveryV2?.status
+  );
   if (!force && statusV2Aproveitavel) {
     try {
       const investigation = validateDiscoveryInvestigation(discoveryV2);
@@ -299,7 +338,8 @@ async function processarDescobertaParaPublicacao(alerta, { provider, cfg = {}, f
   }
 
   try {
-    const aiProvider = provider || createAiProvider(process.env, { model: config.nvidiaModelInvestigacao });
+    const aiProvider =
+      provider || createAiProvider(process.env, { model: config.nvidiaModelInvestigacao });
     const lacunas = lacunasDeterministicas(alerta);
     const prompt = buildDiscoveryInvestigationPrompt({
       alerta,
@@ -359,7 +399,11 @@ function statusPublicacao(alerta, investigation, status, cfg = {}) {
   return { status, motivo: 'publicado automaticamente apos contrato e evidencias' };
 }
 
-function applyInvestigationToAlert(alerta, investigation, { status, provider = null, model = null, erro = null, lacunas = [], cfg = {} } = {}) {
+function applyInvestigationToAlert(
+  alerta,
+  investigation,
+  { status, provider = null, model = null, erro = null, lacunas = [], cfg = {} } = {}
+) {
   const publicacao = statusPublicacao(alerta, investigation, status, cfg);
   const discoveryV2 = {
     contrato_versao: CONTRACT_VERSION,
@@ -382,10 +426,7 @@ function applyInvestigationToAlert(alerta, investigation, { status, provider = n
     // caem no hipotese_publica de sempre (compatibilidade).
     narrativa: investigation.narrativa_consolidada || investigation.hipotese_publica,
     questionamentos: [
-      ...new Set([
-        ...(alerta.questionamentos || []),
-        ...(investigation.perguntas_abertas || []),
-      ]),
+      ...new Set([...(alerta.questionamentos || []), ...(investigation.perguntas_abertas || [])]),
     ].slice(0, 10),
     metadados: {
       ...(alerta.metadados || {}),
@@ -400,13 +441,25 @@ async function investigarDescoberta(alerta, { provider, cfg } = {}) {
   const narrativaConsolidadaAtiva = cfg?.narrativaConsolidadaAtiva !== false;
 
   if (!config.aiSummaryEnabled) {
-    const fallback = fallbackInvestigation(alerta, 'AI_SUMMARY_ENABLED=false', { narrativaConsolidadaAtiva });
-    return applyInvestigationToAlert(alerta, fallback, { status: 'fallback', erro: 'AI_SUMMARY_ENABLED=false', lacunas, cfg });
+    const fallback = fallbackInvestigation(alerta, 'AI_SUMMARY_ENABLED=false', {
+      narrativaConsolidadaAtiva,
+    });
+    return applyInvestigationToAlert(alerta, fallback, {
+      status: 'fallback',
+      erro: 'AI_SUMMARY_ENABLED=false',
+      lacunas,
+      cfg,
+    });
   }
 
   try {
-    const aiProvider = provider || createAiProvider(process.env, { model: config.nvidiaModelInvestigacao });
-    const prompt = buildDiscoveryInvestigationPrompt({ alerta, lacunasDeterministicas: lacunas, narrativaConsolidadaAtiva });
+    const aiProvider =
+      provider || createAiProvider(process.env, { model: config.nvidiaModelInvestigacao });
+    const prompt = buildDiscoveryInvestigationPrompt({
+      alerta,
+      lacunasDeterministicas: lacunas,
+      narrativaConsolidadaAtiva,
+    });
     const raw = await aiProvider.generateJson({ prompt, temperature: 0.15 });
     const investigation = validateDiscoveryInvestigation(extractJsonObject(raw));
     return applyInvestigationToAlert(alerta, investigation, {

@@ -11,7 +11,9 @@ const documento = {
   texto_completo: 'Cabecalho do edital.\nItem 1 Arroz 10 kg R$ 120,00\nFim.',
   coletado_em: '2026-10-01',
 };
-const atas = [{ id: 3, tipo: 'ata', url: 'https://official.example/ata/3', texto_completo: 'Ata sem tabela.' }];
+const atas = [
+  { id: 3, tipo: 'ata', url: 'https://official.example/ata/3', texto_completo: 'Ata sem tabela.' },
+];
 
 // Provider que cita literalmente o trecho da fonte, como o modelo deve fazer.
 const provider = {
@@ -19,7 +21,7 @@ const provider = {
   model: 'modelo-teste',
   generateJson: jest.fn(async ({ prompt }) => {
     const { fontes } = JSON.parse(prompt.split('JSON de entrada:\n')[1]);
-    const fonte = fontes.find((f) => f.texto.includes('Item 1 Arroz'));
+    const fonte = fontes.find(f => f.texto.includes('Item 1 Arroz'));
     const itens = fonte
       ? [
           {

@@ -64,7 +64,8 @@ describe('parseSummaryResponse', () => {
   });
 
   it('escapa aspas soltas copiadas do texto oficial (OCR) e preserva o conteudo', () => {
-    const raw = '{"trecho": "Programa... ...".: 1202 - TRANSPORTE ESCOLAR", "tipo_documento": "decreto"}';
+    const raw =
+      '{"trecho": "Programa... ...".: 1202 - TRANSPORTE ESCOLAR", "tipo_documento": "decreto"}';
     const out = parseSummaryResponse(raw);
     expect(out.trecho).toBe('Programa... ...".: 1202 - TRANSPORTE ESCOLAR');
     expect(out.tipo_documento).toBe('decreto');
@@ -178,7 +179,10 @@ describe('normalizeSummaryBeforeValidation', () => {
   });
 
   it('normaliza tipo_documento: "dispensa de licitação" → "edital"', () => {
-    const r = normalizeSummaryBeforeValidation({ ...summaryBase, tipo_documento: 'dispensa de licitação' });
+    const r = normalizeSummaryBeforeValidation({
+      ...summaryBase,
+      tipo_documento: 'dispensa de licitação',
+    });
     expect(r.tipo_documento).toBe('edital');
   });
 
@@ -186,7 +190,11 @@ describe('normalizeSummaryBeforeValidation', () => {
     const r = normalizeSummaryBeforeValidation({
       ...summaryBase,
       partes_envolvidas: [
-        { nome: 'Prefeitura Municipal de Ritápolis', papel: 'Prefeitura Municipal', trecho_fonte: 'contratante' },
+        {
+          nome: 'Prefeitura Municipal de Ritápolis',
+          papel: 'Prefeitura Municipal',
+          trecho_fonte: 'contratante',
+        },
       ],
     });
     expect(r.partes_envolvidas[0].papel).toBe('contratante');
@@ -235,7 +243,13 @@ describe('normalizeSummaryBeforeValidation', () => {
     const r = normalizeSummaryBeforeValidation({
       ...summaryBase,
       valores: [
-        { tipo: 'estimado', valor: 1000, descricao: 'valor estimado', moeda: 'BRL', trecho_fonte: 'R$ 1.000,00' },
+        {
+          tipo: 'estimado',
+          valor: 1000,
+          descricao: 'valor estimado',
+          moeda: 'BRL',
+          trecho_fonte: 'R$ 1.000,00',
+        },
         { tipo: 'final', valor: 900, descricao: '', moeda: 'BRL', trecho_fonte: 'R$ 900,00' },
         { tipo: 'global', valor: 800, descricao: 'global', moeda: 'BRL', trecho_fonte: '' },
       ],
@@ -246,12 +260,18 @@ describe('normalizeSummaryBeforeValidation', () => {
 
   // Inferências de tipo_documento — mais caminhos
   it('normaliza "decreto municipal" → "decreto"', () => {
-    const r = normalizeSummaryBeforeValidation({ ...summaryBase, tipo_documento: 'decreto municipal' });
+    const r = normalizeSummaryBeforeValidation({
+      ...summaryBase,
+      tipo_documento: 'decreto municipal',
+    });
     expect(r.tipo_documento).toBe('decreto');
   });
 
   it('normaliza "portaria" → "portaria"', () => {
-    const r = normalizeSummaryBeforeValidation({ ...summaryBase, tipo_documento: 'portaria normativa' });
+    const r = normalizeSummaryBeforeValidation({
+      ...summaryBase,
+      tipo_documento: 'portaria normativa',
+    });
     expect(r.tipo_documento).toBe('portaria');
   });
 
@@ -261,12 +281,18 @@ describe('normalizeSummaryBeforeValidation', () => {
   });
 
   it('normaliza "empenho de despesa" → "despesa"', () => {
-    const r = normalizeSummaryBeforeValidation({ ...summaryBase, tipo_documento: 'empenho de despesa' });
+    const r = normalizeSummaryBeforeValidation({
+      ...summaryBase,
+      tipo_documento: 'empenho de despesa',
+    });
     expect(r.tipo_documento).toBe('despesa');
   });
 
   it('normaliza "ata de resultado" (tipo) → "ata"', () => {
-    const r = normalizeSummaryBeforeValidation({ ...summaryBase, tipo_documento: 'ata de resultado' });
+    const r = normalizeSummaryBeforeValidation({
+      ...summaryBase,
+      tipo_documento: 'ata de resultado',
+    });
     expect(r.tipo_documento).toBe('ata');
   });
 
@@ -275,7 +301,12 @@ describe('normalizeSummaryBeforeValidation', () => {
     const r = normalizeSummaryBeforeValidation({
       ...summaryBase,
       datas_relevantes: [
-        { tipo: 'publicacao', data: '10/01/2024', descricao: 'publicação', trecho_fonte: 'data 10/01/2024' },
+        {
+          tipo: 'publicacao',
+          data: '10/01/2024',
+          descricao: 'publicação',
+          trecho_fonte: 'data 10/01/2024',
+        },
       ],
     });
     expect(r.datas_relevantes[0].data).toBe('2024-01-10');
@@ -286,7 +317,12 @@ describe('normalizeSummaryBeforeValidation', () => {
       ...summaryBase,
       datas_relevantes: [
         { tipo: 'abertura', data: '2024-03-01', descricao: 'abertura', trecho_fonte: '' },
-        { tipo: 'publicacao', data: '2024-01-01', descricao: 'publicação', trecho_fonte: 'trecho real' },
+        {
+          tipo: 'publicacao',
+          data: '2024-01-01',
+          descricao: 'publicação',
+          trecho_fonte: 'trecho real',
+        },
       ],
     });
     expect(r.datas_relevantes).toHaveLength(1);
@@ -314,9 +350,7 @@ describe('normalizeSummaryBeforeValidation', () => {
   it('retorna itens_licitados vazio quando não há trecho_fonte', () => {
     const r = normalizeSummaryBeforeValidation({
       ...summaryBase,
-      itens_licitados: [
-        { descricao: 'item sem fonte', quantidade: 1, trecho_fonte: '' },
-      ],
+      itens_licitados: [{ descricao: 'item sem fonte', quantidade: 1, trecho_fonte: '' }],
     });
     expect(r.itens_licitados).toHaveLength(0);
   });
@@ -348,7 +382,8 @@ describe('validateSummary', () => {
     tipo_documento: 'edital',
     titulo_curto: 'Pregão 001/2024 — Material Escritório',
     resumo_cidadao: 'A prefeitura contratará material de escritório.',
-    resumo_tecnico: 'Pregão presencial 001/2024 para aquisição de material de escritório conforme TR.',
+    resumo_tecnico:
+      'Pregão presencial 001/2024 para aquisição de material de escritório conforme TR.',
     objeto: { descricao: 'Material de escritório', trecho_fonte: 'objeto: material de escritório' },
     pontos_principais: ['Modalidade: pregão presencial'],
     datas_relevantes: [],
@@ -414,7 +449,12 @@ describe('validateSummary', () => {
       const r = validateSummary({
         ...summaryValido,
         datas_relevantes: [
-          { tipo: 'abertura', data: '5 de março de 2024', descricao: 'Sessão', trecho_fonte: 'dia 5' },
+          {
+            tipo: 'abertura',
+            data: '5 de março de 2024',
+            descricao: 'Sessão',
+            trecho_fonte: 'dia 5',
+          },
           { tipo: 'vigencia', data: 'março de 2024', descricao: 'Vigência', trecho_fonte: 'março' },
         ],
       });
@@ -425,7 +465,14 @@ describe('validateSummary', () => {
     it('valor em texto de moeda vira número', () => {
       const r = validateSummary({
         ...summaryValido,
-        valores: [{ tipo: 'estimado', valor: 'R$ 1.234,56', descricao: 'Total', trecho_fonte: 'R$ 1.234,56' }],
+        valores: [
+          {
+            tipo: 'estimado',
+            valor: 'R$ 1.234,56',
+            descricao: 'Total',
+            trecho_fonte: 'R$ 1.234,56',
+          },
+        ],
       });
       expect(r.valores[0].valor).toBe(1234.56);
     });

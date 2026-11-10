@@ -15,7 +15,8 @@ const REGRAS = [
   'Use SOMENTE os fatos abaixo. Cada achado precisa de evidências: o "fonte_id" e um "trecho" copiado LITERALMENTE do texto da fonte (sem reescrever).',
   'Não some, não calcule e não estime valores: cite apenas números que aparecem nas fontes (os totais estão no [RESUMO], calculados pelo sistema).',
   'Linguagem neutra: descreva o fato, o critério e o que falta confirmar. Não acuse ninguém, não atribua intenção e não use termos como fraude, desvio, irregular ou ilegal. Uma repetição pode ter explicação legítima.',
-  'Não relate o trivial: numeração de empenho reiniciada a cada exercício, erro de digitação ou grafia, campo de texto truncado e repetição de histórico padrão não são achados.',
+  'Não relate o trivial: numeração de empenho reiniciada a cada exercício, erro de digitação ou grafia, campo de texto truncado repetição de histórico padrão, empenho de valor zero (reserva ou ajuste) e ausência de empenhos em um ano não são achados.',
+  'Não escreva percentuais, anos ou valores que não estejam literalmente nas fontes, e não use expressões como "empresa de fachada".',
   'Se não houver nada incomum, responda com "achados" vazio. Não force uma suspeita.',
 ];
 

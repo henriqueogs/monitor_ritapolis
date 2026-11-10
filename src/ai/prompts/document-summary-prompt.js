@@ -138,5 +138,5 @@ Corrija esses campos e responda somente o JSON no formato do contrato acima.`;
 module.exports = {
   buildDocumentSummaryPrompt,
   buildConsolidationPrompt,
-  buildContractRetryNote
+  buildContractRetryNote,
 };

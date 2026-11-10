@@ -18,36 +18,48 @@ const { sanitizarFornecedor } = require('../licitacoes/fornecedor-sanitizador');
 
 function extrairVencedor(resumoJson) {
   const partes = resumoJson?.partes_envolvidas;
-  if (!Array.isArray(partes) || partes.length === 0) {return null;}
+  if (!Array.isArray(partes) || partes.length === 0) {
+    return null;
+  }
 
   // Procura "contratado" — o vencedor/empresa contratada
-  const contratado = partes.find((p) => p.papel === 'contratado');
-  if (!contratado?.nome) {return null;}
+  const contratado = partes.find(p => p.papel === 'contratado');
+  if (!contratado?.nome) {
+    return null;
+  }
 
   const { nome, cnpj } = sanitizarFornecedor({
     nome: contratado.nome,
     cnpj: contratado.documento,
   });
-  if (!nome && !cnpj) {return null;}
+  if (!nome && !cnpj) {
+    return null;
+  }
 
   return { nome, cnpj };
 }
 
 function extrairValorFinal(resumoJson) {
   const valores = resumoJson?.valores;
-  if (!Array.isArray(valores) || valores.length === 0) {return null;}
+  if (!Array.isArray(valores) || valores.length === 0) {
+    return null;
+  }
 
   // Preferência: tipo 'final', depois 'estimado'
-  const final = valores.find((v) => v.tipo === 'final');
-  if (final?.valor && typeof final.valor === 'number') {return final.valor;}
+  const final = valores.find(v => v.tipo === 'final');
+  if (final?.valor && typeof final.valor === 'number') {
+    return final.valor;
+  }
 
   return null;
 }
 
 function extrairValorEstimado(resumoJson) {
   const valores = resumoJson?.valores;
-  if (!Array.isArray(valores) || valores.length === 0) {return null;}
-  const est = valores.find((v) => v.tipo === 'estimado');
+  if (!Array.isArray(valores) || valores.length === 0) {
+    return null;
+  }
+  const est = valores.find(v => v.tipo === 'estimado');
   return est?.valor && typeof est.valor === 'number' ? est.valor : null;
 }
 
@@ -63,7 +75,7 @@ const SQL_VALOR_IA = sqlValorComProcedencia({
   gravaValor: `licitacoes_detalhes.valor_final IS NULL AND @valor_final IS NOT NULL AND ${SEM_RESULTADO_PNCP}`,
   semValor: `licitacoes_detalhes.valor_final IS NULL AND licitacoes_detalhes.vencedor_nome IS NULL
     AND ${SEM_RESULTADO_PNCP}`,
-  novo: (coluna) => ({ valor_final: '@valor_final', origem: "'resumo_ai'" })[coluna] || 'NULL',
+  novo: coluna => ({ valor_final: '@valor_final', origem: "'resumo_ai'" })[coluna] || 'NULL',
 });
 
 const upsertStmt = db.prepare(`
@@ -88,14 +100,18 @@ const upsertStmt = db.prepare(`
  */
 function extractEntitiesFromResumes() {
   // Busca resumos que pertencem a editais (tipo mais provável de ter vencedor)
-  const resumos = db.prepare(`
+  const resumos = db
+    .prepare(
+      `
     SELECT ra.documento_id, ra.resumo_json, d.tipo
     FROM documentos_resumos_ai ra
     JOIN documentos d ON d.id = ra.documento_id
     WHERE ra.resumo_json IS NOT NULL
       AND d.tipo IN ('edital', 'contrato')
     ORDER BY d.ano DESC
-  `).all();
+  `
+    )
+    .all();
 
   let processados = 0;
   let comVencedor = 0;
@@ -110,7 +126,9 @@ function extractEntitiesFromResumes() {
       const valorFinal = extrairValorFinal(json);
       const valorEstimado = extrairValorEstimado(json);
 
-      if (!vencedor && valorFinal === null && valorEstimado === null) {continue;}
+      if (!vencedor && valorFinal === null && valorEstimado === null) {
+        continue;
+      }
 
       upsertStmt.run({
         documento_id: row.documento_id,
@@ -121,8 +139,12 @@ function extractEntitiesFromResumes() {
       });
 
       processados++;
-      if (vencedor?.nome) {comVencedor++;}
-      if (valorFinal !== null) {comValorFinal++;}
+      if (vencedor?.nome) {
+        comVencedor++;
+      }
+      if (valorFinal !== null) {
+        comValorFinal++;
+      }
     } catch (err) {
       erros++;
       logger.warn('extract-entities: erro ao processar resumo', {
@@ -140,7 +162,13 @@ function extractEntitiesFromResumes() {
     erros,
   });
 
-  return { total_resumos: resumos.length, processados, com_vencedor: comVencedor, com_valor_final: comValorFinal, erros };
+  return {
+    total_resumos: resumos.length,
+    processados,
+    com_vencedor: comVencedor,
+    com_valor_final: comValorFinal,
+    erros,
+  };
 }
 
 module.exports = { extractEntitiesFromResumes, extrairVencedor, extrairValorFinal };

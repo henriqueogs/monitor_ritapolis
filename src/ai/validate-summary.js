@@ -12,7 +12,7 @@ const enumValues = {
   valor_tipo: ['estimado', 'final', 'global', 'mensal', 'unitario', 'outro'],
   valor_final_tipo: ['unitario', 'total_item', 'lote', 'global', 'indefinido'],
   papel: ['contratante', 'contratado', 'autoridade', 'fornecedor', 'orgao_publico', 'outro'],
-  nivel_risco: ['baixo', 'medio', 'alto']
+  nivel_risco: ['baixo', 'medio', 'alto'],
 };
 
 function extractJsonText(rawContent) {
@@ -112,48 +112,100 @@ function normalizeEnumValue(value, allowedValues, fallback = 'outro') {
   }
 
   if (allowedValues === enumValues.tipo_documento) {
-    if (/edital|licitacao|pregao|concorrencia|dispensa|inexigibilidade/.test(text)) {return 'edital';}
-    if (/decreto/.test(text)) {return 'decreto';}
-    if (/portaria/.test(text)) {return 'portaria';}
-    if (/lei/.test(text)) {return 'lei';}
-    if (/contrato|termo_aditivo/.test(text)) {return 'contrato';}
-    if (/despesa|empenho|pagamento/.test(text)) {return 'despesa';}
-    if (/ata/.test(text)) {return 'ata';}
+    if (/edital|licitacao|pregao|concorrencia|dispensa|inexigibilidade/.test(text)) {
+      return 'edital';
+    }
+    if (/decreto/.test(text)) {
+      return 'decreto';
+    }
+    if (/portaria/.test(text)) {
+      return 'portaria';
+    }
+    if (/lei/.test(text)) {
+      return 'lei';
+    }
+    if (/contrato|termo_aditivo/.test(text)) {
+      return 'contrato';
+    }
+    if (/despesa|empenho|pagamento/.test(text)) {
+      return 'despesa';
+    }
+    if (/ata/.test(text)) {
+      return 'ata';
+    }
   }
 
   if (allowedValues === enumValues.papel) {
-    if (/contratante|prefeitura|municipio|municipal|orgao/.test(text)) {return 'contratante';}
-    if (/contratad|empresa|vencedor|fornecedor/.test(text)) {return 'contratado';}
-    if (/autoridade|prefeito|secretari|pregoeir|presidente/.test(text)) {return 'autoridade';}
+    if (/contratante|prefeitura|municipio|municipal|orgao/.test(text)) {
+      return 'contratante';
+    }
+    if (/contratad|empresa|vencedor|fornecedor/.test(text)) {
+      return 'contratado';
+    }
+    if (/autoridade|prefeito|secretari|pregoeir|presidente/.test(text)) {
+      return 'autoridade';
+    }
   }
 
   if (allowedValues === enumValues.data_tipo) {
-    if (/abertura|sessao|certame/.test(text)) {return 'abertura';}
-    if (/publica/.test(text)) {return 'publicacao';}
-    if (/vigencia|validade/.test(text)) {return 'vigencia';}
-    if (/homologa/.test(text)) {return 'homologacao';}
-    if (/assinatura|assinado/.test(text)) {return 'assinatura';}
+    if (/abertura|sessao|certame/.test(text)) {
+      return 'abertura';
+    }
+    if (/publica/.test(text)) {
+      return 'publicacao';
+    }
+    if (/vigencia|validade/.test(text)) {
+      return 'vigencia';
+    }
+    if (/homologa/.test(text)) {
+      return 'homologacao';
+    }
+    if (/assinatura|assinado/.test(text)) {
+      return 'assinatura';
+    }
   }
 
   if (allowedValues === enumValues.valor_tipo) {
-    if (/estimad|referencia/.test(text)) {return 'estimado';}
-    if (/final|homologad|contratad/.test(text)) {return 'final';}
-    if (/global|total/.test(text)) {return 'global';}
-    if (/mensal/.test(text)) {return 'mensal';}
-    if (/unit/.test(text)) {return 'unitario';}
+    if (/estimad|referencia/.test(text)) {
+      return 'estimado';
+    }
+    if (/final|homologad|contratad/.test(text)) {
+      return 'final';
+    }
+    if (/global|total/.test(text)) {
+      return 'global';
+    }
+    if (/mensal/.test(text)) {
+      return 'mensal';
+    }
+    if (/unit/.test(text)) {
+      return 'unitario';
+    }
   }
 
   if (allowedValues === enumValues.valor_final_tipo) {
-    if (/unit/.test(text)) {return 'unitario';}
-    if (/total|item_total/.test(text)) {return 'total_item';}
-    if (/lote/.test(text)) {return 'lote';}
-    if (/global/.test(text)) {return 'global';}
+    if (/unit/.test(text)) {
+      return 'unitario';
+    }
+    if (/total|item_total/.test(text)) {
+      return 'total_item';
+    }
+    if (/lote/.test(text)) {
+      return 'lote';
+    }
+    if (/global/.test(text)) {
+      return 'global';
+    }
     return 'indefinido';
   }
 
   if (allowedValues === enumValues.nivel_risco) {
-    if (/alto|grave/.test(text)) {return 'alto';}
-    if (/medio|moderado/.test(text)) {return 'medio';}
+    if (/alto|grave/.test(text)) {
+      return 'alto';
+    }
+    if (/medio|moderado/.test(text)) {
+      return 'medio';
+    }
     return 'baixo';
   }
 
@@ -162,7 +214,9 @@ function normalizeEnumValue(value, allowedValues, fallback = 'outro') {
 
 function normalizeOptionalText(value) {
   // undefined virava o texto "undefined" e item sem trecho_fonte passava no filtro.
-  if (value === null || value === undefined) {return null;}
+  if (value === null || value === undefined) {
+    return null;
+  }
 
   const text = String(value)
     .replace(/[\u200B-\u200D\uFEFF]/g, '')
@@ -185,8 +239,8 @@ function normalizeSummaryBeforeValidation(summary) {
     return summary;
   }
 
-  const hasSourceExcerpt = (item) => Boolean(normalizeOptionalText(item?.trecho_fonte));
-  const hasRequiredText = (value) => Boolean(normalizeOptionalText(value));
+  const hasSourceExcerpt = item => Boolean(normalizeOptionalText(item?.trecho_fonte));
+  const hasRequiredText = value => Boolean(normalizeOptionalText(value));
   const pontosPrincipais = normalizeListValue(summary.pontos_principais)
     .map(normalizeOptionalText)
     .filter(Boolean);
@@ -195,7 +249,9 @@ function normalizeSummaryBeforeValidation(summary) {
       ? {
           ...summary.objeto,
           descricao: normalizeOptionalText(summary.objeto.descricao),
-          trecho_fonte: hasSourceExcerpt(summary.objeto) ? normalizeRequiredText(summary.objeto.trecho_fonte) : null
+          trecho_fonte: hasSourceExcerpt(summary.objeto)
+            ? normalizeRequiredText(summary.objeto.trecho_fonte)
+            : null,
         }
       : { descricao: null, trecho_fonte: null };
   const firstMainPoint = Array.isArray(pontosPrincipais) ? pontosPrincipais[0] : null;
@@ -208,7 +264,9 @@ function normalizeSummaryBeforeValidation(summary) {
     'Trecho de documento publico municipal sem informacoes suficientes para resumo detalhado.';
   const usedFallback = !title || !citizenSummary || !technicalSummary;
   const rawConfidence = Number(summary.confianca);
-  const confidence = Number.isFinite(rawConfidence) ? Math.min(1, Math.max(0, rawConfidence)) : 0.35;
+  const confidence = Number.isFinite(rawConfidence)
+    ? Math.min(1, Math.max(0, rawConfidence))
+    : 0.35;
 
   return {
     ...summary,
@@ -218,37 +276,37 @@ function normalizeSummaryBeforeValidation(summary) {
     resumo_tecnico: technicalSummary || fallbackText,
     pontos_principais: pontosPrincipais,
     datas_relevantes: normalizeListValue(summary.datas_relevantes)
-      .filter((item) => hasSourceExcerpt(item) && hasRequiredText(item?.descricao))
-      .map((item) => ({
+      .filter(item => hasSourceExcerpt(item) && hasRequiredText(item?.descricao))
+      .map(item => ({
         ...item,
         tipo: normalizeEnumValue(item?.tipo, enumValues.data_tipo),
         data: normalizeDateValue(item?.data),
         descricao: normalizeRequiredText(item?.descricao),
-        trecho_fonte: normalizeRequiredText(item?.trecho_fonte)
+        trecho_fonte: normalizeRequiredText(item?.trecho_fonte),
       })),
     valores: normalizeListValue(summary.valores)
-      .filter((item) => hasSourceExcerpt(item) && hasRequiredText(item?.descricao))
-      .map((item) => ({
+      .filter(item => hasSourceExcerpt(item) && hasRequiredText(item?.descricao))
+      .map(item => ({
         ...item,
         tipo: normalizeEnumValue(item?.tipo, enumValues.valor_tipo),
         valor: normalizeNumberValue(item?.valor),
         moeda: normalizeRequiredText(item?.moeda || 'BRL'),
         descricao: normalizeRequiredText(item?.descricao),
-        trecho_fonte: normalizeRequiredText(item?.trecho_fonte)
+        trecho_fonte: normalizeRequiredText(item?.trecho_fonte),
       }))
-      .filter((item) => item.valor !== null),
+      .filter(item => item.valor !== null),
     partes_envolvidas: normalizeListValue(summary.partes_envolvidas)
-      .filter((item) => hasSourceExcerpt(item) && hasRequiredText(item?.nome))
-      .map((item) => ({
+      .filter(item => hasSourceExcerpt(item) && hasRequiredText(item?.nome))
+      .map(item => ({
         ...item,
         nome: normalizeRequiredText(item?.nome),
         papel: normalizeEnumValue(item?.papel, enumValues.papel),
         documento: normalizeOptionalText(item?.documento),
-        trecho_fonte: normalizeRequiredText(item?.trecho_fonte)
+        trecho_fonte: normalizeRequiredText(item?.trecho_fonte),
       })),
     itens_licitados: normalizeListValue(summary.itens_licitados)
-      .filter((item) => hasSourceExcerpt(item) && hasRequiredText(item?.descricao))
-      .map((item) => ({
+      .filter(item => hasSourceExcerpt(item) && hasRequiredText(item?.descricao))
+      .map(item => ({
         item_numero: normalizeOptionalText(item?.item_numero),
         lote_numero: normalizeOptionalText(item?.lote_numero),
         descricao: normalizeRequiredText(item?.descricao),
@@ -258,26 +316,30 @@ function normalizeSummaryBeforeValidation(summary) {
         valor_total_estimado: normalizePositiveNumberValue(item?.valor_total_estimado),
         valor_unitario_final: normalizePositiveNumberValue(item?.valor_unitario_final),
         valor_total_final: normalizePositiveNumberValue(item?.valor_total_final),
-        valor_final_tipo: normalizeEnumValue(item?.valor_final_tipo, enumValues.valor_final_tipo, null),
+        valor_final_tipo: normalizeEnumValue(
+          item?.valor_final_tipo,
+          enumValues.valor_final_tipo,
+          null
+        ),
         valor_lote_final: normalizePositiveNumberValue(item?.valor_lote_final),
         valor_global_final: normalizePositiveNumberValue(item?.valor_global_final),
         fornecedor_nome: normalizeOptionalText(item?.fornecedor_nome),
         fornecedor_cnpj: normalizeOptionalText(item?.fornecedor_cnpj),
-        trecho_fonte: normalizeRequiredText(item?.trecho_fonte)
+        trecho_fonte: normalizeRequiredText(item?.trecho_fonte),
       })),
     objeto: normalizedObject,
     riscos_ou_alertas: normalizeListValue(summary.riscos_ou_alertas)
-      .filter((item) => hasRequiredText(item?.descricao) && hasRequiredText(item?.motivo))
-      .map((item) => ({
+      .filter(item => hasRequiredText(item?.descricao) && hasRequiredText(item?.motivo))
+      .map(item => ({
         ...item,
         nivel: normalizeEnumValue(item?.nivel, enumValues.nivel_risco, 'baixo'),
         descricao: normalizeRequiredText(item?.descricao),
-        motivo: normalizeRequiredText(item?.motivo)
+        motivo: normalizeRequiredText(item?.motivo),
       })),
     campos_nao_encontrados: normalizeListValue(summary.campos_nao_encontrados)
       .map(normalizeOptionalText)
       .filter(Boolean),
-    confianca: usedFallback ? Math.min(confidence, 0.35) : confidence
+    confianca: usedFallback ? Math.min(confidence, 0.35) : confidence,
   };
 }
 
@@ -287,7 +349,7 @@ function validateSummary(summary) {
   } catch (error) {
     if (error instanceof ZodError) {
       const issues = error.issues
-        .map((issue) => `${issue.path.join('.') || 'raiz'}: ${issue.message}`)
+        .map(issue => `${issue.path.join('.') || 'raiz'}: ${issue.message}`)
         .join('; ');
       throw new Error(`Resumo fora do contrato esperado: ${issues}`);
     }
@@ -304,5 +366,5 @@ module.exports = {
   normalizeEnumValue,
   normalizeDateValue,
   normalizeOptionalText,
-  normalizeSummaryBeforeValidation
+  normalizeSummaryBeforeValidation,
 };

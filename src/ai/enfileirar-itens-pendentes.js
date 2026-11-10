@@ -11,7 +11,12 @@ const {
   getUltimoItensEstruturadosPorDocumento,
   createItensEstruturacaoJob,
 } = require('../db/itens-estruturacao-jobs-repo');
-const { listarAtasDoDocumento, computeInputHash, CONTRACT_VERSION, assessItemsResult } = require('./estruturar-itens-processo');
+const {
+  listarAtasDoDocumento,
+  computeInputHash,
+  CONTRACT_VERSION,
+  assessItemsResult,
+} = require('./estruturar-itens-processo');
 const { createAiProvider } = require('./providers');
 
 function jaProcessadoComTextoAtual(documento, atas) {
@@ -62,7 +67,7 @@ async function enfileirarItensPendentes({
   return {
     dry_run: dryRun,
     total_selecionados: candidatos.length,
-    selecionados: candidatos.map((d) => ({ documento_id: d.id, titulo: d.titulo })),
+    selecionados: candidatos.map(d => ({ documento_id: d.id, titulo: d.titulo })),
     enfileirados,
     ja_processados: jaProcessados,
   };

@@ -73,6 +73,21 @@ describe('verificarAchados', () => {
     expect(r.descartados[0].motivos.join(' ')).toMatch(/número/);
   });
 
+  it('descarta percentual e ano que não estão nas fontes', () => {
+    for (const texto of ['Alta de 1.484% no período.', 'A partir de 2033 os valores sobem.']) {
+      const a = achado({ por_que_suspeito: texto });
+      const r = verificarAchados({ achados: [a] }, dossie);
+      expect(r.descartados[0].motivos.join(' ')).toMatch(/percentual ou ano/);
+    }
+  });
+
+  it('descarta "empresa de fachada" e termos parecidos', () => {
+    const a = achado({ por_que_suspeito: 'Pode indicar empresa de fachada.' });
+    expect(verificarAchados({ achados: [a] }, dossie).descartados[0].motivos.join(' ')).toMatch(
+      /linguagem/
+    );
+  });
+
   it('descarta linguagem acusatória', () => {
     const a = achado({ por_que_suspeito: 'Parece fraude: dois empenhos no mesmo dia.' });
     const r = verificarAchados({ achados: [a] }, dossie);

@@ -8,7 +8,7 @@ const sourceTypeEnum = z.enum([
   'produto',
   'grupo',
   'documento',
-  'outro'
+  'outro',
 ]);
 
 const alertLevelEnum = z.enum(['baixo', 'medio', 'alto']);
@@ -22,14 +22,30 @@ function normalizeSourceType(value) {
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '');
 
-  if (!text) {return 'outro';}
-  if (['prefeitura', 'site_prefeitura', 'municipio', 'cadastro_oficial'].includes(text)) {return 'prefeitura';}
-  if (['pncp', 'portal_nacional'].includes(text)) {return 'pncp';}
-  if (text.includes('ata')) {return 'ata';}
-  if (text.includes('contrato')) {return 'contrato';}
-  if (text.includes('produto') || text.includes('item') || text.includes('licitacoes_produtos')) {return 'produto';}
-  if (text.includes('grupo') || text.includes('processo')) {return 'grupo';}
-  if (text.includes('documento') || text.includes('pdf') || text.includes('edital')) {return 'documento';}
+  if (!text) {
+    return 'outro';
+  }
+  if (['prefeitura', 'site_prefeitura', 'municipio', 'cadastro_oficial'].includes(text)) {
+    return 'prefeitura';
+  }
+  if (['pncp', 'portal_nacional'].includes(text)) {
+    return 'pncp';
+  }
+  if (text.includes('ata')) {
+    return 'ata';
+  }
+  if (text.includes('contrato')) {
+    return 'contrato';
+  }
+  if (text.includes('produto') || text.includes('item') || text.includes('licitacoes_produtos')) {
+    return 'produto';
+  }
+  if (text.includes('grupo') || text.includes('processo')) {
+    return 'grupo';
+  }
+  if (text.includes('documento') || text.includes('pdf') || text.includes('edital')) {
+    return 'documento';
+  }
   return text;
 }
 
@@ -38,10 +54,10 @@ const sourceRefSchema = z.object({
   campo: z.string().trim().min(1),
   identificador: z
     .preprocess(
-      (value) => (value === null || value === '' ? null : String(value)),
+      value => (value === null || value === '' ? null : String(value)),
       z.string().trim().min(1).nullable()
     )
-    .default(null)
+    .default(null),
 });
 
 const IntegratedReadingContract = z.object({
@@ -55,7 +71,7 @@ const IntegratedReadingContract = z.object({
         status: consistencyStatusEnum,
         campo: z.string().trim().min(1),
         descricao: z.string().trim().min(1),
-        fontes: z.array(sourceRefSchema).default([])
+        fontes: z.array(sourceRefSchema).default([]),
       })
     )
     .default([]),
@@ -64,7 +80,7 @@ const IntegratedReadingContract = z.object({
       z.object({
         nivel: alertLevelEnum,
         descricao: z.string().trim().min(1),
-        fonte: sourceRefSchema.nullable().default(null)
+        fonte: sourceRefSchema.nullable().default(null),
       })
     )
     .default([]),
@@ -72,14 +88,14 @@ const IntegratedReadingContract = z.object({
     .array(
       z.object({
         campo: z.string().trim().min(1),
-        descricao: z.string().trim().min(1)
+        descricao: z.string().trim().min(1),
       })
     )
     .default([]),
   fontes_usadas: z.array(sourceRefSchema).default([]),
-  confianca: z.number().min(0).max(1)
+  confianca: z.number().min(0).max(1),
 });
 
 module.exports = {
-  IntegratedReadingContract
+  IntegratedReadingContract,
 };

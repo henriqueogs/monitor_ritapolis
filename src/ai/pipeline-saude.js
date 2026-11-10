@@ -40,7 +40,9 @@ function avaliarSaudePipeline({ agora, schedulerHabilitado, ultimoResumoOkEm, re
   const pendentes = recentes?.semResumo || 0;
   const total = recentes?.total || 0;
 
-  if (!schedulerHabilitado) {motivos.push(MOTIVOS.SCHEDULER_DESABILITADO);}
+  if (!schedulerHabilitado) {
+    motivos.push(MOTIVOS.SCHEDULER_DESABILITADO);
+  }
 
   if (!ultimoResumoOkEm && pendentes > 0) {
     motivos.push(MOTIVOS.NUNCA_RESUMIU);
@@ -60,11 +62,24 @@ function avaliarSaudePipeline({ agora, schedulerHabilitado, ultimoResumoOkEm, re
  * provedor devolveu 429 nas últimas 24h ou se há fila histórica e nada rodou
  * há mais de 36h. Campanha desligada ou sem pendências nunca alerta.
  */
-function avaliarCampanhaHistorica({ agora, ativa, pendentes, ultimaExecucaoEm, errosLimiteProvider }) {
-  if (!ativa) {return [];}
+function avaliarCampanhaHistorica({
+  agora,
+  ativa,
+  pendentes,
+  ultimaExecucaoEm,
+  errosLimiteProvider,
+}) {
+  if (!ativa) {
+    return [];
+  }
   const motivos = [];
-  if (errosLimiteProvider > 0) {motivos.push(MOTIVOS.CAMPANHA_LIMITE_PROVIDER);}
-  if (pendentes > 0 && (!ultimaExecucaoEm || idadeMs(agora, ultimaExecucaoEm) > LIMITE_SEM_PROGRESSO_MS)) {
+  if (errosLimiteProvider > 0) {
+    motivos.push(MOTIVOS.CAMPANHA_LIMITE_PROVIDER);
+  }
+  if (
+    pendentes > 0 &&
+    (!ultimaExecucaoEm || idadeMs(agora, ultimaExecucaoEm) > LIMITE_SEM_PROGRESSO_MS)
+  ) {
     motivos.push(MOTIVOS.CAMPANHA_SEM_PROGRESSO);
   }
   return motivos;
@@ -72,7 +87,9 @@ function avaliarCampanhaHistorica({ agora, ativa, pendentes, ultimaExecucaoEm, e
 
 /** Ciclo de IA está atrasado? (nunca rodou nesta vida do processo = sim) */
 function cicloDevido({ agora, ultimoCicloEm, intervaloMs }) {
-  if (!ultimoCicloEm) {return true;}
+  if (!ultimoCicloEm) {
+    return true;
+  }
   return idadeMs(agora, ultimoCicloEm) >= intervaloMs;
 }
 

@@ -10,5 +10,5 @@ class BaseProvider {
 }
 
 module.exports = {
-  BaseProvider
+  BaseProvider,
 };

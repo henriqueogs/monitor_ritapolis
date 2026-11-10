@@ -27,7 +27,9 @@ describe('itens-processo-contract', () => {
     const r = validateItensProcesso(
       payload({
         tem_tabela_itens: false,
-        lacunas: ['O texto é um cronograma físico-financeiro de medição de obra, não uma lista de itens licitados.'],
+        lacunas: [
+          'O texto é um cronograma físico-financeiro de medição de obra, não uma lista de itens licitados.',
+        ],
         confianca: 0.9,
       })
     );
@@ -51,7 +53,10 @@ describe('itens-processo-contract', () => {
         ],
       })
     );
-    expect(r.itens_solicitados[0]).toMatchObject({ descricao: 'Cobertura fotográfica', quantidade: 10 });
+    expect(r.itens_solicitados[0]).toMatchObject({
+      descricao: 'Cobertura fotográfica',
+      quantidade: 10,
+    });
   });
 
   it('rejeita item sem trecho_fonte (não pode inventar sem origem)', () => {
@@ -74,7 +79,8 @@ describe('itens-processo-contract', () => {
             fornecedor_nome: 'HYAGO E. SANTOS PROMOÇÕES-ME',
             fornecedor_cnpj: null,
             teto_homologado: 195000,
-            trecho_fonte: 'Item: 1 - LOTE 00001 ... HYAGO E. SANTOS PROMOÇÕES-ME R$ 195.000,00 100,00 Selecionado',
+            trecho_fonte:
+              'Item: 1 - LOTE 00001 ... HYAGO E. SANTOS PROMOÇÕES-ME R$ 195.000,00 100,00 Selecionado',
           },
         ],
       })
@@ -131,9 +137,7 @@ describe('itens-processo-contract', () => {
   it('trunca trecho_fonte excedente em vez de rejeitar o resultado inteiro', () => {
     const r = validateItensProcesso(
       payload({
-        itens_solicitados: [
-          { descricao: 'Item X', trecho_fonte: 'A'.repeat(900) },
-        ],
+        itens_solicitados: [{ descricao: 'Item X', trecho_fonte: 'A'.repeat(900) }],
       })
     );
     expect(r.itens_solicitados[0].trecho_fonte.length).toBeLessThanOrEqual(700);
