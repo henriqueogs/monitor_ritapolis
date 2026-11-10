@@ -10,7 +10,46 @@ Ver `QUICK_SUMMARY.md` para o mapa geral dos documentos do projeto.
 
 ---
 
-## 📍 Status em 04/11/2026
+## 📍 Status em 09/11/2026 — Na Lupa v4, integridade de dados e infra
+
+Entregue entre 29/10 e 09/11 (PRs #209–#246). Plano e decisões:
+[`docs/PLANO_PROXIMAS_ATIVIDADES_2026-10-29.md`](docs/PLANO_PROXIMAS_ATIVIDADES_2026-10-29.md),
+diagnóstico N0 em [`docs/NA_LUPA_V4_N0_DIAGNOSTICO_2026-10-29.md`](docs/NA_LUPA_V4_N0_DIAGNOSTICO_2026-10-29.md).
+
+- **Na Lupa v4 (trilha 1, determinística):** contrato de vertente, orquestrador e
+  persistência (`src/alertas/vertentes/`), sempre em `revisao`; gate reconhece
+  `vertente-*`. Vertentes: gasto atípico por categoria e empenhado acima do
+  contratado (migradas); **compras repetidas** (limites de dispensa 2022–2026
+  conferidos no Anexo dos decretos, exclusões de PF/folha/previdência/repasse/
+  entidades, processo e adesão citados no histórico, modalidade do portal);
+  **preço acima da referência** (mesmo produto e unidade; ignora peça de manutenção
+  de equipamento específico). Dry-run de compras repetidas: 0 candidatos; de preço:
+  0 após o ajuste (os 3 iniciais eram equipamentos diferentes sob o mesmo código).
+- **Alertas 431–434 (RLM Peças) rejeitados:** os 255 empenhos constam no portal como
+  "Adesão a Registro de Preços – 0012/2025" (licitação 0052/25). A lacuna era do
+  acervo: faltam os processos 0052–0055/2025. Triagem de 05/11 rejeitou 217 genéricos;
+  7 de eventos seguem em revisão como semente de vertente futura.
+- **Dados:** coletor grava `licitacao_ref`, `modalidade` e os itens da nota fiscal
+  (`transparencia_despesas_itens`); backfill 2025+ aplicado (957 empenhos com
+  modalidade, 5.316 itens em 1.187 empenhos, 0 falhas). Script:
+  `scripts/backfill-licitacao-modalidade.js` (dry-run; `--apply`; `--itens`).
+- **Analista IA (trilha 2, N2):** verificador de evidências, dossiê de credor, prompt e
+  runner somente leitura (`src/ai/analista/`, `scripts/analista-credor.js`). Uma
+  chamada real ao RLM Peças: 209 s, 4 achados aceitos e 4 descartados, todos fracos.
+  Falta ajustar modelo/tempo e prompt antes de um lote de 20 para revisão.
+- **Saúde do pipeline:** falha esgotada e antiga (> 3 dias) vira aviso
+  `falhas_antigas_sem_reprocesso`, e não derruba o workflow "Pipeline health (IA)"
+  (que mandava e-mail a cada ~6 h). As 9 tarefas esgotadas foram reenfileiradas.
+- **Infra:** tarefa agendada local `oci-vm-arm-tentativa` tenta criar a VM Always Free
+  A1.Flex (2 OCPU/12 GB) a cada 10 min por 14 dias (log em `~/.oci-arm/`); sem
+  capacidade até agora. Migração para a ARM é plano separado, com autorização.
+  Servidor do ai-memory sobe no logon (tarefa `ai-memory-server`).
+
+Pendências diretas: vertente de diárias (LGPD: só agregado), ajuste do Analista IA,
+medição pós-deploy do A11 (leitura de disco da API), normalização das 7.779 unidades
+nulas dos produtos de licitação, demais vertentes do plano (documentais e legislação).
+
+## Referência — status em 04/11/2026
 
 Diagnóstico, evidências e critérios de conclusão em
 [`docs/STATUS_DESENVOLVIMENTO_2026-11-04.md`](docs/STATUS_DESENVOLVIMENTO_2026-11-04.md).
