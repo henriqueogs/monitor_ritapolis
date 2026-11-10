@@ -20,7 +20,7 @@ const PREFIXO_DIARIAS = '3.3.90.14';
 const ALTA_MINIMA = 0.3;
 const ALTA_MINIMA_REAIS = 20000;
 const TOP_N = 5;
-const SHARE_MINIMO = 0.4;
+const SHARE_MINIMO = 0.5;
 const MIN_BENEFICIARIOS = 20;
 const TOTAL_MINIMO_REAIS = 50000;
 const MAX_EVIDENCIAS = 3;
@@ -168,6 +168,6 @@ module.exports = {
   nome: 'diarias',
   versao: 1,
   criterio:
-    'Diárias (3.3.90.14) agregadas: alta de 30% ou mais (e R$ 20 mil) sobre o mesmo período do ano anterior no mesmo mandato, ou 5 beneficiários com 40% ou mais do valor do ano (com pelo menos 20 beneficiários e R$ 50 mil).',
+    'Diárias (3.3.90.14) agregadas: alta de 30% ou mais (e R$ 20 mil) sobre o mesmo período do ano anterior no mesmo mandato, ou 5 beneficiários com 50% ou mais do valor do ano (com pelo menos 20 beneficiários e R$ 50 mil).',
   detectar,
 };
