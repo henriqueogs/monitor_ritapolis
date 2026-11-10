@@ -22,7 +22,7 @@ function substituirItens(exercicio, empenho, itens) {
         quantidade, valor_unitario, valor_total)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
-  db.exec('BEGIN');
+  db.exec('SAVEPOINT itens_despesa');
   try {
     db.prepare('DELETE FROM transparencia_despesas_itens WHERE despesa_id = ?').run(despesa.id);
     for (const i of itens) {
@@ -40,9 +40,10 @@ function substituirItens(exercicio, empenho, itens) {
         i.valor_total ?? null
       );
     }
-    db.exec('COMMIT');
+    db.exec('RELEASE itens_despesa');
   } catch (erro) {
-    db.exec('ROLLBACK');
+    db.exec('ROLLBACK TO itens_despesa');
+    db.exec('RELEASE itens_despesa');
     throw erro;
   }
   return itens.length;
