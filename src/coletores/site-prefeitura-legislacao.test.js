@@ -28,8 +28,19 @@ const FRAGMENTO_LEIS = `
 
 describe('site-prefeitura-legislacao · parseLinhaMetadados', () => {
   it('extrai tipo, numero e exercicio de "Tipo nº NUM   ANO"', () => {
-    const r = parseLinhaMetadados(['Portaria nº 432 2025', 'EXECUTIVO MUNICIPAL', 'Ementa aqui', '']);
-    expect(r).toEqual({ tipoLabel: 'Portaria', numero: '432', exercicio: 2025, autor: 'EXECUTIVO MUNICIPAL', ementa: 'Ementa aqui' });
+    const r = parseLinhaMetadados([
+      'Portaria nº 432 2025',
+      'EXECUTIVO MUNICIPAL',
+      'Ementa aqui',
+      '',
+    ]);
+    expect(r).toEqual({
+      tipoLabel: 'Portaria',
+      numero: '432',
+      exercicio: 2025,
+      autor: 'EXECUTIVO MUNICIPAL',
+      ementa: 'Ementa aqui',
+    });
   });
 
   it('retorna null pra linha que nao bate no formato (cabecalho/paginacao)', () => {
@@ -53,8 +64,12 @@ describe('site-prefeitura-legislacao · normalizarTipo', () => {
 
 describe('site-prefeitura-legislacao · extrairDataDoNomeArquivo', () => {
   it('converte "DD DE MES DE YYYY" pra ISO', () => {
-    expect(extrairDataDoNomeArquivo('PORTARIA 432 DE 05 DE JANEIRO DE 2026.pdf')).toBe('2026-01-05');
-    expect(extrairDataDoNomeArquivo('DECRETO 370 DE 20 DE DEZEMBRO DE 2025.pdf')).toBe('2025-12-20');
+    expect(extrairDataDoNomeArquivo('PORTARIA 432 DE 05 DE JANEIRO DE 2026.pdf')).toBe(
+      '2026-01-05'
+    );
+    expect(extrairDataDoNomeArquivo('DECRETO 370 DE 20 DE DEZEMBRO DE 2025.pdf')).toBe(
+      '2025-12-20'
+    );
   });
 
   it('retorna null pra nome sem data reconhecivel', () => {
@@ -95,5 +110,23 @@ describe('site-prefeitura-legislacao · parseRegistrosLeis (fragmento real)', ()
 
   it('sem itens, retorna lista vazia (nao quebra no cabecalho/paginacao)', () => {
     expect(parseRegistrosLeis('<TABLE><TR><TD>0 itens encontrados</TD></TR></TABLE>')).toEqual([]);
+  });
+});
+
+describe('site-prefeitura-legislacao · coleta de leis-alvo', () => {
+  const ColetorLeis = require('./site-prefeitura-legislacao');
+
+  it('busca cada alvo por tipo/número/ano e devolve só o registro exato', async () => {
+    const [primeiro] = parseRegistrosLeis(FRAGMENTO_LEIS);
+    const { numero, exercicio } = primeiro;
+    const coletor = new ColetorLeis({ alvos: [{ numero, ano: exercicio }] });
+    const spy = jest.spyOn(coletor, 'buscarPagina').mockResolvedValue(FRAGMENTO_LEIS);
+    const registros = await coletor.collectRecords();
+    expect(spy).toHaveBeenCalledWith(exercicio, 0, {
+      INT_TP_LEI: '2',
+      INT_NUM_LEI: String(numero),
+    });
+    expect(registros).toHaveLength(1);
+    expect(registros[0]).toMatchObject({ numero, exercicio });
   });
 });

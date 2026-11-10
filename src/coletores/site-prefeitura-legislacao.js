@@ -120,11 +120,14 @@ function getTotalItens(html) {
 }
 
 class ColetorLegislacaoPrefeitura extends ColetorBase {
-  constructor() {
+  // `alvos` ([{ numero, ano }]) restringe a coleta a leis ordinárias específicas (preencher
+  // lacuna do acervo sem varrer o mandato inteiro).
+  constructor({ alvos = null } = {}) {
     super({ fonte: 'site_prefeitura' });
+    this.alvos = alvos;
   }
 
-  async buscarPagina(exercicioInicial, pagina) {
+  async buscarPagina(exercicioInicial, pagina, filtros = {}) {
     const payload = new URLSearchParams({
       INT_TAG: '',
       STR_COPL_LEI: '',
@@ -142,6 +145,7 @@ class ColetorLegislacaoPrefeitura extends ColetorBase {
       STR_ORDER: 'D_PUBL_LEI DESC',
       INT_NUM_REG_PAG: String(REGISTROS_POR_PAGINA),
       EXR_LEI_INI: String(exercicioInicial),
+      ...filtros,
     }).toString();
 
     const response = await this.postComRetry(`${SEARCH_URL}?DataHora=${Date.now()}`, payload, {
@@ -153,7 +157,26 @@ class ColetorLegislacaoPrefeitura extends ColetorBase {
 
   // Coleta todas as páginas a partir do exercício informado (default: início
   // do mandato atual). `maxRegistros` é defensivo (testes/uso pontual).
+  async collectRecordsDosAlvos() {
+    const registros = [];
+    for (const { numero, ano } of this.alvos) {
+      const html = await this.buscarPagina(ano, 0, {
+        INT_TP_LEI: '2',
+        INT_NUM_LEI: String(numero),
+      });
+      registros.push(
+        ...parseRegistrosLeis(html).filter(
+          r => Number(r.numero) === Number(numero) && r.exercicio === Number(ano)
+        )
+      );
+    }
+    return registros;
+  }
+
   async collectRecords({ exercicioInicial, maxRegistros = Infinity } = {}) {
+    if (this.alvos) {
+      return this.collectRecordsDosAlvos();
+    }
     const anoInicio = exercicioInicial || mandatoInicio(new Date().getFullYear());
     let first = this.progress?.load(`prefeitura-leis:${anoInicio}:0`);
     if (!first) {
