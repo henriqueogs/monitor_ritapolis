@@ -7,13 +7,16 @@
  *   node scripts/analista-credor.js --top 10 [--ano-min 2025]   # credores PJ por valor empenhado
  *   node scripts/analista-credor.js --cnpj <CNPJ>               # mede dossiê/prompt (sem modelo)
  *   node scripts/analista-credor.js --cnpj ... --chamar-modelo  # chama o modelo e verifica
+ *   node scripts/analista-credor.js --lote 10 [--ano-min 2025] --saida lote.json
+ *                                                               # top N em sequência, JSON p/ revisão
  */
 
 process.loadEnvFile?.() || require('dotenv').config();
 
 const { setupDatabase } = require('../src/db/setup');
 const repo = require('../src/db/analista-repo');
-const { analisarCredor } = require('../src/ai/analista/analista-runner');
+const fs = require('node:fs');
+const { analisarCredor, analisarLote } = require('../src/ai/analista/analista-runner');
 const { filtrarAnalisaveis, mascararCpf } = require('../src/ai/analista/selecao');
 
 const argumento = nome => {
@@ -21,8 +24,34 @@ const argumento = nome => {
   return i >= 0 ? process.argv[i + 1] : undefined;
 };
 
+async function rodarLote() {
+  const limite = Number(argumento('--lote')) || 10;
+  const anoMin = Number(argumento('--ano-min')) || 0;
+  const saida = argumento('--saida');
+  const credores = filtrarAnalisaveis(
+    repo.listarCredoresPorValor({ limite: limite * 10, anoMin }),
+    limite
+  );
+  const provider = require('../src/ai/providers').createAiProvider(process.env); // eslint-disable-line global-require
+  const parciais = [];
+  const resultados = await analisarLote({
+    credores,
+    provider,
+    aoConcluir: r => {
+      parciais.push(r);
+      console.warn(`${r.chave} | aceitos ${r.aceitos.length} | ${r.erro || 'ok'}`);
+      if (saida) {fs.writeFileSync(saida, JSON.stringify(parciais, null, 2));}
+    },
+  });
+  console.warn(`lote concluído: ${resultados.length} credores`);
+}
+
 async function main() {
   setupDatabase();
+  if (process.argv.includes('--lote')) {
+    await rodarLote();
+    return;
+  }
   if (process.argv.includes('--top')) {
     const limite = Number(argumento('--top')) || 10;
     const anoMin = Number(argumento('--ano-min')) || 0;
