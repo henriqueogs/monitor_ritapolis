@@ -10,9 +10,9 @@ Ver `QUICK_SUMMARY.md` para o mapa geral dos documentos do projeto.
 
 ---
 
-## 📍 Status em 09/11/2026 — Na Lupa v4, integridade de dados e infra
+## 📍 Status em 10/11/2026 — Na Lupa v4, integridade de dados e infra
 
-Entregue entre 29/10 e 09/11 (PRs #209–#246). Plano e decisões:
+Entregue entre 29/10 e 10/11 (PRs #209–#253). Plano e decisões:
 [`docs/PLANO_PROXIMAS_ATIVIDADES_2026-10-29.md`](docs/PLANO_PROXIMAS_ATIVIDADES_2026-10-29.md),
 diagnóstico N0 em [`docs/NA_LUPA_V4_N0_DIAGNOSTICO_2026-10-29.md`](docs/NA_LUPA_V4_N0_DIAGNOSTICO_2026-10-29.md).
 
@@ -33,21 +33,31 @@ diagnóstico N0 em [`docs/NA_LUPA_V4_N0_DIAGNOSTICO_2026-10-29.md`](docs/NA_LUPA
   (`transparencia_despesas_itens`); backfill 2025+ aplicado (957 empenhos com
   modalidade, 5.316 itens em 1.187 empenhos, 0 falhas). Script:
   `scripts/backfill-licitacao-modalidade.js` (dry-run; `--apply`; `--itens`).
+- **Vertente de diárias (#249–#250):** só agregada (LGPD). Crescimento compara a janela
+  01/04 em diante contra o mesmo período do ano anterior, no mesmo mandato, porque a
+  Lei 1.696/2025 (Decretos 73/74, 31/03/2025) trocou o regime; separa quantidade de
+  empenhos de valor médio. Concentração exige top 5 com ≥ 50%.
+- **Coletor (#251):** `substituirItens` usa `SAVEPOINT` (o coletor já grava dentro de
+  transação; o `BEGIN` anterior derrubou um job).
 - **Analista IA (trilha 2, N2):** verificador de evidências, dossiê de credor, prompt e
-  runner somente leitura (`src/ai/analista/`, `scripts/analista-credor.js`). Uma
-  chamada real ao RLM Peças: 209 s, 4 achados aceitos e 4 descartados, todos fracos.
-  Falta ajustar modelo/tempo e prompt antes de um lote de 20 para revisão.
+  runner (`src/ai/analista/`, `scripts/analista-credor.js`). #252: `analisarLote`
+  sequencial, timeout de 420 s, `--lote N --saida`. #253: o verificador rejeita
+  percentual/ano fora das fontes e termos como "fachada"; `--gravar-de lote.json --so
+  "título|..."` grava em **revisão** os achados escolhidos (dry-run sem `--apply`).
+  Lote de 12 credores (2025+) rodado na VM, ~40 min, somente leitura.
 - **Saúde do pipeline:** falha esgotada e antiga (> 3 dias) vira aviso
   `falhas_antigas_sem_reprocesso`, e não derruba o workflow "Pipeline health (IA)"
   (que mandava e-mail a cada ~6 h). As 9 tarefas esgotadas foram reenfileiradas.
 - **Infra:** tarefa agendada local `oci-vm-arm-tentativa` tenta criar a VM Always Free
-  A1.Flex (2 OCPU/12 GB) a cada 10 min por 14 dias (log em `~/.oci-arm/`); sem
-  capacidade até agora. Migração para a ARM é plano separado, com autorização.
-  Servidor do ai-memory sobe no logon (tarefa `ai-memory-server`).
+  A1.Flex (2 OCPU/12 GB) de hora em hora, com atraso aleatório de 0–25 min e 20% de
+  rodadas puladas, por 14 dias (log em `~/.oci-arm/`); sem capacidade até agora. Migração para a ARM é plano separado, com autorização.
+  Servidor do ai-memory sobe no logon (tarefa `ai-memory-server`, sem janela via
+  `conhost --headless`).
 
-Pendências diretas: vertente de diárias (LGPD: só agregado), ajuste do Analista IA,
-medição pós-deploy do A11 (leitura de disco da API), normalização das 7.779 unidades
-nulas dos produtos de licitação, demais vertentes do plano (documentais e legislação).
+Pendências diretas: revisão humana dos achados do Analista (gravar só os fortes),
+medição sustentada do A11 (leitura de disco da API: 34 KB/s em 10/11 ocioso, contra
+~1,3 MB/s pós-deploy e ~4,2 MB/s antes), normalização das 7.779 unidades nulas dos
+produtos de licitação, demais vertentes do plano (documentais e legislação).
 
 ## Referência — status em 04/11/2026
 
