@@ -111,6 +111,19 @@ describe('vertente diarias', () => {
       expect(tudo).not.toMatch(/credor_nome|pf-|"a"|x\d/);
     });
 
+    it('concentração moderada (45%) não sinaliza: quem viaja a serviço tende a concentrar', () => {
+      // 5 beneficiários com 5.000 cada (25.000) e 20 com 1.500 cada (30.000): top5 = 45,5%.
+      const moderada = [
+        ...['a', 'b', 'c', 'd', 'e'].map(b => diaria(2025, '03-10', 5000, b)),
+        ...Array.from({ length: 20 }, (_, i) => diaria(2025, '04-10', 1500, `m${i}`)),
+      ];
+      expect(
+        vertente
+          .detectar({ empenhos: moderada })
+          .filter(c => c.alerta.subcategoria === 'diarias_concentracao')
+      ).toEqual([]);
+    });
+
     it('não sinaliza com poucos beneficiários ou total baixo', () => {
       const poucos = ['a', 'b', 'c', 'd', 'e', 'f'].map(b => diaria(2025, '03-10', 20000, b));
       const baixo = Array.from({ length: 25 }, (_, i) =>
@@ -146,7 +159,8 @@ describe('vertente diarias', () => {
         ...['01-10', '02-10'].map(d => diaria(2025, d, 6000)),
       ],
     });
-    for (const c of cs)
-      {expect(`${c.titulo} ${c.narrativa}`).not.toMatch(/fraude|desvio|irregular|ilegal|abuso/i);}
+    for (const c of cs) {
+      expect(`${c.titulo} ${c.narrativa}`).not.toMatch(/fraude|desvio|irregular|ilegal|abuso/i);
+    }
   });
 });
