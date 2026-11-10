@@ -1,5 +1,6 @@
 'use strict';
 
+const crypto = require('crypto');
 const { URL } = require('url');
 const auth = require('../auth/admin-basic-auth');
 const adminSessions = require('../auth/admin-session');
@@ -15,7 +16,14 @@ const DEFAULT_JSON_LIMIT = '1mb';
 // (anti força bruta).
 const JANELA_COTA_MS = 15 * 60 * 1000;
 const JANELA_CURTA_MS = 60 * 1000;
-const CLASSES_JANELA_CURTA = new Set(['publicRead', 'search', 'adminRead']);
+const CLASSES_JANELA_CURTA = new Set(['publicRead', 'search', 'adminRead', 'frontendSsr']);
+// Revalidação do frontend (SSR/ISR da Vercel): todas as funções saem de poucos IPs, então uma
+// varredura de robô no site virava 429 da API para o próprio frontend (monitor 10/11). Com o
+// segredo compartilhado, as leituras públicas do frontend usam uma cota própria, única para
+// todos os IPs da Vercel — maior, mas ainda limitada para não derrubar a VM.
+const CABECALHO_FRONTEND = 'x-frontend-token';
+const TAMANHO_MINIMO_TOKEN = 32;
+const CLASSES_FRONTEND_CONFIAVEL = new Set(['publicRead', 'search']);
 const buckets = new Map();
 
 function splitList(value) {
@@ -176,6 +184,7 @@ function getRateLimit(classification, env = process.env) {
     adminWrite: 60,
     expensiveJob: 20,
     publicAsk: 30,
+    frontendSsr: 3000,
   };
   const key = `RATE_LIMIT_${classification.toUpperCase()}`;
   return Math.max(Number(env[key] || defaults[classification] || 300), 1);
@@ -190,10 +199,25 @@ function resolverJanelaRateLimit(classification, env = process.env) {
   return { windowMs: JANELA_CURTA_MS, limit };
 }
 
+function isFrontendConfiavel(req, env = process.env) {
+  const esperado = String(env.FRONTEND_SSR_TOKEN || '');
+  if (esperado.length < TAMANHO_MINIMO_TOKEN) {return false;}
+  const recebido = String(req.get?.(CABECALHO_FRONTEND) || '');
+  if (recebido.length !== esperado.length) {return false;}
+  return crypto.timingSafeEqual(Buffer.from(recebido), Buffer.from(esperado));
+}
+
+function chaveRateLimit(req) {
+  const classe = classifyRequest(req);
+  if (CLASSES_FRONTEND_CONFIAVEL.has(classe) && isFrontendConfiavel(req)) {
+    return { classification: 'frontendSsr', key: 'frontendSsr' };
+  }
+  return { classification: classe, key: `${classe}:${req.ip || req.socket?.remoteAddress || 'unknown'}` };
+}
+
 function rateLimit(req, res, next) {
-  const classification = classifyRequest(req);
+  const { classification, key } = chaveRateLimit(req);
   const { windowMs, limit } = resolverJanelaRateLimit(classification);
-  const key = `${classification}:${req.ip || req.socket?.remoteAddress || 'unknown'}`;
   const now = Date.now();
   const current = buckets.get(key);
 
@@ -251,6 +275,7 @@ module.exports = {
   getAllowedOrigins,
   getJsonLimit,
   isAllowedOrigin,
+  isFrontendConfiavel,
   rateLimit,
   requireAdmin,
   resetRateLimitForTests,
