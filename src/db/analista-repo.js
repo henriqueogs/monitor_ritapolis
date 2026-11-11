@@ -7,6 +7,7 @@
  */
 
 const { db } = require('./connection');
+const { sqlValorFinalDeEmpenho } = require('../transparencia/valor-final-empenho');
 
 const LIMITE_PADRAO = 20;
 const SO_DIGITOS =
@@ -51,7 +52,10 @@ function listarLicitacoesDoCredor(cnpj) {
     .prepare(
       `SELECT d.id AS documento_id, d.titulo, d.url_origem, l.vencedor_cnpj, l.valor_final
          FROM licitacoes_detalhes l JOIN documentos d ON d.id = l.documento_id
-        WHERE ${SO_DIGITOS_VENCEDOR} = ?`
+        WHERE ${SO_DIGITOS_VENCEDOR} = ?
+          -- vencedor/valor deduzidos de empenho não são resultado de licitação
+          AND NOT ${sqlValorFinalDeEmpenho('l')}
+          AND COALESCE(l.origem_detalhe, '') NOT LIKE '%empenho_agregado%'`
     )
     .all(digitos(cnpj));
 }
