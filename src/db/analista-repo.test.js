@@ -75,4 +75,29 @@ describe('analista-repo', () => {
     expect(r).toHaveLength(1);
     expect(r[0]).toMatchObject({ titulo: 'Processo 1/2025', url_origem: 'https://x/p1' });
   });
+
+  it('ignora vencedor/valor deduzidos de empenho (não são resultado de licitação)', () => {
+    const doc = titulo => {
+      mockConn
+        .prepare(
+          `INSERT INTO documentos (fonte, tipo, titulo, url_origem, hash_conteudo)
+           VALUES ('prefeitura', 'licitacao', ?, ?, ?)`
+        )
+        .run(titulo, `https://x/${titulo}`, titulo);
+      return mockConn.prepare('SELECT MAX(id) id FROM documentos').get().id;
+    };
+    const detalhe = (id, origem, origemDetalhe) =>
+      mockConn
+        .prepare(
+          `INSERT INTO licitacoes_detalhes (documento_id, vencedor_cnpj, valor_final, origem, origem_detalhe)
+           VALUES (?, '11.111.111/0001-11', 5000, ?, ?)`
+        )
+        .run(id, origem, origemDetalhe);
+    detalhe(doc('legado'), 'portal_transparencia', null);
+    detalhe(doc('agregado'), 'portal_transparencia', 'empenho_agregado');
+    detalhe(doc('vencedor-anotado'), 'ia_resumo', 'ata.pdf | vencedor_empenho_agregado');
+    detalhe(doc('homologado'), 'ia_resumo', 'ata.pdf');
+    const titulos = repo.listarLicitacoesDoCredor('11111111000111').map(r => r.titulo);
+    expect(titulos).toEqual(['homologado']);
+  });
 });
