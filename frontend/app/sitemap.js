@@ -30,7 +30,7 @@ const PAGINAS_ESTATICAS = [
   '/temas',
   '/analises',
   '/acervo',
-  '/finalidade',
+  '/transparencia/finalidades',
   '/inteligencia',
   '/sobre',
 ];
@@ -77,7 +77,7 @@ async function generateSitemap() {
   return [...estaticas, ...urlsDocumentos, ...urlsCredores, ...urlsDescobertas];
 }
 
-const cachedSitemap = unstable_cache(generateSitemap, ['public-sitemap-v4'], { revalidate: 3600 });
+const cachedSitemap = unstable_cache(generateSitemap, ['public-sitemap-v5'], { revalidate: 3600 });
 
 export default async function sitemap() {
   // A API não existe no build de CI; gere em runtime e cacheie a lista inteira.
