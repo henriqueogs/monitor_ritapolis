@@ -11,7 +11,7 @@ const { db } = require('./connection');
 function listarEditaisComResumos() {
   const documentos = db
     .prepare(
-      `SELECT d.id, d.ano, d.texto_completo, d.data_abertura, d.valor_estimado,
+      `SELECT d.id, d.ano, d.texto_completo, d.data_abertura, d.valor_estimado, d.data_publicacao,
               l.data_homologacao
          FROM documentos d
          LEFT JOIN licitacoes_detalhes l ON l.documento_id = d.id

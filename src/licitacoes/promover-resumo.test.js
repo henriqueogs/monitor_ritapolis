@@ -57,6 +57,20 @@ describe('promoverDoResumo', () => {
     expect(r.recusas.join(' ')).toMatch(/trecho/);
   });
 
+  it('recusa abertura mais de 30 dias antes da publicação (typo no edital, ex.: 12/011/2025)', () => {
+    const r = promoverDoResumo({
+      resumo: resumo([abertura('2020-02-05')]),
+      documento: doc({ data_publicacao: '2020-04-10' }),
+    });
+    expect(r.data_abertura).toBeUndefined();
+    expect(r.recusas.join(' ')).toMatch(/antes da publicação/);
+    const ok = promoverDoResumo({
+      resumo: resumo([abertura('2020-02-05')]),
+      documento: doc({ data_publicacao: '2020-02-01' }),
+    });
+    expect(ok.data_abertura).toBe('2020-02-05');
+  });
+
   it('não sobrescreve coluna já preenchida', () => {
     const r = promoverDoResumo({
       resumo: resumo([abertura('2020-02-05')], [estimado(176000)]),
