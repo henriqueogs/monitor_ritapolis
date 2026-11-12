@@ -34,6 +34,36 @@ describe('montarDossieCredor', () => {
     expect(d.chave).toBe('credor:11111111000111');
   });
 
+  it('cada empenho traz categoria, fonte de recurso, pagamento e processo (contexto contábil)', () => {
+    const pago = empenho({
+      categoria_economica: '4.4.90.52.00 - EQUIPAMENTO',
+      fonte_recurso: '2.660.000 - FNAS',
+      data_pagamento: '2025-04-02',
+      modalidade: 'Pregão - 00212025',
+      licitacao_ref: '00010325 / 0',
+    });
+    const aberto = empenho({ data_pagamento: null });
+    const d = montarDossieCredor({ credor, empenhos: [pago, aberto] });
+    const t1 = d.fontes.find(f => f.fonte_id === `E${pago.id}`).texto;
+    expect(t1).toContain('categoria 4.4.90.52.00 - EQUIPAMENTO');
+    expect(t1).toContain('fonte de recurso 2.660.000 - FNAS');
+    expect(t1).toContain('pago em 02/04/2025');
+    expect(t1).toContain('Pregão - 00212025');
+    expect(d.fontes.find(f => f.fonte_id === `E${aberto.id}`).texto).toContain('sem pagamento');
+  });
+
+  it('o resumo soma os empenhos originais de cada processo (explica rateio em vários empenhos)', () => {
+    const ref = { licitacao_ref: '00006626 / 0', modalidade: 'Adesão - 00182026' };
+    const empenhos = [
+      empenho({ valor: 508322.62, ...ref }),
+      empenho({ valor: 128177.38, ...ref }),
+      empenho({ valor: 10, licitacao_ref: '00000001 / 0', modalidade: 'Pregão - 00012025' }),
+    ];
+    const r = montarDossieCredor({ credor, empenhos }).fontes.find(f => f.fonte_id === 'RESUMO');
+    expect(r.texto).toContain('Adesão - 00182026: 2 empenhos somam R$ 636.500,00');
+    expect(r.texto).not.toContain('Pregão - 00012025: 1 empenhos');
+  });
+
   it('o resumo é calculado pelo sistema, com totais por ano só de empenhos originais', () => {
     const empenhos = [
       empenho({ valor: 100 }),

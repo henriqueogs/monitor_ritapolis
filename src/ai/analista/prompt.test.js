@@ -44,6 +44,13 @@ describe('montarPromptAnalista', () => {
     expect(prompt).toMatch(/truncad/i);
   });
 
+  it('manda checar rateio, soma por processo e reclassificação antes de apontar repetição', () => {
+    expect(prompt).toMatch(/soma dos empenhos/i);
+    expect(prompt).toMatch(/fonte de recurso/i);
+    expect(prompt).toMatch(/categoria/i);
+    expect(prompt).toMatch(/regulariza/i);
+  });
+
   it('permite resposta sem achados (não força suspeita)', () => {
     expect(prompt).toMatch(/"achados": \[\]/);
     expect(prompt).toMatch(/nada incomum|nenhum achado/i);

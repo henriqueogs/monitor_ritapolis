@@ -17,6 +17,7 @@ const MAX_EMPENHOS_PADRAO = 80;
 const TRECHO_HISTORICO_MAX = 220;
 const CENTAVOS = 100;
 const FONTE_RESUMO = 'RESUMO';
+const MAX_PROCESSOS_NO_RESUMO = 8;
 
 // O Intl usa espaço sem quebra entre "R$" e o número; texto simples poupa tokens e casa com o que o modelo cita.
 const formatBRL = v => formatarMoeda(v).replace(/\u00a0/g, ' ');
@@ -31,6 +32,18 @@ const ehOriginal = e =>
   String(e.tipo || '')
     .toUpperCase()
     .startsWith(TIPO_ORIGINAL);
+
+// Contexto contábil que explica repetições legítimas: rateio por fonte de recurso, reclassificação
+// de categoria, pagamento já feito, processo de origem.
+function contextoContabil(e) {
+  const partes = [
+    e.categoria_economica && `categoria ${e.categoria_economica}`,
+    e.fonte_recurso && `fonte de recurso ${e.fonte_recurso}`,
+    e.data_pagamento ? `pago em ${dataBR(e.data_pagamento)}` : 'sem pagamento',
+    e.modalidade,
+  ].filter(Boolean);
+  return ` [${partes.join('; ')}]`;
+}
 
 function fonteDeEmpenho(e) {
   const link = buildPortalDespesaLink({
@@ -47,7 +60,7 @@ function fonteDeEmpenho(e) {
     url_origem: link.url,
     texto:
       `Empenho ${e.empenho}/${e.exercicio_orcamento} (${e.tipo}) em ${dataBR(e.data_empenho)}: ` +
-      `${formatBRL(e.valor)} — ${historico}`,
+      `${formatBRL(e.valor)} — ${historico}${contextoContabil(e)}`,
   };
 }
 
@@ -87,6 +100,26 @@ function linhaPorAno(originais) {
     .join('; ');
 }
 
+// Soma dos empenhos originais por processo: se N empenhos somam o valor do processo, é uma
+// compra só paga em parcelas (não repetição).
+function linhaPorProcesso(originais) {
+  const grupos = new Map();
+  for (const e of originais) {
+    const chave = e.modalidade || e.licitacao_ref;
+    if (!chave) {
+      continue;
+    }
+    const atual = grupos.get(chave) || { n: 0, total: 0 };
+    grupos.set(chave, { n: atual.n + 1, total: atual.total + e.valor });
+  }
+  return [...grupos.entries()]
+    .filter(([, v]) => v.n > 1)
+    .sort((a, b) => b[1].total - a[1].total)
+    .slice(0, MAX_PROCESSOS_NO_RESUMO)
+    .map(([chave, v]) => `${chave}: ${v.n} empenhos somam ${formatBRL(arredonda(v.total))}`)
+    .join('; ');
+}
+
 function textoResumo({ credor, originais, mostrados }) {
   const datas = originais
     .map(e => e.data_empenho)
@@ -97,6 +130,9 @@ function textoResumo({ credor, originais, mostrados }) {
     `Resumo calculado pelo sistema: ${originais.length} empenhos originais (EO) de ${mascararCpf(credor.nome)} ` +
     `(CNPJ ${soDigitos(credor.cnpj)}) entre ${dataBR(datas[0])} e ${dataBR(datas[datas.length - 1])}, ` +
     `total ${formatBRL(total)}. Por ano — ${linhaPorAno(originais)}.` +
+    (linhaPorProcesso(originais)
+      ? ` Empenhos de um mesmo processo — ${linhaPorProcesso(originais)}.`
+      : '') +
     (mostrados < originais.length
       ? ` Abaixo estão ${mostrados} de ${originais.length} empenhos (os de maior valor e os mais recentes).`
       : '')

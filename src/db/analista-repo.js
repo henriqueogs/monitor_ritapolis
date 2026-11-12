@@ -40,7 +40,8 @@ function buscarCredor(cnpj) {
 function listarEmpenhosDoCredor(cnpj) {
   return db
     .prepare(
-      `SELECT id, empenho, exercicio_orcamento, tipo, data_empenho, valor, historico
+      `SELECT id, empenho, exercicio_orcamento, tipo, data_empenho, valor, historico,
+              categoria_economica, fonte_recurso, data_pagamento, modalidade, licitacao_ref
          FROM transparencia_despesas
         WHERE ${SO_DIGITOS} = ? AND data_empenho IS NOT NULL`
     )
