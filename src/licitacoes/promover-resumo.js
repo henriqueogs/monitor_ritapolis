@@ -9,6 +9,8 @@
 const DATA_ISO = /^(\d{4})-(\d{2})-(\d{2})$/;
 const TOLERANCIA_ANOS_ABERTURA = 1;
 const TOLERANCIA_ANOS_HOMOLOGACAO = 2;
+const MAX_DIAS_ABERTURA_ANTES_DA_PUBLICACAO = 30;
+const MS_POR_DIA = 86400000;
 
 const normalizar = texto =>
   String(texto ?? '')
@@ -36,11 +38,22 @@ function anoPlausivel(data, anoDoc, tolerancia) {
   return !anoDoc || (ano >= anoDoc - tolerancia && ano <= anoDoc + tolerancia);
 }
 
+function diasEntre(inicio, fim) {
+  return Math.round((new Date(fim) - new Date(inicio)) / MS_POR_DIA);
+}
+
 function escolherAbertura(resumo, documento, texto, recusas) {
   const candidatas = (resumo.datas_relevantes || []).filter(i => i?.tipo === 'abertura');
   const validas = candidatas.filter(i => {
     if (!anoPlausivel(i.data, documento.ano, TOLERANCIA_ANOS_ABERTURA)) {
       recusas.push(`abertura ${i.data}: data malformada ou fora do ano do documento`);
+      return false;
+    }
+    if (
+      documento.data_publicacao &&
+      diasEntre(documento.data_publicacao, i.data) < -MAX_DIAS_ABERTURA_ANTES_DA_PUBLICACAO
+    ) {
+      recusas.push(`abertura ${i.data}: mais de 30 dias antes da publicação`);
       return false;
     }
     if (!trechoConfirmado(i, texto)) {
