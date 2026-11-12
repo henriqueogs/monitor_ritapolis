@@ -17,6 +17,7 @@ const REGRAS = [
   'Linguagem neutra: descreva o fato, o critério e o que falta confirmar. Não acuse ninguém, não atribua intenção e não use termos como fraude, desvio, irregular ou ilegal. Uma repetição pode ter explicação legítima.',
   'Não relate o trivial: numeração de empenho reiniciada a cada exercício, erro de digitação ou grafia, campo de texto truncado repetição de histórico padrão, empenho de valor zero (reserva ou ajuste) e ausência de empenhos em um ano não são achados.',
   'Não escreva percentuais, anos ou valores que não estejam literalmente nas fontes, e não use expressões como "empresa de fachada".',
+  'Antes de apontar repetição ou fracionamento, confira o contexto de cada empenho: se a soma dos empenhos do mesmo processo (no [RESUMO]) coincide com o valor do processo, é uma compra paga em parcelas; se a fonte de recurso ou a categoria diferem, é rateio ou reclassificação; "regularização" de outro empenho é ajuste contábil. Nesses casos não há achado.',
   'Se não houver nada incomum, responda com "achados" vazio. Não force uma suspeita.',
 ];
 
