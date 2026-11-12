@@ -5,6 +5,9 @@
 
 const MIN_CHARS_OCR = 200;
 const MIN_CHARS_TEXTO_EXISTENTE = 50;
+// `erro_pdf` entra porque a coleta desiste de arquivos acima do teto de download (ex.: LOA de
+// 105 MB); sem texto, o OCR local é o único caminho.
+const STATUS_ACEITOS = ['imagem', 'erro_pdf'];
 
 function montarListagemImagem({ fonte, tipo, limite } = {}) {
   const filtros = ["status_coleta = 'imagem'", "url_pdf IS NOT NULL AND url_pdf != ''"];
@@ -25,11 +28,21 @@ function montarListagemImagem({ fonte, tipo, limite } = {}) {
 
 /** Motivo para NÃO aplicar um texto exportado, ou null se pode aplicar. */
 function motivoRecusaImportacao(item, doc) {
-  if (!doc) { return 'documento_inexistente'; }
-  if (doc.url_pdf !== item.url_pdf) { return 'url_divergente'; }
-  if (doc.status_coleta !== 'imagem') { return 'nao_e_imagem'; }
-  if ((doc.texto_completo || '').trim().length >= MIN_CHARS_TEXTO_EXISTENTE) { return 'ja_tem_texto'; }
-  if ((item.texto || '').trim().length < MIN_CHARS_OCR) { return 'texto_curto'; }
+  if (!doc) {
+    return 'documento_inexistente';
+  }
+  if (doc.url_pdf !== item.url_pdf) {
+    return 'url_divergente';
+  }
+  if (!STATUS_ACEITOS.includes(doc.status_coleta)) {
+    return 'nao_e_imagem';
+  }
+  if ((doc.texto_completo || '').trim().length >= MIN_CHARS_TEXTO_EXISTENTE) {
+    return 'ja_tem_texto';
+  }
+  if ((item.texto || '').trim().length < MIN_CHARS_OCR) {
+    return 'texto_curto';
+  }
   return null;
 }
 
@@ -38,8 +51,12 @@ function motivoRecusaImportacao(item, doc) {
  * a identidade estável é a url_pdf. Recebe as linhas {id} com essa URL.
  */
 function escolherPorUrl(candidatos) {
-  if (candidatos.length === 0) { return { motivo: 'documento_inexistente' }; }
-  if (candidatos.length > 1) { return { motivo: 'url_ambigua' }; }
+  if (candidatos.length === 0) {
+    return { motivo: 'documento_inexistente' };
+  }
+  if (candidatos.length > 1) {
+    return { motivo: 'url_ambigua' };
+  }
   return candidatos[0];
 }
 
