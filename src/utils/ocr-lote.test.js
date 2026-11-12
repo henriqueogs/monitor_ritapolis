@@ -11,7 +11,11 @@ describe('ocr-lote', () => {
     });
 
     it('filtra por fonte e tipo com parametros, nunca por interpolacao', () => {
-      const { sql, params } = montarListagemImagem({ fonte: 'camara', tipo: 'portaria', limite: 20 });
+      const { sql, params } = montarListagemImagem({
+        fonte: 'camara',
+        tipo: 'portaria',
+        limite: 20,
+      });
       expect(sql).toContain('fonte = ?');
       expect(sql).toContain('tipo = ?');
       expect(sql).toContain('LIMIT 20');
@@ -36,11 +40,19 @@ describe('ocr-lote', () => {
     });
 
     it('recusa quando a URL do PDF mudou (id nao e o mesmo arquivo)', () => {
-      expect(motivoRecusaImportacao(item, { ...doc, url_pdf: 'http://x/b.pdf' })).toBe('url_divergente');
+      expect(motivoRecusaImportacao(item, { ...doc, url_pdf: 'http://x/b.pdf' })).toBe(
+        'url_divergente'
+      );
     });
 
     it('recusa quando o documento ja tem texto', () => {
-      expect(motivoRecusaImportacao(item, { ...doc, texto_completo: 'x'.repeat(100) })).toBe('ja_tem_texto');
+      expect(motivoRecusaImportacao(item, { ...doc, texto_completo: 'x'.repeat(100) })).toBe(
+        'ja_tem_texto'
+      );
+    });
+
+    it('aceita documento com erro_pdf (arquivo grande demais para a coleta) sem texto', () => {
+      expect(motivoRecusaImportacao(item, { ...doc, status_coleta: 'erro_pdf' })).toBeNull();
     });
 
     it('recusa quando deixou de ser imagem', () => {
