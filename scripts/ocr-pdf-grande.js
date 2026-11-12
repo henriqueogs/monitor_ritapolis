@@ -10,16 +10,36 @@
  *   node scripts/ocr-pdf-grande.js --arquivo=loa.pdf --url-pdf=<URL> --exportar=loa.json [--ate=N]
  */
 
-process.loadEnvFile?.() || require('dotenv').config();
-
 const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const { execFileSync } = require('child_process');
-const { ocrPdfFilePage, encerrarWorker } = require('../src/parsers/ocr');
+const { ocrImagemBuffer, encerrarWorker } = require('../src/parsers/ocr');
+
+const DPI = 300;
 
 const argumento = nome => {
   const par = process.argv.find(a => a.startsWith(`--${nome}=`));
   return par ? par.slice(nome.length + 3) : undefined;
 };
+
+// Rasteriza só a página pedida (o PDF fica em disco) e reconhece a imagem.
+async function ocrPagina(arquivo, pagina) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ocr-grande-'));
+  try {
+    const prefixo = path.join(dir, 'pg');
+    const pagTexto = String(pagina);
+    execFileSync(
+      'pdftoppm',
+      ['-png', '-singlefile', '-r', String(DPI), '-f', pagTexto, '-l', pagTexto, arquivo, prefixo],
+      { stdio: 'ignore' }
+    );
+    const { texto } = await ocrImagemBuffer(fs.readFileSync(`${prefixo}.png`));
+    return texto;
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
 
 function contarPaginas(arquivo) {
   const saida = execFileSync('pdfinfo', [arquivo], { encoding: 'utf8' });
@@ -47,7 +67,7 @@ async function main() {
     if (feitas[pagina] !== undefined) {
       continue;
     }
-    feitas[pagina] = await ocrPdfFilePage(arquivo, pagina);
+    feitas[pagina] = await ocrPagina(arquivo, pagina);
     fs.writeFileSync(progresso, JSON.stringify(feitas));
     console.warn(`página ${pagina}/${ate}: ${feitas[pagina].length} caracteres`);
   }
