@@ -10,9 +10,9 @@ Ver `QUICK_SUMMARY.md` para o mapa geral dos documentos do projeto.
 
 ---
 
-## 📍 Status em 10/11/2026 — Na Lupa v4, integridade de dados e infra
+## 📍 Status em 12/11/2026 — Na Lupa v4, integridade de dados e infra
 
-Entregue entre 29/10 e 10/11 (PRs #209–#253). Plano e decisões:
+Entregue entre 29/10 e 12/11 (PRs #209–#262). Plano e decisões:
 [`docs/PLANO_PROXIMAS_ATIVIDADES_2026-10-29.md`](docs/PLANO_PROXIMAS_ATIVIDADES_2026-10-29.md),
 diagnóstico N0 em [`docs/NA_LUPA_V4_N0_DIAGNOSTICO_2026-10-29.md`](docs/NA_LUPA_V4_N0_DIAGNOSTICO_2026-10-29.md).
 
@@ -60,8 +60,32 @@ contra ~4,2 MB/s e ~1,0 antes: efeito confirmado). **Unidades nulas** de
 fonte; preencher seria inventar, então ficam nulas (preço compara só com unidade conhecida).
 Lixo de parser em `unidade` ('|', '| BDI 1', '-': ~1.050 linhas) fica como melhoria opcional.
 
-Pendências diretas: revisão humana dos alertas 438–448 do Analista (em `revisao`), VM ARM
-(tentativa horária em curso), demais vertentes do plano (documentais e legislação).
+**Revisão do Analista (11/11):** os 11 alertas do lote (438–448) foram conferidos contra as fontes
+e **todos rejeitados**: 9 eram explicados pelas próprias fontes (rateio por fonte de recurso,
+soma igual ao valor do processo, duas compras legítimas); o 443 (mata-burros × ambulância) era
+defeito nosso, com vencedor/valor deduzidos de empenho lidos sem o guard (#260: o dossiê ignora
+`empenho_agregado`/legado); o 448 era regularização de categoria (4.4.90.52 → 3.3.90.30) no portal.
+Lição: sem conferência na fonte, a taxa de falso positivo do Analista é alta.
+
+**Legislação (#257, #258):** vertente determinística (lei citada ausente do acervo e lacuna de
+numeração do mandato). As 4 citações ausentes (Leis 1.181/2010, 1.315/2014, 1.198/2011,
+1.399/2016) existem no portal: eram lacuna do acervo; coletadas por `scripts/coletar-leis-alvo.js`
+e lidas por OCR local (PDF-imagem). Os alertas 449–453 foram rejeitados (453: números 1735 e 1737
+de 2025 não existem no portal, mas ausência não tem fonte citável).
+
+**Vertentes documentais — sem dados hoje:** só 66 de 574 editais têm abertura, 7 licitações têm
+homologação e 37 itens têm preço estimado e final. Destrava com mais extração (resumos de IA).
+
+**Crédito suplementar × LOA (#261, #262):** a LOA 2025 (Lei 1680/2024, 105 MB, `erro_pdf` por passar
+do teto de download) foi baixada pela VM, lida por OCR local (224 páginas,
+`scripts/ocr-pdf-grande.js`) e aplicada. Art. 5º: superávit e excesso de arrecadação até a
+totalidade; anulação até 25% (≈ R$ 7,47 mi sobre R$ 29.885.274,61). `parseCreditoSuplementar`
+(tolerante a OCR) leu 120 dos 153 decretos de 2025 (R$ 9,79 mi); no pior caso a anulação soma
+R$ 5,75 mi, abaixo do teto: **sem vertente a construir**.
+
+Pendências diretas: conferência dos achados do Analista na fonte antes de um novo lote, mais
+extração para as vertentes documentais, VM ARM (tentativa horária em curso, 359 tentativas sem
+capacidade até 12/11), ai-memory sem janela (confirmar no próximo logon do PC).
 
 ## Referência — status em 04/11/2026
 
