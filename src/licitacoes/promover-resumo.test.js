@@ -16,6 +16,7 @@ const resumo = (datas = [], valores = []) => ({ datas_relevantes: datas, valores
 const abertura = (data, trecho = 'Abertura das propostas em 05/02/2020') => ({
   tipo: 'abertura',
   data,
+  descricao: 'Abertura das propostas',
   trecho_fonte: trecho,
 });
 const estimado = (valor, extra = {}) => ({
@@ -97,6 +98,34 @@ describe('promoverDoResumo', () => {
       documento: doc(),
     });
     expect(legitima.data_abertura).toBe('2020-02-05');
+  });
+
+  it('recusa abertura cuja descrição não fala de abertura/sessão/propostas (ex.: inauguração)', () => {
+    const r = promoverDoResumo({
+      resumo: resumo([
+        {
+          tipo: 'abertura',
+          data: '2020-02-05',
+          descricao: 'Data da inauguração do Deck',
+          trecho_fonte: 'Abertura das propostas em 05/02/2020',
+        },
+      ]),
+      documento: doc(),
+    });
+    expect(r.data_abertura).toBeUndefined();
+    expect(r.recusas.join(' ')).toMatch(/não indica abertura/);
+    const inscricao = promoverDoResumo({
+      resumo: resumo([
+        {
+          tipo: 'abertura',
+          data: '2020-02-05',
+          descricao: 'Período de inscrição',
+          trecho_fonte: 'Abertura das propostas em 05/02/2020',
+        },
+      ]),
+      documento: doc(),
+    });
+    expect(inscricao.data_abertura).toBe('2020-02-05');
   });
 
   it('não sobrescreve coluna já preenchida', () => {
