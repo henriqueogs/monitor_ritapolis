@@ -11,6 +11,8 @@ const TOLERANCIA_ANOS_ABERTURA = 1;
 const TOLERANCIA_ANOS_HOMOLOGACAO = 2;
 const MAX_DIAS_ABERTURA_ANTES_DA_PUBLICACAO = 30;
 const MS_POR_DIA = 86400000;
+// O resumo às vezes rotula como "abertura" a data de um pedido/orçamento/cotação anexado.
+const DESCRICAO_NAO_ABERTURA = /pedido|or[cç]amento|cota[cç][aã]o|nota fiscal|emiss/i;
 
 const normalizar = texto =>
   String(texto ?? '')
@@ -47,6 +49,10 @@ function escolherAbertura(resumo, documento, texto, recusas) {
   const validas = candidatas.filter(i => {
     if (!anoPlausivel(i.data, documento.ano, TOLERANCIA_ANOS_ABERTURA)) {
       recusas.push(`abertura ${i.data}: data malformada ou fora do ano do documento`);
+      return false;
+    }
+    if (DESCRICAO_NAO_ABERTURA.test(String(i.descricao ?? ''))) {
+      recusas.push(`abertura ${i.data}: descrição indica pedido/orçamento/cotação, não abertura`);
       return false;
     }
     if (
