@@ -10,9 +10,9 @@ Ver `QUICK_SUMMARY.md` para o mapa geral dos documentos do projeto.
 
 ---
 
-## 📍 Status em 12/11/2026 — Na Lupa v4, integridade de dados e infra
+## 📍 Status em 13/11/2026 — Na Lupa v4, integridade de dados e infra
 
-Entregue entre 29/10 e 12/11 (PRs #209–#262). Plano e decisões:
+Entregue entre 29/10 e 13/11 (PRs #209–#269). Plano e decisões:
 [`docs/PLANO_PROXIMAS_ATIVIDADES_2026-10-29.md`](docs/PLANO_PROXIMAS_ATIVIDADES_2026-10-29.md),
 diagnóstico N0 em [`docs/NA_LUPA_V4_N0_DIAGNOSTICO_2026-10-29.md`](docs/NA_LUPA_V4_N0_DIAGNOSTICO_2026-10-29.md).
 
@@ -83,9 +83,34 @@ totalidade; anulação até 25% (≈ R$ 7,47 mi sobre R$ 29.885.274,61). `parseC
 (tolerante a OCR) leu 120 dos 153 decretos de 2025 (R$ 9,79 mi); no pior caso a anulação soma
 R$ 5,75 mi, abaixo do teto: **sem vertente a construir**.
 
-Pendências diretas: conferência dos achados do Analista na fonte antes de um novo lote, mais
-extração para as vertentes documentais, VM ARM (tentativa horária em curso, 359 tentativas sem
-capacidade até 12/11), ai-memory sem janela (confirmar no próximo logon do PC).
+**Analista IA — lote 2 (#264):** o dossiê passou a trazer por empenho categoria, fonte de recurso,
+pagamento e processo, e o RESUMO soma os empenhos por processo; o prompt manda checar rateio,
+soma e regularização. Aceitos caíram de 29 para 13 (os falsos positivos conhecidos sumiram), mas o
+que sobra é contabilidade interna ou lacuna do nosso dado: **o Analista serve como triagem
+interna, não como fonte de alertas públicos**. Não há terceiro lote previsto.
+
+**Extração sem IA (#265–#268):** os resumos de IA já traziam datas e valores com trecho citado, mas
+nunca foram para as colunas. `scripts/promover-resumos-para-colunas.js` (dry-run por padrão)
+promoveu abertura 66→260, valor estimado 15→83 e homologação 7→13, só quando o trecho existe no
+texto do edital. A medição achou promoções erradas (typos no edital, data de pedido de orçamento,
+data de inauguração rotulada "abertura"): corrigidas (docs 35, 46, 47, 360, 606) e blindadas por
+regras (abertura ≤ 30 dias antes da publicação; descrição precisa falar de abertura/sessão/
+propostas). Seis aberturas anteriores à publicação (188, 237, 358, 365, 2437…) conferidas: o edital
+confirma a data; a "publicação" do site é a data de cadastro.
+
+**Vertentes documentais — conclusão:** sem base. `data_publicacao` do site não é a publicação
+oficial (181 de 260 editais "publicados" < 8 dias antes da abertura), e o único empenho anterior à
+abertura era promoção errada. Sem vertente de datas incoerentes.
+
+**Unidades (#269):** 1.515 linhas de `licitacoes_produtos.unidade` com lixo de parser ('|',
+'| BDI 1', '-', datas, parágrafos) anuladas por `scripts/limpar-unidades-lixo.js`.
+
+**ai-memory:** tarefa `ai-memory-server` (conhost `--headless`) validada em logon real de 11/11,
+sem janela; tarefa de validação temporária removida.
+
+Pendências diretas: VM ARM (tentativa horária em curso, ~380 tentativas sem capacidade até 13/11).
+Frentes possíveis: vertentes de gasto que já funcionam (diárias, preço, compras repetidas),
+apresentação dos achados ao cidadão, visão de longo prazo do Na Lupa (RAG).
 
 ## Referência — status em 04/11/2026
 
