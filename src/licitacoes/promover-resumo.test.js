@@ -71,6 +71,34 @@ describe('promoverDoResumo', () => {
     expect(ok.data_abertura).toBe('2020-02-05');
   });
 
+  it('recusa "abertura" que na verdade é data de pedido/orçamento/cotação anexada', () => {
+    const r = promoverDoResumo({
+      resumo: resumo([
+        {
+          tipo: 'abertura',
+          data: '2020-02-05',
+          descricao: 'Data do pedido',
+          trecho_fonte: 'Abertura das propostas em 05/02/2020',
+        },
+      ]),
+      documento: doc(),
+    });
+    expect(r.data_abertura).toBeUndefined();
+    expect(r.recusas.join(' ')).toMatch(/pedido|orçamento|cotação/);
+    const legitima = promoverDoResumo({
+      resumo: resumo([
+        {
+          tipo: 'abertura',
+          data: '2020-02-05',
+          descricao: 'Abertura da sessão e recebimento de propostas comerciais',
+          trecho_fonte: 'Abertura das propostas em 05/02/2020',
+        },
+      ]),
+      documento: doc(),
+    });
+    expect(legitima.data_abertura).toBe('2020-02-05');
+  });
+
   it('não sobrescreve coluna já preenchida', () => {
     const r = promoverDoResumo({
       resumo: resumo([abertura('2020-02-05')], [estimado(176000)]),
