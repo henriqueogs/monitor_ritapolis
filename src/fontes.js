@@ -14,6 +14,7 @@ const config = require('./config');
 
 const DOMINIO_VALIDO = /^[a-z0-9.-]+$/;
 const PORTAL_VALIDO = /^https:\/\/[a-z0-9.-]+$/;
+const CANAL_YOUTUBE_VALIDO = /^UC[A-Za-z0-9_-]{22}$/;
 
 function exigirDominio(campo, valor) {
   const dominio = String(valor ?? '').trim();
@@ -37,6 +38,19 @@ function exigirPortal(valor) {
   return portal;
 }
 
+// Opcional: município sem canal configurado não coleta vídeos.
+function montarFeedVideos(canal) {
+  if (!canal) {
+    return null;
+  }
+  if (!CANAL_YOUTUBE_VALIDO.test(canal)) {
+    throw new Error(
+      `youtubeCanalCamara inválido: esperado o id do canal (UC...), recebido "${canal}"`
+    );
+  }
+  return `https://www.youtube.com/feeds/videos.xml?channel_id=${canal}`;
+}
+
 const comWww = dominio => [dominio, `www.${dominio}`];
 
 /** Função pura: domínios do município → origens https das fontes. Valor inválido derruba. */
@@ -51,6 +65,7 @@ function montarFontes(cfg) {
     hostsPrefeitura: Object.freeze(comWww(dominioPrefeitura)),
     siteCamara: `https://${dominioCamara}`,
     portalTransparencia: exigirPortal(cfg.portalTransparencia),
+    feedVideosCamara: montarFeedVideos(cfg.youtubeCanalCamara),
   });
 }
 

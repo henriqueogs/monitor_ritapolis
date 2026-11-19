@@ -881,3 +881,78 @@ CREATE TABLE IF NOT EXISTS camara_coletas_log (
   coletado_em TEXT DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (tipo, exercicio)
 );
+
+-- Videos das sessoes no canal da Camara (YouTube). O feed do canal diz o que existe; a
+-- transcricao vem depois, da legenda automatica, baixada de fora da VM (o YouTube exige
+-- login para IP de datacenter -- conferido em 13/11/2026).
+CREATE TABLE IF NOT EXISTS camara_videos (
+  video_id TEXT PRIMARY KEY,
+  titulo TEXT NOT NULL,
+  tipo TEXT NOT NULL DEFAULT 'outro',
+  numero INTEGER,
+  publicado_em TEXT NOT NULL,
+  status_transcricao TEXT NOT NULL DEFAULT 'pendente',
+  origem_transcricao TEXT,
+  transcrito_em TEXT,
+  coletado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_camara_videos_publicado_em ON camara_videos(publicado_em);
+
+-- Transcricao em blocos de ~1 minuto: inicio_seg permite mandar o leitor ao instante do video.
+CREATE TABLE IF NOT EXISTS camara_video_trechos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  video_id TEXT NOT NULL REFERENCES camara_videos(video_id) ON DELETE CASCADE,
+  inicio_seg INTEGER NOT NULL,
+  texto TEXT NOT NULL,
+  UNIQUE (video_id, inicio_seg)
+);
+
+-- Sessoes da Camara extraidas das atas por IA (presenca e votacoes) e conferidas contra o
+-- texto. texto_hash + versao_extrator dizem quando reextrair; status_validacao e avisos_json
+-- guardam o resultado da ultima conferencia (ver src/camara/sessao-ata.js).
+CREATE TABLE IF NOT EXISTS camara_sessoes (
+  documento_id INTEGER PRIMARY KEY REFERENCES documentos(id) ON DELETE CASCADE,
+  data_sessao TEXT,
+  presidente TEXT,
+  texto_hash TEXT NOT NULL,
+  versao_extrator TEXT NOT NULL,
+  modelo TEXT,
+  status_validacao TEXT NOT NULL,
+  avisos_json TEXT NOT NULL DEFAULT '[]',
+  extraido_em TEXT DEFAULT CURRENT_TIMESTAMP,
+  validado_em TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_camara_sessoes_data_sessao ON camara_sessoes(data_sessao);
+
+CREATE TABLE IF NOT EXISTS camara_sessao_presencas (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  documento_id INTEGER NOT NULL REFERENCES camara_sessoes(documento_id) ON DELETE CASCADE,
+  nome TEXT NOT NULL,
+  situacao TEXT NOT NULL,
+  UNIQUE (documento_id, nome)
+);
+
+CREATE TABLE IF NOT EXISTS camara_sessao_votacoes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  documento_id INTEGER NOT NULL REFERENCES camara_sessoes(documento_id) ON DELETE CASCADE,
+  ordem INTEGER NOT NULL,
+  materia TEXT NOT NULL,
+  descricao TEXT,
+  resultado TEXT NOT NULL,
+  votos_favoraveis INTEGER,
+  votos_contrarios INTEGER,
+  abstencoes INTEGER,
+  trecho TEXT NOT NULL,
+  UNIQUE (documento_id, ordem)
+);
+
+CREATE TABLE IF NOT EXISTS camara_sessao_votos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  votacao_id INTEGER NOT NULL REFERENCES camara_sessao_votacoes(id) ON DELETE CASCADE,
+  nome TEXT NOT NULL,
+  voto TEXT NOT NULL,
+  UNIQUE (votacao_id, nome)
+);

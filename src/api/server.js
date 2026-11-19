@@ -66,7 +66,9 @@ const { getGastosPanorama, getCategoriaDossie } = require('../transparencia/gast
 const { getFinalidadesResumo, getFinalidadeDossie } = require('../transparencia/finalidade-service');
 const { resolverExercicios } = require('../utils/mandato');
 const { listarServidores, getServidorDossie, getResumoSecretarias } = require('../transparencia/folha-service');
-const { getProjetos, getProjetoDossie, getVereadores, getVereadorDossie } = require('../db/camara-repo');
+const { getProjetos } = require('../db/camara-repo');
+const { listarSessoes, getSessao, contarCobertura } = require('../db/camara-sessoes-repo');
+const { listarParlamentares, getPerfilParlamentar, getProjetoComVotacoes } = require('../services/parlamentares-service');
 const { slugParaPrefixos } = require('../transparencia/categorias');
 const { FINALIDADES } = require('../transparencia/finalidade');
 const {
@@ -855,17 +857,30 @@ function createServer({ servicoPerguntar } = {}) {
   });
 
   app.get('/api/camara/projetos/:id', (req, res) => {
-    const projeto = getProjetoDossie(req.params.id);
+    const projeto = getProjetoComVotacoes(req.params.id);
     if (!projeto) { return res.status(404).json({ error: 'Projeto não encontrado' }); }
     return res.json(projeto);
   });
 
-  app.get('/api/camara/vereadores', (req, res) => {
-    return res.json(getVereadores());
+  app.get('/api/camara/sessoes', (req, res) => {
+    return res.json({ sessoes: listarSessoes(), cobertura: contarCobertura() });
   });
 
-  app.get('/api/camara/vereadores/:int_pes', (req, res) => {
-    const vereador = getVereadorDossie(req.params.int_pes);
+  app.get('/api/camara/sessoes/:id', (req, res) => {
+    const sessao = getSessao(req.params.id);
+    if (!sessao || sessao.status_validacao === 'invalida') {
+      return res.status(404).json({ error: 'Sessão não encontrada' });
+    }
+    return res.json(sessao);
+  });
+
+  app.get('/api/camara/vereadores', (req, res) => {
+    return res.json(listarParlamentares());
+  });
+
+  // :id aceita o slug do nome ou o int_pes do SGC (links antigos).
+  app.get('/api/camara/vereadores/:id', (req, res) => {
+    const vereador = getPerfilParlamentar(req.params.id);
     if (!vereador) { return res.status(404).json({ error: 'Vereador não encontrado' }); }
     return res.json(vereador);
   });

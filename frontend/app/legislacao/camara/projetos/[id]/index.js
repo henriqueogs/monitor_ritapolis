@@ -3,6 +3,7 @@ import { fetchCamaraProjetoDossie } from '../../../../lib/api';
 import SectionBlock from '../../../../components/SectionBlock';
 import CamaraSubnav from '../../../../components/CamaraSubnav';
 import BreadcrumbJsonLd from '../../../../components/BreadcrumbJsonLd';
+import Votacao, { AvisoExtracao } from '../../components/Votacao';
 
 export async function generateStaticParams() {
   return [];
@@ -71,6 +72,16 @@ export default async function ProjetoDetalhePage({ params: paramsPromise }) {
       >
         <p style={{ fontSize: 14, lineHeight: 1.6 }}>{projeto.ementa || 'Ementa não publicada pela fonte.'}</p>
       </SectionBlock>
+
+      {projeto.votacoes?.length > 0 && (
+        <SectionBlock
+          title={`Votações que citam este projeto (${projeto.votacoes.length})`}
+          description="Votações das atas em que o número deste projeto aparece no trecho, no mesmo mandato. O vínculo é feito pelo número, não por identificador oficial. Da mais recente à mais antiga."
+        >
+          <AvisoExtracao />
+          {projeto.votacoes.map((v) => <Votacao key={v.id} votacao={v} mostrarSessao />)}
+        </SectionBlock>
+      )}
 
       <SectionBlock title="Fonte oficial" description="Documento e origem, direto da Câmara Municipal.">
         <dl className="keyvalue-list">
