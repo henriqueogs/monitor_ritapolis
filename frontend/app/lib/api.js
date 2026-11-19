@@ -431,6 +431,14 @@ export function fetchCamaraProjetoDossie(id) {
   return fetchJson(`/camara/projetos/${id}`).catch(() => null);
 }
 
+export function fetchCamaraSessoes() {
+  return fetchJson('/camara/sessoes').catch(() => ({ sessoes: [], cobertura: null }));
+}
+
+export function fetchCamaraSessao(id) {
+  return fetchJson(`/camara/sessoes/${id}`).catch(() => null);
+}
+
 export function fetchCamaraVereadores() {
   return fetchJson('/camara/vereadores').catch(() => []);
 }

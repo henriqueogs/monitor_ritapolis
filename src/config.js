@@ -69,6 +69,9 @@ module.exports = {
   dominioPrefeitura: municipio.dominioPrefeitura,
   dominioCamara: municipio.dominioCamara,
   portalTransparencia: municipio.portalTransparencia,
+  youtubeCanalCamara: municipio.youtubeCanalCamara || null,
+  youtubePlayerUrl:
+    process.env.YOUTUBE_PLAYER_URL || 'https://www.youtube.com/youtubei/v1/player?prettyPrint=false',
   pncpBaseUrl: process.env.PNCP_BASE_URL || 'https://pncp.gov.br/api/consulta',
   // API pública de leitura por órgão/compra (itens e resultados homologados).
   pncpApiUrl: process.env.PNCP_API_URL || 'https://pncp.gov.br/api/pncp',

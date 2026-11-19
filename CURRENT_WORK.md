@@ -10,6 +10,66 @@ Ver `QUICK_SUMMARY.md` para o mapa geral dos documentos do projeto.
 
 ---
 
+## 🏛️ Legislativo — perfil dos vereadores (aberto em 13/11/2026)
+
+O que a fonte tem, conferido em 13/11 (local, produção e SGC ao vivo):
+
+- `camara_votos` segue vazia: o SGC nunca registrou votação digital.
+- O cadastro do SGC lista 5 dos 9 vereadores em exercício e ninguém da legislatura anterior
+  (sem paginação: páginas 1–3 devolvem os mesmos 5).
+- Em produção, as 147 atas têm texto por OCR, com presença e votos nominais em prosa
+  ("dois votos contrários dos vereadores Luiz Paulo e Matheus"). No banco local as atas
+  estão sem texto (`status_coleta = imagem`).
+- Indicações (101) e requerimentos (57) cobrem 2021–2024 e trazem o autor em
+  `dados_extras.autor`. A listagem não traz resposta do Executivo.
+- Despesas da Câmara (diárias de vereador) não estão em `transparencia_despesas`: o portal
+  coletado é só o da Prefeitura. Diária paga pela Prefeitura a homônimo antes do mandato
+  não é diária de vereador.
+
+Fases:
+
+- [x] **Fase 1 — autoria.** Perfil por nome (slug), unindo cadastro do SGC e autores de
+  proposições; indicações e requerimentos por ano, com filtro e busca; projetos apresentados.
+  `src/camara/parlamentares.js`, `src/db/parlamentares-repo.js`,
+  `src/services/parlamentares-service.js`.
+- [x] **Vídeos das sessões (YouTube) — coleta e transcrição.** O feed do canal lista os 15
+  vídeos mais recentes; a legenda automática em português vira trechos de ~1 minuto com o
+  instante de cada um (`camara_videos`, `camara_video_trechos`). A VM lê o feed, mas o
+  YouTube nega legenda a IP de datacenter (`LOGIN_REQUIRED`): a transcrição roda fora dela
+  e entra por `scripts/transcrever-videos-camara.js` (`--pendentes` → `--exportar` →
+  `--importar`). Rodada real em 13/11: 15 vídeos, 13 transcritos, 2 sem legenda.
+  Pendente: validar o coletor `camara_videos` na VM (o proxy de coleta pode barrar o host)
+  e só então pôr no ciclo automático; vídeos anteriores aos 15 do feed; API e tela;
+  busca e IA sobre os trechos. A legenda erra nomes e números: serve para achar o trecho
+  e apontar o vídeo, não para citar fala. Pré-condição (fiscal de privacidade, 19/11):
+  antes de exibir ou indexar `camara_video_trechos`, filtrar nomes de quem não é agente
+  público e mostrar o trecho só como link para o instante do vídeo.
+- [x] **Fases 2 e 3 — sessões, frequência e votações (código pronto, falta rodar na VM).**
+  Decisão do Henrique em 13/11: publicar direto, com aviso de erro na página e mecanismo
+  de revalidação. IA lê cada ata (`src/ai/extrair-sessao-ata.js`) e a conferência
+  determinística (`src/camara/sessao-ata.js`) só deixa passar o que o texto sustenta:
+  presença/ausência com o nome na abertura da ata (ou em frase de posse de suplente),
+  data com o mês na abertura e não futura, votação com trecho literal, voto nominal de quem
+  é citado no trecho e cuja palavra de voto mais próxima (a favor/contra/abstenção) confere;
+  nomes acima do placar são omitidos. Avisos públicos não repetem nomes descartados.
+  Revalidação: `scripts/extrair-sessoes-camara.js --revalidar` confere de novo sem IA;
+  texto novo (OCR) ou `VERSAO_EXTRATOR` novo reextrai. Telas: `/legislacao/camara/sessoes`
+  (com cobertura de atas lidas), sessão com barra de placar, frequência por ano com mandato
+  e as sessões por trás de cada número, votos no perfil, votações que citam o projeto
+  (vínculo pelo número, exigido também no trecho). Proposições contadas por mandato, nunca
+  somando mandatos. Rótulo neutro "ausência" para falta registrada e nome que não consta na
+  ata (decisão do Henrique, 19/11). Fiscais de datas, proveniência e privacidade rodados em
+  19/11; achados corrigidos.
+  Pendente: rodar as 122 atas na VM (2–6 min por ata com `nemotron-3-ultra`, sequencial:
+  horas); `.env` local ainda aponta para `nemotron-3-super` (404); `camara_votos` (ids do
+  SGC) segue sem uso.
+- [ ] **Fase 4 — diárias e gastos da Câmara.** Achar a fonte (portal de transparência da
+  Câmara, CNPJ próprio) e coletar; contador por vereador e por ano.
+- [ ] **Fase 5 — desfecho dos pedidos.** Cruzar indicação/requerimento com as atas
+  (leitura, aprovação, ofício de resposta) para mostrar o que aconteceu com cada um.
+
+---
+
 ## 📍 Status em 13/11/2026 — Na Lupa v4, integridade de dados e infra
 
 Entregue entre 29/10 e 13/11 (PRs #209–#269). Plano e decisões:

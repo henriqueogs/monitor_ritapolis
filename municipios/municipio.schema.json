@@ -81,6 +81,11 @@
       "description": "Origem do Portal da Transparência da Prefeitura, com https:// e sem barra final (ex.: https://pt.ritapolis.mg.gov.br). Fica separado porque cada fornecedor usa um endereço próprio.",
       "type": "string",
       "pattern": "^https://[a-z0-9.-]+$"
+    },
+    "youtubeCanalCamara": {
+      "description": "Opcional. Identificador do canal da Câmara no YouTube (começa com UC), usado para acompanhar os vídeos das sessões.",
+      "type": "string",
+      "pattern": "^UC[A-Za-z0-9_-]{22}$"
     }
   },
   "additionalProperties": false

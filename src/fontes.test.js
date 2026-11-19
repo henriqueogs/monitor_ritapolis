@@ -24,6 +24,16 @@ describe('fontes (endereços das fontes oficiais vindos da configuração)', () 
       });
     });
 
+    it('monta o feed de vídeos da Câmara só quando o canal está configurado', () => {
+      expect(montarFontes(CFG).feedVideosCamara).toBeNull();
+      expect(
+        montarFontes({ ...CFG, youtubeCanalCamara: 'UCaaaaaaaaaaaaaaaaaaaaaa' }).feedVideosCamara
+      ).toBe('https://www.youtube.com/feeds/videos.xml?channel_id=UCaaaaaaaaaaaaaaaaaaaaaa');
+      expect(() => montarFontes({ ...CFG, youtubeCanalCamara: '@canal' })).toThrow(
+        /youtubeCanalCamara/
+      );
+    });
+
     it('aceita o site com e sem www (o portal da Prefeitura responde pelos dois)', () => {
       expect(montarFontes(CFG).hostsPrefeitura).toEqual([
         'prefeitura.exemplo.invalid',

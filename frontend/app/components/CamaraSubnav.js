@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 
 const links = [
   { href: '/legislacao/camara/projetos', label: 'Projetos em tramitação', match: (path) => path.startsWith('/legislacao/camara/projetos') },
+  { href: '/legislacao/camara/sessoes', label: 'Sessões e votações', match: (path) => path.startsWith('/legislacao/camara/sessoes') },
   { href: '/legislacao/camara/vereadores', label: 'Vereadores', match: (path) => path.startsWith('/legislacao/camara/vereadores') },
 ];
 
