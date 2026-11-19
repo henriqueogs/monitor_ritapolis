@@ -34,6 +34,8 @@ const ALLOWED_PROXY_HOSTS = new Set([
   // normal de fora, so falha a partir da VM de producao. sgc.* e o host
   // dos anexos/PDF (paraHttps em camara-legislacao.js).
   'ritapolis.mg.leg.br',
+  // A fonte redireciona as consultas SGC para o host canonico com www.
+  'www.ritapolis.mg.leg.br',
   'sgc.ritapolis.mg.leg.br',
 ]);
 const MAX_REDIRECTS = 5;
