@@ -59,9 +59,12 @@ function transientError(error) {
 function factsSignature(db, pending) {
   const rows = db
     .prepare(
-      `SELECT entity, input_hash FROM pipeline_jobs p WHERE kind = 'facts' AND status = 'ok'
-    AND id = (SELECT MAX(id) FROM pipeline_jobs p2 WHERE p2.kind = 'facts' AND p2.status = 'ok' AND p2.entity = p.entity)
-    ORDER BY entity`
+      // Um facts ok mais recente por documento. A forma com subconsulta correlacionada era
+      // O(n²) e levava ~3 min com 28 mil jobs (cada facts e cada analysis pagava isso).
+      `SELECT p.entity, p.input_hash FROM pipeline_jobs p
+    JOIN (SELECT entity, MAX(id) AS ultimo FROM pipeline_jobs
+          WHERE kind = 'facts' AND status = 'ok' GROUP BY entity) m ON p.id = m.ultimo
+    ORDER BY p.entity`
     )
     .all();
   const map = new Map(rows.map(r => [r.entity, r.input_hash]));
