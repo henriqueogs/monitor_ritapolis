@@ -90,3 +90,32 @@ encontrou outro gargalo: a busca de erros históricos recentes levou 15.360 ms.
 Ela recebe índice parcial por `(historical,finished_at,kind)`, somente para
 linhas cujo erro não é nulo, evitando a varredura dos milhares de jobs antigos
 sem erro. O critério da consulta permanece igual.
+
+## Itens recusados pelo contrato estrito (`contrato_rejeitado`) — 24/11/2026
+
+O contrato estrito de itens recusa de propósito saída incompleta da IA (ZodError). Em 24/11 a
+saúde do pipeline listava 81 tarefas nessa categoria, paradas em revisão. A falha não vem
+da fonte. Uma retomada reaproveita os trechos já validados (checkpoints) e repete só o
+trecho recusado. A amostra disponível é de tarefas de itens, e só itens passam a ser
+elegíveis. Um segundo recuso encerra a tarefa, porque vale uma retomada manual por tarefa.
+
+Listar candidatos sem alterar nada (falha mais recente de cada etapa/documento, ainda sem
+retomada manual):
+
+```bash
+node scripts/recover-failed-jobs.js --listar=contrato_rejeitado --limite=10
+```
+
+A saída traz `job_ids` pronto para a prévia e a aplicação, no máximo dez por vez:
+
+```bash
+node scripts/recover-failed-jobs.js --job-ids=<job_ids> --reason="Retomada de itens recusados pelo contrato estrito"
+# conferir a prévia; tarefas com 3 tentativas pedem --allow-exhausted-once
+node scripts/recover-failed-jobs.js --job-ids=<job_ids> --reason="..." --apply
+```
+
+Valem as mesmas travas: guard do R2 e backup com menos de 24 h, hash da fonte e versão do
+contrato inalterados, teto de tempo de itens por documento e orçamento histórico do dia.
+Começar por um lote de dez e medir quantas viram `ok` antes de seguir. Se a maioria voltar a
+ser recusada, o problema está no modelo/prompt, não na sorte da amostragem. Nesse caso,
+parar e revisar o prompt de itens.

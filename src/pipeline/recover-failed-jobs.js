@@ -2,13 +2,41 @@
 const crypto = require('node:crypto');
 const { classifyAiError } = require('../ai/classificar-erro-ia');
 
+const CATEGORIA_CONTRATO_REJEITADO = 'contrato_rejeitado';
+// Categorias que `listarCandidatos` aceita: só as que `recoverable` retoma por categoria.
+const CATEGORIAS_LISTAVEIS = new Set([CATEGORIA_CONTRATO_REJEITADO]);
+const LIMITE_LISTAGEM_PADRAO = 10;
+
+// Itens: a saída incompleta recusada pelo contrato estrito (ZodError) não depende da fonte;
+// a retomada reaproveita os trechos já validados e repete só o trecho recusado. Um segundo
+// recuso encerra a tarefa (uma retomada por tarefa, ver `already_recovered`).
 function recoverable(job) {
   if (job.kind === 'collection') {
     return job.entity === 'pncp' && /^PNCP HTTP 403(?:; PNCP HTTP 403)*$/.test(job.error || '');
   }
-  const timeout = classifyAiError(job.error) === 'timeout';
-  return (job.kind === 'items' && timeout) || (job.kind === 'summary' &&
-    (timeout || /Resposta da IA nao retornou JSON valido/.test(job.error || '')));
+  const categoria = classifyAiError(job.error);
+  const timeout = categoria === 'timeout';
+  if (job.kind === 'items') { return timeout || categoria === CATEGORIA_CONTRATO_REJEITADO; }
+  return job.kind === 'summary' &&
+    (timeout || /Resposta da IA nao retornou JSON valido/.test(job.error || ''));
+}
+
+// Falhas mais recentes de cada etapa/entidade na categoria pedida, ainda sem retomada manual.
+// Só lista: a retomada continua exigindo IDs explícitos, motivo e as checagens de `recoverFailedJobs`.
+function listarCandidatos(db, { categoria, limite = LIMITE_LISTAGEM_PADRAO } = {}) {
+  if (!CATEGORIAS_LISTAVEIS.has(categoria)) {
+    throw new Error(`Listagem aceita só a categoria ${[...CATEGORIAS_LISTAVEIS].join(', ')}`);
+  }
+  const rows = db.prepare(`SELECT id, kind, entity, attempts, error FROM pipeline_jobs p
+    WHERE status = 'failed' AND NOT EXISTS (
+      SELECT 1 FROM pipeline_jobs newer WHERE newer.kind = p.kind AND newer.entity = p.entity
+        AND newer.id > p.id AND newer.status IN ('pending','running','ok','failed'))
+      AND NOT EXISTS (SELECT 1 FROM pipeline_meta m WHERE m.key = 'manual_recovery:' || p.id)
+    ORDER BY id DESC`).all();
+  return rows
+    .filter(job => classifyAiError(job.error) === categoria && recoverable(job))
+    .slice(0, limite)
+    .map(({ id, kind, entity, attempts }) => ({ id, kind, entity, attempts }));
 }
 
 function blockedReason(db, job, { allowExhausted, validateInput }) {
@@ -66,4 +94,4 @@ function recoverFailedJobs(db, options) {
   }
 }
 
-module.exports = { recoverFailedJobs };
+module.exports = { recoverFailedJobs, listarCandidatos };

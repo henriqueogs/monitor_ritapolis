@@ -4,7 +4,8 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 const config = require('../src/config');
 const { db } = require('../src/db');
-const { recoverFailedJobs } = require('../src/pipeline/recover-failed-jobs');
+const { recoverFailedJobs, listarCandidatos } = require('../src/pipeline/recover-failed-jobs');
+const { createQueue } = require('../src/pipeline/queue');
 const flag = name => process.argv.find(arg => arg.startsWith(`--${name}=`))?.slice(name.length + 3);
 
 function assertSafety() {
@@ -37,6 +38,14 @@ function validateInput(job) {
 }
 
 async function main() {
+  // --listar=contrato_rejeitado [--limite=N]: só imprime IDs candidatos, sem alterar nada.
+  if (flag('listar')) {
+    createQueue(db); // garante as tabelas da fila (idempotente)
+    const limite = flag('limite') ? Number(flag('limite')) : undefined;
+    const candidatos = listarCandidatos(db, { categoria: flag('listar'), limite });
+    process.stdout.write(JSON.stringify({ candidatos, job_ids: candidatos.map(c => c.id).join(',') }) + '\n');
+    return;
+  }
   const jobIds = (flag('job-ids') || '').split(',').map(Number);
   // Only a successful read from the configured public source permits PNCP recovery.
   if (jobIds.some(id => db.prepare("SELECT 1 FROM pipeline_jobs WHERE id=? AND kind='collection' AND entity='pncp'").get(id))) {
