@@ -153,6 +153,19 @@ test('guard fails closed for stale or missing reports but does not stop API', ()
     guardReport({ R2_GUARD_REPORT_PATH: filename }, new Date('2026-09-30T00:00:00Z')).reason
   ).toBe('guard_stale');
 });
+test('guard tolera relatorio de ate 14h (cron do GitHub atrasa) e recusa o de 15h', () => {
+  const filename = path.join(dir, 'guard-idade.json');
+  const escrever = checkedAt =>
+    fs.writeFileSync(
+      filename,
+      JSON.stringify({ usage: { checkedAt }, evaluation: { status: 'ok' } })
+    );
+  const agora = new Date('2026-09-30T15:00:00Z');
+  escrever('2026-09-30T02:00:00Z');
+  expect(guardReport({ R2_GUARD_REPORT_PATH: filename }, agora).paused).toBe(false);
+  escrever('2026-09-30T00:00:00Z');
+  expect(guardReport({ R2_GUARD_REPORT_PATH: filename }, agora).reason).toBe('guard_stale');
+});
 test('material changes produce different logical signature', () => {
   const db = new DatabaseSync(dbPath);
   const first = logicalHash(db);
