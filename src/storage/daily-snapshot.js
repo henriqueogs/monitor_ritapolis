@@ -129,6 +129,9 @@ function retainEntries(entries, now = new Date()) {
     .slice(0, 11)
     .sort((a, b) => Date.parse(b.confirmedAt) - Date.parse(a.confirmedAt));
 }
+// O workflow r2-usage-guard é horário, mas o cron do GitHub atrasa: medido 5 a 12 h entre execuções
+// (23/11/2026). Com 8 h o backup das 03h e todo o pipeline paravam por "guard_stale" quase todo dia.
+const MAX_IDADE_RELATORIO_GUARD_MS = 14 * 3600000;
 function guardReport(env = process.env, now = new Date()) {
   const filename = env.R2_GUARD_REPORT_PATH;
   if (!filename) {
@@ -140,7 +143,7 @@ function guardReport(env = process.env, now = new Date()) {
   try {
     const report = JSON.parse(fs.readFileSync(filename, 'utf8'));
     const age = now.getTime() - Date.parse(report.usage.checkedAt);
-    if (!Number.isFinite(age) || age > 8 * 3600000 || age < -60000) {
+    if (!Number.isFinite(age) || age > MAX_IDADE_RELATORIO_GUARD_MS || age < -60000) {
       return { paused: true, reason: 'guard_stale' };
     }
     if (!['ok', 'warning'].includes(report.evaluation.status)) {
