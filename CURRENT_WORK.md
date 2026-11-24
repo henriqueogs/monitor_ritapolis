@@ -70,9 +70,9 @@ Fases:
 
 ---
 
-## 📍 Status em 13/11/2026 — Na Lupa v4, integridade de dados e infra
+## 📍 Status em 24/11/2026 — Na Lupa v4, integridade de dados e infra
 
-Entregue entre 29/10 e 13/11 (PRs #209–#269). Plano e decisões:
+Entregue entre 29/10 e 13/11 (PRs #209–#274). Plano e decisões:
 [`docs/PLANO_PROXIMAS_ATIVIDADES_2026-10-29.md`](docs/PLANO_PROXIMAS_ATIVIDADES_2026-10-29.md),
 diagnóstico N0 em [`docs/NA_LUPA_V4_N0_DIAGNOSTICO_2026-10-29.md`](docs/NA_LUPA_V4_N0_DIAGNOSTICO_2026-10-29.md).
 
@@ -168,9 +168,18 @@ abertura era promoção errada. Sem vertente de datas incoerentes.
 **ai-memory:** tarefa `ai-memory-server` (conhost `--headless`) validada em logon real de 11/11,
 sem janela; tarefa de validação temporária removida.
 
-Pendências diretas: VM ARM (tentativa horária em curso, ~380 tentativas sem capacidade até 13/11).
-Frentes possíveis: vertentes de gasto que já funcionam (diárias, preço, compras repetidas),
-apresentação dos achados ao cidadão, visão de longo prazo do Na Lupa (RAG).
+**Campanha de resumos históricos — diagnóstico (24/11):** os resumos estão completos (2.267 de 2.268 docs
+com texto). A campanha andava a ~77 docs/dia porque `factsSignature` (policy.js) era O(n²) sobre ~28 mil
+jobs `facts` ok: cada `facts` e cada `analysis` levava ~3 min (era 1–8 s até a semana 43), e o orçamento
+de 240 min/dia acabava. Corrigido no #273 (JOIN, 2,8 s). O guard R2 chegava com 5–12 h de atraso (cron do
+GitHub) e o limite de 8 h pausava backup e pipeline (`guard_stale`): limite 14 h no #274. Faltam: `facts`
+(~250 docs), `items` de 426 editais (falha de validação: tabela×linhas, citação, schema `too_big` 70
+caracteres), `anexo-summary` de 399 anexos com `texto_baixa_qualidade_ocr` (re-OCR), e os históricos
+`source-check` (2.248) e `expenses` (140), parados desde 01/10 por prioridade.
+
+Pendências diretas: confirmar a velocidade da campanha após o deploy do #273 (docs/dia e `duration_ms` de
+`facts`), tratar as falhas de `items` e `anexo-summary`, VM ARM (nova rodada de 14 dias iniciada em 23/11
+após 666 tentativas sem capacidade).
 
 ## Referência — status em 04/11/2026
 
