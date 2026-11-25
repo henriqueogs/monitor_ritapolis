@@ -2,7 +2,7 @@
 const { DatabaseSync } = require('node:sqlite');
 const { createQueue } = require('./queue');
 const { createProgress } = require('./progress');
-const { recoverFailedJobs, listarCandidatos } = require('./recover-failed-jobs');
+const { recoverFailedJobs, listarCandidatos, retomarCategoria } = require('./recover-failed-jobs');
 let db, q;
 const now = new Date('2026-11-05T01:00:00Z');
 const reason = 'Runtime corrigido; uma retomada manual com a mesma fonte';
@@ -170,5 +170,37 @@ describe('texto_baixa_qualidade_ocr em resumo de anexo', () => {
     const candidatos = listarCandidatos(db, { categoria: 'revisao_fonte' });
 
     expect(candidatos.map(c => c.id)).toEqual([b.id, a.id]);
+  });
+});
+
+describe('retomarCategoria', () => {
+  const OCR = 'texto_baixa_qualidade_ocr';
+  const anexo = anexoId => failed({ kind: 'anexo-summary', entity: String(900 + anexoId), attempts: 1,
+    error: OCR, payload: { documentoId: 900 + anexoId, anexoId }, hash: `texto-${anexoId}` });
+  const reprovados = new Set();
+  const opcoes = extra => ({ categoria: 'revisao_fonte', reason, now, assertSafety: () => {},
+    validateInput: job => (reprovados.has(job.id) ? 'texto_ainda_reprovado' : true), ...extra });
+  beforeEach(() => reprovados.clear());
+
+  test('percorre todos os candidatos em lotes de 10 e só conta na prévia', () => {
+    const jobs = Array.from({ length: 23 }, (_, i) => anexo(i + 1));
+    [jobs[0], jobs[11], jobs[22]].forEach(job => reprovados.add(job.id));
+
+    const relatorio = retomarCategoria(db, opcoes());
+
+    expect(relatorio).toMatchObject({ apply: false, lotes: 3, retomados: 20,
+      bloqueados: { texto_ainda_reprovado: 3 } });
+    expect(jobs.every(job => q.get(job.id).status === 'failed')).toBe(true);
+  });
+
+  test('com apply retoma até o teto pedido e deixa o resto para a próxima execução', () => {
+    const jobs = Array.from({ length: 15 }, (_, i) => anexo(i + 1));
+    reprovados.add(jobs[14].id);
+
+    const relatorio = retomarCategoria(db, opcoes({ apply: true, max: 12 }));
+
+    expect(relatorio.retomados).toBe(12);
+    expect(jobs.filter(job => q.get(job.id).status === 'pending')).toHaveLength(12);
+    expect(listarCandidatos(db, { categoria: 'revisao_fonte' }).map(c => c.id)).toHaveLength(3);
   });
 });

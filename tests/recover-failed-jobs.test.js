@@ -80,3 +80,25 @@ test('PNCP recovery refuses a still-blocked source before mutating the queue', a
     expect(queue.get(job.id)).toMatchObject({ status: 'pending', attempts: 1 });
   } finally { process.argv = argv; }
 });
+
+test('--retomar percorre a categoria inteira e só aplica com --apply', async () => {
+  const { buildTextoHash } = require('../src/ai/summarize-document');
+  const { getAnexoSummaryVersion } = require('../src/ai/summarize-anexo');
+  const texto = 'ATA DE REGISTRO DE PRECOS do pregao presencial. ____________________ Prefeito Municipal';
+  mockDb.exec('CREATE TABLE documentos_anexos(id INTEGER PRIMARY KEY,documento_id INTEGER,texto_completo TEXT)');
+  mockDb.prepare('INSERT INTO documentos_anexos VALUES(5,992,?)').run(texto);
+  const job = queue.enqueue({ kind: 'anexo-summary', entity: 992, hash: buildTextoHash(texto),
+    version: getAnexoSummaryVersion(texto), historical: true, payload: { documentoId: 992, anexoId: 5 } });
+  mockDb.prepare("UPDATE pipeline_jobs SET status='failed',error='texto_baixa_qualidade_ocr',attempts=1 WHERE id=?").run(job.id);
+  const argv = process.argv;
+  const output = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+  try {
+    process.argv = ['node', 'repair', '--retomar=revisao_fonte', '--reason=Gate de OCR corrigido (#277)'];
+    await main();
+    expect(JSON.parse(output.mock.calls[0][0])).toMatchObject({ apply: false, retomados: 1 });
+    expect(queue.get(job.id).status).toBe('failed');
+    process.argv.push('--apply');
+    await main();
+    expect(queue.get(job.id).status).toBe('pending');
+  } finally { process.argv = argv; }
+});

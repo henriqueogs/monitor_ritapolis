@@ -11,6 +11,7 @@ const CATEGORIAS_LISTAVEIS = new Set([CATEGORIA_CONTRATO_REJEITADO, CATEGORIA_RE
 const MESMO_ALVO = `(newer.kind <> 'anexo-summary'
   OR json_extract(newer.payload,'$.anexoId') = json_extract(p.payload,'$.anexoId'))`;
 const LIMITE_LISTAGEM_PADRAO = 10;
+const LIMITE_LOTE = 10;
 
 // Itens: a saída incompleta recusada pelo contrato estrito (ZodError) não depende da fonte;
 // a retomada reaproveita os trechos já validados e repete só o trecho recusado. Um segundo
@@ -76,7 +77,7 @@ function resumeJob(db, job, { now, reason }) {
 
 function recoverFailedJobs(db, options) {
   const { jobIds, reason, apply = false, now = new Date(), validateInput, assertSafety } = options;
-  if (!Array.isArray(jobIds) || !jobIds.length || jobIds.length > 10 ||
+  if (!Array.isArray(jobIds) || !jobIds.length || jobIds.length > LIMITE_LOTE ||
       jobIds.some(id => !Number.isSafeInteger(id) || id <= 0) || new Set(jobIds).size !== jobIds.length) {
     throw new Error('Informe de um a dez IDs de tarefas distintos e positivos');
   }
@@ -103,4 +104,26 @@ function recoverFailedJobs(db, options) {
   }
 }
 
-module.exports = { recoverFailedJobs, listarCandidatos };
+// Percorre todos os candidatos da categoria em lotes do tamanho que `recoverFailedJobs` aceita.
+// Cada lote mantém as mesmas travas (fonte, segurança, uma retomada por tarefa); os bloqueados
+// são contados por motivo e pulados. `max` limita quantas tarefas voltam à fila nesta execução.
+function retomarCategoria(db, { categoria, max = Infinity, ...opcoes }) {
+  const candidatos = listarCandidatos(db, { categoria, limite: Infinity });
+  const relatorio = { apply: Boolean(opcoes.apply), lotes: 0, retomados: 0, bloqueados: {}, ids: [] };
+  let inicio = 0;
+  while (inicio < candidatos.length && relatorio.retomados < max) {
+    const tamanho = Math.min(LIMITE_LOTE, max - relatorio.retomados);
+    const lote = candidatos.slice(inicio, inicio + tamanho).map(c => c.id);
+    inicio += tamanho;
+    const { changes, blocked } = recoverFailedJobs(db, { ...opcoes, jobIds: lote });
+    relatorio.lotes++;
+    relatorio.retomados += changes.length;
+    relatorio.ids.push(...changes.map(c => c.id));
+    for (const { reason } of blocked) {
+      relatorio.bloqueados[reason] = (relatorio.bloqueados[reason] || 0) + 1;
+    }
+  }
+  return relatorio;
+}
+
+module.exports = { recoverFailedJobs, listarCandidatos, retomarCategoria };
