@@ -4,7 +4,12 @@ const { classifyAiError } = require('../ai/classificar-erro-ia');
 
 const CATEGORIA_CONTRATO_REJEITADO = 'contrato_rejeitado';
 // Categorias que `listarCandidatos` aceita: só as que `recoverable` retoma por categoria.
-const CATEGORIAS_LISTAVEIS = new Set([CATEGORIA_CONTRATO_REJEITADO]);
+const CATEGORIA_REVISAO_FONTE = 'revisao_fonte';
+const ERRO_GATE_OCR = 'texto_baixa_qualidade_ocr';
+const CATEGORIAS_LISTAVEIS = new Set([CATEGORIA_CONTRATO_REJEITADO, CATEGORIA_REVISAO_FONTE]);
+// anexo-summary usa o documento como entity: o "mesmo job" é o do mesmo anexo, não o do documento.
+const MESMO_ALVO = `(newer.kind <> 'anexo-summary'
+  OR json_extract(newer.payload,'$.anexoId') = json_extract(p.payload,'$.anexoId'))`;
 const LIMITE_LISTAGEM_PADRAO = 10;
 
 // Itens: a saída incompleta recusada pelo contrato estrito (ZodError) não depende da fonte;
@@ -17,6 +22,8 @@ function recoverable(job) {
   const categoria = classifyAiError(job.error);
   const timeout = categoria === 'timeout';
   if (job.kind === 'items') { return timeout || categoria === CATEGORIA_CONTRATO_REJEITADO; }
+  // Gate de OCR corrigido (linha de assinatura não é lixo): o mesmo texto pode ser reavaliado.
+  if (job.kind === 'anexo-summary') { return job.error === ERRO_GATE_OCR; }
   return job.kind === 'summary' &&
     (timeout || /Resposta da IA nao retornou JSON valido/.test(job.error || ''));
 }
@@ -30,7 +37,7 @@ function listarCandidatos(db, { categoria, limite = LIMITE_LISTAGEM_PADRAO } = {
   const rows = db.prepare(`SELECT id, kind, entity, attempts, error FROM pipeline_jobs p
     WHERE status = 'failed' AND NOT EXISTS (
       SELECT 1 FROM pipeline_jobs newer WHERE newer.kind = p.kind AND newer.entity = p.entity
-        AND newer.id > p.id AND newer.status IN ('pending','running','ok','failed'))
+        AND newer.id > p.id AND newer.status IN ('pending','running','ok','failed') AND ${MESMO_ALVO})
       AND NOT EXISTS (SELECT 1 FROM pipeline_meta m WHERE m.key = 'manual_recovery:' || p.id)
     ORDER BY id DESC`).all();
   return rows
@@ -44,8 +51,10 @@ function blockedReason(db, job, { allowExhausted, validateInput }) {
   if (db.prepare('SELECT 1 FROM pipeline_meta WHERE key=?').get(`manual_recovery:${job.id}`)) {
     return 'already_recovered';
   }
-  if (db.prepare(`SELECT 1 FROM pipeline_jobs WHERE kind=? AND entity=? AND id>?
-    AND status IN ('pending','running','ok','failed') LIMIT 1`).get(job.kind, job.entity, job.id)) {
+  if (db.prepare(`SELECT 1 FROM pipeline_jobs p JOIN pipeline_jobs newer
+    ON newer.kind = p.kind AND newer.entity = p.entity AND newer.id > p.id
+    WHERE p.id = ? AND newer.status IN ('pending','running','ok','failed') AND ${MESMO_ALVO}
+    LIMIT 1`).get(job.id)) {
     return 'newer_job';
   }
   if (!recoverable(job)) { return 'not_recoverable'; }

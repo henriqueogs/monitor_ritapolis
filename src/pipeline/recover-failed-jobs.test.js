@@ -8,8 +8,9 @@ const now = new Date('2026-11-05T01:00:00Z');
 const reason = 'Runtime corrigido; uma retomada manual com a mesma fonte';
 beforeEach(() => { db = new DatabaseSync(':memory:'); q = createQueue(db); });
 afterEach(() => db.close());
-function failed({ kind = 'summary', entity = '992', attempts = 3, error = 'Request timed out.' } = {}) {
-  const job = q.enqueue({ kind, entity, hash: 'source-hash', version: '1.1:resume-1', historical: true }, now);
+function failed({ kind = 'summary', entity = '992', attempts = 3, error = 'Request timed out.',
+  payload = {}, hash = 'source-hash' } = {}) {
+  const job = q.enqueue({ kind, entity, hash, version: '1.1:resume-1', historical: true, payload }, now);
   db.prepare("UPDATE pipeline_jobs SET status='failed',attempts=?,error=? WHERE id=?").run(attempts, error, job.id);
   createProgress(db, job.identity).save('verified-chunk', { valid: true });
   return job;
@@ -132,6 +133,42 @@ describe('listarCandidatos', () => {
     for (let i = 0; i < 12; i++) { failed({ kind: 'items', entity: String(700 + i), attempts: 1, error: ZOD }); }
 
     expect(listarCandidatos(db, { categoria: 'contrato_rejeitado', limite: 10 })).toHaveLength(10);
-    expect(() => listarCandidatos(db, { categoria: 'revisao_fonte' })).toThrow(/categoria/);
+    expect(() => listarCandidatos(db, { categoria: 'timeout' })).toThrow(/categoria/);
+  });
+});
+
+describe('texto_baixa_qualidade_ocr em resumo de anexo', () => {
+  const OCR = 'texto_baixa_qualidade_ocr';
+  const anexo = (anexoId, extra = {}) => failed({ kind: 'anexo-summary', entity: '800', attempts: 1,
+    error: OCR, payload: { documentoId: 800, anexoId }, hash: `texto-${anexoId}`, ...extra });
+
+  test('retoma o resumo de anexo recusado pelo gate de OCR', () => {
+    const job = anexo(1);
+
+    expect(recoverFailedJobs(db, { ...options([job.id]), apply: true }).changes).toHaveLength(1);
+    expect(q.get(job.id)).toMatchObject({ status: 'pending', attempts: 1 });
+  });
+
+  test('anexo irmão do mesmo documento não bloqueia; job mais novo do mesmo anexo bloqueia', () => {
+    const primeiro = anexo(1);
+    const irmao = anexo(2);
+    const repetido = anexo(3);
+    anexo(3, { hash: 'texto-3-novo' });
+
+    const report = recoverFailedJobs(db, options([primeiro.id, irmao.id, repetido.id]));
+
+    expect(report.changes.map(c => c.id)).toEqual([primeiro.id, irmao.id]);
+    expect(report.blocked).toEqual([{ id: repetido.id, reason: 'newer_job' }]);
+  });
+
+  test('lista em revisao_fonte só os anexos recusados pelo gate de OCR', () => {
+    const a = anexo(1);
+    const b = anexo(2);
+    failed({ kind: 'items', entity: '801', attempts: 1,
+      error: 'Itens: mais de um resultado global; exige revisao por fonte' });
+
+    const candidatos = listarCandidatos(db, { categoria: 'revisao_fonte' });
+
+    expect(candidatos.map(c => c.id)).toEqual([b.id, a.id]);
   });
 });
