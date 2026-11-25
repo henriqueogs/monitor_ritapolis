@@ -25,6 +25,7 @@
     "coletar:prefeitura": "node scripts/coletar-prefeitura.js",
     "coletar:legislacao": "node scripts/coletar-legislacao-prefeitura.js",
     "coletar:camara": "node scripts/coletar-camara.js",
+    "importar:tse-vereadores": "node scripts/importar-tse-vereadores.js",
     "licitacoes:estruturar": "node scripts/estruturar-licitacoes.js",
     "licitacoes:detalhar": "node scripts/detalhar-licitacoes.js",
     "licitacoes:enriquecer-produtos": "node scripts/enriquecer-produtos-licitacoes.js",

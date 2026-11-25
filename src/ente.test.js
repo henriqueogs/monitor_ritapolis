@@ -68,6 +68,16 @@ describe('ente (identidade do município como configuração)', () => {
     });
   });
 
+  it('expõe o código do município no TSE (diferente do IBGE)', () => {
+    expect(carregarEnte().ente.codigoTse).toBe('51217');
+    expect(carregarEnte({ TSE_CODIGO_MUNICIPIO: '12345' }).ente.codigoTse).toBe('12345');
+  });
+
+  it('código do TSE é opcional, mas inválido derruba a carga', () => {
+    expect(carregarEnte({ MUNICIPIO: '_exemplo' }).ente.codigoTse).toBeNull();
+    expect(() => carregarEnte({ TSE_CODIGO_MUNICIPIO: '3156106' })).toThrow(/TSE_CODIGO_MUNICIPIO/);
+  });
+
   it('MUNICIPIO escolhe a pasta em municipios/ (sem editar código)', () => {
     const { ente } = carregarEnte({ MUNICIPIO: '_exemplo' });
 

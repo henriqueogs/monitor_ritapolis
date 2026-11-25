@@ -24,6 +24,16 @@ describe('frequencia', () => {
       ]);
     });
 
+    it('soma as grafias de uma mesma pessoa (nome civil e de urna)', () => {
+      const comApelido = presencas.map((p) =>
+        p.data_sessao === '2026-03-18' && p.nome.startsWith('Edir') ? { ...p, nome: 'Edir Bonifácio' } : p
+      );
+
+      expect(
+        calcularFrequencia(['edir-bonifacio-silva-santos', 'edir-bonifacio'], comApelido)
+      ).toMatchObject([{ ano: 2026, sessoes: 4, presente: 2, nao_listado: 1 }]);
+    });
+
     it('só conta sessões entre a primeira e a última vez em que a pessoa aparece', () => {
       const comSuplente = [...presencas, presenca('Lucimar Antônio dos Santos', '2026-03-18')];
 

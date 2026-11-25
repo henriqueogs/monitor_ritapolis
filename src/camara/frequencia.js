@@ -38,10 +38,14 @@ function linhaVazia(ano) {
   };
 }
 
-/** @returns {Array<{ano, mandato, sessoes, presente, ausente_justificada, ausente, nao_listado, detalhe}>} */
+/**
+ * @param {string|string[]} slug slug da pessoa, ou ela e os nomes com que foi unida
+ * @returns {Array<{ano, mandato, sessoes, presente, ausente_justificada, ausente, nao_listado, detalhe}>}
+ */
 function calcularFrequencia(slug, presencas) {
+  const slugs = [].concat(slug);
   const sessoes = new Map(presencas.map((p) => [p.documento_id, p.data_sessao]));
-  const dela = presencas.filter((p) => slugParlamentar(p.nome) === slug);
+  const dela = presencas.filter((p) => slugs.includes(slugParlamentar(p.nome)));
   const situacaoPorSessao = new Map(dela.map((p) => [p.documento_id, p.situacao]));
   const porAno = new Map();
 
