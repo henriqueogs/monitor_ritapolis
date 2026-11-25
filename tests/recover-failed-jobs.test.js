@@ -30,6 +30,24 @@ test('summary recovery checks text hash, contract and payload against the select
   expect(validateInput(job)).toBe(false);
 });
 
+test('anexo-summary recovery checks the attachment text and refuses text the gate still rejects', () => {
+  const { buildTextoHash } = require('../src/ai/summarize-document');
+  const { getAnexoSummaryVersion } = require('../src/ai/summarize-anexo');
+  const texto = 'ATA DE REGISTRO DE PRECOS do pregao presencial. ____________________ Prefeito Municipal';
+  mockDb.exec('CREATE TABLE documentos_anexos(id INTEGER PRIMARY KEY,documento_id INTEGER,texto_completo TEXT)');
+  mockDb.prepare('INSERT INTO documentos_anexos VALUES(5,992,?)').run(texto);
+  const job = { kind: 'anexo-summary', entity: '992', payload: '{"documentoId":992,"anexoId":5}',
+    input_hash: buildTextoHash(texto), version: getAnexoSummaryVersion(texto) };
+
+  expect(validateInput(job)).toBe(true);
+  expect(validateInput({ ...job, payload: '{"documentoId":992,"anexoId":6}' })).toBe(false);
+  expect(validateInput({ ...job, version: 'old' })).toBe(false);
+  const lixo = 'ATA texto !@#$%^& ilegivel mas com palavras reais';
+  mockDb.prepare('UPDATE documentos_anexos SET texto_completo=?').run(lixo);
+  expect(validateInput({ ...job, input_hash: buildTextoHash(lixo), version: getAnexoSummaryVersion(lixo) }))
+    .toBe('texto_ainda_reprovado');
+});
+
 test('items above the cumulative cap are refused before calling the AI input layer', () => {
   const job = queue.enqueue({ kind: 'items', entity: 992, hash: 'x', historical: true, payload: { documentoId: 992 } });
   mockDb.prepare(`INSERT INTO pipeline_runs(job_id,kind,entity,historical,finished_at,duration_ms,ok)

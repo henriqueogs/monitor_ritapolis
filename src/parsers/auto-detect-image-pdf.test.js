@@ -112,5 +112,22 @@ describe('isImageBasedPdf', () => {
       const texto = 'Texto normal!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! fim';
       expect(isImageBasedPdf(texto, 1)).toBe(false);
     });
+
+    it('não trata linha de assinatura (____) como lixo de OCR', () => {
+      // Atas e contratos legíveis eram recusados só pela linha de assinatura
+      const texto =
+        'Ritápolis, 18 de março de 2020. _________________________________ Prefeito Municipal';
+      expect(isImageBasedPdf(texto, 1)).toBe(false);
+    });
+
+    it('não trata régua de travessões (————) como lixo de OCR', () => {
+      const texto = 'CLÁUSULA PRIMEIRA ———————————— DO OBJETO do contrato firmado';
+      expect(isImageBasedPdf(texto, 1)).toBe(false);
+    });
+
+    it('ainda detecta lixo de símbolos variados ao lado de uma linha de assinatura', () => {
+      const texto = 'texto normal ________ e depois !@#$%^& mais texto';
+      expect(isImageBasedPdf(texto, 1)).toBe(true);
+    });
   });
 });

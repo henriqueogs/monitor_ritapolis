@@ -6,6 +6,8 @@ const config = require('../src/config');
 const { db } = require('../src/db');
 const { recoverFailedJobs, listarCandidatos } = require('../src/pipeline/recover-failed-jobs');
 const { createQueue } = require('../src/pipeline/queue');
+const { buildTextoHash } = require('../src/ai/summarize-document');
+const { getAnexoSummaryVersion, textoConfiavelParaIa } = require('../src/ai/summarize-anexo');
 const flag = name => process.argv.find(arg => arg.startsWith(`--${name}=`))?.slice(name.length + 3);
 
 function assertSafety() {
@@ -20,11 +22,24 @@ function assertSafety() {
   }
 }
 
+// Mesmo texto e contrato que o job viu, e o gate de OCR atual precisa aceitá-lo — senão a
+// retomada só repetiria a recusa e gastaria a única retomada permitida.
+function validateAnexoInput(job) {
+  const { anexoId } = JSON.parse(job.payload);
+  const anexo = db.prepare('SELECT * FROM documentos_anexos WHERE id=? AND documento_id=?')
+    .get(anexoId, Number(job.entity));
+  if (!anexo) { return false; }
+  if (buildTextoHash(anexo.texto_completo) !== job.input_hash ||
+    getAnexoSummaryVersion(anexo.texto_completo) !== job.version) { return false; }
+  return textoConfiavelParaIa(anexo.texto_completo) ? true : 'texto_ainda_reprovado';
+}
+
 function validateInput(job) {
   if (job.kind === 'collection') { return true; }
   if (JSON.parse(job.payload).documentoId !== Number(job.entity)) { return false; }
   const doc = db.prepare('SELECT * FROM documentos WHERE id=?').get(Number(job.entity));
   if (!doc) { return false; }
+  if (job.kind === 'anexo-summary') { return validateAnexoInput(job); }
   if (job.kind === 'summary') {
     const signature = crypto.createHash('sha256').update(doc.texto_completo || '').digest('hex');
     return signature === job.input_hash && job.version === `${config.aiContractVersion}:resume-1`;
