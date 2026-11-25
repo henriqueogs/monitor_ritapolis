@@ -10,11 +10,11 @@ const th = { padding: '8px 6px', color: 'var(--text-secondary)', fontWeight: 600
  * Top credores do período selecionado. Nome linka pro perfil interno
  * (/credores/[cnpj]); o CNPJ mantém a verificação na Receita Federal.
  */
-export default function TopCredores({ topCredores, periodoLabel }) {
+export default function TopCredores({ topCredores, periodoLabel, bare = false }) {
   const credores = (topCredores || []).filter((c) => c.credor_cnpj !== CNPJ_PREFEITURA);
 
   return (
-    <SectionBlock
+    <SectionBlock bare={bare}
       title={`Principais credores (${periodoLabel})`}
       description="Ordenado pelo valor empenhado (ordinário) no período; empenhos estimativos/globais aparecem à parte e ordens de pagamento ficam fora. Exclui registros sem CNPJ e a folha de pagamento da Prefeitura. Clique no credor para ver o perfil completo com todos os empenhos."
       aside={

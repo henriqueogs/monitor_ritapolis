@@ -169,7 +169,7 @@ function OutrasFinalidades({ itens, total, sufixo, queryPeriodo }) {
   );
 }
 
-export default function FinalidadesResumo({ finalidades, periodoLabel, queryPeriodo }) {
+export default function FinalidadesResumo({ finalidades, periodoLabel, queryPeriodo, bare = false }) {
   const lista = (finalidades || []).map(normalizarFinalidade).filter((item) => item.classe);
   if (!lista.length) { return null; }
 
@@ -183,6 +183,7 @@ export default function FinalidadesResumo({ finalidades, periodoLabel, queryPeri
 
   return (
     <SectionBlock
+      bare={bare}
       title={`Para onde foi o dinheiro (${periodoLabel})`}
       description="Resumo por finalidade do empenho. Primeiro os maiores destinos, depois as demais classes em lista compacta."
       aside={

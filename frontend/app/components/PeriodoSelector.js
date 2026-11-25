@@ -55,14 +55,22 @@ export default function PeriodoSelector({ porMandato, periodo, anosCobertos, mod
           {labelMandato(m, m.em_curso)}
         </Chip>
       ))}
-      {anos.map((ano) => (
-        <Chip key={ano} href={href({ exercicio: ano })} ativo={modo === 'exercicio' && periodo?.exercicio === ano}>
-          {ano}
-        </Chip>
-      ))}
       <Chip href={href({ periodo: 'todos' })} ativo={modo === 'todos'}>
         {labelTodos}
       </Chip>
+      {/* Anos num menu recolhível: 10+ chips soltos competiam com a navegação. */}
+      {anos.length ? (
+        <details className={`periodo-anos${modo === 'exercicio' ? ' is-ativo' : ''}`}>
+          <summary>{modo === 'exercicio' ? `Ano ${periodo?.exercicio}` : 'Escolher ano'}</summary>
+          <div className="periodo-anos-menu">
+            {anos.map((ano) => (
+              <Chip key={ano} href={href({ exercicio: ano })} ativo={modo === 'exercicio' && periodo?.exercicio === ano}>
+                {ano}
+              </Chip>
+            ))}
+          </div>
+        </details>
+      ) : null}
     </nav>
   );
 }

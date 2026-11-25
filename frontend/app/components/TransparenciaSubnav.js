@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const links = [
-  { href: '/transparencia', label: 'Visao geral', match: (path) => path === '/transparencia' || path.startsWith('/transparencia/categoria') },
+  { href: '/transparencia', label: 'Visão geral', match: (path) => path === '/transparencia' || path.startsWith('/transparencia/categoria') },
   { href: '/transparencia/finalidades', label: 'Finalidades', match: (path) => path.startsWith('/transparencia/finalidades') || path.startsWith('/finalidade') },
   { href: '/credores', label: 'Credores', match: (path) => path.startsWith('/credores') },
   { href: '/transparencia/empenhos', label: 'Empenhos', match: (path) => path.startsWith('/transparencia/empenhos') || path.startsWith('/empenho') },

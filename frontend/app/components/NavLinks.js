@@ -3,31 +3,23 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ChevronDown, Menu, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { AREAS, FERRAMENTAS } from '../lib/modulos';
 
-// Nav enxuta: paginas que giram em torno de "Dinheiro publico" viram
-// dropdown embaixo desse hub, em vez de item solto no topo -- so' as duas
-// areas + Na Lupa + Acervo + Sobre ficam soltas. Reduz de 10 pra 6 itens
-// fixos sem perder nenhuma pagina (o resto mora dentro do dropdown).
+// Nav enxuta gerada do mapa único (lib/modulos.js): cada área vira dropdown
+// com os módulos dela, igual à home e às páginas de área.
 const links = [
   { href: '/', label: 'Início', exact: true },
-  {
-    href: '/transparencia',
-    label: 'Dinheiro público',
-    children: [
-      { href: '/licitacoes', label: 'Licitações' },
-      { href: '/transparencia/empenhos', label: 'Empenhos' },
-      { href: '/transparencia/servidores', label: 'Folha de servidores' },
-      { href: '/transparencia/categoria/diarias', label: 'Diárias' },
-      { href: '/credores', label: 'Credores' },
-      { href: '/emendas', label: 'Emendas' },
-      { href: '/temas', label: 'Temas' },
-      { href: '/analises', label: 'Análises' },
-    ],
-  },
-  { href: '/legislacao', label: 'Atos oficiais' },
+  ...AREAS.map((area) => ({
+    href: area.href,
+    label: area.titulo,
+    children: area.grupos.flatMap((g) => g.modulos.map((m) => ({ href: m.href, label: m.titulo }))),
+  })),
   { href: '/na-lupa', label: 'Na Lupa' },
-  { href: '/acervo', label: 'Acervo' },
-  { href: '/sobre', label: 'Sobre' },
+  {
+    href: '/acervo',
+    label: 'Ferramentas',
+    children: FERRAMENTAS.filter((f) => f.href !== '/na-lupa').map((f) => ({ href: f.href, label: f.titulo })),
+  },
 ];
 
 function isLinkActive(link, pathname) {

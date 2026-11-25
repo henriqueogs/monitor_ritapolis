@@ -16,14 +16,7 @@ function MetricCard({ label, value, sub, accent }) {
  */
 export default function MetricasPeriodo({ total, periodoLabel, pctVinculado }) {
   return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-        gap: 16,
-        marginBottom: 28,
-      }}
-    >
+    <div className="panorama-metricas">
       <MetricCard
         label={`Empenhado ordinário (${periodoLabel})`}
         value={formatMoney(total.valor_total)}
@@ -45,9 +38,9 @@ export default function MetricasPeriodo({ total, periodoLabel, pctVinculado }) {
         sub="por CNPJ"
       />
       <MetricCard
-        label={`Vinculados a licitações (${periodoLabel})`}
-        value={`${total.n_licitacoes_vinculadas?.toLocaleString('pt-BR')} doc.`}
-        sub={`${pctVinculado}% dos empenhos com processo`}
+        label={`Com licitação (${periodoLabel})`}
+        value={`${pctVinculado}%`}
+        sub={`dos empenhos ordinários têm processo licitatório no acervo (${total.n_licitacoes_vinculadas?.toLocaleString('pt-BR') ?? 0} licitações)`}
         accent={pctVinculado > 50 ? '--success' : '--warning'}
       />
     </div>

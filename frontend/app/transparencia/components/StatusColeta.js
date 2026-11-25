@@ -4,9 +4,9 @@ import { HOST_PORTAL_TRANSPARENCIA, PORTAL_TRANSPARENCIA_DESPESAS } from '../../
 
 const PORTAL_URL = PORTAL_TRANSPARENCIA_DESPESAS;
 
-export default function StatusColeta({ logs }) {
+export default function StatusColeta({ logs, bare = false }) {
   return (
-    <SectionBlock
+    <SectionBlock bare={bare}
       title="Status da coleta"
       description="Dados coletados via API pública do Portal da Transparência (SH3 Informática). Atualização automática diária."
     >

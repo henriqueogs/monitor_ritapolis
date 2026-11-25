@@ -65,11 +65,11 @@ function LinhaExercicio({ row }) {
  * Execução por exercício, agrupada por mandato com subtotais. Clicar num
  * exercício filtra a página inteira por aquele ano.
  */
-export default function TabelaExercicios({ porAno, porMandato }) {
+export default function TabelaExercicios({ porAno, porMandato, bare = false }) {
   const porAnoMap = new Map((porAno || []).map((r) => [r.exercicio, r]));
 
   return (
-    <SectionBlock
+    <SectionBlock bare={bare}
       title="Por mandato e exercício"
       description="Valor empenhado vs. orçamento de receita previsto (LOA aprovada pela Câmara). Valor empenhado ≠ valor pago. Clique num exercício para filtrar toda a página."
     >
