@@ -14,6 +14,7 @@ const mockConn = criarBancoMemoria();
 jest.mock('./index', () => ({ db: mockConn }));
 
 const repo = require('./transparencia-repo');
+const agregadosRepo = require('./transparencia-agregados-repo');
 const { buildCredorChave } = require('../transparencia/credor-chave');
 
 let seq = 0;
@@ -534,6 +535,18 @@ describe('transparencia-repo — tipos de empenho no painel (fiscal-valores V2/V
     const { total, finalidadesEmpenho } = repo.getPainelResumo({ exercicio: 2026 });
 
     expect(finalidadesEmpenho.reduce((a, f) => a + f.valor, 0)).toBe(total.valor_total);
+  });
+
+  it('invariante: Σ categorias econômicas == total.valor_total (abas "mesmo gasto")', () => {
+    seedDespesa({ ...B, valor: 70, categoriaEconomica: '4.4.90.51.00 - OBRAS' });
+    seedDespesa({ ...B, valor: 9, categoriaEconomica: null });
+    seedDespesa({ ...A, valor: 500, exercicio: 2025, data: '2025-03-01' });
+
+    const { total } = repo.getPainelResumo({ exercicio: 2026 });
+    const categorias = agregadosRepo.getAgregadoPorCategoriaEconomica({ exercicios: [2026] });
+
+    expect(categorias.reduce((a, c) => a + c.valor_total, 0)).toBe(total.valor_total);
+    expect(categorias.reduce((a, c) => a + (c.valor_estimado_global || 0), 0)).toBe(total.valor_estimado_global);
   });
 
   it('tiposEmpenho continua listando todos os tipos (composição informativa)', () => {

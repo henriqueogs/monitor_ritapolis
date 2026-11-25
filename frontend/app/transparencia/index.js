@@ -1,10 +1,7 @@
-import Link from 'next/link';
-import AlertasDestaque from '../components/AlertasDestaque';
 import AreaSearchForm from '../components/AreaSearchForm';
 import IntelligenceBrief from '../components/IntelligenceBrief';
 import SectionBlock from '../components/SectionBlock';
 import {
-  fetchAlertasDestaques,
   fetchAnalisesResumos,
   fetchDocumentos,
   fetchFilaPagamentos,
@@ -12,8 +9,7 @@ import {
   fetchTransparenciaResumo,
 } from '../lib/api';
 import { TIPOS_DINHEIRO_PUBLICO } from '../lib/areas';
-import { formatMoney } from '../lib/format';
-import TransparenciaSubnav from '../components/TransparenciaSubnav';
+import { formatDate, formatMoney } from '../lib/format';
 import FilaPagamentos from './components/FilaPagamentos';
 import FinalidadesResumo from './components/FinalidadesResumo';
 import GastosPorCategoria from './components/GastosPorCategoria';
@@ -22,10 +18,13 @@ import MetricasPeriodo from './components/MetricasPeriodo';
 import TabelaExercicios from './components/TabelaExercicios';
 import ComposicaoReceita from './components/ComposicaoReceita';
 import TopCredores from './components/TopCredores';
-import EmpenhosRecentes from './components/EmpenhosRecentes';
 import TiposEmpenho from './components/TiposEmpenho';
 import StatusColeta from './components/StatusColeta';
+import AbasDestino from './components/AbasDestino';
+import ModulosArea from '../components/ModulosArea';
+import Expansivel from './components/Expansivel';
 import { HOST_PORTAL_TRANSPARENCIA, PORTAL_TRANSPARENCIA_DESPESAS } from '../../lib/ente';
+import { montarPeriodoLabel } from '../../lib/periodo-label';
 
 export const metadata = {
   title: 'Dinheiro público',
@@ -49,30 +48,16 @@ function resolverFiltro(searchParams) {
   return { modo: 'mandato', fetchParams: { mandato: new Date().getFullYear() } };
 }
 
-function montarPeriodoLabel(modo, periodo, porMandato) {
-  if (modo === 'exercicio') return String(periodo.exercicio);
-  if (modo === 'mandato' && periodo.mandato) {
-    const grupo = (porMandato || []).find((m) => m.inicio === periodo.mandato.inicio);
-    const anos = grupo?.anos || [];
-    if (anos.length === 1) return String(anos[0]);
-    if (anos.length > 1) return `${anos[0]}–${anos[anos.length - 1]}`;
-    return `${periodo.mandato.inicio}–${periodo.mandato.fim}`;
-  }
-  const [min, max] = periodo.anos_cobertos || [];
-  return min && max ? (min === max ? String(min) : `${min}–${max}`) : 'período coletado';
-}
-
 export default async function TransparenciaPage({ searchParams: searchParamsPromise }) {
   const searchParams = await searchParamsPromise;
   const { modo, fetchParams } = resolverFiltro(searchParams);
   const tiposDinheiro = TIPOS_DINHEIRO_PUBLICO.join(',');
-  const [dados, gastos, fila, analises, alertas, publicacoesRecentes] = await Promise.all([
+  const [dados, gastos, fila, analises, publicacoesRecentes] = await Promise.all([
     fetchTransparenciaResumo(fetchParams),
     fetchTransparenciaGastos(fetchParams),
     // Fila filtra só por exercício (mandato não se aplica a pendência atual)
     fetchFilaPagamentos(fetchParams.exercicio ? { exercicio: fetchParams.exercicio } : {}),
     fetchAnalisesResumos({ tipo: tiposDinheiro, limite: 6 }).catch(() => ({ itens: [] })),
-    fetchAlertasDestaques(4, tiposDinheiro).catch(() => []),
     fetchDocumentos({ tipo: tiposDinheiro, limite: 1 }).catch(() => ({ dados: [] })),
   ]);
   const destaqueIa = analises.itens?.[0]
@@ -96,9 +81,11 @@ export default async function TransparenciaPage({ searchParams: searchParamsProm
     );
   }
 
-  const { total, porAno, porMandato, periodo, topCredores, ultimosEmpenhos, logs, tiposEmpenho, receitasPorAno, finalidadesEmpenho } = dados;
-  const diarias = (gastos?.categorias || []).find((c) => c.slug === 'diarias');
+  const { total, porAno, porMandato, periodo, topCredores, logs, tiposEmpenho, receitasPorAno, finalidadesEmpenho } = dados;
   const periodoLabel = montarPeriodoLabel(modo, periodo, porMandato);
+  const historicoLabel = montarPeriodoLabel('todos', periodo, porMandato);
+  // Máximo em vez de logs[0]: não depender da ordem que a API devolve.
+  const ultimaColeta = (logs || []).map((l) => l.coletado_em).filter(Boolean).sort().at(-1);
   const queryPeriodo = modo === 'todos'
     ? 'periodo=todos'
     : new URLSearchParams(
@@ -126,79 +113,86 @@ export default async function TransparenciaPage({ searchParams: searchParamsProm
         />
       </div>
 
-      <TransparenciaSubnav />
+      <ModulosArea areaId="dinheiro" semCabecalho />
 
-      <IntelligenceBrief resumoAi={destaqueIa} publicacao={ultimaPublicacao} />
-      <AlertasDestaque
-        alertas={alertas}
-        title="Na Lupa · Dinheiro público"
-        description="Gastos e contratos que valem um segundo olhar, com fonte oficial."
-        ctaHref="/na-lupa"
-      />
+      <section className="panorama" aria-labelledby="panorama-titulo">
+        <div className="panorama-cabecalho">
+          <div>
+            <h2 id="panorama-titulo">Panorama {periodoLabel}</h2>
+            <p className="section-note">
+              Estes números e o gráfico 'Para onde vai o dinheiro' seguem o período escolhido.
+              {ultimaColeta ? ` Última coleta em ${formatDate(ultimaColeta)}.` : null}
+            </p>
+          </div>
+          <PeriodoSelector porMandato={porMandato} periodo={periodo} anosCobertos={periodo.anos_cobertos} modo={modo} />
+        </div>
+        <MetricasPeriodo total={total} periodoLabel={periodoLabel} pctVinculado={pctVinculado} />
+      </section>
 
-      <PeriodoSelector porMandato={porMandato} periodo={periodo} anosCobertos={periodo.anos_cobertos} modo={modo} />
-
-      <MetricasPeriodo total={total} periodoLabel={periodoLabel} pctVinculado={pctVinculado} />
-
-      <div className="observatory-grid" style={{ marginBottom: 20 }}>
-        <SectionBlock
-          title="Folha salarial"
-          description="Cargo, secretaria e remuneração de cada servidor, por competência."
-        >
-          <Link href="/transparencia/servidores" className="availability-badge is-gov" style={{ textDecoration: 'none' }}>
-            Ver folha de servidores →
-          </Link>
-        </SectionBlock>
-
-        <SectionBlock
-          title="Diárias"
-          description={
-            diarias
-              ? `${diarias.n_empenhos.toLocaleString('pt-BR')} pagamento${diarias.n_empenhos === 1 ? '' : 's'} de diária a servidores/vereadores em ${periodoLabel}, totalizando ${formatMoney(diarias.valor_total)}.`
-              : 'Pagamentos de diária a servidores e vereadores em viagem a serviço.'
-          }
-        >
-          <Link href="/transparencia/categoria/diarias" className="availability-badge is-gov" style={{ textDecoration: 'none' }}>
-            Ver diárias {periodoLabel} →
-          </Link>
-        </SectionBlock>
-      </div>
-
-      <FinalidadesResumo
-        finalidades={finalidadesEmpenho}
-        periodoLabel={periodoLabel}
-        queryPeriodo={queryPeriodo}
-      />
-
-      <GastosPorCategoria
-        categorias={gastos?.categorias}
-        periodoLabel={periodoLabel}
-        queryPeriodo={queryPeriodo}
-      />
-
-      <TabelaExercicios porAno={porAno} porMandato={porMandato} />
-
-      <ComposicaoReceita receitasPorAno={receitasPorAno} porAno={porAno} />
-
-      <FilaPagamentos fila={fila} />
-
-      <TopCredores topCredores={topCredores} periodoLabel={periodoLabel} />
-
-      <EmpenhosRecentes ultimosEmpenhos={ultimosEmpenhos} periodoLabel={periodoLabel} />
-
-      <TiposEmpenho tiposEmpenho={tiposEmpenho} periodoLabel={periodoLabel} />
-
-      {/* Análises de preço vivem na Inteligência — aqui só o convite */}
       <SectionBlock
-        title="Evolução de preços por produto"
-        description="Mesmo item comprado em anos diferentes, agrupado por similaridade (IA) — como o preço unitário pago variou ao longo do tempo."
+        title={`Para onde vai o dinheiro (${periodoLabel})`}
+        description="Duas formas de olhar o mesmo gasto: pela finalidade (saúde, educação, obras…) ou pelo tipo de despesa do código orçamentário."
       >
-        <Link href="/inteligencia" className="availability-badge is-gov" style={{ textDecoration: 'none' }}>
-          Ver análise de preços na Inteligência →
-        </Link>
+        <AbasDestino
+          rotulo="Classificação do gasto"
+          abas={[
+            {
+              id: 'finalidade',
+              rotulo: 'Por finalidade',
+              conteudo: finalidadesEmpenho?.length ? (
+                <FinalidadesResumo bare finalidades={finalidadesEmpenho} periodoLabel={periodoLabel} queryPeriodo={queryPeriodo} />
+              ) : null,
+            },
+            {
+              id: 'tipo-despesa',
+              rotulo: 'Por tipo de despesa',
+              conteudo: gastos?.categorias?.length ? (
+                <GastosPorCategoria bare categorias={gastos.categorias} periodoLabel={periodoLabel} queryPeriodo={queryPeriodo} />
+              ) : null,
+            },
+          ]}
+        />
       </SectionBlock>
 
-      <StatusColeta logs={logs} />
+      <IntelligenceBrief resumoAi={destaqueIa} publicacao={ultimaPublicacao} />
+
+      <section className="section-block" aria-labelledby="aprofundar-titulo">
+        <div className="section-head">
+          <div>
+            <h2 id="aprofundar-titulo">Aprofundar</h2>
+            <p className="section-note">Tabelas completas. Clique para abrir.</p>
+          </div>
+        </div>
+        <div className="expansivel-lista">
+          {fila?.resumo?.n_total ? (
+            <Expansivel
+              id="fila"
+              titulo={fetchParams.exercicio ? `Fila de pagamentos (${fetchParams.exercicio})` : 'Fila de pagamentos — pendentes na última coleta'}
+              resumo={[
+                `${fila.resumo.n_total.toLocaleString('pt-BR')} empenhos liquidados sem pagamento · ${formatMoney(fila.resumo.valor_total)}`,
+                fila.resumo.liquidacao_mais_antiga ? `desde ${String(fila.resumo.liquidacao_mais_antiga).slice(0, 4)}` : null,
+              ].filter(Boolean).join(' · ')}
+            >
+              <FilaPagamentos bare fila={fila} />
+            </Expansivel>
+          ) : null}
+          <Expansivel id="credores" titulo={`Principais credores (${periodoLabel})`} resumo="ranking por valor empenhado">
+            <TopCredores bare topCredores={topCredores} periodoLabel={periodoLabel} />
+          </Expansivel>
+          <Expansivel id="exercicios" titulo={`Por mandato e exercício (${historicoLabel})`} resumo="empenhado, pago e vínculos ano a ano">
+            <TabelaExercicios bare porAno={porAno} porMandato={porMandato} />
+          </Expansivel>
+          <Expansivel id="receita" titulo={`Composição da receita orçamentária (${historicoLabel})`} resumo="de onde vem o dinheiro">
+            <ComposicaoReceita bare receitasPorAno={receitasPorAno} porAno={porAno} />
+          </Expansivel>
+          <Expansivel id="tipos" titulo={`Tipos de empenho (${periodoLabel})`} resumo="ordinário, estimativo, global">
+            <TiposEmpenho bare tiposEmpenho={tiposEmpenho} periodoLabel={periodoLabel} />
+          </Expansivel>
+          <Expansivel id="coleta" titulo="Status da coleta" resumo={ultimaColeta ? `última coleta em ${formatDate(ultimaColeta)}` : 'quando os dados foram atualizados'}>
+            <StatusColeta bare logs={logs} />
+          </Expansivel>
+        </div>
+      </section>
     </main>
   );
 }

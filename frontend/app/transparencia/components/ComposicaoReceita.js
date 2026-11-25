@@ -5,11 +5,11 @@ import { formatMoney } from '../../lib/format';
  * Receita prevista (LOA) por exercício, cruzada com o empenhado — sempre com
  * o exercício explícito em cada linha.
  */
-export default function ComposicaoReceita({ receitasPorAno, porAno }) {
+export default function ComposicaoReceita({ receitasPorAno, porAno, bare = false }) {
   if (!receitasPorAno?.length) return null;
 
   return (
-    <SectionBlock
+    <SectionBlock bare={bare}
       title="Composição da receita orçamentária"
       description="Receitas correntes (impostos, taxas, transferências federais/estaduais) e receitas de capital (alienações, transferências de capital). Fonte: LOA aprovada pela Câmara Municipal."
     >

@@ -8,14 +8,14 @@ function pct(part, total) {
 
 const isOrdemPagamento = (tipo) => String(tipo || '').toUpperCase().startsWith('OP');
 
-export default function TiposEmpenho({ tiposEmpenho, periodoLabel }) {
+export default function TiposEmpenho({ tiposEmpenho, periodoLabel, bare = false }) {
   // % só entre empenhos (EO+EE+EG): OP é pagamento de empenho já existente e
   // somá-la à base duplicaria o gasto.
   const baseEmpenhos = (tiposEmpenho || [])
     .filter((t) => !isOrdemPagamento(t.tipo))
     .reduce((acc, t) => acc + (t.valor || 0), 0);
   return (
-    <SectionBlock
+    <SectionBlock bare={bare}
       title={`Composição por tipo de empenho (${periodoLabel})`}
       description="EO = Ordinário (valor definido). EG = Global (total de parcelas futuras). EE = Estimativo (valor previsto). OP = Ordem de Pagamento: paga um empenho já existente — não é gasto novo e fica fora dos percentuais."
     >

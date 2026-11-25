@@ -1,9 +1,9 @@
-import Link from 'next/link';
 import AlertasDestaque from '../components/AlertasDestaque';
 import IntelligenceBrief from '../components/IntelligenceBrief';
 import DocumentList from '../components/DocumentList';
 import Pagination from '../components/Pagination';
 import SectionBlock from '../components/SectionBlock';
+import ModulosArea from '../components/ModulosArea';
 import { fetchAlertasDestaques, fetchAnalisesResumos, fetchDocumentos } from '../lib/api';
 import { TIPOS_LEGISLACAO } from '../lib/areas';
 import LegislacaoFilters from './components/LegislacaoFilters';
@@ -57,15 +57,10 @@ export default async function LegislacaoPage({ searchParams: searchParamsPromise
       <div className="page-title">
         <h1>Legislação Municipal</h1>
         <p>Decretos, leis, portarias e resoluções publicados pela Prefeitura e pela Câmara — cada item aponta pra fonte oficial.</p>
-        <p style={{ marginTop: 8, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <Link href="/legislacao/camara/projetos" className="availability-badge is-gov" style={{ textDecoration: 'none' }}>
-            Ver projetos em tramitação na Câmara →
-          </Link>
-          <Link href="/legislacao/camara/vereadores" className="availability-badge is-gov" style={{ textDecoration: 'none' }}>
-            Ver vereadores →
-          </Link>
-        </p>
       </div>
+
+      {/* Com filtro ativo o cidadão já escolheu o módulo: a grade só empurraria a lista. */}
+      {filters.tipoSelecionado || filters.q ? null : <ModulosArea areaId="atos" semCabecalho />}
 
       <IntelligenceBrief
         resumoAi={buildDestaqueIa(analises.itens?.[0])}

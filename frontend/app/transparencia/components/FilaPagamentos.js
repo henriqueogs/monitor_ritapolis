@@ -9,16 +9,16 @@ const MAX_LINHAS_VISIVEIS = 15;
  * de pagar) que ainda não têm pagamento registrado — quem está esperando
  * receber, mais antigos primeiro.
  */
-export default function FilaPagamentos({ fila }) {
+export default function FilaPagamentos({ fila, bare = false }) {
   if (!fila?.resumo?.n_total) return null;
 
   const { resumo, itens } = fila;
   const visiveis = itens.slice(0, MAX_LINHAS_VISIVEIS);
 
   return (
-    <SectionBlock
+    <SectionBlock bare={bare}
       title="Fila de pagamentos — quem está esperando receber"
-      description={`${resumo.n_total.toLocaleString('pt-BR')} empenhos liquidados aguardando pagamento, somando ${formatMoney(resumo.valor_total)}. Liquidado = serviço/produto entregue e conferido; falta só o pagamento. Situação conforme a última coleta do Portal da Transparência.`}
+      description={`${resumo.n_total.toLocaleString('pt-BR')} empenhos liquidados aguardando pagamento${resumo.liquidacao_mais_antiga ? ` (liquidados desde ${String(resumo.liquidacao_mais_antiga).slice(0, 4)})` : ''}, somando ${formatMoney(resumo.valor_total)} em valor de empenho. Liquidado = serviço/produto entregue e conferido; falta só o pagamento. Situação conforme a última coleta do Portal da Transparência.`}
     >
       <div className="products-table">
         {visiveis.map((item) => (
