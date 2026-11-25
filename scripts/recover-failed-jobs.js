@@ -4,7 +4,7 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 const config = require('../src/config');
 const { db } = require('../src/db');
-const { recoverFailedJobs, listarCandidatos } = require('../src/pipeline/recover-failed-jobs');
+const { recoverFailedJobs, listarCandidatos, retomarCategoria } = require('../src/pipeline/recover-failed-jobs');
 const { createQueue } = require('../src/pipeline/queue');
 const { buildTextoHash } = require('../src/ai/summarize-document');
 const { getAnexoSummaryVersion, textoConfiavelParaIa } = require('../src/ai/summarize-anexo');
@@ -59,6 +59,15 @@ async function main() {
     const limite = flag('limite') ? Number(flag('limite')) : undefined;
     const candidatos = listarCandidatos(db, { categoria: flag('listar'), limite });
     process.stdout.write(JSON.stringify({ candidatos, job_ids: candidatos.map(c => c.id).join(',') }) + '\n');
+    return;
+  }
+  // --retomar=revisao_fonte --reason=... [--max=N] [--apply]: a categoria inteira em lotes de 10.
+  if (flag('retomar')) {
+    const relatorio = retomarCategoria(db, {
+      categoria: flag('retomar'), reason: flag('reason'), apply: process.argv.includes('--apply'),
+      max: flag('max') ? Number(flag('max')) : undefined, validateInput, assertSafety,
+    });
+    process.stdout.write(JSON.stringify(relatorio) + '\n');
     return;
   }
   const jobIds = (flag('job-ids') || '').split(',').map(Number);
