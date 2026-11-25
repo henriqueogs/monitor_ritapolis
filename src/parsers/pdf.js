@@ -4,6 +4,8 @@ const { normalizeText, isPalavraReal } = require('../utils/text');
 // Símbolos que NÃO ocorrem em texto legível em sequência longa — uma corrida de
 // 6+ deles (excluída a pontuação básica) denuncia lixo de encoding/OCR.
 const RE_CORRIDA_LIXO = /[^a-z0-9áéíóúàèìòùâêîôûãõçñ\s.,;:!?()/-]{6,}/i;
+// Um único símbolo repetido (linha de assinatura "____", régua "————") é layout, não lixo.
+const RE_REGUA = /([^\p{L}\p{N}\s])\1{5,}/gu;
 const MIN_CHARS_POR_PAGINA = 15;
 const PROPORCAO_PALAVRAS_MIN = 0.3;
 const LIMITE_TEXTO_LONGO = 100;
@@ -142,7 +144,7 @@ function isImageBasedPdf(text, numPages) {
   if (trimmedText.length / pages < MIN_CHARS_POR_PAGINA) {
     return true;
   }
-  if (RE_CORRIDA_LIXO.test(trimmedText)) {
+  if (RE_CORRIDA_LIXO.test(trimmedText.replace(RE_REGUA, ' '))) {
     return true;
   }
   if (trimmedText.length > LIMITE_TEXTO_LONGO) {
