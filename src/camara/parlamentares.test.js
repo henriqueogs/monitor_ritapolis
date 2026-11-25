@@ -169,4 +169,84 @@ describe('parlamentares', () => {
       expect(montarPerfil('ninguem', dados)).toBeNull();
     });
   });
+
+  describe('candidaturas do TSE', () => {
+    const URL_TSE = 'https://dadosabertos.tse.jus.br/dataset/resultados-2024';
+
+    function candidatura(overrides = {}) {
+      return {
+        sq_candidato: '130002026148',
+        ano_eleicao: 2024,
+        numero: '40444',
+        nome: 'SORMANI JESUS DE OLIVEIRA',
+        nome_urna: 'TOTÓ DO SABIÁ',
+        partido: 'PSB',
+        votos: 110,
+        situacao: 'ELEITO POR MÉDIA',
+        url_origem: URL_TSE,
+        ...overrides,
+      };
+    }
+    const TOTO_SGC = {
+      int_pes: 487,
+      nome: 'Totó do Sabiá',
+      mandatos: [{ periodo_inicio: 2025, periodo_fim: 2028, partido: 'PSB' }],
+    };
+
+    it('junta o nome de urna do SGC e o nome civil das proposições numa pessoa só', () => {
+      const roster = montarRoster({
+        vereadores: [TOTO_SGC],
+        proposicoes: [proposicao({ autor: 'Sormani Jesus de Oliveira' })],
+        candidaturas: [candidatura()],
+      });
+
+      expect(roster).toHaveLength(1);
+      expect(roster[0]).toMatchObject({ nome: 'Totó do Sabiá', int_pes: 487 });
+      expect(roster[0].proposicoes_por_mandato[0].total).toBe(1);
+    });
+
+    it('anexa partido, votos, situação e a origem no TSE', () => {
+      const [pessoa] = montarRoster({ vereadores: [TOTO_SGC], candidaturas: [candidatura()] });
+
+      expect(pessoa.eleicao).toEqual({
+        ano: 2024,
+        partido: 'PSB',
+        votos: 110,
+        situacao: 'ELEITO POR MÉDIA',
+        eleito: true,
+        nome_urna: 'TOTÓ DO SABIÁ',
+        url_origem: URL_TSE,
+      });
+    });
+
+    it('cria perfil para quem só está no TSE, com o nome de urna sem caixa alta', () => {
+      const [pessoa] = montarRoster({
+        candidaturas: [candidatura({ nome: 'EDNA APARECIDA DE PAULA SANTOS', nome_urna: 'EDNA DO CARNEIRO', situacao: 'SUPLENTE' })],
+      });
+
+      expect(pessoa).toMatchObject({ nome: 'Edna do Carneiro', int_pes: null });
+      expect(pessoa.eleicao.eleito).toBe(false);
+    });
+
+    it('não casa por nome de urna de uma palavra só (homônimo provável)', () => {
+      const roster = montarRoster({
+        nomesDeSessoes: ['Gustavo'],
+        candidaturas: [candidatura({ nome: 'GUSTAVO JÚNIOR ASSIS DA PAIXÃO', nome_urna: 'GUSTAVO' })],
+      });
+
+      expect(roster.map((p) => p.nome).sort()).toEqual(['Gustavo', 'Gustavo Júnior Assis da Paixão']);
+    });
+
+    it('o perfil continua acessível pelo slug antigo de quem foi unido', () => {
+      const perfil = montarPerfil('sormani-jesus-de-oliveira', {
+        vereadores: [TOTO_SGC],
+        proposicoes: [proposicao({ autor: 'Sormani Jesus de Oliveira' })],
+        candidaturas: [candidatura()],
+      });
+
+      expect(perfil.int_pes).toBe(487);
+      expect(perfil.aliases).toContain('sormani-jesus-de-oliveira');
+      expect(perfil.proposicoes).toHaveLength(1);
+    });
+  });
 });

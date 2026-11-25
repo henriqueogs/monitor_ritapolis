@@ -47,6 +47,11 @@
       "type": "string",
       "pattern": "^\\d{7}$"
     },
+    "codigoTse": {
+      "description": "Opcional. Código do município no TSE (SG_UE, 5 dígitos), diferente do IBGE. Usado para importar o resultado das eleições municipais.",
+      "type": "string",
+      "pattern": "^\\d{5}$"
+    },
     "cnpjPrefeitura": {
       "description": "CNPJ da Prefeitura, só dígitos.",
       "type": "string",

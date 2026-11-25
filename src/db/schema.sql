@@ -823,6 +823,23 @@ CREATE TABLE IF NOT EXISTS camara_vereadores (
   atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Vereadores eleitos e suplentes segundo o TSE (dados abertos, resultados-<ano>). Completa o
+-- cadastro do SGC, que não lista todos; o casamento com o SGC é pelo nome (src/camara/parlamentares.js).
+-- Só dados públicos da candidatura: nada de CPF, e-mail ou título de eleitor.
+CREATE TABLE IF NOT EXISTS camara_candidaturas_tse (
+  sq_candidato TEXT PRIMARY KEY,
+  ano_eleicao INTEGER NOT NULL,
+  numero TEXT,
+  nome TEXT NOT NULL,
+  nome_urna TEXT,
+  partido TEXT,
+  votos INTEGER NOT NULL DEFAULT 0,
+  situacao TEXT NOT NULL,
+  url_origem TEXT NOT NULL,
+  coletado_em TEXT DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Um vereador pode ter varios mandatos (legislaturas diferentes, ou trocou de partido)
 CREATE TABLE IF NOT EXISTS camara_mandatos (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

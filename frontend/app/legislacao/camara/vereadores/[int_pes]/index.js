@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { fetchCamaraVereadorDossie } from '../../../../lib/api';
+import { ORIGEM_SGC } from '../../../../../lib/ente';
 import SectionBlock from '../../../../components/SectionBlock';
 import CamaraSubnav from '../../../../components/CamaraSubnav';
 import BreadcrumbJsonLd from '../../../../components/BreadcrumbJsonLd';
@@ -82,10 +83,26 @@ export default async function VereadorDossiePage({ params: paramsPromise }) {
           )}
           {mandatos.map((m) => (
             <span key={m.periodo_inicio} className="availability-badge is-real">
-              {m.partido || 'sem partido'} · {m.periodo_inicio}–{m.periodo_fim}
+              {m.partido || 'sem partido'} · {m.periodo_inicio}–{m.periodo_fim} (SGC)
             </span>
           ))}
+          {mandatos.length > 0 && (
+            <a href={ORIGEM_SGC} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12 }}>
+              Fonte: sistema da Câmara (SGC)
+            </a>
+          )}
         </p>
+        {vereador.eleicao && (
+          <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--text-muted)' }}>
+            Eleição {vereador.eleicao.ano}: {vereador.eleicao.situacao.toLowerCase()}, {vereador.eleicao.partido},{' '}
+            {Number(vereador.eleicao.votos).toLocaleString('pt-BR')} votos, nome na urna “{vereador.eleicao.nome_urna}”.
+            Fonte:{' '}
+            <a href={vereador.eleicao.url_origem} target="_blank" rel="noopener noreferrer">
+              TSE, dados abertos
+            </a>
+            .
+          </p>
+        )}
       </div>
 
       <CamaraSubnav />

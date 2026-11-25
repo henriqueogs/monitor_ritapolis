@@ -16,6 +16,7 @@ const {
   listarVotacoes,
 } = require('../db/camara-sessoes-repo');
 const { getProjetoDossie } = require('../db/camara-repo');
+const { listarCandidaturasTse } = require('../db/candidaturas-tse-repo');
 const { montarRoster, montarPerfil, slugParlamentar } = require('../camara/parlamentares');
 const { calcularFrequencia, votacoesDoProjeto } = require('../camara/frequencia');
 
@@ -24,6 +25,7 @@ function lerBase(presencas) {
     vereadores: listarVereadoresComMandatos(),
     proposicoes: listarProposicoesComAutor(),
     nomesDeSessoes: presencas.map((p) => p.nome),
+    candidaturas: listarCandidaturasTse(),
   };
 }
 
@@ -37,10 +39,11 @@ function getPerfilParlamentar(id) {
   if (!perfil) {
     return null;
   }
+  const slugs = [perfil.slug, ...perfil.aliases];
   return {
     ...perfil,
-    frequencia: calcularFrequencia(perfil.slug, presencas),
-    votos: listarVotosNominais().filter((voto) => slugParlamentar(voto.nome) === perfil.slug),
+    frequencia: calcularFrequencia(slugs, presencas),
+    votos: listarVotosNominais().filter((voto) => slugs.includes(slugParlamentar(voto.nome))),
   };
 }
 

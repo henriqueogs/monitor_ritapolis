@@ -173,7 +173,10 @@ Atualizado em: 2026-09-17. Gere novamente com `npm run docs:dados`.
 
 Além disso: 13.648 registros de folha salarial (2013–2026, `transparencia_folha`,
 fora da contagem de `documentos`) e 107 projetos de lei em tramitação + 5
-vereadores (`camara_projetos`/`camara_vereadores`, idem).
+vereadores (`camara_projetos`/`camara_vereadores`, idem). O cadastro da Câmara
+não lista todos os vereadores: os 9 eleitos e os 48 suplentes de 2024 vêm do TSE
+(`npm run importar:tse-vereadores`, tabela `camara_candidaturas_tse`, dataset
+resultados-2024; código do município no TSE em `municipio.json` → `codigoTse`).
 
 ## Limitações conhecidas
 

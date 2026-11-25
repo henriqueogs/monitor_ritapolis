@@ -40,6 +40,8 @@ function pessoaDoCadastro(v) {
     mandato_fim: atual?.periodo_fim || null,
     mandatos: v.mandatos || [],
     proposicoes: [],
+    aliases: [],
+    eleicao: null,
   };
 }
 
@@ -52,11 +54,75 @@ function pessoaSemCadastro(nome) {
     mandato_fim: null,
     mandatos: [],
     proposicoes: [],
+    aliases: [],
+    eleicao: null,
   };
 }
 
+const PARTICULAS = new Set(['de', 'da', 'do', 'das', 'dos', 'e']);
+const SITUACOES_ELEITO = new Set(['ELEITO', 'ELEITO POR QP', 'ELEITO POR MÉDIA']);
+
+/** "TOTÓ DO SABIÁ" → "Totó do Sabiá" (o TSE publica tudo em caixa alta). */
+function nomeProprio(texto) {
+  return String(texto || '')
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((p, i) => (i > 0 && PARTICULAS.has(p) ? p : p.charAt(0).toUpperCase() + p.slice(1)))
+    .join(' ');
+}
+
+// Nome de urna de uma palavra só ("GUSTAVO") casaria com homônimos: só o nome civil vale.
+const isNomeComposto = (nome) => String(nome || '').trim().split(/\s+/).length > 1;
+
+function chavesDaCandidatura(c) {
+  const chaves = [slugParlamentar(c.nome)];
+  if (isNomeComposto(c.nome_urna)) {
+    chaves.push(slugParlamentar(c.nome_urna));
+  }
+  return [...new Set(chaves)];
+}
+
+function eleicaoDaCandidatura(c) {
+  return {
+    ano: c.ano_eleicao,
+    partido: c.partido,
+    votos: c.votos,
+    situacao: c.situacao,
+    eleito: SITUACOES_ELEITO.has(c.situacao),
+    nome_urna: c.nome_urna,
+    url_origem: c.url_origem,
+  };
+}
+
+/**
+ * Une cada candidatura do TSE a quem já existe pelo nome civil ou de urna; quem casa com mais
+ * de uma pessoa (SGC usa o nome de urna, proposições o civil) vira uma só, preferindo o SGC.
+ * Candidaturas chegam da eleição mais recente para a mais antiga: vale a primeira.
+ */
+function unirCandidaturas(pessoas, candidaturas) {
+  for (const c of candidaturas) {
+    const chaves = chavesDaCandidatura(c);
+    const achadas = [...new Set(chaves.map((k) => pessoas.get(k)).filter(Boolean))];
+    const principal =
+      achadas.find((p) => p.int_pes) ||
+      achadas[0] ||
+      pessoaSemCadastro(isNomeComposto(c.nome_urna) ? nomeProprio(c.nome_urna) : nomeProprio(c.nome));
+    for (const outra of achadas.filter((p) => p !== principal)) {
+      principal.proposicoes.push(...outra.proposicoes);
+      principal.aliases.push(outra.slug, ...outra.aliases);
+    }
+    principal.aliases.push(...chaves.filter((k) => k !== principal.slug));
+    principal.aliases = [...new Set(principal.aliases)];
+    principal.eleicao = principal.eleicao || eleicaoDaCandidatura(c);
+    for (const k of [principal.slug, ...principal.aliases]) {
+      pessoas.set(k, principal);
+    }
+  }
+}
+
 /** Mapa slug -> pessoa, com as proposições de cada uma (coautores já separados). */
-function indexarPessoas({ vereadores = [], proposicoes = [], nomesDeSessoes = [] }) {
+function indexarPessoas({ vereadores = [], proposicoes = [], nomesDeSessoes = [], candidaturas = [] }) {
   const pessoas = new Map(vereadores.map((v) => [slugParlamentar(v.nome), pessoaDoCadastro(v)]));
   // Quem só aparece nas atas (presença ou falta) também ganha perfil.
   for (const nome of nomesDeSessoes) {
@@ -79,6 +145,7 @@ function indexarPessoas({ vereadores = [], proposicoes = [], nomesDeSessoes = []
       });
     }
   }
+  unirCandidaturas(pessoas, candidaturas);
   return pessoas;
 }
 
@@ -112,8 +179,8 @@ function resumirPorMandato(proposicoes) {
 }
 
 function montarRoster(dados) {
-  return [...indexarPessoas(dados).values()]
-    .map(({ proposicoes, mandatos: _mandatos, ...pessoa }) => ({
+  return [...new Set(indexarPessoas(dados).values())]
+    .map(({ proposicoes, mandatos: _mandatos, aliases: _aliases, ...pessoa }) => ({
       ...pessoa,
       proposicoes_por_mandato: resumirPorMandato(proposicoes),
     }))
@@ -135,9 +202,11 @@ function resumirPorAno(proposicoes) {
 
 /** @param {string} id slug do nome ou `int_pes` do SGC */
 function montarPerfil(id, dados) {
-  const pessoas = [...indexarPessoas(dados).values()];
+  const pessoas = [...new Set(indexarPessoas(dados).values())];
   const chave = String(id);
-  const pessoa = pessoas.find((p) => p.slug === chave || String(p.int_pes) === chave);
+  const pessoa = pessoas.find(
+    (p) => p.slug === chave || p.aliases.includes(chave) || String(p.int_pes) === chave
+  );
   if (!pessoa) {
     return null;
   }
@@ -145,8 +214,9 @@ function montarPerfil(id, dados) {
     (a, b) => String(b.data_publicacao || '').localeCompare(String(a.data_publicacao || '')) || a.id - b.id
   );
   // Projeto não cria perfil: o autor costuma ser o Prefeito ou a Mesa Diretora.
+  const slugs = [pessoa.slug, ...pessoa.aliases];
   const projetos = (dados.projetos || []).filter((projeto) =>
-    separarAutores(projeto.autor_texto).some((nome) => slugParlamentar(nome) === pessoa.slug)
+    separarAutores(projeto.autor_texto).some((nome) => slugs.includes(slugParlamentar(nome)))
   );
   return {
     ...pessoa,

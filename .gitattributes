@@ -1,0 +1,2 @@
+# Fixtures do TSE: bytes exatos (latin1, CRLF misto), comparados com o zip no teste.
+src/integracoes/__fixtures__/*.csv binary

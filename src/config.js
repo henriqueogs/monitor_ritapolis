@@ -62,6 +62,8 @@ module.exports = {
   municipioNome: process.env.MUNICIPIO_NOME || municipio.nome,
   ufMunicipio: process.env.UF_MUNICIPIO || municipio.uf,
   ibgeCode: process.env.IBGE_CODE || municipio.ibge,
+  // Código do município no TSE (SG_UE), diferente do IBGE; opcional.
+  tseCodigoMunicipio: process.env.TSE_CODIGO_MUNICIPIO || municipio.codigoTse || null,
   cnpjPrefeitura: process.env.CNPJ_PREFEITURA || municipio.cnpjPrefeitura,
   cnpjCamara: process.env.CNPJ_CAMARA || municipio.cnpjCamara,
   // Endereços das fontes oficiais e do site público; acesso no código de produção: src/fontes.js.

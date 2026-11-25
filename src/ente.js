@@ -15,6 +15,7 @@ const config = require('./config');
 const TAMANHO_CNPJ = 14;
 const TAMANHO_IBGE = 7;
 const TAMANHO_UF = 2;
+const TAMANHO_TSE = 5;
 
 const soDigitos = valor => String(valor ?? '').replace(/\D/g, '');
 const semAcento = texto =>
@@ -48,6 +49,18 @@ function exigirUf(valor) {
   return uf;
 }
 
+/** Opcional: sem código, a importação do TSE não roda. */
+function exigirCodigoTse(valor) {
+  if (valor === null || valor === undefined || valor === '') {
+    return null;
+  }
+  const digitos = String(valor).trim();
+  if (!/^\d+$/.test(digitos) || digitos.length !== TAMANHO_TSE) {
+    throw new Error(`TSE_CODIGO_MUNICIPIO inválido: esperado 5 dígitos, recebido "${valor}"`);
+  }
+  return digitos;
+}
+
 function exigirNome(valor) {
   const nome = String(valor ?? '').trim();
   if (!nome) {
@@ -65,6 +78,7 @@ function montarEnte(cfg) {
     nomeChave: semAcento(nome).toLowerCase(),
     uf: exigirUf(cfg.ufMunicipio),
     ibge: exigirIbge(cfg.ibgeCode),
+    codigoTse: exigirCodigoTse(cfg.tseCodigoMunicipio),
     cnpjPrefeitura,
     cnpjCamara,
     orgaos: Object.freeze([
