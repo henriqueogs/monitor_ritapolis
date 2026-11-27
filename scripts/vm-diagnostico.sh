@@ -103,6 +103,27 @@ uptime 2>/dev/null
 df -h / 2>/dev/null
 echo "oom_kills_na_janela: $(jctl -k | grep -ciE 'out of memory|killed process')"
 
+# ── Disco (achado 27/11/2026: 72% → 95% em dois dias e o backup parou) ─────────
+# Só tamanhos em MB e nomes de pasta de primeiro nível; nenhum nome de arquivo.
+# Sobra pending-* = cópia inteira do banco deixada por backup interrompido.
+DATA_DIR="$APP_DIR/data"
+SNAP_DIR="$DATA_DIR/snapshots-v1"
+mb() { du -sm "$@" 2>/dev/null | awk '{s+=$1} END {print s+0}'; }
+contar_mb() { # padrão de nome em SNAP_DIR → "N (M MB)"
+  local arquivos
+  mapfile -t arquivos < <(find "$SNAP_DIR" -maxdepth 1 -type f -regextype posix-extended -regex "$1" 2>/dev/null)
+  if (( ${#arquivos[@]} == 0 )); then echo '0 (0 MB)'; return; fi
+  echo "${#arquivos[@]} ($(mb "${arquivos[@]}") MB)"
+}
+echo '== disco'
+echo "banco_mb: $(mb "$DATA_DIR"/ritapolis.db "$DATA_DIR"/ritapolis.db-wal)"
+echo "backup_copias_confirmadas: $(contar_mb '.*/[0-9a-f]{64}\.db')"
+echo "backup_sobras_pending: $(contar_mb '.*/pending-[^/]*')"
+echo "data_subpastas: $(for d in "$DATA_DIR"/*/; do [[ -d $d ]] && printf '%s=%s ' "$(basename "$d")" "$(mb "$d")"; done | sanear)"
+echo "app_mb: logs=$(mb "$APP_DIR/logs") node_modules=$(mb "$APP_DIR/node_modules") frontend=$(mb "$APP_DIR/frontend")"
+echo "tmp_ocr: $(find /tmp -maxdepth 1 -name 'ocr-*' 2>/dev/null | wc -l) pastas ($(mb /tmp/ocr-*) MB)"
+echo "journal: $(journalctl --disk-usage 2>/dev/null | grep -oE '[0-9.]+[KMGT]' | head -1)"
+
 # ── CPU e rede: separa VM estrangulada (steal/pressão) de problema de rede ────
 # Achado 23-27/10/2026: a Vercel perde conexão com a API em rajadas (ETIMEDOUT,
 # "other side closed") sem erro no Caddy e sem restart. Steal alto = o host da

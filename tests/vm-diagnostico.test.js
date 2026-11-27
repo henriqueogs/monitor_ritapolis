@@ -93,6 +93,12 @@ function runDiag(
     '{"level":"warn","message":"Pipeline: tarefa falhou","id":42,"kind":"summary","error":"429 Too Many Requests key nvapi-Zz9","timestamp":"2026-10-18T11:48:00.000Z"}',
     '{"level":"info","message":"fora da janela","timestamp":"2026-10-18T09:00:00.000Z"}',
   ].join('\n'));
+  // Disco: banco, cópia confirmada e uma sobra pending de backup interrompido.
+  const snaps = path.join(app, 'data', 'snapshots-v1');
+  fs.mkdirSync(snaps, { recursive: true });
+  fs.writeFileSync(path.join(app, 'data', 'ritapolis.db'), Buffer.alloc(3 * 1048576));
+  fs.writeFileSync(path.join(snaps, `${'a'.repeat(64)}.db`), Buffer.alloc(3 * 1048576));
+  fs.writeFileSync(path.join(snaps, 'pending-0f8e2c1a-1b2c-4d3e-8f90-123456789abc.db'), Buffer.alloc(3 * 1048576));
   const proc = criarProcFalso(temp);
   const log = path.join(temp, 'calls.log');
   const script = source
@@ -124,6 +130,18 @@ describe('vm-diagnostico.sh', () => {
     expect(r.stdout).toMatch(/app_log_por_nivel: .*error=2.*warn=3/);
     expect(r.stdout).not.toContain('fora da janela');
     expect(r.calls).toContain('--since 2026-10-18 11:40');
+  });
+
+  it('mostra o que ocupa o disco: banco, cópias de backup e sobras pending (só tamanhos)', () => {
+    const r = runDiag('2026-10-18T11:40 2026-10-18T11:50');
+
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain('== disco');
+    expect(r.stdout).toMatch(/banco_mb: 3\b/);
+    expect(r.stdout).toMatch(/backup_copias_confirmadas: 1 \(3 MB\)/);
+    expect(r.stdout).toMatch(/backup_sobras_pending: 1 \(3 MB\)/);
+    expect(r.stdout).toMatch(/data_subpastas: .*snapshots-v1=[67]\b/);
+    expect(r.stdout).not.toContain('0f8e2c1a');
   });
 
   it('nunca expõe segredos, IPs, e-mails, CPF ou números longos (repo público)', () => {

@@ -14,6 +14,7 @@ const {
 } = require('@aws-sdk/client-s3');
 const { clientFor, sha256File, isConfigured } = require('./r2-database-backup');
 const { stableValue, localTime } = require('../pipeline/policy');
+const espaco = require('./snapshot-espaco');
 
 const PREFIX = 'backups/snapshots-v1/';
 const MANIFEST_KEY = `${PREFIX}manifest.json`;
@@ -159,6 +160,7 @@ async function createDailySnapshot({
   dbPath,
   now = new Date(),
   transport,
+  bytesLivres = espaco.bytesLivres,
 } = {}) {
   if (!isConfigured(env) && !transport) {
     throw new Error('Backup diario requer R2 configurado');
@@ -170,6 +172,11 @@ async function createDailySnapshot({
   const { client, bucket } = transport || clientFor(env);
   const localDir = path.join(path.dirname(dbPath), 'snapshots-v1');
   fs.mkdirSync(localDir, { recursive: true });
+  const { removidos: pendentesRemovidos } = espaco.limparPendentesAntigos(localDir, { agora: now });
+  espaco.verificarEspacoParaBackup({
+    bancoBytes: espaco.bytesDoBanco(dbPath),
+    livreBytes: bytesLivres(localDir),
+  });
   const temporary = path.join(localDir, `pending-${crypto.randomUUID()}.db`);
   const gzip = `${temporary}.gz`;
   try {
@@ -292,6 +299,7 @@ async function createDailySnapshot({
       ...entry,
       reused: Boolean(previous?.entries.some(e => e.databaseKey === entry.databaseKey)),
       copies: entries.length,
+      pendentesRemovidos,
     };
   } finally {
     for (const filename of [temporary, gzip]) {
