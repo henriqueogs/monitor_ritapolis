@@ -173,3 +173,28 @@ test('material changes produce different logical signature', () => {
   expect(logicalHash(db)).not.toBe(first);
   db.close();
 });
+
+test('sem espaco em disco falha antes de copiar o banco e nao deixa sobra', async () => {
+  const semEspaco = () => 1;
+
+  await expect(createDailySnapshot({ env: {}, dbPath, transport: t, bytesLivres: semEspaco }))
+    .rejects.toThrow(/Sem espaco em disco para o backup/);
+
+  const local = path.join(dir, 'snapshots-v1');
+  expect(fs.readdirSync(local)).toEqual([]);
+  expect(t.operations).toEqual([]);
+});
+
+test('sobra pending antiga de backup interrompido e apagada antes da nova copia', async () => {
+  const local = path.join(dir, 'snapshots-v1');
+  fs.mkdirSync(local, { recursive: true });
+  const sobra = path.join(local, 'pending-0f8e2c1a-1b2c-4d3e-8f90-123456789abc.db');
+  fs.writeFileSync(sobra, 'copia interrompida');
+  const antiga = new Date(Date.now() - 7 * 3600000);
+  fs.utimesSync(sobra, antiga, antiga);
+
+  const entry = await createDailySnapshot({ env: {}, dbPath, transport: t });
+
+  expect(fs.existsSync(sobra)).toBe(false);
+  expect(entry.pendentesRemovidos).toBe(1);
+});
