@@ -1,6 +1,7 @@
 'use strict';
 
 const { getFailureCounts } = require('./failure-counts');
+const { limiteExecucaoMs } = require('./policy');
 
 // Durable, single-flight queue. Only technical tables are added; public IDs
 // and source records are never renumbered or rebuilt.
@@ -25,6 +26,8 @@ const ITEMS_JOB_CAP_ERROR = 'Itens: leitura excede o limite de tempo por documen
 
 // Falha esgotada há mais tempo que isso deixa de ser "atual" para o alerta de saúde (vira aviso).
 const JANELA_FALHAS_ATUAIS_MS = 3 * 24 * 3600000;
+// Lease vence um minuto depois do teto de execução: antes disso a tarefa ainda pode estar viva.
+const LEASE_FOLGA_MS = 60000;
 
 function createQueue(
   db,
@@ -161,7 +164,7 @@ function createQueue(
         db.prepare(
           `UPDATE pipeline_jobs SET status = 'running', attempts = attempts + 1,
           started_at = ?, lease_until = ? WHERE id = ?`
-        ).run(iso, new Date(now.getTime() + 11 * 60000).toISOString(), row.id);
+        ).run(iso, new Date(now.getTime() + limiteExecucaoMs(row.kind) + LEASE_FOLGA_MS).toISOString(), row.id);
       }
       db.exec('COMMIT');
       return row ? get(row.id) : null;

@@ -204,3 +204,22 @@ describe('retomarCategoria', () => {
     expect(listarCandidatos(db, { categoria: 'revisao_fonte' }).map(c => c.id)).toHaveLength(3);
   });
 });
+
+describe('backup interrompido', () => {
+  test('backup morto por timeout ou interrupcao do worker pode ser retomado uma vez', () => {
+    const timeout = failed({ kind: 'backup', entity: 'database', attempts: 3, error: 'timeout: tarefa excedeu 10 minutos' });
+    const interrompido = failed({ kind: 'backup', entity: 'db2', attempts: 3, error: 'worker_interrupted (exit null)' });
+
+    const report = recoverFailedJobs(db, { ...options([timeout.id, interrompido.id]), allowExhausted: true });
+
+    expect(report.changes.map(c => c.id)).toEqual([timeout.id, interrompido.id]);
+  });
+
+  test('backup recusado por falta de espaco ou guard do R2 nao e retomado as cegas', () => {
+    const espaco = failed({ kind: 'backup', entity: 'database', attempts: 1,
+      error: 'Sem espaco em disco para o backup: livre 10 MB, necessario 6000 MB' });
+
+    expect(recoverFailedJobs(db, options([espaco.id])).blocked)
+      .toEqual([{ id: espaco.id, reason: 'not_recoverable' }]);
+  });
+});

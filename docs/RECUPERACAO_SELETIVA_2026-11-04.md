@@ -119,3 +119,24 @@ contrato inalterados, teto de tempo de itens por documento e orçamento históri
 Começar por um lote de dez e medir quantas viram `ok` antes de seguir. Se a maioria voltar a
 ser recusada, o problema está no modelo/prompt, não na sorte da amostragem. Nesse caso,
 parar e revisar o prompt de itens.
+
+## Backup diário morto pelo teto de 10 min — 27/11/2026
+
+Todas as tarefas do pipeline tinham teto de 10 minutos. O worker que passava disso era morto com SIGKILL.
+Com o banco em 3 GB e CPU roubada na E2.1.Micro, copiar, conferir e compactar o banco passou
+desse teto. Cada tentativa deixava uma cópia parcial `pending-*` em `data/snapshots-v1/`. O
+diagnóstico de 27/11 achou 141 sobras (20 GB, disco em 95%), e as gravações estavam pausadas
+por `backup_older_than_24h`.
+
+Correção: o backup tem teto de 60 min, com lease acompanhando o teto (`limiteExecucaoMs` em
+`src/pipeline/policy.js`). Sobras `pending-*` com mais de 6 h são apagadas no início de cada
+backup (`src/storage/snapshot-espaco.js`).
+
+`npm run db:backup:r2` é o backup legado e **não** tira a pausa. Para não esperar o próximo
+backup agendado (depois das 3h), retome a tarefa de backup que falhou. Para retomar só o
+backup, não se exige backup recente, mas o guard do R2 continua valendo:
+
+```bash
+node scripts/recover-failed-jobs.js --job-ids=<id do backup> --reason="Backup morto pelo teto de 10 min" --allow-exhausted-once          # prévia
+node scripts/recover-failed-jobs.js --job-ids=<id do backup> --reason="Backup morto pelo teto de 10 min" --allow-exhausted-once --apply
+```
