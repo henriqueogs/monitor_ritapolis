@@ -457,3 +457,22 @@ describe('teto de tempo por documento em items historico', () => {
     expect(fq.get(job.id).status).toBe('failed');
   });
 });
+
+test('lease do backup acompanha o limite maior, senao a recuperacao de lease vencida o mata a 11 min', () => {
+  const { limiteExecucaoMs } = require('./policy');
+  q.enqueue({ kind: 'backup', entity: 'database', hash: 'dia', priority: 0 }, now);
+
+  const job = q.claim(now);
+
+  const leaseMs = Date.parse(job.lease_until) - now.getTime();
+  expect(job.kind).toBe('backup');
+  expect(leaseMs).toBeGreaterThan(limiteExecucaoMs('backup'));
+});
+
+test('lease das demais tarefas continua em 11 minutos', () => {
+  q.enqueue(task, now);
+
+  const job = q.claim(now);
+
+  expect(Date.parse(job.lease_until) - now.getTime()).toBe(11 * 60000);
+});

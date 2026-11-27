@@ -20,6 +20,8 @@ function recoverable(job) {
   if (job.kind === 'collection') {
     return job.entity === 'pncp' && /^PNCP HTTP 403(?:; PNCP HTTP 403)*$/.test(job.error || '');
   }
+  // Backup morto pelo teto de execução (antes de 27/11 eram 10 min) ou por restart: mesma cópia.
+  if (job.kind === 'backup') { return /^(timeout|worker_interrupted)/.test(job.error || ''); }
   const categoria = classifyAiError(job.error);
   const timeout = categoria === 'timeout';
   if (job.kind === 'items') { return timeout || categoria === CATEGORIA_CONTRATO_REJEITADO; }

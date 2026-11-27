@@ -53,3 +53,17 @@ describe('factsSignature', () => {
     expect(plano).not.toMatch(/CORRELATED/);
   });
 });
+
+describe('limiteExecucaoMs', () => {
+  const { limiteExecucaoMs, LIMITE_EXECUCAO_PADRAO_MS } = require('./policy');
+
+  it('backup tem mais tempo: copiar, conferir e compactar o banco de 3 GB passa de 10 min na VM', () => {
+    expect(limiteExecucaoMs('backup')).toBeGreaterThanOrEqual(45 * 60000);
+  });
+
+  it('as demais tarefas seguem com 10 minutos', () => {
+    expect(LIMITE_EXECUCAO_PADRAO_MS).toBe(10 * 60000);
+    expect(limiteExecucaoMs('summary')).toBe(LIMITE_EXECUCAO_PADRAO_MS);
+    expect(limiteExecucaoMs(undefined)).toBe(LIMITE_EXECUCAO_PADRAO_MS);
+  });
+});

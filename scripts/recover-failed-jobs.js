@@ -10,14 +10,16 @@ const { buildTextoHash } = require('../src/ai/summarize-document');
 const { getAnexoSummaryVersion, textoConfiavelParaIa } = require('../src/ai/summarize-anexo');
 const flag = name => process.argv.find(arg => arg.startsWith(`--${name}=`))?.slice(name.length + 3);
 
-function assertSafety() {
+// Retomar só o próprio backup não pode exigir backup recente: é ele que tira a pausa.
+function assertSafety({ somenteBackup = false } = {}) {
   const guard = require('../src/storage/daily-snapshot').guardReport({ ...process.env,
     R2_USAGE_GUARD_REQUIRED: 'true',
     R2_GUARD_REPORT_PATH: process.env.R2_GUARD_REPORT_PATH || path.resolve(path.dirname(config.dbPath), 'r2-guard.json'),
   });
   const backup = JSON.parse(db.prepare("SELECT value FROM pipeline_meta WHERE key='backup'").get()?.value || 'null');
   const age = Date.now() - Date.parse(backup?.confirmedAt || '');
-  if (guard.paused || !Number.isFinite(age) || age < 0 || age > 24 * 3600000) {
+  const backupVencido = !Number.isFinite(age) || age < 0 || age > 24 * 3600000;
+  if (guard.paused || (backupVencido && !somenteBackup)) {
     throw new Error('Guard do R2 ou backup nao permitem recuperacao');
   }
 }
@@ -35,7 +37,7 @@ function validateAnexoInput(job) {
 }
 
 function validateInput(job) {
-  if (job.kind === 'collection') { return true; }
+  if (job.kind === 'collection' || job.kind === 'backup') { return true; }
   if (JSON.parse(job.payload).documentoId !== Number(job.entity)) { return false; }
   const doc = db.prepare('SELECT * FROM documentos WHERE id=?').get(Number(job.entity));
   if (!doc) { return false; }
@@ -77,10 +79,12 @@ async function main() {
     const cnpj = require('../src/ente').ente.orgaos[0].cnpj;
     await new Collector().fetchJson(`/orgaos/${cnpj}/compras/${new Date().getFullYear()}/1`);
   }
+  const somenteBackup = jobIds.length > 0 && jobIds.every(id =>
+    db.prepare("SELECT 1 FROM pipeline_jobs WHERE id=? AND kind='backup'").get(id));
   const report = recoverFailedJobs(db, {
     jobIds, reason: flag('reason'), apply: process.argv.includes('--apply'),
     allowExhausted: process.argv.includes('--allow-exhausted-once'),
-    validateInput, assertSafety,
+    validateInput, assertSafety: () => assertSafety({ somenteBackup }),
   });
   process.stdout.write(JSON.stringify(report) + '\n');
 }

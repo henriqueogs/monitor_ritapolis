@@ -102,3 +102,13 @@ test('--retomar percorre a categoria inteira e só aplica com --apply', async ()
     expect(queue.get(job.id).status).toBe('pending');
   } finally { process.argv = argv; }
 });
+
+test('retomar o proprio backup nao exige backup recente (senao a pausa nunca sai); o guard do R2 continua valendo', () => {
+  queue.setMeta('backup', { confirmedAt: new Date(Date.now() - 3 * 24 * 3600000).toISOString() });
+
+  expect(() => assertSafety()).toThrow(/backup/);
+  expect(() => assertSafety({ somenteBackup: true })).not.toThrow();
+  require('../src/storage/daily-snapshot').guardReport.mockReturnValueOnce({ paused: true });
+  expect(() => assertSafety({ somenteBackup: true })).toThrow(/Guard/);
+  expect(validateInput({ kind: 'backup', entity: 'database', payload: '{}' })).toBe(true);
+});

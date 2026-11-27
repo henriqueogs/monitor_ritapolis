@@ -3,7 +3,7 @@ const path = require('path');
 const { fork } = require('child_process');
 const { createQueue } = require('./queue');
 const { plan, planEntidade, escopoReplanejamento, enqueueCollection } = require('./planner');
-const { transientError, localTime } = require('./policy');
+const { transientError, localTime, limiteExecucaoMs } = require('./policy');
 const { guardReport } = require('../storage/daily-snapshot');
 const logger = require('../logger');
 const config = require('../config');
@@ -141,10 +141,11 @@ function run(job) {
   );
   child = worker;
   childJob = job;
+  const limiteMs = limiteExecucaoMs(job.kind);
   const timeout = setTimeout(() => {
-    outcome = { error: 'timeout: tarefa excedeu 10 minutos', transient: true };
+    outcome = { error: `timeout: tarefa excedeu ${limiteMs / 60000} minutos`, transient: true };
     killWorker(worker);
-  }, 10 * 60000);
+  }, limiteMs);
   worker.on('message', message => {
     if (message?.pipelineResult) {
       outcome = message.pipelineResult;
