@@ -12,7 +12,9 @@ const path = require('path');
 // Mais que qualquer backup real (cópia + gzip levam minutos): pending mais novo pode ser
 // um `npm run db:backup:r2` manual em andamento.
 const IDADE_MINIMA_PENDENTE_MS = 6 * 3600000;
-const PADRAO_PENDENTE = /^pending-[0-9a-f-]{36}\.db(\.gz)?$/;
+// Inclui os auxiliares do SQLite que um processo morto deixa ao lado da cópia.
+const SUFIXOS_PENDENTE = ['.gz', '-journal', '-wal', '-shm'];
+const PADRAO_PENDENTE = /^pending-[0-9a-f-]{36}\.db(\.gz|-journal|-wal|-shm)?$/;
 // Cópia do banco + gzip (no pior caso do tamanho da cópia) + 10% de folga.
 const FATOR_ESPACO = 2.1;
 
@@ -63,4 +65,5 @@ module.exports = {
   bytesLivres,
   bytesDoBanco,
   IDADE_MINIMA_PENDENTE_MS,
+  SUFIXOS_PENDENTE,
 };

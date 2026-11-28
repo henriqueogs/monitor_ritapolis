@@ -302,7 +302,7 @@ async function createDailySnapshot({
       pendentesRemovidos,
     };
   } finally {
-    for (const filename of [temporary, gzip]) {
+    for (const filename of [temporary, ...espaco.SUFIXOS_PENDENTE.map(sufixo => temporary + sufixo)]) {
       if (fs.existsSync(filename)) {
         fs.unlinkSync(filename);
       }

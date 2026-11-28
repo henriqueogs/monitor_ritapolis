@@ -81,6 +81,9 @@ function getSaudePipeline({ agora = new Date() } = {}) {
   if (state?.safety.paused) {
     avaliacao.motivos.push(`escritas_pausadas:${state.safety.reason}`);
   }
+  if ((state?.failures || []).some(f => f.kind === 'backup')) {
+    avaliacao.motivos.push('backup_falhou');
+  }
   const failureCounts = state?.failure_counts || (state?.failures || [])
     .map(f => ({ categoria: classifyAiError(f.error), total: 1 }));
   const somarReais = counts => counts.reduce(
