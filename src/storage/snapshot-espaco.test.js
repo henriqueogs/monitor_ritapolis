@@ -23,6 +23,20 @@ function criar(nome, { idadeMs, bytes = 10 }) {
 }
 
 describe('limparPendentesAntigos', () => {
+  it('apaga também os arquivos -journal, -wal e -shm da cópia interrompida', () => {
+    // Arrange
+    const base = 'pending-0f8e2c1a-1b2c-4d3e-8f90-123456789abc.db';
+    const sufixos = ['-journal', '-wal', '-shm'];
+    const arquivos = sufixos.map(s => criar(base + s, { idadeMs: IDADE_MINIMA_PENDENTE_MS + 1 }));
+
+    // Act
+    const resultado = limparPendentesAntigos(dir, { agora });
+
+    // Assert
+    expect(resultado.removidos).toBe(3);
+    expect(arquivos.some(a => fs.existsSync(a))).toBe(false);
+  });
+
   it('apaga sobras pending-* de backups interrompidos e mantém as cópias confirmadas', () => {
     // Arrange
     const antigo = criar('pending-0f8e2c1a-1b2c-4d3e-8f90-123456789abc.db', { idadeMs: IDADE_MINIMA_PENDENTE_MS + 1, bytes: 100 });

@@ -82,6 +82,22 @@ describe('pipeline-saude-service', () => {
     state.oldest_pending_recent = '2026-09-01T00:00:00Z';
     expect(getSaudePipeline({ agora: AGORA }).motivos).toContain('fila_pendente_24h');
   });
+  it('backup que falhou gera o motivo proprio backup_falhou, sem expor o erro cru', () => {
+    const pipeline = require('../pipeline/coordinator');
+    pipeline.enabled.mockReturnValue(true);
+    pipeline.status.mockReturnValue({
+      active: null,
+      counts: [],
+      oldest_pending: null,
+      safety: { paused: false },
+      failures: [{ id: 7, kind: 'backup', error: 'database or disk is full secret=xyz' }],
+    });
+    repo.contarRecentesSemResumo.mockReturnValue({ total: 9, semResumo: 0, semTexto: 4 });
+    const result = getSaudePipeline({ agora: AGORA });
+    expect(result.status).toBe('alerta');
+    expect(result.motivos).toContain('backup_falhou');
+    expect(JSON.stringify(result)).not.toContain('secret=xyz');
+  });
   it('falhas atuais e pausa de seguranca impedem falso ok sem expor erro cru', () => {
     const pipeline = require('../pipeline/coordinator');
     pipeline.enabled.mockReturnValue(true);

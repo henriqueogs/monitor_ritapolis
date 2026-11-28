@@ -198,3 +198,21 @@ test('sobra pending antiga de backup interrompido e apagada antes da nova copia'
   expect(fs.existsSync(sobra)).toBe(false);
   expect(entry.pendentesRemovidos).toBe(1);
 });
+
+test('backup que falha no upload nao deixa pending-* para tras', async () => {
+  const local = path.join(dir, 'snapshots-v1');
+  const quebrado = {
+    ...t,
+    client: {
+      async send(command) {
+        if (command.constructor.name === 'PutObjectCommand') { throw new Error('R2 indisponivel'); }
+        return t.client.send(command);
+      },
+    },
+  };
+
+  await expect(createDailySnapshot({ env: {}, dbPath, transport: quebrado })).rejects.toThrow('R2 indisponivel');
+
+  const sobras = fs.existsSync(local) ? fs.readdirSync(local).filter(n => n.startsWith('pending-')) : [];
+  expect(sobras).toEqual([]);
+});
